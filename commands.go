@@ -1,9 +1,7 @@
 package main
 
 import (
-	"database/sql"
 	"errors"
-	"flag"
 	"fmt"
 	"io"
 	"os"
@@ -11,29 +9,48 @@ import (
 	"path/filepath"
 	"strings"
 	"time"
+
+	"github.com/alecthomas/kong"
 )
 
-type Env struct {
-	Dir    string
-	Stdout io.Writer
-	Stderr io.Writer
+// CLI is the kong-defined command structure.
+type CLI struct {
+	Dir string `name:"dir" env:"BEADS_DIR" default:".beads" help:"Beads directory."`
+
+	Init   InitCmd   `cmd:"" help:"Initialize the beads database in the current directory."`
+	Create CreateCmd `cmd:"" help:"Create a new issue."`
+	List   ListCmd   `cmd:"" help:"List issues."`
+	Ready  ReadyCmd  `cmd:"" help:"List issues that are ready to work on."`
+	Show   ShowCmd   `cmd:"" help:"Show details for one issue."`
+	Claim  ClaimCmd  `cmd:"" help:"Claim the next ready issue (or a specific one)."`
+	Close  CloseCmd  `cmd:"" help:"Close an issue."`
+	Update UpdateCmd `cmd:"" help:"Update fields on an issue."`
+	Dep    DepCmd    `cmd:"" help:"Manage dependency edges."`
 }
 
-func DefaultEnv() *Env {
-	dir := os.Getenv("BEADS_DIR")
-	if dir == "" {
-		dir = ".beads"
-	}
-	return &Env{Dir: dir, Stdout: os.Stdout, Stderr: os.Stderr}
+// runCtx is passed to each command's Run method.
+type runCtx struct {
+	dir    string
+	stdout io.Writer
+	stderr io.Writer
 }
 
-func (e *Env) dbPath() string { return filepath.Join(e.Dir, "beads.db") }
+func (c *runCtx) dbPath() string { return filepath.Join(c.dir, "beads.db") }
 
-func (e *Env) openStore() (*Store, error) {
-	if _, err := os.Stat(e.dbPath()); errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("no beads database at %s — run `bd init`", e.dbPath())
+func (c *runCtx) openStore() (*Store, error) {
+	if _, err := os.Stat(c.dbPath()); errors.Is(err, os.ErrNotExist) {
+		return nil, fmt.Errorf("no beads database at %s — run `bd init`", c.dbPath())
 	}
-	return Open(e.dbPath())
+	return Open(c.dbPath())
+}
+
+func withStore(c *runCtx, fn func(*Store) error) error {
+	s, err := c.openStore()
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	return fn(s)
 }
 
 func currentUser() string {
@@ -43,307 +60,232 @@ func currentUser() string {
 	return "unknown"
 }
 
-// Run dispatches a subcommand. Returns an exit code.
-func Run(env *Env, args []string) int {
-	if len(args) < 1 {
-		printUsage(env.Stderr)
-		return 2
-	}
-	cmd, rest := args[0], args[1:]
-	var err error
-	switch cmd {
-	case "init":
-		err = cmdInit(env, rest)
-	case "create":
-		err = cmdCreate(env, rest)
-	case "list":
-		err = cmdList(env, rest)
-	case "ready":
-		err = cmdReady(env, rest)
-	case "show":
-		err = cmdShow(env, rest)
-	case "claim":
-		err = cmdClaim(env, rest)
-	case "close":
-		err = cmdClose(env, rest)
-	case "update":
-		err = cmdUpdate(env, rest)
-	case "dep":
-		err = cmdDep(env, rest)
-	case "help", "-h", "--help":
-		printUsage(env.Stdout)
-		return 0
-	default:
-		fmt.Fprintf(env.Stderr, "unknown command: %s\n", cmd)
-		printUsage(env.Stderr)
-		return 2
-	}
+// Run is the entrypoint used by main and the tests.
+func Run(stdout, stderr io.Writer, args []string) int {
+	var cli CLI
+	parser, err := kong.New(&cli,
+		kong.Name("bd"),
+		kong.Description("Minimal SQLite-backed issue tracker."),
+		kong.Writers(stdout, stderr),
+		kong.Exit(func(int) {}), // we manage exit codes ourselves
+		kong.UsageOnError(),
+		kong.Vars{"user": currentUser()},
+	)
 	if err != nil {
-		fmt.Fprintln(env.Stderr, "error:", err)
+		fmt.Fprintln(stderr, "error:", err)
+		return 2
+	}
+	kctx, err := parser.Parse(args)
+	if err != nil {
+		// kong already printed usage via UsageOnError; surface the message.
+		fmt.Fprintln(stderr, "error:", err)
+		return 2
+	}
+	rctx := &runCtx{dir: cli.Dir, stdout: stdout, stderr: stderr}
+	if err := kctx.Run(rctx); err != nil {
+		fmt.Fprintln(stderr, "error:", err)
 		return 1
 	}
 	return 0
 }
 
-func printUsage(w io.Writer) {
-	fmt.Fprint(w, `bd — minimal issue tracker
+// ---- Commands ----
 
-Usage:
-  bd init                            initialize .beads/ in current directory
-  bd create "title" [-p N] [-t TYPE] create a new issue
-  bd list [--status open|closed|all] list issues
-  bd ready [-n N]                    list ready (unblocked, unassigned) issues
-  bd show <id>                       show one issue
-  bd claim [<id>] [--as NAME]        claim next ready issue (or specific id)
-  bd close <id>                      close an issue
-  bd update <id> [flags]             update fields: -p N, --status S, --assignee A, --title T
-  bd dep add <child> <parent>        add a dependency edge
-  bd dep rm  <child> <parent>        remove a dependency edge
+type InitCmd struct{}
 
-Environment:
-  BEADS_DIR    override .beads/ directory
-`)
-}
-
-func cmdInit(env *Env, _ []string) error {
-	if err := os.MkdirAll(env.Dir, 0o755); err != nil {
+func (c *InitCmd) Run(r *runCtx) error {
+	if err := os.MkdirAll(r.dir, 0o755); err != nil {
 		return err
 	}
-	s, err := Open(env.dbPath())
+	s, err := Open(r.dbPath())
 	if err != nil {
 		return err
 	}
 	defer s.Close()
-	fmt.Fprintf(env.Stdout, "initialized %s\n", env.dbPath())
+	fmt.Fprintf(r.stdout, "initialized %s\n", r.dbPath())
 	return nil
 }
 
-func cmdCreate(env *Env, args []string) error {
-	fs := flag.NewFlagSet("create", flag.ContinueOnError)
-	fs.SetOutput(env.Stderr)
-	priority := fs.Int("p", 2, "priority (0=highest)")
-	typ := fs.String("t", "task", "issue type")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	if fs.NArg() < 1 {
-		return errors.New("title required")
-	}
-	title := strings.Join(fs.Args(), " ")
-	s, err := env.openStore()
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	i, err := s.Create(title, *typ, *priority)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintln(env.Stdout, i.ID)
-	return nil
+type CreateCmd struct {
+	Priority int      `short:"p" default:"2" help:"Priority (0=highest)."`
+	Type     string   `short:"t" default:"task" help:"Issue type."`
+	Title    []string `arg:"" required:"" help:"Issue title."`
 }
 
-func cmdList(env *Env, args []string) error {
-	fs := flag.NewFlagSet("list", flag.ContinueOnError)
-	fs.SetOutput(env.Stderr)
-	status := fs.String("status", "open", "filter by status: open|in_progress|closed|all")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	s, err := env.openStore()
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	filter := *status
+func (c *CreateCmd) Run(r *runCtx) error {
+	title := strings.Join(c.Title, " ")
+	return withStore(r, func(s *Store) error {
+		i, err := s.Create(title, c.Type, c.Priority)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintln(r.stdout, i.ID)
+		return nil
+	})
+}
+
+type ListCmd struct {
+	Status string `default:"open" enum:"open,in_progress,closed,all" help:"Filter by status."`
+}
+
+func (c *ListCmd) Run(r *runCtx) error {
+	filter := c.Status
 	if filter == "all" {
 		filter = ""
 	}
-	issues, err := s.List(filter)
-	if err != nil {
-		return err
-	}
-	printIssues(env.Stdout, issues)
-	return nil
-}
-
-func cmdReady(env *Env, args []string) error {
-	fs := flag.NewFlagSet("ready", flag.ContinueOnError)
-	fs.SetOutput(env.Stderr)
-	limit := fs.Int("n", 20, "max issues")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	s, err := env.openStore()
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	issues, err := s.Ready(*limit)
-	if err != nil {
-		return err
-	}
-	printIssues(env.Stdout, issues)
-	return nil
-}
-
-func cmdShow(env *Env, args []string) error {
-	if len(args) < 1 {
-		return errors.New("usage: bd show <id>")
-	}
-	s, err := env.openStore()
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	i, err := s.Get(args[0])
-	if err != nil {
-		return err
-	}
-	parents, blocks, err := s.Deps(i.ID)
-	if err != nil {
-		return err
-	}
-	w := env.Stdout
-	fmt.Fprintf(w, "ID:       %s\n", i.ID)
-	fmt.Fprintf(w, "Title:    %s\n", i.Title)
-	fmt.Fprintf(w, "Type:     %s\n", i.Type)
-	fmt.Fprintf(w, "Status:   %s\n", i.Status)
-	fmt.Fprintf(w, "Priority: %d\n", i.Priority)
-	if i.Assignee.Valid {
-		fmt.Fprintf(w, "Assignee: %s\n", i.Assignee.String)
-	}
-	fmt.Fprintf(w, "Created:  %s\n", time.Unix(i.Created, 0).Format(time.RFC3339))
-	fmt.Fprintf(w, "Updated:  %s\n", time.Unix(i.Updated, 0).Format(time.RFC3339))
-	if i.Closed.Valid {
-		fmt.Fprintf(w, "Closed:   %s\n", time.Unix(i.Closed.Int64, 0).Format(time.RFC3339))
-	}
-	if len(parents) > 0 {
-		fmt.Fprintf(w, "Depends:  %s\n", strings.Join(parents, ", "))
-	}
-	if len(blocks) > 0 {
-		fmt.Fprintf(w, "Blocks:   %s\n", strings.Join(blocks, ", "))
-	}
-	return nil
-}
-
-func cmdClaim(env *Env, args []string) error {
-	fs := flag.NewFlagSet("claim", flag.ContinueOnError)
-	fs.SetOutput(env.Stderr)
-	as := fs.String("as", currentUser(), "assignee name")
-	if err := fs.Parse(args); err != nil {
-		return err
-	}
-	s, err := env.openStore()
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	var i Issue
-	if fs.NArg() >= 1 {
-		i, err = s.ClaimByID(fs.Arg(0), *as)
-	} else {
-		i, err = s.Claim(*as)
-		if errors.Is(err, ErrNotFound) {
-			return errors.New("no ready issues")
-		}
-	}
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(env.Stdout, "claimed %s (%s)\n", i.ID, i.Title)
-	return nil
-}
-
-func cmdClose(env *Env, args []string) error {
-	if len(args) < 1 {
-		return errors.New("usage: bd close <id>")
-	}
-	s, err := env.openStore()
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	i, err := s.Close_(args[0], "")
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(env.Stdout, "closed %s\n", i.ID)
-	return nil
-}
-
-func cmdUpdate(env *Env, args []string) error {
-	if len(args) < 1 {
-		return errors.New("usage: bd update <id> [flags]")
-	}
-	id := args[0]
-	fs := flag.NewFlagSet("update", flag.ContinueOnError)
-	fs.SetOutput(env.Stderr)
-	priority := fs.Int("p", -1, "priority (0=highest); -1 = unchanged")
-	status := fs.String("status", "", "new status")
-	assignee := fs.String("assignee", "", "set assignee (use empty string with --unassign to clear)")
-	unassign := fs.Bool("unassign", false, "clear assignee")
-	title := fs.String("title", "", "new title")
-	if err := fs.Parse(args[1:]); err != nil {
-		return err
-	}
-	s, err := env.openStore()
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	var f UpdateFields
-	if *priority >= 0 {
-		f.Priority = priority
-	}
-	if *status != "" {
-		f.Status = status
-	}
-	if *title != "" {
-		f.Title = title
-	}
-	switch {
-	case *unassign:
-		ns := sql.NullString{}
-		f.Assignee = &ns
-	case *assignee != "":
-		ns := sql.NullString{String: *assignee, Valid: true}
-		f.Assignee = &ns
-	}
-	i, err := s.Update(id, f)
-	if err != nil {
-		return err
-	}
-	fmt.Fprintf(env.Stdout, "updated %s\n", i.ID)
-	return nil
-}
-
-func cmdDep(env *Env, args []string) error {
-	if len(args) < 3 {
-		return errors.New("usage: bd dep add|rm <child> <parent>")
-	}
-	op, child, parent := args[0], args[1], args[2]
-	s, err := env.openStore()
-	if err != nil {
-		return err
-	}
-	defer s.Close()
-	switch op {
-	case "add":
-		if err := s.AddDep(child, parent); err != nil {
+	return withStore(r, func(s *Store) error {
+		issues, err := s.List(filter)
+		if err != nil {
 			return err
 		}
-		fmt.Fprintf(env.Stdout, "%s depends on %s\n", child, parent)
-	case "rm", "remove":
-		if err := s.RemoveDep(child, parent); err != nil {
+		printIssues(r.stdout, issues)
+		return nil
+	})
+}
+
+type ReadyCmd struct {
+	N int `short:"n" default:"20" help:"Maximum number of issues."`
+}
+
+func (c *ReadyCmd) Run(r *runCtx) error {
+	return withStore(r, func(s *Store) error {
+		issues, err := s.Ready(c.N)
+		if err != nil {
 			return err
 		}
-		fmt.Fprintf(env.Stdout, "removed %s -> %s\n", child, parent)
-	default:
-		return fmt.Errorf("unknown dep op: %s", op)
-	}
-	return nil
+		printIssues(r.stdout, issues)
+		return nil
+	})
 }
+
+type ShowCmd struct {
+	ID string `arg:"" help:"Issue ID."`
+}
+
+func (c *ShowCmd) Run(r *runCtx) error {
+	return withStore(r, func(s *Store) error {
+		i, err := s.Get(c.ID)
+		if err != nil {
+			return err
+		}
+		parents, blocks, err := s.Deps(i.ID)
+		if err != nil {
+			return err
+		}
+		printIssue(r.stdout, i, parents, blocks)
+		return nil
+	})
+}
+
+type ClaimCmd struct {
+	As string `default:"${user}" help:"Assignee name (defaults to current user)."`
+	ID string `arg:"" optional:"" help:"Specific issue to claim; omit for next ready."`
+}
+
+func (c *ClaimCmd) Run(r *runCtx) error {
+	return withStore(r, func(s *Store) error {
+		var (
+			i   Issue
+			err error
+		)
+		if c.ID != "" {
+			i, err = s.ClaimByID(c.ID, c.As)
+		} else {
+			i, err = s.Claim(c.As)
+			if errors.Is(err, ErrNotFound) {
+				return errors.New("no ready issues")
+			}
+		}
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(r.stdout, "claimed %s (%s)\n", i.ID, i.Title)
+		return nil
+	})
+}
+
+type CloseCmd struct {
+	ID string `arg:"" help:"Issue ID."`
+}
+
+func (c *CloseCmd) Run(r *runCtx) error {
+	return withStore(r, func(s *Store) error {
+		i, err := s.MarkClosed(c.ID)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(r.stdout, "closed %s\n", i.ID)
+		return nil
+	})
+}
+
+type UpdateCmd struct {
+	ID       string  `arg:"" help:"Issue ID."`
+	Priority *int    `short:"p" help:"New priority (0=highest)."`
+	Status   *string `help:"New status."`
+	Assignee *string `help:"Set assignee."`
+	Unassign bool    `help:"Clear assignee."`
+	Title    *string `help:"New title."`
+}
+
+func (c *UpdateCmd) Run(r *runCtx) error {
+	return withStore(r, func(s *Store) error {
+		var f UpdateFields
+		f.Priority = c.Priority
+		f.Status = c.Status
+		f.Title = c.Title
+		switch {
+		case c.Unassign:
+			var none *string
+			f.Assignee = &none
+		case c.Assignee != nil:
+			f.Assignee = &c.Assignee
+		}
+		i, err := s.Update(c.ID, f)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(r.stdout, "updated %s\n", i.ID)
+		return nil
+	})
+}
+
+type DepCmd struct {
+	Add DepAddCmd `cmd:"" help:"Add a dependency edge."`
+	Rm  DepRmCmd  `cmd:"" aliases:"remove" help:"Remove a dependency edge."`
+}
+
+type DepAddCmd struct {
+	Child  string `arg:"" help:"Child issue (the one that depends)."`
+	Parent string `arg:"" help:"Parent issue (the blocker)."`
+}
+
+func (c *DepAddCmd) Run(r *runCtx) error {
+	return withStore(r, func(s *Store) error {
+		if err := s.AddDep(c.Child, c.Parent); err != nil {
+			return err
+		}
+		fmt.Fprintf(r.stdout, "%s depends on %s\n", c.Child, c.Parent)
+		return nil
+	})
+}
+
+type DepRmCmd struct {
+	Child  string `arg:"" help:"Child issue."`
+	Parent string `arg:"" help:"Parent issue."`
+}
+
+func (c *DepRmCmd) Run(r *runCtx) error {
+	return withStore(r, func(s *Store) error {
+		if err := s.RemoveDep(c.Child, c.Parent); err != nil {
+			return err
+		}
+		fmt.Fprintf(r.stdout, "removed %s -> %s\n", c.Child, c.Parent)
+		return nil
+	})
+}
+
+// ---- Formatting helpers ----
 
 func printIssues(w io.Writer, issues []Issue) {
 	if len(issues) == 0 {
@@ -352,9 +294,32 @@ func printIssues(w io.Writer, issues []Issue) {
 	}
 	for _, i := range issues {
 		assignee := "-"
-		if i.Assignee.Valid {
-			assignee = i.Assignee.String
+		if i.Assignee != nil {
+			assignee = *i.Assignee
 		}
 		fmt.Fprintf(w, "%s  p%d  %-12s  %-10s  %s\n", i.ID, i.Priority, i.Status, assignee, i.Title)
 	}
 }
+
+func printIssue(w io.Writer, i Issue, parents, blocks []string) {
+	fmt.Fprintf(w, "ID:       %s\n", i.ID)
+	fmt.Fprintf(w, "Title:    %s\n", i.Title)
+	fmt.Fprintf(w, "Type:     %s\n", i.Type)
+	fmt.Fprintf(w, "Status:   %s\n", i.Status)
+	fmt.Fprintf(w, "Priority: %d\n", i.Priority)
+	if i.Assignee != nil {
+		fmt.Fprintf(w, "Assignee: %s\n", *i.Assignee)
+	}
+	fmt.Fprintf(w, "Created:  %s\n", time.Unix(i.Created, 0).Format(time.RFC3339))
+	fmt.Fprintf(w, "Updated:  %s\n", time.Unix(i.Updated, 0).Format(time.RFC3339))
+	if i.Closed != nil {
+		fmt.Fprintf(w, "Closed:   %s\n", time.Unix(*i.Closed, 0).Format(time.RFC3339))
+	}
+	if len(parents) > 0 {
+		fmt.Fprintf(w, "Depends:  %s\n", strings.Join(parents, ", "))
+	}
+	if len(blocks) > 0 {
+		fmt.Fprintf(w, "Blocks:   %s\n", strings.Join(blocks, ", "))
+	}
+}
+

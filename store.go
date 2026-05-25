@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"time"
 
+	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 )
 
 const schema = `
@@ -37,10 +39,10 @@ type Issue struct {
 	Type     string
 	Status   string
 	Priority int
-	Assignee sql.NullString
+	Assignee *string
 	Created  int64
 	Updated  int64
-	Closed   sql.NullInt64
+	Closed   *int64
 }
 
 type Store struct {
@@ -63,7 +65,33 @@ func (s *Store) Close() error { return s.db.Close() }
 
 func now() int64 { return time.Now().Unix() }
 
-var ErrNotFound = errors.New("issue not found")
+var (
+	ErrNotFound      = errors.New("issue not found")
+	ErrAlreadyClosed = errors.New("issue already closed")
+	ErrNotClaimable  = errors.New("issue not claimable")
+	ErrCycle         = errors.New("dependency would create a cycle")
+	ErrSelfDep       = errors.New("issue cannot depend on itself")
+)
+
+func isUniqueErr(err error) bool {
+	var se *sqlite.Error
+	if !errors.As(err, &se) {
+		return false
+	}
+	switch se.Code() {
+	case sqlite3.SQLITE_CONSTRAINT_PRIMARYKEY,
+		sqlite3.SQLITE_CONSTRAINT_UNIQUE:
+		return true
+	}
+	return false
+}
+
+// scanIssue reads one issue row from r into i.
+func scanIssue(r interface{ Scan(...any) error }, i *Issue) error {
+	return r.Scan(&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority, &i.Assignee, &i.Created, &i.Updated, &i.Closed)
+}
+
+const issueCols = `id, title, type, status, priority, assignee, created, updated, closed`
 
 func (s *Store) Create(title, typ string, priority int) (Issue, error) {
 	if title == "" {
@@ -82,7 +110,6 @@ func (s *Store) Create(title, typ string, priority int) (Issue, error) {
 		if err == nil {
 			return s.Get(id)
 		}
-		// Retry on PK collision; bubble other errors.
 		if !isUniqueErr(err) {
 			return Issue{}, err
 		}
@@ -90,25 +117,9 @@ func (s *Store) Create(title, typ string, priority int) (Issue, error) {
 	return Issue{}, errors.New("failed to allocate unique id after 8 tries")
 }
 
-func isUniqueErr(err error) bool {
-	return err != nil && contains(err.Error(), "UNIQUE")
-}
-
-func contains(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
-}
-
 func (s *Store) Get(id string) (Issue, error) {
-	row := s.db.QueryRow(
-		`SELECT id, title, type, status, priority, assignee, created, updated, closed FROM issues WHERE id = ?`, id,
-	)
 	var i Issue
-	err := row.Scan(&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority, &i.Assignee, &i.Created, &i.Updated, &i.Closed)
+	err := scanIssue(s.db.QueryRow(`SELECT `+issueCols+` FROM issues WHERE id = ?`, id), &i)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound
 	}
@@ -116,7 +127,7 @@ func (s *Store) Get(id string) (Issue, error) {
 }
 
 func (s *Store) List(status string) ([]Issue, error) {
-	q := `SELECT id, title, type, status, priority, assignee, created, updated, closed FROM issues`
+	q := `SELECT ` + issueCols + ` FROM issues`
 	args := []any{}
 	if status != "" {
 		q += ` WHERE status = ?`
@@ -131,7 +142,7 @@ func (s *Store) List(status string) ([]Issue, error) {
 	var out []Issue
 	for rows.Next() {
 		var i Issue
-		if err := rows.Scan(&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority, &i.Assignee, &i.Created, &i.Updated, &i.Closed); err != nil {
+		if err := scanIssue(rows, &i); err != nil {
 			return nil, err
 		}
 		out = append(out, i)
@@ -139,14 +150,13 @@ func (s *Store) List(status string) ([]Issue, error) {
 	return out, rows.Err()
 }
 
-// Ready returns open, unassigned issues whose dependencies are all closed,
-// ordered by priority then creation time.
+// Ready returns open, unassigned issues with all dependencies closed.
 func (s *Store) Ready(limit int) ([]Issue, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 	rows, err := s.db.Query(`
-        SELECT i.id, i.title, i.type, i.status, i.priority, i.assignee, i.created, i.updated, i.closed
+        SELECT `+issueCols+`
         FROM issues i
         WHERE i.status = 'open' AND i.assignee IS NULL
           AND NOT EXISTS (
@@ -163,7 +173,7 @@ func (s *Store) Ready(limit int) ([]Issue, error) {
 	var out []Issue
 	for rows.Next() {
 		var i Issue
-		if err := rows.Scan(&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority, &i.Assignee, &i.Created, &i.Updated, &i.Closed); err != nil {
+		if err := scanIssue(rows, &i); err != nil {
 			return nil, err
 		}
 		out = append(out, i)
@@ -171,14 +181,13 @@ func (s *Store) Ready(limit int) ([]Issue, error) {
 	return out, rows.Err()
 }
 
-// Claim atomically assigns the next ready issue to assignee. Returns ErrNotFound
-// if no issue is currently ready.
+// Claim atomically assigns the next ready issue. Returns ErrNotFound when none.
 func (s *Store) Claim(assignee string) (Issue, error) {
 	if assignee == "" {
 		return Issue{}, errors.New("assignee required")
 	}
-	t := now()
-	row := s.db.QueryRow(`
+	var i Issue
+	err := scanIssue(s.db.QueryRow(`
         UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?
         WHERE id = (
             SELECT i.id FROM issues i
@@ -191,37 +200,34 @@ func (s *Store) Claim(assignee string) (Issue, error) {
             ORDER BY i.priority ASC, i.created ASC
             LIMIT 1
         )
-        RETURNING id, title, type, status, priority, assignee, created, updated, closed`,
-		assignee, t)
-	var i Issue
-	err := row.Scan(&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority, &i.Assignee, &i.Created, &i.Updated, &i.Closed)
+        RETURNING `+issueCols, assignee, now()), &i)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound
 	}
 	return i, err
 }
 
-// ClaimByID claims a specific issue if it is open and unassigned.
+// ClaimByID claims a specific issue if open and unassigned.
 func (s *Store) ClaimByID(id, assignee string) (Issue, error) {
 	if assignee == "" {
 		return Issue{}, errors.New("assignee required")
 	}
-	t := now()
 	res, err := s.db.Exec(
 		`UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?
          WHERE id = ? AND status = 'open' AND assignee IS NULL`,
-		assignee, t, id)
+		assignee, now(), id)
 	if err != nil {
 		return Issue{}, err
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
-		return Issue{}, fmt.Errorf("issue %s not claimable (missing, closed, or already assigned)", id)
+		return Issue{}, fmt.Errorf("%w: %s", ErrNotClaimable, id)
 	}
 	return s.Get(id)
 }
 
-func (s *Store) Close_(id, _msg string) (Issue, error) {
+// MarkClosed transitions an open/in-progress issue to closed.
+func (s *Store) MarkClosed(id string) (Issue, error) {
 	t := now()
 	res, err := s.db.Exec(
 		`UPDATE issues SET status = 'closed', closed = ?, updated = ? WHERE id = ? AND status != 'closed'`,
@@ -234,7 +240,7 @@ func (s *Store) Close_(id, _msg string) (Issue, error) {
 		if _, err := s.Get(id); errors.Is(err, ErrNotFound) {
 			return Issue{}, ErrNotFound
 		}
-		return Issue{}, fmt.Errorf("issue %s already closed", id)
+		return Issue{}, ErrAlreadyClosed
 	}
 	return s.Get(id)
 }
@@ -244,7 +250,7 @@ type UpdateFields struct {
 	Type     *string
 	Status   *string
 	Priority *int
-	Assignee *sql.NullString
+	Assignee **string // outer nil = unchanged; inner nil = clear; else set
 }
 
 func (s *Store) Update(id string, f UpdateFields) (Issue, error) {
@@ -275,7 +281,7 @@ func (s *Store) Update(id string, f UpdateFields) (Issue, error) {
 	}
 	if f.Assignee != nil {
 		q += `, assignee = ?`
-		args = append(args, *f.Assignee)
+		args = append(args, *f.Assignee) // *string; nil clears
 	}
 	q += ` WHERE id = ?`
 	args = append(args, id)
@@ -285,58 +291,59 @@ func (s *Store) Update(id string, f UpdateFields) (Issue, error) {
 	return s.Get(id)
 }
 
+// AddDep adds a child -> parent dependency in a single transaction.
+// Rejects self-deps and cycles. Uses a recursive CTE for cycle detection.
 func (s *Store) AddDep(child, parent string) error {
 	if child == parent {
-		return errors.New("issue cannot depend on itself")
+		return ErrSelfDep
 	}
-	if _, err := s.Get(child); err != nil {
+	tx, err := s.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := exists(tx, child); err != nil {
 		return fmt.Errorf("child: %w", err)
 	}
-	if _, err := s.Get(parent); err != nil {
+	if err := exists(tx, parent); err != nil {
 		return fmt.Errorf("parent: %w", err)
 	}
-	if s.wouldCycle(child, parent) {
-		return errors.New("dependency would create a cycle")
+
+	// Cycle iff parent already (transitively) depends on child.
+	var cycle int
+	err = tx.QueryRow(`
+        WITH RECURSIVE ancestors(id) AS (
+            SELECT parent_id FROM deps WHERE child_id = ?
+            UNION
+            SELECT d.parent_id FROM deps d JOIN ancestors a ON d.child_id = a.id
+        )
+        SELECT EXISTS(SELECT 1 FROM ancestors WHERE id = ?)`,
+		parent, child).Scan(&cycle)
+	if err != nil {
+		return err
 	}
-	_, err := s.db.Exec(`INSERT OR IGNORE INTO deps (child_id, parent_id) VALUES (?, ?)`, child, parent)
+	if cycle == 1 {
+		return ErrCycle
+	}
+	if _, err := tx.Exec(`INSERT OR IGNORE INTO deps (child_id, parent_id) VALUES (?, ?)`, child, parent); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func exists(tx *sql.Tx, id string) error {
+	var n int
+	err := tx.QueryRow(`SELECT 1 FROM issues WHERE id = ?`, id).Scan(&n)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrNotFound
+	}
 	return err
 }
 
 func (s *Store) RemoveDep(child, parent string) error {
 	_, err := s.db.Exec(`DELETE FROM deps WHERE child_id = ? AND parent_id = ?`, child, parent)
 	return err
-}
-
-// wouldCycle returns true if adding child -> parent would create a cycle.
-// That is: parent already (transitively) depends on child.
-func (s *Store) wouldCycle(child, parent string) bool {
-	seen := map[string]bool{}
-	var visit func(node string) bool
-	visit = func(node string) bool {
-		if node == child {
-			return true
-		}
-		if seen[node] {
-			return false
-		}
-		seen[node] = true
-		rows, err := s.db.Query(`SELECT parent_id FROM deps WHERE child_id = ?`, node)
-		if err != nil {
-			return false
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var p string
-			if err := rows.Scan(&p); err != nil {
-				return false
-			}
-			if visit(p) {
-				return true
-			}
-		}
-		return false
-	}
-	return visit(parent)
 }
 
 func (s *Store) Deps(id string) (parents, blocks []string, err error) {

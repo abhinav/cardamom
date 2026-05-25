@@ -3,5 +3,5 @@ package main
 import "os"
 
 func main() {
-	os.Exit(Run(DefaultEnv(), os.Args[1:]))
+	os.Exit(Run(os.Stdout, os.Stderr, os.Args[1:]))
 }

@@ -7,62 +7,67 @@ import (
 	"testing"
 )
 
-func newTestEnv(t *testing.T) (*Env, *bytes.Buffer, *bytes.Buffer) {
-	t.Helper()
-	dir := t.TempDir()
-	out := &bytes.Buffer{}
-	errb := &bytes.Buffer{}
-	env := &Env{
-		Dir:    filepath.Join(dir, ".beads"),
-		Stdout: out,
-		Stderr: errb,
-	}
-	return env, out, errb
+// testCLI bundles the args base ("--dir <tmp>/.beads") with stdio buffers.
+type testCLI struct {
+	t      *testing.T
+	dir    string
+	out    bytes.Buffer
+	err    bytes.Buffer
 }
 
-func run(t *testing.T, env *Env, out *bytes.Buffer, args ...string) string {
+func newTestCLI(t *testing.T) *testCLI {
 	t.Helper()
-	out.Reset()
-	code := Run(env, args)
+	return &testCLI{t: t, dir: filepath.Join(t.TempDir(), ".beads")}
+}
+
+func (c *testCLI) run(args ...string) string {
+	c.t.Helper()
+	c.out.Reset()
+	c.err.Reset()
+	full := append([]string{"--dir", c.dir}, args...)
+	code := Run(&c.out, &c.err, full)
 	if code != 0 {
-		t.Fatalf("bd %v exit %d", args, code)
+		c.t.Fatalf("bd %v exit %d\nstderr: %s", args, code, c.err.String())
 	}
-	return out.String()
+	return c.out.String()
 }
 
-func runFail(t *testing.T, env *Env, args ...string) {
-	t.Helper()
-	if code := Run(env, args); code == 0 {
-		t.Fatalf("bd %v unexpectedly succeeded", args)
+func (c *testCLI) runFail(args ...string) {
+	c.t.Helper()
+	c.out.Reset()
+	c.err.Reset()
+	full := append([]string{"--dir", c.dir}, args...)
+	if code := Run(&c.out, &c.err, full); code == 0 {
+		c.t.Fatalf("bd %v unexpectedly succeeded", args)
 	}
 }
 
 func TestCLIInitAndCreate(t *testing.T) {
-	env, out, _ := newTestEnv(t)
-	run(t, env, out, "init")
-	id := strings.TrimSpace(run(t, env, out, "create", "-p", "1", "first", "task"))
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "-p", "1", "first", "task"))
 	if !strings.HasPrefix(id, "bd-") {
 		t.Fatalf("expected id, got %q", id)
 	}
-	show := run(t, env, out, "show", id)
+	show := c.run("show", id)
 	if !strings.Contains(show, "first task") {
 		t.Fatalf("show output missing title:\n%s", show)
 	}
 }
 
 func TestCLIWithoutInitFails(t *testing.T) {
-	env, _, _ := newTestEnv(t)
-	runFail(t, env, "create", "untitled")
+	c := newTestCLI(t)
+	c.runFail("create", "untitled")
 }
 
 func TestCLIReadyAndClaim(t *testing.T) {
-	env, out, _ := newTestEnv(t)
-	run(t, env, out, "init")
-	a := strings.TrimSpace(run(t, env, out, "create", "-p", "1", "task a"))
-	b := strings.TrimSpace(run(t, env, out, "create", "-p", "1", "task b"))
-	run(t, env, out, "dep", "add", b, a)
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "-p", "1", "task a"))
+	b := strings.TrimSpace(c.run("create", "-p", "1", "task b"))
+	c.run("dep", "add", b, a)
 
-	ready := run(t, env, out, "ready")
+	ready := c.run("ready")
 	if !strings.Contains(ready, a) {
 		t.Fatalf("a should be ready: %s", ready)
 	}
@@ -70,61 +75,71 @@ func TestCLIReadyAndClaim(t *testing.T) {
 		t.Fatalf("b should NOT be ready: %s", ready)
 	}
 
-	claimed := run(t, env, out, "claim", "--as", "alice")
+	claimed := c.run("claim", "--as", "alice")
 	if !strings.Contains(claimed, a) {
 		t.Fatalf("expected claim of %s, got %q", a, claimed)
 	}
 
-	run(t, env, out, "close", a)
-	ready = run(t, env, out, "ready")
+	c.run("close", a)
+	ready = c.run("ready")
 	if !strings.Contains(ready, b) {
 		t.Fatalf("b should be ready after closing a: %s", ready)
 	}
 }
 
+func TestCLIClaimByID(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "specific"))
+	claimed := c.run("claim", id, "--as", "bob")
+	if !strings.Contains(claimed, id) {
+		t.Fatalf("expected claim of %s, got %q", id, claimed)
+	}
+}
+
 func TestCLIClaimNoneReady(t *testing.T) {
-	env, out, _ := newTestEnv(t)
-	run(t, env, out, "init")
-	runFail(t, env, "claim", "--as", "alice")
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("claim", "--as", "alice")
 }
 
 func TestCLIUpdate(t *testing.T) {
-	env, out, _ := newTestEnv(t)
-	run(t, env, out, "init")
-	id := strings.TrimSpace(run(t, env, out, "create", "todo"))
-	run(t, env, out, "update", id, "-p", "0", "--title", "urgent thing")
-	show := run(t, env, out, "show", id)
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "todo"))
+	c.run("update", id, "-p", "0", "--title", "urgent thing")
+	show := c.run("show", id)
 	if !strings.Contains(show, "urgent thing") || !strings.Contains(show, "Priority: 0") {
 		t.Fatalf("update did not apply: %s", show)
 	}
 }
 
 func TestCLIDepCycleRejected(t *testing.T) {
-	env, out, _ := newTestEnv(t)
-	run(t, env, out, "init")
-	a := strings.TrimSpace(run(t, env, out, "create", "a"))
-	b := strings.TrimSpace(run(t, env, out, "create", "b"))
-	run(t, env, out, "dep", "add", b, a)
-	runFail(t, env, "dep", "add", a, b)
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	c.run("dep", "add", b, a)
+	c.runFail("dep", "add", a, b)
 }
 
 func TestCLIList(t *testing.T) {
-	env, out, _ := newTestEnv(t)
-	run(t, env, out, "init")
-	a := strings.TrimSpace(run(t, env, out, "create", "open one"))
-	b := strings.TrimSpace(run(t, env, out, "create", "to close"))
-	run(t, env, out, "close", b)
-	openList := run(t, env, out, "list")
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "open one"))
+	b := strings.TrimSpace(c.run("create", "to close"))
+	c.run("close", b)
+	openList := c.run("list")
 	if !strings.Contains(openList, a) || strings.Contains(openList, b) {
 		t.Fatalf("list (open) wrong:\n%s", openList)
 	}
-	all := run(t, env, out, "list", "--status", "all")
+	all := c.run("list", "--status", "all")
 	if !strings.Contains(all, a) || !strings.Contains(all, b) {
 		t.Fatalf("list (all) wrong:\n%s", all)
 	}
 }
 
 func TestCLIUnknownCommand(t *testing.T) {
-	env, _, _ := newTestEnv(t)
-	runFail(t, env, "frobnicate")
+	c := newTestCLI(t)
+	c.runFail("frobnicate")
 }
