@@ -27,7 +27,11 @@ func (c *ReadyCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssues(r.stdout, issues)
+		labels, err := loadLabelsFor(r.ctx, s, issues)
+		if err != nil {
+			return err
+		}
+		printIssues(r.stdout, issues, labels)
 		return nil
 	})
 }

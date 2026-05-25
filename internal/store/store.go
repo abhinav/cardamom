@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/uptrace/bun"
@@ -38,6 +39,13 @@ type Dep struct {
 	ParentID string `bun:"parent_id,pk"`
 }
 
+type IssueLabel struct {
+	bun.BaseModel `bun:"table:issue_labels"`
+
+	IssueID string `bun:"issue_id,pk"`
+	Label   string `bun:"label,pk"`
+}
+
 // ---- Migrations (kept manual, independent of Bun) ----
 
 // migrations are applied in order; PRAGMA user_version tracks progress.
@@ -69,6 +77,15 @@ var migrations = []string{
 	`
     ALTER TABLE issues ADD COLUMN agent TEXT;
     CREATE INDEX IF NOT EXISTS idx_issues_agent ON issues(agent);
+    `,
+	// v3: labels.
+	`
+    CREATE TABLE IF NOT EXISTS issue_labels (
+        issue_id TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        label    TEXT NOT NULL,
+        PRIMARY KEY (issue_id, label)
+    );
+    CREATE INDEX IF NOT EXISTS idx_issue_labels_label ON issue_labels(label);
     `,
 }
 
@@ -176,22 +193,167 @@ func (s *Store) Get(ctx context.Context, id string) (Issue, error) {
 	return i, err
 }
 
-// List returns issues filtered by status and/or agent.
-//   status: "" = any status; else exact match.
-//   agent:  nil = no agent filter; else exact match on agent name.
-func (s *Store) List(ctx context.Context, status string, agent *string) ([]Issue, error) {
+// ListFilter scopes the result set for Store.List. Zero/nil values mean
+// "no filter on this dimension".
+type ListFilter struct {
+	Status        string   // exact match (e.g. "open")
+	Agent         *string  // exact match on agent lane (nil = no filter)
+	Type          string   // exact match (e.g. "bug")
+	Labels        []string // AND: issue must have ALL of these labels
+	LabelsAny     []string // OR: issue must have AT LEAST ONE
+	NoLabels      bool     // only issues with no labels at all
+	NoAssignee    bool     // assignee IS NULL
+	TitleContains string   // case-insensitive substring match
+	PriorityMin   *int     // inclusive
+	PriorityMax   *int     // inclusive
+	CreatedAfter  *int64   // unix seconds, inclusive
+	CreatedBefore *int64
+	UpdatedAfter  *int64
+	UpdatedBefore *int64
+	IDs           []string // exact match against any of these IDs
+	Limit         int      // 0 = no limit
+}
+
+func (s *Store) List(ctx context.Context, f ListFilter) ([]Issue, error) {
 	var issues []Issue
-	q := s.db.NewSelect().Model(&issues).OrderExpr("priority ASC, created ASC")
-	if status != "" {
-		q = q.Where("status = ?", status)
+	q := s.db.NewSelect().Model(&issues).OrderExpr("i.priority ASC, i.created ASC")
+	if f.Status != "" {
+		q = q.Where("i.status = ?", f.Status)
 	}
-	if agent != nil {
-		q = q.Where("agent = ?", *agent)
+	if f.Agent != nil {
+		q = q.Where("i.agent = ?", *f.Agent)
+	}
+	if f.Type != "" {
+		q = q.Where("i.type = ?", f.Type)
+	}
+	if len(f.Labels) > 0 {
+		q = q.Where(
+			"i.id IN (SELECT issue_id FROM issue_labels WHERE label IN (?) GROUP BY issue_id HAVING COUNT(DISTINCT label) = ?)",
+			bun.In(f.Labels), len(f.Labels),
+		)
+	}
+	if len(f.LabelsAny) > 0 {
+		q = q.Where(
+			"i.id IN (SELECT issue_id FROM issue_labels WHERE label IN (?))",
+			bun.In(f.LabelsAny),
+		)
+	}
+	if f.NoLabels {
+		q = q.Where("NOT EXISTS (SELECT 1 FROM issue_labels WHERE issue_id = i.id)")
+	}
+	if f.NoAssignee {
+		q = q.Where("i.assignee IS NULL")
+	}
+	if f.TitleContains != "" {
+		q = q.Where("LOWER(i.title) LIKE ?", "%"+strings.ToLower(f.TitleContains)+"%")
+	}
+	if f.PriorityMin != nil {
+		q = q.Where("i.priority >= ?", *f.PriorityMin)
+	}
+	if f.PriorityMax != nil {
+		q = q.Where("i.priority <= ?", *f.PriorityMax)
+	}
+	if f.CreatedAfter != nil {
+		q = q.Where("i.created >= ?", *f.CreatedAfter)
+	}
+	if f.CreatedBefore != nil {
+		q = q.Where("i.created <= ?", *f.CreatedBefore)
+	}
+	if f.UpdatedAfter != nil {
+		q = q.Where("i.updated >= ?", *f.UpdatedAfter)
+	}
+	if f.UpdatedBefore != nil {
+		q = q.Where("i.updated <= ?", *f.UpdatedBefore)
+	}
+	if len(f.IDs) > 0 {
+		q = q.Where("i.id IN (?)", bun.In(f.IDs))
+	}
+	if f.Limit > 0 {
+		q = q.Limit(f.Limit)
 	}
 	if err := q.Scan(ctx); err != nil {
 		return nil, err
 	}
 	return issues, nil
+}
+
+// ---- Labels ----
+
+// AddLabels attaches one or more labels to an issue. No-op for empty list.
+// Returns ErrNotFound if the issue does not exist.
+func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) error {
+	if len(labels) == 0 {
+		return nil
+	}
+	if err := s.exists(ctx, issueID); err != nil {
+		return err
+	}
+	rows := make([]IssueLabel, len(labels))
+	for i, l := range labels {
+		rows[i] = IssueLabel{IssueID: issueID, Label: l}
+	}
+	_, err := s.db.NewInsert().Model(&rows).On("CONFLICT DO NOTHING").Exec(ctx)
+	return err
+}
+
+// RemoveLabels detaches labels from an issue. No-op for empty list or for
+// labels that are not present.
+func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []string) error {
+	if len(labels) == 0 {
+		return nil
+	}
+	_, err := s.db.NewDelete().
+		Model((*IssueLabel)(nil)).
+		Where("issue_id = ?", issueID).
+		Where("label IN (?)", bun.In(labels)).
+		Exec(ctx)
+	return err
+}
+
+// LabelsForIssue returns the labels on a single issue, alphabetically.
+func (s *Store) LabelsForIssue(ctx context.Context, issueID string) ([]string, error) {
+	var labels []string
+	err := s.db.NewSelect().
+		Model((*IssueLabel)(nil)).
+		Column("label").
+		Where("issue_id = ?", issueID).
+		OrderExpr("label").
+		Scan(ctx, &labels)
+	return labels, err
+}
+
+// LoadLabels returns a map id -> []labels for the given issue IDs in one query.
+// Used for batch display in list/show output.
+func (s *Store) LoadLabels(ctx context.Context, ids []string) (map[string][]string, error) {
+	out := make(map[string][]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []IssueLabel
+	err := s.db.NewSelect().
+		Model(&rows).
+		Where("issue_id IN (?)", bun.In(ids)).
+		OrderExpr("issue_id, label").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.IssueID] = append(out[r.IssueID], r.Label)
+	}
+	return out, nil
+}
+
+// exists reports ErrNotFound if no issue with id exists.
+func (s *Store) exists(ctx context.Context, id string) error {
+	n, err := s.db.NewSelect().Model((*Issue)(nil)).Where("id = ?", id).Count(ctx)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // readyQuery applies the shared WHERE/ORDER for ready-issue selection.

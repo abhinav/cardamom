@@ -29,6 +29,7 @@ type CLI struct {
 	Close  CloseCmd  `cmd:"" help:"Close an issue."`
 	Update UpdateCmd `cmd:"" help:"Update fields on an issue."`
 	Dep    DepCmd    `cmd:"" help:"Manage dependency edges."`
+	Label  LabelCmd  `cmd:"" help:"Manage labels on an issue."`
 }
 
 // runCtx is passed to each command's Run method.
@@ -107,7 +108,17 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 
 // ---- Formatting helpers ----
 
-func printIssues(w io.Writer, issues []store.Issue) {
+// loadLabelsFor fetches labels for every issue in the slice in one query.
+// Always returns a non-nil map.
+func loadLabelsFor(ctx context.Context, s *store.Store, issues []store.Issue) (map[string][]string, error) {
+	ids := make([]string, len(issues))
+	for i, is := range issues {
+		ids[i] = is.ID
+	}
+	return s.LoadLabels(ctx, ids)
+}
+
+func printIssues(w io.Writer, issues []store.Issue, labels map[string][]string) {
 	if len(issues) == 0 {
 		fmt.Fprintln(w, "(none)")
 		return
@@ -121,11 +132,15 @@ func printIssues(w io.Writer, issues []store.Issue) {
 		if i.Agent != nil {
 			agent = *i.Agent
 		}
-		fmt.Fprintf(w, "%s  p%d  %-12s  %-12s  %-10s  %s\n", i.ID, i.Priority, i.Status, agent, assignee, i.Title)
+		fmt.Fprintf(w, "%s  p%d  %-12s  %-12s  %-10s  %s", i.ID, i.Priority, i.Status, agent, assignee, i.Title)
+		if ls := labels[i.ID]; len(ls) > 0 {
+			fmt.Fprintf(w, "  [%s]", strings.Join(ls, ", "))
+		}
+		fmt.Fprintln(w)
 	}
 }
 
-func printIssue(w io.Writer, i store.Issue, parents, blocks []string) {
+func printIssue(w io.Writer, i store.Issue, parents, blocks, labels []string) {
 	fmt.Fprintf(w, "ID:       %s\n", i.ID)
 	fmt.Fprintf(w, "Title:    %s\n", i.Title)
 	fmt.Fprintf(w, "Type:     %s\n", i.Type)
@@ -141,6 +156,9 @@ func printIssue(w io.Writer, i store.Issue, parents, blocks []string) {
 	fmt.Fprintf(w, "Updated:  %s\n", time.Unix(i.Updated, 0).Format(time.RFC3339))
 	if i.Closed != nil {
 		fmt.Fprintf(w, "Closed:   %s\n", time.Unix(*i.Closed, 0).Format(time.RFC3339))
+	}
+	if len(labels) > 0 {
+		fmt.Fprintf(w, "Labels:   %s\n", strings.Join(labels, ", "))
 	}
 	if len(parents) > 0 {
 		fmt.Fprintf(w, "Depends:  %s\n", strings.Join(parents, ", "))

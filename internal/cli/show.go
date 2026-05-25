@@ -16,7 +16,11 @@ func (c *ShowCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssue(r.stdout, i, parents, blocks)
+		labels, err := s.LabelsForIssue(r.ctx, i.ID)
+		if err != nil {
+			return err
+		}
+		printIssue(r.stdout, i, parents, blocks, labels)
 		return nil
 	})
 }

@@ -237,11 +237,11 @@ func TestListFilter(t *testing.T) {
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
 	b, _ := s.Create(ctx, "b", "task", 1, nil)
 	_, _ = s.MarkClosed(ctx, a.ID)
-	open, _ := s.List(ctx, "open", nil)
+	open, _ := s.List(ctx, ListFilter{Status: "open"})
 	if len(open) != 1 || open[0].ID != b.ID {
 		t.Fatalf("expected only b open, got %+v", open)
 	}
-	all, _ := s.List(ctx, "", nil)
+	all, _ := s.List(ctx, ListFilter{})
 	if len(all) != 2 {
 		t.Fatalf("expected 2 issues total, got %d", len(all))
 	}
@@ -359,6 +359,130 @@ func TestUpdateAgent(t *testing.T) {
 	}
 	if got.Agent != nil {
 		t.Fatalf("agent not cleared: %+v", got)
+	}
+}
+
+func TestLabelsAddListRemove(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "with labels", "task", 1, nil)
+	if err := s.AddLabels(ctx, a.ID, []string{"security", "p0"}); err != nil {
+		t.Fatal(err)
+	}
+	// Adding the same again is a no-op.
+	if err := s.AddLabels(ctx, a.ID, []string{"security"}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := s.LabelsForIssue(ctx, a.ID)
+	if len(got) != 2 || got[0] != "p0" || got[1] != "security" {
+		t.Fatalf("expected [p0 security], got %v", got)
+	}
+	if err := s.RemoveLabels(ctx, a.ID, []string{"security"}); err != nil {
+		t.Fatal(err)
+	}
+	got, _ = s.LabelsForIssue(ctx, a.ID)
+	if len(got) != 1 || got[0] != "p0" {
+		t.Fatalf("expected [p0] after rm, got %v", got)
+	}
+}
+
+func TestAddLabelsMissingIssue(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.AddLabels(ctx, "bd-zzzz", []string{"x"}); err != ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestLoadLabelsBatch(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	b, _ := s.Create(ctx, "b", "task", 1, nil)
+	_, _ = s.Create(ctx, "c (no labels)", "task", 1, nil)
+	_ = s.AddLabels(ctx, a.ID, []string{"x", "y"})
+	_ = s.AddLabels(ctx, b.ID, []string{"y"})
+	m, _ := s.LoadLabels(ctx, []string{a.ID, b.ID})
+	if len(m[a.ID]) != 2 || len(m[b.ID]) != 1 {
+		t.Fatalf("unexpected map: %+v", m)
+	}
+}
+
+func TestListFilterByLabelsAnd(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	b, _ := s.Create(ctx, "b", "task", 1, nil)
+	_ = s.AddLabels(ctx, a.ID, []string{"security", "p0"})
+	_ = s.AddLabels(ctx, b.ID, []string{"security"})
+	// Must have BOTH labels.
+	got, _ := s.List(ctx, ListFilter{Labels: []string{"security", "p0"}})
+	if len(got) != 1 || got[0].ID != a.ID {
+		t.Fatalf("expected only a, got %+v", got)
+	}
+}
+
+func TestListFilterByLabelsAny(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	b, _ := s.Create(ctx, "b", "task", 1, nil)
+	_, _ = s.Create(ctx, "c", "task", 1, nil)
+	_ = s.AddLabels(ctx, a.ID, []string{"x"})
+	_ = s.AddLabels(ctx, b.ID, []string{"y"})
+	got, _ := s.List(ctx, ListFilter{LabelsAny: []string{"x", "y"}})
+	if len(got) != 2 {
+		t.Fatalf("expected 2 (a and b), got %d: %+v", len(got), got)
+	}
+}
+
+func TestListFilterNoLabels(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "labeled", "task", 1, nil)
+	b, _ := s.Create(ctx, "bare", "task", 1, nil)
+	_ = s.AddLabels(ctx, a.ID, []string{"x"})
+	got, _ := s.List(ctx, ListFilter{NoLabels: true})
+	if len(got) != 1 || got[0].ID != b.ID {
+		t.Fatalf("expected only b (unlabeled), got %+v", got)
+	}
+}
+
+func TestListFilterPriorityRange(t *testing.T) {
+	s := newTestStore(t)
+	_, _ = s.Create(ctx, "p0", "task", 0, nil)
+	mid, _ := s.Create(ctx, "p2", "task", 2, nil)
+	_, _ = s.Create(ctx, "p4", "task", 4, nil)
+	min1, max3 := 1, 3
+	got, _ := s.List(ctx, ListFilter{PriorityMin: &min1, PriorityMax: &max3})
+	if len(got) != 1 || got[0].ID != mid.ID {
+		t.Fatalf("expected only p2, got %+v", got)
+	}
+}
+
+func TestListFilterTitleContains(t *testing.T) {
+	s := newTestStore(t)
+	hit, _ := s.Create(ctx, "Fix the BUG today", "task", 1, nil)
+	_, _ = s.Create(ctx, "tomorrow", "task", 1, nil)
+	got, _ := s.List(ctx, ListFilter{TitleContains: "bug"})
+	if len(got) != 1 || got[0].ID != hit.ID {
+		t.Fatalf("expected only the bug issue, got %+v", got)
+	}
+}
+
+func TestListFilterIDs(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	_, _ = s.Create(ctx, "b", "task", 1, nil)
+	c, _ := s.Create(ctx, "c", "task", 1, nil)
+	got, _ := s.List(ctx, ListFilter{IDs: []string{a.ID, c.ID}})
+	if len(got) != 2 {
+		t.Fatalf("expected 2, got %d", len(got))
+	}
+}
+
+func TestListFilterNoAssignee(t *testing.T) {
+	s := newTestStore(t)
+	_, _ = s.Create(ctx, "unclaimed", "task", 1, nil)
+	a, _ := s.Create(ctx, "claimed", "task", 1, nil)
+	_, _ = s.ClaimByID(ctx, a.ID, "alice")
+	got, _ := s.List(ctx, ListFilter{NoAssignee: true})
+	if len(got) != 1 || got[0].Title != "unclaimed" {
+		t.Fatalf("expected only unclaimed, got %+v", got)
 	}
 }
 

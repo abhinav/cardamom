@@ -227,3 +227,82 @@ func TestCLIWaitCancellation(t *testing.T) {
 		t.Fatalf("expected exit 130 on cancellation, got %d (stderr: %s)", code, c.err.String())
 	}
 }
+
+func TestCLILabelAddListRemove(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "needs labels"))
+	c.run("label", "add", id, "security", "p0")
+	ls := c.run("label", "ls", id)
+	if !strings.Contains(ls, "security") || !strings.Contains(ls, "p0") {
+		t.Fatalf("expected both labels listed:\n%s", ls)
+	}
+	c.run("label", "rm", id, "security")
+	ls = c.run("label", "ls", id)
+	if strings.Contains(ls, "security") || !strings.Contains(ls, "p0") {
+		t.Fatalf("after rm, expected only p0:\n%s", ls)
+	}
+}
+
+func TestCLIListShowsLabelsInline(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "labeled"))
+	c.run("label", "add", id, "security", "p0")
+	out := c.run("list")
+	if !strings.Contains(out, "[p0, security]") {
+		t.Fatalf("expected labels in list line:\n%s", out)
+	}
+}
+
+func TestCLIShowDisplaysLabels(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "labeled"))
+	c.run("label", "add", id, "needs-review")
+	out := c.run("show", id)
+	if !strings.Contains(out, "Labels:") || !strings.Contains(out, "needs-review") {
+		t.Fatalf("show missing Labels line:\n%s", out)
+	}
+}
+
+func TestCLIListFilterByLabel(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "tagged"))
+	b := strings.TrimSpace(c.run("create", "untagged"))
+	c.run("label", "add", a, "x")
+	out := c.run("list", "-l", "x")
+	if !strings.Contains(out, a) || strings.Contains(out, b) {
+		t.Fatalf("expected only a:\n%s", out)
+	}
+}
+
+func TestCLIListFilterByPriorityRange(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "-p", "0", "hi")
+	mid := strings.TrimSpace(c.run("create", "-p", "2", "mid"))
+	c.run("create", "-p", "4", "lo")
+	out := c.run("list", "--priority-min", "1", "--priority-max", "3")
+	if !strings.Contains(out, mid) || strings.Count(out, "bd-") != 1 {
+		t.Fatalf("expected only mid:\n%s", out)
+	}
+}
+
+func TestCLIListFilterByTitle(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	hit := strings.TrimSpace(c.run("create", "Fix the BUG today"))
+	c.run("create", "unrelated")
+	out := c.run("list", "--title-contains", "bug")
+	if !strings.Contains(out, hit) || strings.Count(out, "bd-") != 1 {
+		t.Fatalf("expected only the bug issue:\n%s", out)
+	}
+}
+
+func TestCLIListBadDate(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("list", "--created-after", "not-a-date")
+}
