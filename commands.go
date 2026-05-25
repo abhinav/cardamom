@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
@@ -30,6 +31,7 @@ type CLI struct {
 
 // runCtx is passed to each command's Run method.
 type runCtx struct {
+	ctx    context.Context
 	dir    string
 	stdout io.Writer
 	stderr io.Writer
@@ -60,8 +62,18 @@ func currentUser() string {
 	return "unknown"
 }
 
+// agentPtr returns nil for an empty agent string, else a pointer to it.
+// Used to translate the CLI's empty-default convention into the store's
+// "nil = unassigned lane" convention.
+func agentPtr(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
+}
+
 // Run is the entrypoint used by main and the tests.
-func Run(stdout, stderr io.Writer, args []string) int {
+func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 	var cli CLI
 	parser, err := kong.New(&cli,
 		kong.Name("bd"),
@@ -77,12 +89,14 @@ func Run(stdout, stderr io.Writer, args []string) int {
 	}
 	kctx, err := parser.Parse(args)
 	if err != nil {
-		// kong already printed usage via UsageOnError; surface the message.
 		fmt.Fprintln(stderr, "error:", err)
 		return 2
 	}
-	rctx := &runCtx{dir: cli.Dir, stdout: stdout, stderr: stderr}
+	rctx := &runCtx{ctx: ctx, dir: cli.Dir, stdout: stdout, stderr: stderr}
 	if err := kctx.Run(rctx); err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			return 130 // standard for SIGINT / cancelled wait
+		}
 		fmt.Fprintln(stderr, "error:", err)
 		return 1
 	}
@@ -109,13 +123,14 @@ func (c *InitCmd) Run(r *runCtx) error {
 type CreateCmd struct {
 	Priority int      `short:"p" default:"2" help:"Priority (0=highest)."`
 	Type     string   `short:"t" default:"task" help:"Issue type."`
+	Agent    string   `short:"a" help:"Assign to an agent lane (e.g. code-reviewer)."`
 	Title    []string `arg:"" required:"" help:"Issue title."`
 }
 
 func (c *CreateCmd) Run(r *runCtx) error {
 	title := strings.Join(c.Title, " ")
 	return withStore(r, func(s *Store) error {
-		i, err := s.Create(title, c.Type, c.Priority)
+		i, err := s.Create(title, c.Type, c.Priority, agentPtr(c.Agent))
 		if err != nil {
 			return err
 		}
@@ -126,6 +141,7 @@ func (c *CreateCmd) Run(r *runCtx) error {
 
 type ListCmd struct {
 	Status string `default:"open" enum:"open,in_progress,closed,all" help:"Filter by status."`
+	Agent  string `short:"a" help:"Filter by agent lane."`
 }
 
 func (c *ListCmd) Run(r *runCtx) error {
@@ -134,7 +150,7 @@ func (c *ListCmd) Run(r *runCtx) error {
 		filter = ""
 	}
 	return withStore(r, func(s *Store) error {
-		issues, err := s.List(filter)
+		issues, err := s.List(filter, agentPtr(c.Agent))
 		if err != nil {
 			return err
 		}
@@ -144,12 +160,23 @@ func (c *ListCmd) Run(r *runCtx) error {
 }
 
 type ReadyCmd struct {
-	N int `short:"n" default:"20" help:"Maximum number of issues."`
+	N        int           `short:"n" default:"20" help:"Maximum number of issues."`
+	Agent    string        `short:"a" help:"Lane to query (default: unassigned)."`
+	Wait     bool          `help:"Block until at least one issue is ready."`
+	Interval time.Duration `default:"250ms" help:"Poll interval when --wait is set."`
 }
 
 func (c *ReadyCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *Store) error {
-		issues, err := s.Ready(c.N)
+		var (
+			issues []Issue
+			err    error
+		)
+		if c.Wait {
+			issues, err = s.WaitReady(r.ctx, c.N, agentPtr(c.Agent), c.Interval)
+		} else {
+			issues, err = s.Ready(c.N, agentPtr(c.Agent))
+		}
 		if err != nil {
 			return err
 		}
@@ -178,29 +205,43 @@ func (c *ShowCmd) Run(r *runCtx) error {
 }
 
 type ClaimCmd struct {
-	As string `default:"${user}" help:"Assignee name (defaults to current user)."`
-	ID string `arg:"" optional:"" help:"Specific issue to claim; omit for next ready."`
+	As       string        `default:"${user}" help:"Assignee name (defaults to current user)."`
+	Agent    string        `short:"a" help:"Lane to claim from (default: unassigned)."`
+	Wait     bool          `help:"Block until something is claimable in this lane."`
+	Interval time.Duration `default:"250ms" help:"Poll interval when --wait is set."`
+	ID       string        `arg:"" optional:"" help:"Specific issue to claim; omit for next ready."`
 }
 
 func (c *ClaimCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *Store) error {
-		var (
-			i   Issue
-			err error
-		)
 		if c.ID != "" {
-			i, err = s.ClaimByID(c.ID, c.As)
-		} else {
-			i, err = s.Claim(c.As)
-			if errors.Is(err, ErrNotFound) {
+			i, err := s.ClaimByID(c.ID, c.As)
+			if err != nil {
+				return err
+			}
+			fmt.Fprintf(r.stdout, "claimed %s (%s)\n", i.ID, i.Title)
+			return nil
+		}
+		agent := agentPtr(c.Agent)
+		for {
+			i, err := s.Claim(c.As, agent)
+			if err == nil {
+				fmt.Fprintf(r.stdout, "claimed %s (%s)\n", i.ID, i.Title)
+				return nil
+			}
+			if !errors.Is(err, ErrNotFound) {
+				return err
+			}
+			if !c.Wait {
 				return errors.New("no ready issues")
 			}
+			// Wait for something to become ready, then retry the claim.
+			// Another agent may steal it between Wait and Claim — that's
+			// fine, we'll just block again.
+			if _, err := s.WaitReady(r.ctx, 1, agent, c.Interval); err != nil {
+				return err
+			}
 		}
-		if err != nil {
-			return err
-		}
-		fmt.Fprintf(r.stdout, "claimed %s (%s)\n", i.ID, i.Title)
-		return nil
 	})
 }
 
@@ -225,6 +266,8 @@ type UpdateCmd struct {
 	Status   *string `help:"New status."`
 	Assignee *string `help:"Set assignee."`
 	Unassign bool    `help:"Clear assignee."`
+	Agent    *string `short:"a" help:"Set agent lane."`
+	NoAgent  bool    `help:"Clear agent lane."`
 	Title    *string `help:"New title."`
 }
 
@@ -240,6 +283,13 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 			f.Assignee = &none
 		case c.Assignee != nil:
 			f.Assignee = &c.Assignee
+		}
+		switch {
+		case c.NoAgent:
+			var none *string
+			f.Agent = &none
+		case c.Agent != nil:
+			f.Agent = &c.Agent
 		}
 		i, err := s.Update(c.ID, f)
 		if err != nil {
@@ -297,7 +347,11 @@ func printIssues(w io.Writer, issues []Issue) {
 		if i.Assignee != nil {
 			assignee = *i.Assignee
 		}
-		fmt.Fprintf(w, "%s  p%d  %-12s  %-10s  %s\n", i.ID, i.Priority, i.Status, assignee, i.Title)
+		agent := "-"
+		if i.Agent != nil {
+			agent = *i.Agent
+		}
+		fmt.Fprintf(w, "%s  p%d  %-12s  %-12s  %-10s  %s\n", i.ID, i.Priority, i.Status, agent, assignee, i.Title)
 	}
 }
 
@@ -307,6 +361,9 @@ func printIssue(w io.Writer, i Issue, parents, blocks []string) {
 	fmt.Fprintf(w, "Type:     %s\n", i.Type)
 	fmt.Fprintf(w, "Status:   %s\n", i.Status)
 	fmt.Fprintf(w, "Priority: %d\n", i.Priority)
+	if i.Agent != nil {
+		fmt.Fprintf(w, "Agent:    %s\n", *i.Agent)
+	}
 	if i.Assignee != nil {
 		fmt.Fprintf(w, "Assignee: %s\n", *i.Assignee)
 	}
@@ -322,4 +379,3 @@ func printIssue(w io.Writer, i Issue, parents, blocks []string) {
 		fmt.Fprintf(w, "Blocks:   %s\n", strings.Join(blocks, ", "))
 	}
 }
-

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -11,27 +12,63 @@ import (
 	sqlite3 "modernc.org/sqlite/lib"
 )
 
-const schema = `
-CREATE TABLE IF NOT EXISTS issues (
-    id        TEXT PRIMARY KEY,
-    title     TEXT NOT NULL,
-    type      TEXT NOT NULL DEFAULT 'task',
-    status    TEXT NOT NULL DEFAULT 'open',
-    priority  INTEGER NOT NULL DEFAULT 2,
-    assignee  TEXT,
-    created   INTEGER NOT NULL,
-    updated   INTEGER NOT NULL,
-    closed    INTEGER
-);
-CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status);
+// migrations are applied in order; PRAGMA user_version tracks progress.
+// Append new migrations, never edit existing ones.
+var migrations = []string{
+	// v1: initial schema.
+	`
+    CREATE TABLE IF NOT EXISTS issues (
+        id        TEXT PRIMARY KEY,
+        title     TEXT NOT NULL,
+        type      TEXT NOT NULL DEFAULT 'task',
+        status    TEXT NOT NULL DEFAULT 'open',
+        priority  INTEGER NOT NULL DEFAULT 2,
+        assignee  TEXT,
+        created   INTEGER NOT NULL,
+        updated   INTEGER NOT NULL,
+        closed    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status);
 
-CREATE TABLE IF NOT EXISTS deps (
-    child_id  TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    parent_id TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
-    PRIMARY KEY (child_id, parent_id)
-);
-CREATE INDEX IF NOT EXISTS idx_deps_parent ON deps(parent_id);
-`
+    CREATE TABLE IF NOT EXISTS deps (
+        child_id  TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        parent_id TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        PRIMARY KEY (child_id, parent_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_deps_parent ON deps(parent_id);
+    `,
+	// v2: agent lane.
+	`
+    ALTER TABLE issues ADD COLUMN agent TEXT;
+    CREATE INDEX IF NOT EXISTS idx_issues_agent ON issues(agent);
+    `,
+}
+
+func migrate(db *sql.DB) error {
+	var version int
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		return err
+	}
+	for ; version < len(migrations); version++ {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(migrations[version]); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("migration %d: %w", version+1, err)
+		}
+		// PRAGMA user_version doesn't accept placeholders.
+		if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, version+1)); err != nil {
+			tx.Rollback()
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 type Issue struct {
 	ID       string
@@ -39,6 +76,7 @@ type Issue struct {
 	Type     string
 	Status   string
 	Priority int
+	Agent    *string
 	Assignee *string
 	Created  int64
 	Updated  int64
@@ -54,7 +92,7 @@ func Open(path string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	if _, err := db.Exec(schema); err != nil {
+	if err := migrate(db); err != nil {
 		db.Close()
 		return nil, err
 	}
@@ -88,12 +126,13 @@ func isUniqueErr(err error) bool {
 
 // scanIssue reads one issue row from r into i.
 func scanIssue(r interface{ Scan(...any) error }, i *Issue) error {
-	return r.Scan(&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority, &i.Assignee, &i.Created, &i.Updated, &i.Closed)
+	return r.Scan(&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority, &i.Agent, &i.Assignee, &i.Created, &i.Updated, &i.Closed)
 }
 
-const issueCols = `id, title, type, status, priority, assignee, created, updated, closed`
+const issueCols = `id, title, type, status, priority, agent, assignee, created, updated, closed`
 
-func (s *Store) Create(title, typ string, priority int) (Issue, error) {
+// Create inserts a new issue. agent may be nil for an unassigned-lane issue.
+func (s *Store) Create(title, typ string, priority int, agent *string) (Issue, error) {
 	if title == "" {
 		return Issue{}, errors.New("title required")
 	}
@@ -104,8 +143,8 @@ func (s *Store) Create(title, typ string, priority int) (Issue, error) {
 		id := NewID()
 		t := now()
 		_, err := s.db.Exec(
-			`INSERT INTO issues (id, title, type, priority, created, updated) VALUES (?,?,?,?,?,?)`,
-			id, title, typ, priority, t, t,
+			`INSERT INTO issues (id, title, type, priority, agent, created, updated) VALUES (?,?,?,?,?,?,?)`,
+			id, title, typ, priority, agent, t, t,
 		)
 		if err == nil {
 			return s.Get(id)
@@ -126,12 +165,19 @@ func (s *Store) Get(id string) (Issue, error) {
 	return i, err
 }
 
-func (s *Store) List(status string) ([]Issue, error) {
-	q := `SELECT ` + issueCols + ` FROM issues`
+// List returns issues filtered by status and/or agent.
+//   status: empty string = any status; else exact match.
+//   agent:  nil = no agent filter; else exact match on agent name.
+func (s *Store) List(status string, agent *string) ([]Issue, error) {
+	q := `SELECT ` + issueCols + ` FROM issues WHERE 1=1`
 	args := []any{}
 	if status != "" {
-		q += ` WHERE status = ?`
+		q += ` AND status = ?`
 		args = append(args, status)
+	}
+	if agent != nil {
+		q += ` AND agent = ?`
+		args = append(args, *agent)
 	}
 	q += ` ORDER BY priority ASC, created ASC`
 	rows, err := s.db.Query(q, args...)
@@ -150,22 +196,27 @@ func (s *Store) List(status string) ([]Issue, error) {
 	return out, rows.Err()
 }
 
-// Ready returns open, unassigned issues with all dependencies closed.
-func (s *Store) Ready(limit int) ([]Issue, error) {
+// Ready returns open, unclaimed issues with all dependencies closed.
+//   agent: nil = unassigned lane (agent IS NULL); else exact match.
+func (s *Store) Ready(limit int, agent *string) ([]Issue, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	rows, err := s.db.Query(`
-        SELECT `+issueCols+`
+	q := `
+        SELECT ` + issueCols + `
         FROM issues i
         WHERE i.status = 'open' AND i.assignee IS NULL
+          AND ` + agentClause(agent) + `
           AND NOT EXISTS (
               SELECT 1 FROM deps d
               JOIN issues p ON p.id = d.parent_id
               WHERE d.child_id = i.id AND p.status != 'closed'
           )
         ORDER BY i.priority ASC, i.created ASC
-        LIMIT ?`, limit)
+        LIMIT ?`
+	args := agentArgs(agent)
+	args = append(args, limit)
+	rows, err := s.db.Query(q, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -181,17 +232,58 @@ func (s *Store) Ready(limit int) ([]Issue, error) {
 	return out, rows.Err()
 }
 
-// Claim atomically assigns the next ready issue. Returns ErrNotFound when none.
-func (s *Store) Claim(assignee string) (Issue, error) {
+// WaitReady polls Ready until at least one issue is returned, the context is
+// cancelled, or an error occurs. Returns whatever issues are ready at that
+// instant. Caller controls the poll interval.
+func (s *Store) WaitReady(ctx context.Context, limit int, agent *string, interval time.Duration) ([]Issue, error) {
+	if interval <= 0 {
+		interval = 250 * time.Millisecond
+	}
+	for {
+		issues, err := s.Ready(limit, agent)
+		if err != nil {
+			return nil, err
+		}
+		if len(issues) > 0 {
+			return issues, nil
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(interval):
+		}
+	}
+}
+
+// agentClause returns a SQL fragment scoping a query to a lane.
+// nil → unassigned lane (agent IS NULL); non-nil → agent = ?.
+func agentClause(agent *string) string {
+	if agent == nil {
+		return `i.agent IS NULL`
+	}
+	return `i.agent = ?`
+}
+
+func agentArgs(agent *string) []any {
+	if agent == nil {
+		return nil
+	}
+	return []any{*agent}
+}
+
+// Claim atomically assigns the next ready issue in the given lane.
+//   agent: nil = unassigned lane (agent IS NULL); else exact match.
+// Returns ErrNotFound when nothing is ready in that lane.
+func (s *Store) Claim(assignee string, agent *string) (Issue, error) {
 	if assignee == "" {
 		return Issue{}, errors.New("assignee required")
 	}
-	var i Issue
-	err := scanIssue(s.db.QueryRow(`
+	q := `
         UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?
         WHERE id = (
             SELECT i.id FROM issues i
             WHERE i.status = 'open' AND i.assignee IS NULL
+              AND ` + agentClause(agent) + `
               AND NOT EXISTS (
                   SELECT 1 FROM deps d
                   JOIN issues p ON p.id = d.parent_id
@@ -200,7 +292,11 @@ func (s *Store) Claim(assignee string) (Issue, error) {
             ORDER BY i.priority ASC, i.created ASC
             LIMIT 1
         )
-        RETURNING `+issueCols, assignee, now()), &i)
+        RETURNING ` + issueCols
+	args := []any{assignee, now()}
+	args = append(args, agentArgs(agent)...)
+	var i Issue
+	err := scanIssue(s.db.QueryRow(q, args...), &i)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound
 	}
@@ -251,6 +347,7 @@ type UpdateFields struct {
 	Status   *string
 	Priority *int
 	Assignee **string // outer nil = unchanged; inner nil = clear; else set
+	Agent    **string // same semantics as Assignee
 }
 
 func (s *Store) Update(id string, f UpdateFields) (Issue, error) {
@@ -282,6 +379,10 @@ func (s *Store) Update(id string, f UpdateFields) (Issue, error) {
 	if f.Assignee != nil {
 		q += `, assignee = ?`
 		args = append(args, *f.Assignee) // *string; nil clears
+	}
+	if f.Agent != nil {
+		q += `, agent = ?`
+		args = append(args, *f.Agent) // *string; nil clears
 	}
 	q += ` WHERE id = ?`
 	args = append(args, id)

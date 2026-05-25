@@ -1,7 +1,14 @@
 package main
 
-import "os"
+import (
+	"context"
+	"os"
+	"os/signal"
+	"syscall"
+)
 
 func main() {
-	os.Exit(Run(os.Stdout, os.Stderr, os.Args[1:]))
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+	os.Exit(Run(ctx, os.Stdout, os.Stderr, os.Args[1:]))
 }
