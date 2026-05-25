@@ -146,6 +146,7 @@ func now() int64 { return time.Now().Unix() }
 var (
 	ErrNotFound      = errors.New("issue not found")
 	ErrAlreadyClosed = errors.New("issue already closed")
+	ErrAlreadyOpen   = errors.New("issue already open")
 	ErrNotClaimable  = errors.New("issue not claimable")
 	ErrCycle         = errors.New("dependency would create a cycle")
 	ErrSelfDep       = errors.New("issue cannot depend on itself")
@@ -222,9 +223,9 @@ type ListFilter struct {
 	Limit         int      // 0 = no limit
 }
 
-func (s *Store) List(ctx context.Context, f ListFilter) ([]Issue, error) {
-	var issues []Issue
-	q := s.db.NewSelect().Model(&issues).OrderExpr("i.priority ASC, i.created ASC")
+// applyListFilter mutates q with WHERE clauses derived from f. Shared by
+// List and Count so a filter change in one stays in lock-step with the other.
+func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
 	if f.Status != "" {
 		q = q.Where("i.status = ?", f.Status)
 	}
@@ -282,6 +283,13 @@ func (s *Store) List(ctx context.Context, f ListFilter) ([]Issue, error) {
 	if f.Overdue {
 		q = q.Where("i.defer_until IS NOT NULL AND i.defer_until <= ? AND i.status != 'closed'", now())
 	}
+	return q
+}
+
+func (s *Store) List(ctx context.Context, f ListFilter) ([]Issue, error) {
+	var issues []Issue
+	q := s.db.NewSelect().Model(&issues).OrderExpr("i.priority ASC, i.created ASC")
+	q = applyListFilter(q, f)
 	if f.Limit > 0 {
 		q = q.Limit(f.Limit)
 	}
@@ -289,6 +297,108 @@ func (s *Store) List(ctx context.Context, f ListFilter) ([]Issue, error) {
 		return nil, err
 	}
 	return issues, nil
+}
+
+// Count returns the number of issues matching the filter. Honors every
+// dimension of ListFilter except Limit.
+func (s *Store) Count(ctx context.Context, f ListFilter) (int, error) {
+	q := s.db.NewSelect().Model((*Issue)(nil))
+	q = applyListFilter(q, f)
+	return q.Count(ctx)
+}
+
+// Stats is a snapshot of issue counts grouped by various dimensions.
+type Stats struct {
+	Status map[string]int `json:"status"`
+	Agents map[string]int `json:"agents"` // nil agent rendered as "<none>"
+	Types  map[string]int `json:"types"`
+}
+
+// Stats returns counts grouped by status, agent (NULL → "<none>"), and type.
+func (s *Store) Stats(ctx context.Context) (Stats, error) {
+	out := Stats{Status: map[string]int{}, Agents: map[string]int{}, Types: map[string]int{}}
+
+	type row struct {
+		Key   *string `bun:"key"`
+		Count int     `bun:"count"`
+	}
+
+	scan := func(col string, dest map[string]int) error {
+		var rows []row
+		err := s.db.NewSelect().
+			Model((*Issue)(nil)).
+			ColumnExpr(col+" AS key").
+			ColumnExpr("COUNT(*) AS count").
+			GroupExpr(col).
+			Scan(ctx, &rows)
+		if err != nil {
+			return err
+		}
+		for _, r := range rows {
+			k := "<none>"
+			if r.Key != nil {
+				k = *r.Key
+			}
+			dest[k] = r.Count
+		}
+		return nil
+	}
+	if err := scan("i.status", out.Status); err != nil {
+		return Stats{}, err
+	}
+	if err := scan("i.agent", out.Agents); err != nil {
+		return Stats{}, err
+	}
+	if err := scan("i.type", out.Types); err != nil {
+		return Stats{}, err
+	}
+	return out, nil
+}
+
+// Blocked returns open issues that have at least one non-closed dependency.
+// Inverse of Ready. Same agent-lane semantics.
+func (s *Store) Blocked(ctx context.Context, limit int, agent *string) ([]Issue, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	var issues []Issue
+	q := s.db.NewSelect().Model(&issues).
+		Where("i.status = 'open'").
+		Where("EXISTS (SELECT 1 FROM deps d JOIN issues p ON p.id = d.parent_id WHERE d.child_id = i.id AND p.status != 'closed')").
+		OrderExpr("i.priority ASC, i.created ASC").
+		Limit(limit)
+	if agent == nil {
+		q = q.Where("i.agent IS NULL")
+	} else {
+		q = q.Where("i.agent = ?", *agent)
+	}
+	if err := q.Scan(ctx); err != nil {
+		return nil, err
+	}
+	return issues, nil
+}
+
+// Reopen transitions a closed issue back to open and clears the closed
+// timestamp. Symmetric with MarkClosed.
+func (s *Store) Reopen(ctx context.Context, id string) (Issue, error) {
+	res, err := s.db.NewUpdate().
+		Model((*Issue)(nil)).
+		Set("status = 'open'").
+		Set("closed = NULL").
+		Set("updated = ?", now()).
+		Where("id = ? AND status = 'closed'", id).
+		Exec(ctx)
+	if err != nil {
+		return Issue{}, err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		if _, err := s.Get(ctx, id); errors.Is(err, ErrNotFound) {
+			return Issue{}, ErrNotFound
+		}
+		return Issue{}, ErrAlreadyOpen
+	}
+	return s.Get(ctx, id)
 }
 
 // ---- Labels ----
@@ -374,6 +484,46 @@ func (s *Store) SetDefer(ctx context.Context, id string, until *int64) (Issue, e
 		return Issue{}, ErrNotFound
 	}
 	return s.Get(ctx, id)
+}
+
+// UpsertIssue inserts an issue with an explicit ID, or updates every
+// field if the ID already exists. Used by import; bypasses the random-ID
+// generation in Create.
+func (s *Store) UpsertIssue(ctx context.Context, i Issue) error {
+	_, err := s.db.NewInsert().Model(&i).
+		On("CONFLICT (id) DO UPDATE").
+		Set("title = EXCLUDED.title").
+		Set("type = EXCLUDED.type").
+		Set("status = EXCLUDED.status").
+		Set("priority = EXCLUDED.priority").
+		Set("agent = EXCLUDED.agent").
+		Set("assignee = EXCLUDED.assignee").
+		Set("created = EXCLUDED.created").
+		Set("updated = EXCLUDED.updated").
+		Set("closed = EXCLUDED.closed").
+		Set("defer_until = EXCLUDED.defer_until").
+		Exec(ctx)
+	return err
+}
+
+// UpsertDep inserts a dep edge, ignoring conflicts. Skips AddDep's
+// existence and cycle checks: callers (import) trust the input.
+func (s *Store) UpsertDep(ctx context.Context, child, parent string) error {
+	_, err := s.db.NewInsert().
+		Model(&Dep{ChildID: child, ParentID: parent}).
+		On("CONFLICT DO NOTHING").
+		Exec(ctx)
+	return err
+}
+
+// AllDeps returns every dep edge, ordered for deterministic export.
+func (s *Store) AllDeps(ctx context.Context) ([]Dep, error) {
+	var deps []Dep
+	err := s.db.NewSelect().
+		Model(&deps).
+		OrderExpr("child_id, parent_id").
+		Scan(ctx)
+	return deps, err
 }
 
 // exists reports ErrNotFound if no issue with id exists.

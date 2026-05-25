@@ -35,6 +35,16 @@ type CLI struct {
 	Label      LabelCmd      `cmd:"" help:"Manage labels on an issue."`
 	Defer      DeferCmd      `cmd:"" help:"Defer an issue until a later time."`
 	Undefer    UndeferCmd    `cmd:"" help:"Clear an issue's deferral."`
+	Blocked    BlockedCmd    `cmd:"" help:"List issues that have at least one open dependency."`
+	Count      CountCmd      `cmd:"" help:"Count issues matching the same filters as 'list'."`
+	Stats      StatsCmd      `cmd:"" help:"Show issue counts grouped by status, agent, and type."`
+	Reopen     ReopenCmd     `cmd:"" help:"Reopen a closed issue."`
+	Assign     AssignCmd     `cmd:"" help:"Assign an issue (sugar for 'update --assignee')."`
+	Priority   PriorityCmd   `cmd:"" help:"Set an issue's priority (sugar for 'update -p N')."`
+	Tag        TagCmd        `cmd:"" help:"Add labels to an issue (alias for 'label add')."`
+	Link       LinkCmd       `cmd:"" help:"Add a dependency edge (alias for 'dep add')."`
+	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
+	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'bd export'."`
 	Version    VersionCmd    `cmd:"" help:"Print version information."`
 	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
 }

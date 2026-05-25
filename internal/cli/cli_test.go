@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -300,6 +301,182 @@ func TestCLIListFilterByTitle(t *testing.T) {
 	if !strings.Contains(out, hit) || strings.Count(out, "bd-") != 1 {
 		t.Fatalf("expected only the bug issue:\n%s", out)
 	}
+}
+
+func TestCLIBlocked(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	c.run("dep", "add", b, a)
+	out := c.run("blocked")
+	if !strings.Contains(out, b) || strings.Contains(out, a) {
+		t.Fatalf("blocked should show only b:\n%s", out)
+	}
+}
+
+func TestCLICount(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "one")
+	c.run("create", "two")
+	c.run("create", "three")
+	out := strings.TrimSpace(c.run("count"))
+	if out != "3" {
+		t.Fatalf("expected 3, got %q", out)
+	}
+}
+
+func TestCLICountJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "one")
+	out := c.run("--json", "count")
+	if !strings.Contains(out, `"count":1`) {
+		t.Fatalf("expected JSON count: %s", out)
+	}
+}
+
+func TestCLIStats(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "a")
+	c.run("create", "-a", "code-reviewer", "b")
+	out := c.run("stats")
+	if !strings.Contains(out, "Status:") || !strings.Contains(out, "Agents:") || !strings.Contains(out, "Types:") {
+		t.Fatalf("stats missing sections:\n%s", out)
+	}
+	if !strings.Contains(out, "<none>") || !strings.Contains(out, "code-reviewer") {
+		t.Fatalf("stats missing agent grouping:\n%s", out)
+	}
+}
+
+func TestCLISugarAssign(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "task"))
+	c.run("assign", id, "alice")
+	out := c.run("show", id)
+	if !strings.Contains(out, "Assignee: alice") {
+		t.Fatalf("assign didn't apply:\n%s", out)
+	}
+	c.run("assign", id) // clear
+	out = c.run("show", id)
+	if strings.Contains(out, "Assignee:") {
+		t.Fatalf("clear didn't apply:\n%s", out)
+	}
+}
+
+func TestCLISugarPriority(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "task"))
+	c.run("priority", id, "0")
+	out := c.run("show", id)
+	if !strings.Contains(out, "Priority: 0") {
+		t.Fatalf("priority didn't apply:\n%s", out)
+	}
+}
+
+func TestCLISugarTag(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "task"))
+	c.run("tag", id, "security", "p0")
+	out := c.run("label", "ls", id)
+	if !strings.Contains(out, "security") || !strings.Contains(out, "p0") {
+		t.Fatalf("tag didn't apply:\n%s", out)
+	}
+}
+
+func TestCLISugarLink(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	c.run("link", b, a)
+	out := c.run("show", b)
+	if !strings.Contains(out, "Depends:") || !strings.Contains(out, a) {
+		t.Fatalf("link didn't apply:\n%s", out)
+	}
+}
+
+func TestCLIReopen(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "task"))
+	c.run("close", id)
+	c.run("reopen", id)
+	out := c.run("show", id)
+	if !strings.Contains(out, "Status:   open") {
+		t.Fatalf("expected status open after reopen:\n%s", out)
+	}
+}
+
+func TestCLIExportImportRoundTrip(t *testing.T) {
+	// Build the dataset.
+	src := newTestCLI(t)
+	src.run("init")
+	a := strings.TrimSpace(src.run("create", "-p", "0", "first task"))
+	b := strings.TrimSpace(src.run("create", "-p", "2", "second"))
+	src.run("dep", "add", b, a)
+	src.run("label", "add", a, "security", "p0")
+	src.run("defer", b, "+1h")
+
+	// Export to a temp file.
+	dump := filepath.Join(t.TempDir(), "dump.jsonl")
+	src.run("export", "-o", dump)
+
+	// Import into a fresh DB.
+	dst := newTestCLI(t)
+	dst.run("init")
+	dst.run("import", dump)
+
+	// Compare: all three issues survived with priorities + agent + deps + labels.
+	for _, id := range []string{a, b} {
+		out := dst.run("show", id)
+		if !strings.Contains(out, id) {
+			t.Fatalf("missing %s after import:\n%s", id, out)
+		}
+	}
+	out := dst.run("show", a)
+	if !strings.Contains(out, "security") || !strings.Contains(out, "p0") {
+		t.Fatalf("labels lost on roundtrip:\n%s", out)
+	}
+	out = dst.run("show", b)
+	if !strings.Contains(out, "Deferred:") {
+		t.Fatalf("defer_until lost on roundtrip:\n%s", out)
+	}
+	if !strings.Contains(out, "Depends:") || !strings.Contains(out, a) {
+		t.Fatalf("dep lost on roundtrip:\n%s", out)
+	}
+}
+
+func TestCLIImportLenientSkipsBadLines(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	// Write a file with one valid line and one garbage line.
+	path := filepath.Join(t.TempDir(), "mixed.jsonl")
+	good := `{"kind":"issue","data":{"id":"bd-aaaa","title":"hello","type":"task","status":"open","priority":2,"created":1,"updated":1}}` + "\n"
+	bad := "{not valid json}\n"
+	if err := os.WriteFile(path, []byte(good+bad), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c.run("import", "--lenient", path)
+	out := c.run("show", "bd-aaaa")
+	if !strings.Contains(out, "hello") {
+		t.Fatalf("good line not imported:\n%s", out)
+	}
+}
+
+func TestCLIImportStrictRejectsBadLines(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	path := filepath.Join(t.TempDir(), "bad.jsonl")
+	if err := os.WriteFile(path, []byte("{not valid json}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	c.runFail("import", path)
 }
 
 func TestCLIDeferUndefer(t *testing.T) {

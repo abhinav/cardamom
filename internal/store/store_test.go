@@ -567,6 +567,81 @@ func TestListFilterOverdue(t *testing.T) {
 	}
 }
 
+func TestBlocked(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	b, _ := s.Create(ctx, "b", "task", 1, nil)
+	_, _ = s.Create(ctx, "free", "task", 1, nil)
+	_ = s.AddDep(ctx, b.ID, a.ID)
+	got, _ := s.Blocked(ctx, 10, nil)
+	if len(got) != 1 || got[0].ID != b.ID {
+		t.Fatalf("expected only b blocked, got %+v", got)
+	}
+}
+
+func TestCountWithFilter(t *testing.T) {
+	s := newTestStore(t)
+	cr := "code-reviewer"
+	_, _ = s.Create(ctx, "1", "task", 1, &cr)
+	_, _ = s.Create(ctx, "2", "task", 1, &cr)
+	_, _ = s.Create(ctx, "3", "task", 1, nil)
+	n, _ := s.Count(ctx, ListFilter{Agent: &cr})
+	if n != 2 {
+		t.Fatalf("expected 2 for code-reviewer, got %d", n)
+	}
+	n, _ = s.Count(ctx, ListFilter{})
+	if n != 3 {
+		t.Fatalf("expected 3 total, got %d", n)
+	}
+}
+
+func TestStats(t *testing.T) {
+	s := newTestStore(t)
+	cr := "code-reviewer"
+	a, _ := s.Create(ctx, "1", "task", 1, &cr)
+	_, _ = s.Create(ctx, "2", "bug", 1, nil)
+	_, _ = s.Create(ctx, "3", "task", 1, nil)
+	_, _ = s.MarkClosed(ctx, a.ID)
+	st, _ := s.Stats(ctx)
+	if st.Status["closed"] != 1 || st.Status["open"] != 2 {
+		t.Fatalf("status counts wrong: %+v", st.Status)
+	}
+	if st.Agents["<none>"] != 2 || st.Agents["code-reviewer"] != 1 {
+		t.Fatalf("agent counts wrong: %+v", st.Agents)
+	}
+	if st.Types["task"] != 2 || st.Types["bug"] != 1 {
+		t.Fatalf("type counts wrong: %+v", st.Types)
+	}
+}
+
+func TestReopen(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	_, _ = s.MarkClosed(ctx, a.ID)
+	got, err := s.Reopen(ctx, a.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Status != "open" || got.Closed != nil {
+		t.Fatalf("expected open + closed=nil, got %+v", got)
+	}
+}
+
+func TestReopenAlreadyOpen(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	if _, err := s.Reopen(ctx, a.ID); err != ErrAlreadyOpen {
+		t.Fatalf("expected ErrAlreadyOpen, got %v", err)
+	}
+}
+
+func TestReopenMissing(t *testing.T) {
+	s := newTestStore(t)
+	if _, err := s.Reopen(ctx, "bd-zzzz"); err != ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestDepsListing(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 1, nil)

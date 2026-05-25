@@ -7,7 +7,11 @@ import (
 	"github.com/rovak/beadsv2/internal/store"
 )
 
-type ListCmd struct {
+// listFilterFlags is the kong-tagged set of flags that build a
+// store.ListFilter. Embedded by ListCmd and CountCmd so both commands
+// stay in lock-step. Limit is intentionally separate from the embed:
+// list cares about it, count does not.
+type listFilterFlags struct {
 	Status string `default:"open" enum:"open,in_progress,closed,all" help:"Filter by stored status."`
 	Agent  string `short:"a" help:"Filter by agent lane."`
 	Type   string `short:"t" help:"Filter by type."`
@@ -31,45 +35,54 @@ type ListCmd struct {
 
 	Deferred bool `name:"deferred" help:"Only issues currently deferred (defer_until in the future)."`
 	Overdue  bool `name:"overdue" help:"Only non-closed issues whose defer_until has already passed."`
+}
 
+func (f listFilterFlags) toFilter() (store.ListFilter, error) {
+	out := store.ListFilter{
+		Status:        f.Status,
+		Agent:         agentPtr(f.Agent),
+		Type:          f.Type,
+		Labels:        f.Label,
+		LabelsAny:     f.LabelAny,
+		NoLabels:      f.NoLabels,
+		NoAssignee:    f.NoAssignee,
+		TitleContains: f.TitleContains,
+		PriorityMin:   f.PriorityMin,
+		PriorityMax:   f.PriorityMax,
+		IDs:           f.ID,
+		Deferred:      f.Deferred,
+		Overdue:       f.Overdue,
+	}
+	if out.Status == "all" {
+		out.Status = ""
+	}
+	var err error
+	if out.CreatedAfter, err = parseDate(f.CreatedAfter); err != nil {
+		return out, fmt.Errorf("--created-after: %w", err)
+	}
+	if out.CreatedBefore, err = parseDate(f.CreatedBefore); err != nil {
+		return out, fmt.Errorf("--created-before: %w", err)
+	}
+	if out.UpdatedAfter, err = parseDate(f.UpdatedAfter); err != nil {
+		return out, fmt.Errorf("--updated-after: %w", err)
+	}
+	if out.UpdatedBefore, err = parseDate(f.UpdatedBefore); err != nil {
+		return out, fmt.Errorf("--updated-before: %w", err)
+	}
+	return out, nil
+}
+
+type ListCmd struct {
+	listFilterFlags
 	Limit int `short:"n" default:"50" help:"Limit results (0 = unlimited)."`
 }
 
 func (c *ListCmd) Run(r *runCtx) error {
-	f := store.ListFilter{
-		Status:        c.Status,
-		Agent:         agentPtr(c.Agent),
-		Type:          c.Type,
-		Labels:        c.Label,
-		LabelsAny:     c.LabelAny,
-		NoLabels:      c.NoLabels,
-		NoAssignee:    c.NoAssignee,
-		TitleContains: c.TitleContains,
-		PriorityMin:   c.PriorityMin,
-		PriorityMax:   c.PriorityMax,
-		IDs:           c.ID,
-		Deferred:      c.Deferred,
-		Overdue:       c.Overdue,
-		Limit:         c.Limit,
+	f, err := c.listFilterFlags.toFilter()
+	if err != nil {
+		return err
 	}
-	if f.Status == "all" {
-		f.Status = ""
-	}
-
-	var err error
-	if f.CreatedAfter, err = parseDate(c.CreatedAfter); err != nil {
-		return fmt.Errorf("--created-after: %w", err)
-	}
-	if f.CreatedBefore, err = parseDate(c.CreatedBefore); err != nil {
-		return fmt.Errorf("--created-before: %w", err)
-	}
-	if f.UpdatedAfter, err = parseDate(c.UpdatedAfter); err != nil {
-		return fmt.Errorf("--updated-after: %w", err)
-	}
-	if f.UpdatedBefore, err = parseDate(c.UpdatedBefore); err != nil {
-		return fmt.Errorf("--updated-before: %w", err)
-	}
-
+	f.Limit = c.Limit
 	return withStore(r, func(s *store.Store) error {
 		issues, err := s.List(r.ctx, f)
 		if err != nil {
@@ -98,4 +111,3 @@ func parseDate(s string) (*int64, error) {
 	}
 	return nil, fmt.Errorf("invalid date %q (use YYYY-MM-DD or RFC3339)", s)
 }
-
