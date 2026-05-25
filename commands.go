@@ -130,7 +130,7 @@ type CreateCmd struct {
 func (c *CreateCmd) Run(r *runCtx) error {
 	title := strings.Join(c.Title, " ")
 	return withStore(r, func(s *Store) error {
-		i, err := s.Create(title, c.Type, c.Priority, agentPtr(c.Agent))
+		i, err := s.Create(r.ctx, title, c.Type, c.Priority, agentPtr(c.Agent))
 		if err != nil {
 			return err
 		}
@@ -150,7 +150,7 @@ func (c *ListCmd) Run(r *runCtx) error {
 		filter = ""
 	}
 	return withStore(r, func(s *Store) error {
-		issues, err := s.List(filter, agentPtr(c.Agent))
+		issues, err := s.List(r.ctx, filter, agentPtr(c.Agent))
 		if err != nil {
 			return err
 		}
@@ -175,7 +175,7 @@ func (c *ReadyCmd) Run(r *runCtx) error {
 		if c.Wait {
 			issues, err = s.WaitReady(r.ctx, c.N, agentPtr(c.Agent), c.Interval)
 		} else {
-			issues, err = s.Ready(c.N, agentPtr(c.Agent))
+			issues, err = s.Ready(r.ctx, c.N, agentPtr(c.Agent))
 		}
 		if err != nil {
 			return err
@@ -191,11 +191,11 @@ type ShowCmd struct {
 
 func (c *ShowCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *Store) error {
-		i, err := s.Get(c.ID)
+		i, err := s.Get(r.ctx, c.ID)
 		if err != nil {
 			return err
 		}
-		parents, blocks, err := s.Deps(i.ID)
+		parents, blocks, err := s.Deps(r.ctx, i.ID)
 		if err != nil {
 			return err
 		}
@@ -215,7 +215,7 @@ type ClaimCmd struct {
 func (c *ClaimCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *Store) error {
 		if c.ID != "" {
-			i, err := s.ClaimByID(c.ID, c.As)
+			i, err := s.ClaimByID(r.ctx, c.ID, c.As)
 			if err != nil {
 				return err
 			}
@@ -224,7 +224,7 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 		}
 		agent := agentPtr(c.Agent)
 		for {
-			i, err := s.Claim(c.As, agent)
+			i, err := s.Claim(r.ctx, c.As, agent)
 			if err == nil {
 				fmt.Fprintf(r.stdout, "claimed %s (%s)\n", i.ID, i.Title)
 				return nil
@@ -251,7 +251,7 @@ type CloseCmd struct {
 
 func (c *CloseCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *Store) error {
-		i, err := s.MarkClosed(c.ID)
+		i, err := s.MarkClosed(r.ctx, c.ID)
 		if err != nil {
 			return err
 		}
@@ -291,7 +291,7 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 		case c.Agent != nil:
 			f.Agent = &c.Agent
 		}
-		i, err := s.Update(c.ID, f)
+		i, err := s.Update(r.ctx, c.ID, f)
 		if err != nil {
 			return err
 		}
@@ -312,7 +312,7 @@ type DepAddCmd struct {
 
 func (c *DepAddCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *Store) error {
-		if err := s.AddDep(c.Child, c.Parent); err != nil {
+		if err := s.AddDep(r.ctx, c.Child, c.Parent); err != nil {
 			return err
 		}
 		fmt.Fprintf(r.stdout, "%s depends on %s\n", c.Child, c.Parent)
@@ -327,7 +327,7 @@ type DepRmCmd struct {
 
 func (c *DepRmCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *Store) error {
-		if err := s.RemoveDep(c.Child, c.Parent); err != nil {
+		if err := s.RemoveDep(r.ctx, c.Child, c.Parent); err != nil {
 			return err
 		}
 		fmt.Fprintf(r.stdout, "removed %s -> %s\n", c.Child, c.Parent)

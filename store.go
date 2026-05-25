@@ -7,11 +7,38 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rovak/beadsv2/internal/dbq"
+	"github.com/uptrace/bun"
+	"github.com/uptrace/bun/dialect/sqlitedialect"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
 )
+
+// ---- Models ----
+
+type Issue struct {
+	bun.BaseModel `bun:"table:issues,alias:i"`
+
+	ID       string  `bun:"id,pk"`
+	Title    string  `bun:"title,notnull"`
+	Type     string  `bun:"type,notnull"`
+	Status   string  `bun:"status,notnull"`
+	Priority int     `bun:"priority,notnull"`
+	Agent    *string `bun:"agent"`
+	Assignee *string `bun:"assignee"`
+	Created  int64   `bun:"created,notnull"`
+	Updated  int64   `bun:"updated,notnull"`
+	Closed   *int64  `bun:"closed"`
+}
+
+type Dep struct {
+	bun.BaseModel `bun:"table:deps"`
+
+	ChildID  string `bun:"child_id,pk"`
+	ParentID string `bun:"parent_id,pk"`
+}
+
+// ---- Migrations (kept manual, independent of Bun) ----
 
 // migrations are applied in order; PRAGMA user_version tracks progress.
 // Append new migrations, never edit existing ones.
@@ -59,7 +86,6 @@ func migrate(db *sql.DB) error {
 			tx.Rollback()
 			return fmt.Errorf("migration %d: %w", version+1, err)
 		}
-		// PRAGMA user_version doesn't accept placeholders.
 		if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, version+1)); err != nil {
 			tx.Rollback()
 			return err
@@ -71,32 +97,22 @@ func migrate(db *sql.DB) error {
 	return nil
 }
 
-type Issue struct {
-	ID       string
-	Title    string
-	Type     string
-	Status   string
-	Priority int
-	Agent    *string
-	Assignee *string
-	Created  int64
-	Updated  int64
-	Closed   *int64
-}
+// ---- Store ----
 
 type Store struct {
-	db *sql.DB
+	db *bun.DB
 }
 
 func Open(path string) (*Store, error) {
-	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	sqldb, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
 	}
-	if err := migrate(db); err != nil {
-		db.Close()
+	if err := migrate(sqldb); err != nil {
+		sqldb.Close()
 		return nil, err
 	}
+	db := bun.NewDB(sqldb, sqlitedialect.New())
 	return &Store{db: db}, nil
 }
 
@@ -125,15 +141,8 @@ func isUniqueErr(err error) bool {
 	return false
 }
 
-// scanIssue reads one issue row from r into i.
-func scanIssue(r interface{ Scan(...any) error }, i *Issue) error {
-	return r.Scan(&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority, &i.Agent, &i.Assignee, &i.Created, &i.Updated, &i.Closed)
-}
-
-const issueCols = `id, title, type, status, priority, agent, assignee, created, updated, closed`
-
 // Create inserts a new issue. agent may be nil for an unassigned-lane issue.
-func (s *Store) Create(title, typ string, priority int, agent *string) (Issue, error) {
+func (s *Store) Create(ctx context.Context, title, typ string, priority int, agent *string) (Issue, error) {
 	if title == "" {
 		return Issue{}, errors.New("title required")
 	}
@@ -141,14 +150,15 @@ func (s *Store) Create(title, typ string, priority int, agent *string) (Issue, e
 		typ = "task"
 	}
 	for tries := 0; tries < 8; tries++ {
-		id := NewID()
 		t := now()
-		_, err := s.db.Exec(
-			`INSERT INTO issues (id, title, type, priority, agent, created, updated) VALUES (?,?,?,?,?,?,?)`,
-			id, title, typ, priority, agent, t, t,
-		)
+		i := Issue{
+			ID: NewID(), Title: title, Type: typ, Status: "open",
+			Priority: priority, Agent: agent,
+			Created: t, Updated: t,
+		}
+		_, err := s.db.NewInsert().Model(&i).Exec(ctx)
 		if err == nil {
-			return s.Get(id)
+			return i, nil
 		}
 		if !isUniqueErr(err) {
 			return Issue{}, err
@@ -157,114 +167,287 @@ func (s *Store) Create(title, typ string, priority int, agent *string) (Issue, e
 	return Issue{}, errors.New("failed to allocate unique id after 8 tries")
 }
 
-// Get fetches a single issue by ID.
-// This method is wired through sqlc-generated code as a preview of the
-// full migration; the rest of Store still uses hand-written SQL.
-func (s *Store) Get(id string) (Issue, error) {
-	row, err := dbq.New(s.db).GetIssue(context.TODO(), id)
+func (s *Store) Get(ctx context.Context, id string) (Issue, error) {
+	var i Issue
+	err := s.db.NewSelect().Model(&i).Where("id = ?", id).Scan(ctx)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound
 	}
-	if err != nil {
-		return Issue{}, err
-	}
-	return issueFromDBQ(row), nil
-}
-
-// issueFromDBQ converts a sqlc-generated Issue to the local Issue type.
-// Identical field-for-field except Priority (int64 vs int) — this mapping
-// goes away if we standardise on the generated type.
-func issueFromDBQ(r dbq.Issue) Issue {
-	return Issue{
-		ID:       r.ID,
-		Title:    r.Title,
-		Type:     r.Type,
-		Status:   r.Status,
-		Priority: int(r.Priority),
-		Agent:    r.Agent,
-		Assignee: r.Assignee,
-		Created:  r.Created,
-		Updated:  r.Updated,
-		Closed:   r.Closed,
-	}
+	return i, err
 }
 
 // List returns issues filtered by status and/or agent.
-//   status: empty string = any status; else exact match.
+//   status: "" = any status; else exact match.
 //   agent:  nil = no agent filter; else exact match on agent name.
-func (s *Store) List(status string, agent *string) ([]Issue, error) {
-	q := `SELECT ` + issueCols + ` FROM issues WHERE 1=1`
-	args := []any{}
+func (s *Store) List(ctx context.Context, status string, agent *string) ([]Issue, error) {
+	var issues []Issue
+	q := s.db.NewSelect().Model(&issues).OrderExpr("priority ASC, created ASC")
 	if status != "" {
-		q += ` AND status = ?`
-		args = append(args, status)
+		q = q.Where("status = ?", status)
 	}
 	if agent != nil {
-		q += ` AND agent = ?`
-		args = append(args, *agent)
+		q = q.Where("agent = ?", *agent)
 	}
-	q += ` ORDER BY priority ASC, created ASC`
-	rows, err := s.db.Query(q, args...)
-	if err != nil {
+	if err := q.Scan(ctx); err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []Issue
-	for rows.Next() {
-		var i Issue
-		if err := scanIssue(rows, &i); err != nil {
-			return nil, err
-		}
-		out = append(out, i)
+	return issues, nil
+}
+
+// readyQuery applies the shared WHERE/ORDER for ready-issue selection.
+func (s *Store) readyQuery(agent *string) *bun.SelectQuery {
+	q := s.db.NewSelect().Model((*Issue)(nil)).
+		Where("i.status = 'open' AND i.assignee IS NULL").
+		Where("NOT EXISTS (SELECT 1 FROM deps d JOIN issues p ON p.id = d.parent_id WHERE d.child_id = i.id AND p.status != 'closed')").
+		OrderExpr("i.priority ASC, i.created ASC")
+	if agent == nil {
+		q = q.Where("i.agent IS NULL")
+	} else {
+		q = q.Where("i.agent = ?", *agent)
 	}
-	return out, rows.Err()
+	return q
 }
 
 // Ready returns open, unclaimed issues with all dependencies closed.
 //   agent: nil = unassigned lane (agent IS NULL); else exact match.
-func (s *Store) Ready(limit int, agent *string) ([]Issue, error) {
+func (s *Store) Ready(ctx context.Context, limit int, agent *string) ([]Issue, error) {
 	if limit <= 0 {
 		limit = 50
 	}
-	q := `
-        SELECT ` + issueCols + `
-        FROM issues i
-        WHERE i.status = 'open' AND i.assignee IS NULL
-          AND ` + agentClause(agent) + `
-          AND NOT EXISTS (
-              SELECT 1 FROM deps d
-              JOIN issues p ON p.id = d.parent_id
-              WHERE d.child_id = i.id AND p.status != 'closed'
-          )
-        ORDER BY i.priority ASC, i.created ASC
-        LIMIT ?`
-	args := agentArgs(agent)
-	args = append(args, limit)
-	rows, err := s.db.Query(q, args...)
+	var issues []Issue
+	err := s.readyQuery(agent).
+		ColumnExpr("i.*").
+		Limit(limit).
+		Scan(ctx, &issues)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	var out []Issue
-	for rows.Next() {
-		var i Issue
-		if err := scanIssue(rows, &i); err != nil {
-			return nil, err
-		}
-		out = append(out, i)
+	return issues, nil
+}
+
+// Claim atomically assigns the next ready issue in the given lane.
+//   agent: nil = unassigned lane (agent IS NULL); else exact match.
+// Returns ErrNotFound when nothing is ready in that lane.
+//
+// SQLite UPDATE…RETURNING with a subquery WHERE is awkward to express via
+// the Bun query builder; raw SQL is clearer here.
+func (s *Store) Claim(ctx context.Context, assignee string, agent *string) (Issue, error) {
+	if assignee == "" {
+		return Issue{}, errors.New("assignee required")
 	}
-	return out, rows.Err()
+	var (
+		laneClause string
+		laneArgs   []any
+	)
+	if agent == nil {
+		laneClause = "agent IS NULL"
+	} else {
+		laneClause = "agent = ?"
+		laneArgs = []any{*agent}
+	}
+	q := `
+        UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?
+        WHERE id = (
+            SELECT id FROM issues
+            WHERE status = 'open' AND assignee IS NULL
+              AND ` + laneClause + `
+              AND NOT EXISTS (
+                  SELECT 1 FROM deps d
+                  JOIN issues p ON p.id = d.parent_id
+                  WHERE d.child_id = issues.id AND p.status != 'closed'
+              )
+            ORDER BY priority ASC, created ASC
+            LIMIT 1
+        )
+        RETURNING id, title, type, status, priority, agent, assignee, created, updated, closed`
+	args := []any{assignee, now()}
+	args = append(args, laneArgs...)
+	var i Issue
+	err := s.db.QueryRowContext(ctx, q, args...).Scan(
+		&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority,
+		&i.Agent, &i.Assignee, &i.Created, &i.Updated, &i.Closed,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return Issue{}, ErrNotFound
+	}
+	return i, err
+}
+
+// ClaimByID claims a specific issue if open and unassigned.
+func (s *Store) ClaimByID(ctx context.Context, id, assignee string) (Issue, error) {
+	if assignee == "" {
+		return Issue{}, errors.New("assignee required")
+	}
+	res, err := s.db.NewUpdate().
+		Model((*Issue)(nil)).
+		Set("assignee = ?", assignee).
+		Set("status = 'in_progress'").
+		Set("updated = ?", now()).
+		Where("id = ? AND status = 'open' AND assignee IS NULL", id).
+		Exec(ctx)
+	if err != nil {
+		return Issue{}, err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return Issue{}, fmt.Errorf("%w: %s", ErrNotClaimable, id)
+	}
+	return s.Get(ctx, id)
+}
+
+// MarkClosed transitions an open/in-progress issue to closed.
+func (s *Store) MarkClosed(ctx context.Context, id string) (Issue, error) {
+	t := now()
+	res, err := s.db.NewUpdate().
+		Model((*Issue)(nil)).
+		Set("status = 'closed'").
+		Set("closed = ?", t).
+		Set("updated = ?", t).
+		Where("id = ? AND status != 'closed'", id).
+		Exec(ctx)
+	if err != nil {
+		return Issue{}, err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		if _, err := s.Get(ctx, id); errors.Is(err, ErrNotFound) {
+			return Issue{}, ErrNotFound
+		}
+		return Issue{}, ErrAlreadyClosed
+	}
+	return s.Get(ctx, id)
+}
+
+type UpdateFields struct {
+	Title    *string
+	Type     *string
+	Status   *string
+	Priority *int
+	Assignee **string // outer nil = unchanged; inner nil = clear; else set
+	Agent    **string // same semantics as Assignee
+}
+
+func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, error) {
+	if _, err := s.Get(ctx, id); err != nil {
+		return Issue{}, err
+	}
+	q := s.db.NewUpdate().
+		Model((*Issue)(nil)).
+		Set("updated = ?", now()).
+		Where("id = ?", id)
+	if f.Title != nil {
+		q = q.Set("title = ?", *f.Title)
+	}
+	if f.Type != nil {
+		q = q.Set("type = ?", *f.Type)
+	}
+	if f.Status != nil {
+		q = q.Set("status = ?", *f.Status)
+		if *f.Status == "closed" {
+			q = q.Set("closed = ?", now())
+		}
+	}
+	if f.Priority != nil {
+		q = q.Set("priority = ?", *f.Priority)
+	}
+	if f.Assignee != nil {
+		q = q.Set("assignee = ?", *f.Assignee)
+	}
+	if f.Agent != nil {
+		q = q.Set("agent = ?", *f.Agent)
+	}
+	if _, err := q.Exec(ctx); err != nil {
+		return Issue{}, err
+	}
+	return s.Get(ctx, id)
+}
+
+// AddDep adds a child -> parent dependency in a single transaction.
+// Rejects self-deps and cycles via a recursive CTE.
+func (s *Store) AddDep(ctx context.Context, child, parent string) error {
+	if child == parent {
+		return ErrSelfDep
+	}
+	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := issueExistsTx(ctx, tx, child); err != nil {
+			return fmt.Errorf("child: %w", err)
+		}
+		if err := issueExistsTx(ctx, tx, parent); err != nil {
+			return fmt.Errorf("parent: %w", err)
+		}
+		// Cycle iff parent already (transitively) depends on child.
+		var cycle int
+		err := tx.QueryRowContext(ctx, `
+            WITH RECURSIVE ancestors(id) AS (
+                SELECT parent_id FROM deps WHERE child_id = ?
+                UNION
+                SELECT d.parent_id FROM deps d JOIN ancestors a ON d.child_id = a.id
+            )
+            SELECT EXISTS(SELECT 1 FROM ancestors WHERE id = ?)`,
+			parent, child).Scan(&cycle)
+		if err != nil {
+			return err
+		}
+		if cycle == 1 {
+			return ErrCycle
+		}
+		_, err = tx.NewInsert().
+			Model(&Dep{ChildID: child, ParentID: parent}).
+			On("CONFLICT DO NOTHING").
+			Exec(ctx)
+		return err
+	})
+}
+
+func issueExistsTx(ctx context.Context, tx bun.Tx, id string) error {
+	n, err := tx.NewSelect().Model((*Issue)(nil)).Where("id = ?", id).Count(ctx)
+	if err != nil {
+		return err
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+func (s *Store) RemoveDep(ctx context.Context, child, parent string) error {
+	_, err := s.db.NewDelete().
+		Model((*Dep)(nil)).
+		Where("child_id = ? AND parent_id = ?", child, parent).
+		Exec(ctx)
+	return err
+}
+
+// Deps returns the IDs of issues this one depends on (parents) and
+// the IDs of issues that depend on it (blocks).
+func (s *Store) Deps(ctx context.Context, id string) (parents, blocks []string, err error) {
+	if err := s.db.NewSelect().
+		Model((*Dep)(nil)).
+		Column("parent_id").
+		Where("child_id = ?", id).
+		OrderExpr("parent_id").
+		Scan(ctx, &parents); err != nil {
+		return nil, nil, err
+	}
+	if err := s.db.NewSelect().
+		Model((*Dep)(nil)).
+		Column("child_id").
+		Where("parent_id = ?", id).
+		OrderExpr("child_id").
+		Scan(ctx, &blocks); err != nil {
+		return nil, nil, err
+	}
+	return parents, blocks, nil
 }
 
 // WaitReady polls Ready until at least one issue is returned, the context is
-// cancelled, or an error occurs. Returns whatever issues are ready at that
-// instant. Caller controls the poll interval.
+// cancelled, or an error occurs. Caller controls the poll interval.
 func (s *Store) WaitReady(ctx context.Context, limit int, agent *string, interval time.Duration) ([]Issue, error) {
 	if interval <= 0 {
 		interval = 250 * time.Millisecond
 	}
 	for {
-		issues, err := s.Ready(limit, agent)
+		issues, err := s.Ready(ctx, limit, agent)
 		if err != nil {
 			return nil, err
 		}
@@ -277,225 +460,4 @@ func (s *Store) WaitReady(ctx context.Context, limit int, agent *string, interva
 		case <-time.After(interval):
 		}
 	}
-}
-
-// agentClause returns a SQL fragment scoping a query to a lane.
-// nil → unassigned lane (agent IS NULL); non-nil → agent = ?.
-func agentClause(agent *string) string {
-	if agent == nil {
-		return `i.agent IS NULL`
-	}
-	return `i.agent = ?`
-}
-
-func agentArgs(agent *string) []any {
-	if agent == nil {
-		return nil
-	}
-	return []any{*agent}
-}
-
-// Claim atomically assigns the next ready issue in the given lane.
-//   agent: nil = unassigned lane (agent IS NULL); else exact match.
-// Returns ErrNotFound when nothing is ready in that lane.
-func (s *Store) Claim(assignee string, agent *string) (Issue, error) {
-	if assignee == "" {
-		return Issue{}, errors.New("assignee required")
-	}
-	q := `
-        UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?
-        WHERE id = (
-            SELECT i.id FROM issues i
-            WHERE i.status = 'open' AND i.assignee IS NULL
-              AND ` + agentClause(agent) + `
-              AND NOT EXISTS (
-                  SELECT 1 FROM deps d
-                  JOIN issues p ON p.id = d.parent_id
-                  WHERE d.child_id = i.id AND p.status != 'closed'
-              )
-            ORDER BY i.priority ASC, i.created ASC
-            LIMIT 1
-        )
-        RETURNING ` + issueCols
-	args := []any{assignee, now()}
-	args = append(args, agentArgs(agent)...)
-	var i Issue
-	err := scanIssue(s.db.QueryRow(q, args...), &i)
-	if errors.Is(err, sql.ErrNoRows) {
-		return Issue{}, ErrNotFound
-	}
-	return i, err
-}
-
-// ClaimByID claims a specific issue if open and unassigned.
-func (s *Store) ClaimByID(id, assignee string) (Issue, error) {
-	if assignee == "" {
-		return Issue{}, errors.New("assignee required")
-	}
-	res, err := s.db.Exec(
-		`UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?
-         WHERE id = ? AND status = 'open' AND assignee IS NULL`,
-		assignee, now(), id)
-	if err != nil {
-		return Issue{}, err
-	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		return Issue{}, fmt.Errorf("%w: %s", ErrNotClaimable, id)
-	}
-	return s.Get(id)
-}
-
-// MarkClosed transitions an open/in-progress issue to closed.
-func (s *Store) MarkClosed(id string) (Issue, error) {
-	t := now()
-	res, err := s.db.Exec(
-		`UPDATE issues SET status = 'closed', closed = ?, updated = ? WHERE id = ? AND status != 'closed'`,
-		t, t, id)
-	if err != nil {
-		return Issue{}, err
-	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		if _, err := s.Get(id); errors.Is(err, ErrNotFound) {
-			return Issue{}, ErrNotFound
-		}
-		return Issue{}, ErrAlreadyClosed
-	}
-	return s.Get(id)
-}
-
-type UpdateFields struct {
-	Title    *string
-	Type     *string
-	Status   *string
-	Priority *int
-	Assignee **string // outer nil = unchanged; inner nil = clear; else set
-	Agent    **string // same semantics as Assignee
-}
-
-func (s *Store) Update(id string, f UpdateFields) (Issue, error) {
-	if _, err := s.Get(id); err != nil {
-		return Issue{}, err
-	}
-	q := `UPDATE issues SET updated = ?`
-	args := []any{now()}
-	if f.Title != nil {
-		q += `, title = ?`
-		args = append(args, *f.Title)
-	}
-	if f.Type != nil {
-		q += `, type = ?`
-		args = append(args, *f.Type)
-	}
-	if f.Status != nil {
-		q += `, status = ?`
-		args = append(args, *f.Status)
-		if *f.Status == "closed" {
-			q += `, closed = ?`
-			args = append(args, now())
-		}
-	}
-	if f.Priority != nil {
-		q += `, priority = ?`
-		args = append(args, *f.Priority)
-	}
-	if f.Assignee != nil {
-		q += `, assignee = ?`
-		args = append(args, *f.Assignee) // *string; nil clears
-	}
-	if f.Agent != nil {
-		q += `, agent = ?`
-		args = append(args, *f.Agent) // *string; nil clears
-	}
-	q += ` WHERE id = ?`
-	args = append(args, id)
-	if _, err := s.db.Exec(q, args...); err != nil {
-		return Issue{}, err
-	}
-	return s.Get(id)
-}
-
-// AddDep adds a child -> parent dependency in a single transaction.
-// Rejects self-deps and cycles. Uses a recursive CTE for cycle detection.
-func (s *Store) AddDep(child, parent string) error {
-	if child == parent {
-		return ErrSelfDep
-	}
-	tx, err := s.db.Begin()
-	if err != nil {
-		return err
-	}
-	defer tx.Rollback()
-
-	if err := exists(tx, child); err != nil {
-		return fmt.Errorf("child: %w", err)
-	}
-	if err := exists(tx, parent); err != nil {
-		return fmt.Errorf("parent: %w", err)
-	}
-
-	// Cycle iff parent already (transitively) depends on child.
-	var cycle int
-	err = tx.QueryRow(`
-        WITH RECURSIVE ancestors(id) AS (
-            SELECT parent_id FROM deps WHERE child_id = ?
-            UNION
-            SELECT d.parent_id FROM deps d JOIN ancestors a ON d.child_id = a.id
-        )
-        SELECT EXISTS(SELECT 1 FROM ancestors WHERE id = ?)`,
-		parent, child).Scan(&cycle)
-	if err != nil {
-		return err
-	}
-	if cycle == 1 {
-		return ErrCycle
-	}
-	if _, err := tx.Exec(`INSERT OR IGNORE INTO deps (child_id, parent_id) VALUES (?, ?)`, child, parent); err != nil {
-		return err
-	}
-	return tx.Commit()
-}
-
-func exists(tx *sql.Tx, id string) error {
-	var n int
-	err := tx.QueryRow(`SELECT 1 FROM issues WHERE id = ?`, id).Scan(&n)
-	if errors.Is(err, sql.ErrNoRows) {
-		return ErrNotFound
-	}
-	return err
-}
-
-func (s *Store) RemoveDep(child, parent string) error {
-	_, err := s.db.Exec(`DELETE FROM deps WHERE child_id = ? AND parent_id = ?`, child, parent)
-	return err
-}
-
-func (s *Store) Deps(id string) (parents, blocks []string, err error) {
-	rows, err := s.db.Query(`SELECT parent_id FROM deps WHERE child_id = ? ORDER BY parent_id`, id)
-	if err != nil {
-		return nil, nil, err
-	}
-	for rows.Next() {
-		var p string
-		if err := rows.Scan(&p); err != nil {
-			rows.Close()
-			return nil, nil, err
-		}
-		parents = append(parents, p)
-	}
-	rows.Close()
-	rows, err = s.db.Query(`SELECT child_id FROM deps WHERE parent_id = ? ORDER BY child_id`, id)
-	if err != nil {
-		return nil, nil, err
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var c string
-		if err := rows.Scan(&c); err != nil {
-			return nil, nil, err
-		}
-		blocks = append(blocks, c)
-	}
-	return parents, blocks, rows.Err()
 }
