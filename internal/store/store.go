@@ -1,4 +1,4 @@
-package main
+package store
 
 import (
 	"context"
@@ -152,7 +152,7 @@ func (s *Store) Create(ctx context.Context, title, typ string, priority int, age
 	for tries := 0; tries < 8; tries++ {
 		t := now()
 		i := Issue{
-			ID: NewID(), Title: title, Type: typ, Status: "open",
+			ID: newID(), Title: title, Type: typ, Status: "open",
 			Priority: priority, Agent: agent,
 			Created: t, Updated: t,
 		}

@@ -1,11 +1,11 @@
-package main
+package store
 
 import (
 	"crypto/rand"
 	"encoding/hex"
 )
 
-func NewID() string {
+func newID() string {
 	b := make([]byte, 2)
 	if _, err := rand.Read(b); err != nil {
 		panic(err)
