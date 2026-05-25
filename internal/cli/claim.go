@@ -2,7 +2,6 @@ package cli
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/rovak/beadsv2/internal/store"
@@ -23,14 +22,14 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			if err != nil {
 				return err
 			}
-			fmt.Fprintf(r.stdout, "claimed %s (%s)\n", i.ID, i.Title)
+			r.notice("claimed %s (%s)\n", i.ID, i.Title)
 			return nil
 		}
 		agent := agentPtr(c.Agent)
 		for {
 			i, err := s.Claim(r.ctx, c.As, agent)
 			if err == nil {
-				fmt.Fprintf(r.stdout, "claimed %s (%s)\n", i.ID, i.Title)
+				r.notice("claimed %s (%s)\n", i.ID, i.Title)
 				return nil
 			}
 			if !errors.Is(err, store.ErrNotFound) {

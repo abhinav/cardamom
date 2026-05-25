@@ -20,7 +20,7 @@ func (c *ShowCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssue(r.stdout, i, parents, blocks, labels)
+		printIssue(r, i, parents, blocks, labels)
 		return nil
 	})
 }

@@ -18,18 +18,18 @@ import (
 // ---- Models ----
 
 type Issue struct {
-	bun.BaseModel `bun:"table:issues,alias:i"`
+	bun.BaseModel `bun:"table:issues,alias:i" json:"-"`
 
-	ID       string  `bun:"id,pk"`
-	Title    string  `bun:"title,notnull"`
-	Type     string  `bun:"type,notnull"`
-	Status   string  `bun:"status,notnull"`
-	Priority int     `bun:"priority,notnull"`
-	Agent    *string `bun:"agent"`
-	Assignee *string `bun:"assignee"`
-	Created  int64   `bun:"created,notnull"`
-	Updated  int64   `bun:"updated,notnull"`
-	Closed   *int64  `bun:"closed"`
+	ID       string  `bun:"id,pk" json:"id"`
+	Title    string  `bun:"title,notnull" json:"title"`
+	Type     string  `bun:"type,notnull" json:"type"`
+	Status   string  `bun:"status,notnull" json:"status"`
+	Priority int     `bun:"priority,notnull" json:"priority"`
+	Agent    *string `bun:"agent" json:"agent,omitempty"`
+	Assignee *string `bun:"assignee" json:"assignee,omitempty"`
+	Created  int64   `bun:"created,notnull" json:"created"`
+	Updated  int64   `bun:"updated,notnull" json:"updated"`
+	Closed   *int64  `bun:"closed" json:"closed,omitempty"`
 }
 
 type Dep struct {

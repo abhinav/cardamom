@@ -74,7 +74,7 @@ func (c *ListCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssues(r.stdout, issues, labels)
+		printIssues(r, issues, labels)
 		return nil
 	})
 }

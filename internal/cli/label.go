@@ -23,7 +23,7 @@ func (c *LabelAddCmd) Run(r *runCtx) error {
 		if err := s.AddLabels(r.ctx, c.ID, c.Labels); err != nil {
 			return err
 		}
-		fmt.Fprintf(r.stdout, "added %d label(s) to %s\n", len(c.Labels), c.ID)
+		r.notice("added %d label(s) to %s\n", len(c.Labels), c.ID)
 		return nil
 	})
 }
@@ -38,7 +38,7 @@ func (c *LabelRmCmd) Run(r *runCtx) error {
 		if err := s.RemoveLabels(r.ctx, c.ID, c.Labels); err != nil {
 			return err
 		}
-		fmt.Fprintf(r.stdout, "removed %d label(s) from %s\n", len(c.Labels), c.ID)
+		r.notice("removed %d label(s) from %s\n", len(c.Labels), c.ID)
 		return nil
 	})
 }

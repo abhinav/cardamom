@@ -3,6 +3,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -18,18 +19,22 @@ import (
 
 // CLI is the kong-defined command structure.
 type CLI struct {
-	Dir string `name:"dir" env:"BEADS_DIR" default:".beads" help:"Beads directory."`
+	Dir   string `name:"dir" env:"BEADS_DIR" default:".beads" help:"Beads directory."`
+	JSON  bool   `name:"json" help:"Emit machine-readable JSON instead of human output."`
+	Quiet bool   `short:"q" name:"quiet" help:"Suppress non-essential output (errors still go to stderr)."`
 
-	Init   InitCmd   `cmd:"" help:"Initialize the beads database in the current directory."`
-	Create CreateCmd `cmd:"" help:"Create a new issue."`
-	List   ListCmd   `cmd:"" help:"List issues."`
-	Ready  ReadyCmd  `cmd:"" help:"List issues that are ready to work on."`
-	Show   ShowCmd   `cmd:"" help:"Show details for one issue."`
-	Claim  ClaimCmd  `cmd:"" help:"Claim the next ready issue (or a specific one)."`
-	Close  CloseCmd  `cmd:"" help:"Close an issue."`
-	Update UpdateCmd `cmd:"" help:"Update fields on an issue."`
-	Dep    DepCmd    `cmd:"" help:"Manage dependency edges."`
-	Label  LabelCmd  `cmd:"" help:"Manage labels on an issue."`
+	Init       InitCmd       `cmd:"" help:"Initialize the beads database in the current directory."`
+	Create     CreateCmd     `cmd:"" help:"Create a new issue."`
+	List       ListCmd       `cmd:"" help:"List issues."`
+	Ready      ReadyCmd      `cmd:"" help:"List issues that are ready to work on."`
+	Show       ShowCmd       `cmd:"" help:"Show details for one issue."`
+	Claim      ClaimCmd      `cmd:"" help:"Claim the next ready issue (or a specific one)."`
+	Close      CloseCmd      `cmd:"" help:"Close an issue."`
+	Update     UpdateCmd     `cmd:"" help:"Update fields on an issue."`
+	Dep        DepCmd        `cmd:"" help:"Manage dependency edges."`
+	Label      LabelCmd      `cmd:"" help:"Manage labels on an issue."`
+	Version    VersionCmd    `cmd:"" help:"Print version information."`
+	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
 }
 
 // runCtx is passed to each command's Run method.
@@ -38,6 +43,18 @@ type runCtx struct {
 	dir    string
 	stdout io.Writer
 	stderr io.Writer
+	json   bool
+	quiet  bool
+}
+
+// notice writes a friendly status message to stdout unless --quiet is set.
+// Use for narrative output ("closed bd-1234", "claimed …"). For data
+// output (IDs, lists, JSON), always write directly to r.stdout.
+func (r *runCtx) notice(format string, args ...any) {
+	if r.quiet {
+		return
+	}
+	fmt.Fprintf(r.stdout, format, args...)
 }
 
 func (c *runCtx) dbPath() string { return filepath.Join(c.dir, "beads.db") }
@@ -95,7 +112,7 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 		fmt.Fprintln(stderr, "error:", err)
 		return 2
 	}
-	rctx := &runCtx{ctx: ctx, dir: cli.Dir, stdout: stdout, stderr: stderr}
+	rctx := &runCtx{ctx: ctx, dir: cli.Dir, stdout: stdout, stderr: stderr, json: cli.JSON, quiet: cli.Quiet}
 	if err := kctx.Run(rctx); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return 130 // standard for SIGINT / cancelled wait
@@ -118,9 +135,32 @@ func loadLabelsFor(ctx context.Context, s *store.Store, issues []store.Issue) (m
 	return s.LoadLabels(ctx, ids)
 }
 
-func printIssues(w io.Writer, issues []store.Issue, labels map[string][]string) {
+// issueOut wraps a store.Issue with its labels for JSON output. Embeds
+// store.Issue so its json tags are promoted to top-level.
+type issueOut struct {
+	store.Issue
+	Labels []string `json:"labels,omitempty"`
+}
+
+// issueShowOut adds parents/blocks for the show command.
+type issueShowOut struct {
+	store.Issue
+	Labels  []string `json:"labels,omitempty"`
+	Depends []string `json:"depends_on,omitempty"`
+	Blocks  []string `json:"blocks,omitempty"`
+}
+
+func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string) {
+	if r.json {
+		out := make([]issueOut, len(issues))
+		for i, is := range issues {
+			out[i] = issueOut{Issue: is, Labels: labels[is.ID]}
+		}
+		_ = json.NewEncoder(r.stdout).Encode(out)
+		return
+	}
 	if len(issues) == 0 {
-		fmt.Fprintln(w, "(none)")
+		fmt.Fprintln(r.stdout, "(none)")
 		return
 	}
 	for _, i := range issues {
@@ -132,15 +172,21 @@ func printIssues(w io.Writer, issues []store.Issue, labels map[string][]string) 
 		if i.Agent != nil {
 			agent = *i.Agent
 		}
-		fmt.Fprintf(w, "%s  p%d  %-12s  %-12s  %-10s  %s", i.ID, i.Priority, i.Status, agent, assignee, i.Title)
+		fmt.Fprintf(r.stdout, "%s  p%d  %-12s  %-12s  %-10s  %s", i.ID, i.Priority, i.Status, agent, assignee, i.Title)
 		if ls := labels[i.ID]; len(ls) > 0 {
-			fmt.Fprintf(w, "  [%s]", strings.Join(ls, ", "))
+			fmt.Fprintf(r.stdout, "  [%s]", strings.Join(ls, ", "))
 		}
-		fmt.Fprintln(w)
+		fmt.Fprintln(r.stdout)
 	}
 }
 
-func printIssue(w io.Writer, i store.Issue, parents, blocks, labels []string) {
+func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string) {
+	if r.json {
+		out := issueShowOut{Issue: i, Labels: labels, Depends: parents, Blocks: blocks}
+		_ = json.NewEncoder(r.stdout).Encode(out)
+		return
+	}
+	w := r.stdout
 	fmt.Fprintf(w, "ID:       %s\n", i.ID)
 	fmt.Fprintf(w, "Title:    %s\n", i.Title)
 	fmt.Fprintf(w, "Type:     %s\n", i.Type)

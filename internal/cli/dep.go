@@ -1,10 +1,6 @@
 package cli
 
-import (
-	"fmt"
-
-	"github.com/rovak/beadsv2/internal/store"
-)
+import "github.com/rovak/beadsv2/internal/store"
 
 type DepCmd struct {
 	Add DepAddCmd `cmd:"" help:"Add a dependency edge."`
@@ -21,7 +17,7 @@ func (c *DepAddCmd) Run(r *runCtx) error {
 		if err := s.AddDep(r.ctx, c.Child, c.Parent); err != nil {
 			return err
 		}
-		fmt.Fprintf(r.stdout, "%s depends on %s\n", c.Child, c.Parent)
+		r.notice("%s depends on %s\n", c.Child, c.Parent)
 		return nil
 	})
 }
@@ -36,7 +32,7 @@ func (c *DepRmCmd) Run(r *runCtx) error {
 		if err := s.RemoveDep(r.ctx, c.Child, c.Parent); err != nil {
 			return err
 		}
-		fmt.Fprintf(r.stdout, "removed %s -> %s\n", c.Child, c.Parent)
+		r.notice("removed %s -> %s\n", c.Child, c.Parent)
 		return nil
 	})
 }

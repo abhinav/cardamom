@@ -1,10 +1,6 @@
 package cli
 
-import (
-	"fmt"
-
-	"github.com/rovak/beadsv2/internal/store"
-)
+import "github.com/rovak/beadsv2/internal/store"
 
 type UpdateCmd struct {
 	ID       string  `arg:"" help:"Issue ID."`
@@ -41,7 +37,7 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		fmt.Fprintf(r.stdout, "updated %s\n", i.ID)
+		r.notice("updated %s\n", i.ID)
 		return nil
 	})
 }

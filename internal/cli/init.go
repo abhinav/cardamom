@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"fmt"
 	"os"
 
 	"github.com/rovak/beadsv2/internal/store"
@@ -18,6 +17,6 @@ func (c *InitCmd) Run(r *runCtx) error {
 		return err
 	}
 	defer s.Close()
-	fmt.Fprintf(r.stdout, "initialized %s\n", r.dbPath())
+	r.notice("initialized %s\n", r.dbPath())
 	return nil
 }

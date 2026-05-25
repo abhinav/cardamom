@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -298,6 +299,84 @@ func TestCLIListFilterByTitle(t *testing.T) {
 	out := c.run("list", "--title-contains", "bug")
 	if !strings.Contains(out, hit) || strings.Count(out, "bd-") != 1 {
 		t.Fatalf("expected only the bug issue:\n%s", out)
+	}
+}
+
+func TestCLIVersion(t *testing.T) {
+	c := newTestCLI(t)
+	out := c.run("version")
+	if !strings.HasPrefix(out, "bd ") {
+		t.Fatalf("expected 'bd <ver>': %q", out)
+	}
+}
+
+func TestCLIVersionJSON(t *testing.T) {
+	c := newTestCLI(t)
+	out := c.run("--json", "version")
+	if !strings.Contains(out, `"version"`) {
+		t.Fatalf("expected JSON with version field: %q", out)
+	}
+}
+
+func TestCLIQuietSuppressesNotices(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "task"))
+	out := c.run("--quiet", "close", id)
+	if out != "" {
+		t.Fatalf("expected empty stdout under --quiet, got %q", out)
+	}
+}
+
+func TestCLIQuietKeepsDataOutput(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	// create's data output (the new ID) must still print under --quiet.
+	id := strings.TrimSpace(c.run("--quiet", "create", "task"))
+	if !strings.HasPrefix(id, "bd-") {
+		t.Fatalf("expected ID even under --quiet, got %q", id)
+	}
+}
+
+func TestCLIJSONListIsValid(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "first")
+	c.run("create", "second")
+	out := c.run("--json", "list")
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+	if _, ok := rows[0]["id"]; !ok {
+		t.Fatalf("missing id field: %+v", rows[0])
+	}
+}
+
+func TestCLIJSONShowIncludesLabels(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "labeled"))
+	c.run("label", "add", id, "x", "y")
+	out := c.run("--json", "show", id)
+	var row map[string]any
+	if err := json.Unmarshal([]byte(out), &row); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	labels, ok := row["labels"].([]any)
+	if !ok || len(labels) != 2 {
+		t.Fatalf("expected 2 labels: %+v", row)
+	}
+}
+
+func TestCLICompletionBash(t *testing.T) {
+	c := newTestCLI(t)
+	out := c.run("completion", "bash")
+	if !strings.Contains(out, "complete -F _bd_completions bd") {
+		t.Fatalf("bash completion missing complete line:\n%s", out)
 	}
 }
 
