@@ -1,0 +1,5 @@
+/beadsv2
+/.beads/
+*.db
+*.db-shm
+*.db-wal
