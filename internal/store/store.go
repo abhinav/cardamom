@@ -27,9 +27,10 @@ type Issue struct {
 	Priority int     `bun:"priority,notnull" json:"priority"`
 	Agent    *string `bun:"agent" json:"agent,omitempty"`
 	Assignee *string `bun:"assignee" json:"assignee,omitempty"`
-	Created  int64   `bun:"created,notnull" json:"created"`
-	Updated  int64   `bun:"updated,notnull" json:"updated"`
-	Closed   *int64  `bun:"closed" json:"closed,omitempty"`
+	Created    int64  `bun:"created,notnull" json:"created"`
+	Updated    int64  `bun:"updated,notnull" json:"updated"`
+	Closed     *int64 `bun:"closed" json:"closed,omitempty"`
+	DeferUntil *int64 `bun:"defer_until" json:"defer_until,omitempty"`
 }
 
 type Dep struct {
@@ -86,6 +87,11 @@ var migrations = []string{
         PRIMARY KEY (issue_id, label)
     );
     CREATE INDEX IF NOT EXISTS idx_issue_labels_label ON issue_labels(label);
+    `,
+	// v4: defer_until.
+	`
+    ALTER TABLE issues ADD COLUMN defer_until INTEGER;
+    CREATE INDEX IF NOT EXISTS idx_issues_defer_until ON issues(defer_until);
     `,
 }
 
@@ -211,6 +217,8 @@ type ListFilter struct {
 	UpdatedAfter  *int64
 	UpdatedBefore *int64
 	IDs           []string // exact match against any of these IDs
+	Deferred      bool     // only issues with defer_until > now (still waiting)
+	Overdue       bool     // only non-closed issues with defer_until <= now (ready to be picked up but still tagged)
 	Limit         int      // 0 = no limit
 }
 
@@ -267,6 +275,12 @@ func (s *Store) List(ctx context.Context, f ListFilter) ([]Issue, error) {
 	}
 	if len(f.IDs) > 0 {
 		q = q.Where("i.id IN (?)", bun.In(f.IDs))
+	}
+	if f.Deferred {
+		q = q.Where("i.defer_until IS NOT NULL AND i.defer_until > ?", now())
+	}
+	if f.Overdue {
+		q = q.Where("i.defer_until IS NOT NULL AND i.defer_until <= ? AND i.status != 'closed'", now())
 	}
 	if f.Limit > 0 {
 		q = q.Limit(f.Limit)
@@ -344,6 +358,24 @@ func (s *Store) LoadLabels(ctx context.Context, ids []string) (map[string][]stri
 	return out, nil
 }
 
+// SetDefer sets or clears an issue's defer_until. Pass nil to clear.
+func (s *Store) SetDefer(ctx context.Context, id string, until *int64) (Issue, error) {
+	res, err := s.db.NewUpdate().
+		Model((*Issue)(nil)).
+		Set("defer_until = ?", until).
+		Set("updated = ?", now()).
+		Where("id = ?", id).
+		Exec(ctx)
+	if err != nil {
+		return Issue{}, err
+	}
+	n, _ := res.RowsAffected()
+	if n == 0 {
+		return Issue{}, ErrNotFound
+	}
+	return s.Get(ctx, id)
+}
+
 // exists reports ErrNotFound if no issue with id exists.
 func (s *Store) exists(ctx context.Context, id string) error {
 	n, err := s.db.NewSelect().Model((*Issue)(nil)).Where("id = ?", id).Count(ctx)
@@ -357,9 +389,11 @@ func (s *Store) exists(ctx context.Context, id string) error {
 }
 
 // readyQuery applies the shared WHERE/ORDER for ready-issue selection.
+// Excludes issues whose defer_until is still in the future.
 func (s *Store) readyQuery(agent *string) *bun.SelectQuery {
 	q := s.db.NewSelect().Model((*Issue)(nil)).
 		Where("i.status = 'open' AND i.assignee IS NULL").
+		Where("(i.defer_until IS NULL OR i.defer_until <= ?)", now()).
 		Where("NOT EXISTS (SELECT 1 FROM deps d JOIN issues p ON p.id = d.parent_id WHERE d.child_id = i.id AND p.status != 'closed')").
 		OrderExpr("i.priority ASC, i.created ASC")
 	if agent == nil {
@@ -413,6 +447,7 @@ func (s *Store) Claim(ctx context.Context, assignee string, agent *string) (Issu
             SELECT id FROM issues
             WHERE status = 'open' AND assignee IS NULL
               AND ` + laneClause + `
+              AND (defer_until IS NULL OR defer_until <= ?)
               AND NOT EXISTS (
                   SELECT 1 FROM deps d
                   JOIN issues p ON p.id = d.parent_id
@@ -421,13 +456,15 @@ func (s *Store) Claim(ctx context.Context, assignee string, agent *string) (Issu
             ORDER BY priority ASC, created ASC
             LIMIT 1
         )
-        RETURNING id, title, type, status, priority, agent, assignee, created, updated, closed`
-	args := []any{assignee, now()}
+        RETURNING id, title, type, status, priority, agent, assignee, created, updated, closed, defer_until`
+	t := now()
+	args := []any{assignee, t}
 	args = append(args, laneArgs...)
+	args = append(args, t)
 	var i Issue
 	err := s.db.QueryRowContext(ctx, q, args...).Scan(
 		&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority,
-		&i.Agent, &i.Assignee, &i.Created, &i.Updated, &i.Closed,
+		&i.Agent, &i.Assignee, &i.Created, &i.Updated, &i.Closed, &i.DeferUntil,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound

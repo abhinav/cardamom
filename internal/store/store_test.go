@@ -486,6 +486,87 @@ func TestListFilterNoAssignee(t *testing.T) {
 	}
 }
 
+func TestDeferExcludesFromReady(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "deferred", "task", 1, nil)
+	_, _ = s.Create(ctx, "open", "task", 1, nil)
+	future := time.Now().Add(time.Hour).Unix()
+	if _, err := s.SetDefer(ctx, a.ID, &future); err != nil {
+		t.Fatal(err)
+	}
+	ready, _ := s.Ready(ctx, 10, nil)
+	if len(ready) != 1 || ready[0].ID == a.ID {
+		t.Fatalf("expected the deferred one to be excluded, got %+v", ready)
+	}
+}
+
+func TestDeferPastDateIsReady(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "was deferred", "task", 1, nil)
+	past := time.Now().Add(-time.Hour).Unix()
+	_, _ = s.SetDefer(ctx, a.ID, &past)
+	ready, _ := s.Ready(ctx, 10, nil)
+	if len(ready) != 1 || ready[0].ID != a.ID {
+		t.Fatalf("expected past-deferred to be ready, got %+v", ready)
+	}
+}
+
+func TestUndeferRestoresReady(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "to undefer", "task", 1, nil)
+	future := time.Now().Add(time.Hour).Unix()
+	_, _ = s.SetDefer(ctx, a.ID, &future)
+	if len(mustReady(t, s)) != 0 {
+		t.Fatal("expected deferred to be excluded")
+	}
+	_, _ = s.SetDefer(ctx, a.ID, nil)
+	r := mustReady(t, s)
+	if len(r) != 1 || r[0].ID != a.ID {
+		t.Fatalf("expected undeferred to be ready, got %+v", r)
+	}
+	got, _ := s.Get(ctx, a.ID)
+	if got.DeferUntil != nil {
+		t.Fatalf("expected DeferUntil cleared, got %v", *got.DeferUntil)
+	}
+}
+
+func mustReady(t *testing.T, s *Store) []Issue {
+	t.Helper()
+	r, err := s.Ready(ctx, 10, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return r
+}
+
+func TestListFilterDeferred(t *testing.T) {
+	s := newTestStore(t)
+	d, _ := s.Create(ctx, "deferred", "task", 1, nil)
+	_, _ = s.Create(ctx, "normal", "task", 1, nil)
+	future := time.Now().Add(time.Hour).Unix()
+	_, _ = s.SetDefer(ctx, d.ID, &future)
+	got, _ := s.List(ctx, ListFilter{Deferred: true})
+	if len(got) != 1 || got[0].ID != d.ID {
+		t.Fatalf("expected only deferred, got %+v", got)
+	}
+}
+
+func TestListFilterOverdue(t *testing.T) {
+	s := newTestStore(t)
+	od, _ := s.Create(ctx, "overdue", "task", 1, nil)
+	_, _ = s.Create(ctx, "future", "task", 1, nil)
+	past := time.Now().Add(-time.Hour).Unix()
+	future := time.Now().Add(time.Hour).Unix()
+	_, _ = s.SetDefer(ctx, od.ID, &past)
+	// also defer the second one to the future to confirm it's not picked up
+	other, _ := s.Create(ctx, "other future", "task", 1, nil)
+	_, _ = s.SetDefer(ctx, other.ID, &future)
+	got, _ := s.List(ctx, ListFilter{Overdue: true})
+	if len(got) != 1 || got[0].ID != od.ID {
+		t.Fatalf("expected only overdue, got %+v", got)
+	}
+}
+
 func TestDepsListing(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 1, nil)

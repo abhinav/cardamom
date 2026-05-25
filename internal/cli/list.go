@@ -29,6 +29,9 @@ type ListCmd struct {
 
 	ID []string `name:"id" sep:"," help:"Filter by specific issue IDs (comma-separated, e.g., bd-1,bd-5)."`
 
+	Deferred bool `name:"deferred" help:"Only issues currently deferred (defer_until in the future)."`
+	Overdue  bool `name:"overdue" help:"Only non-closed issues whose defer_until has already passed."`
+
 	Limit int `short:"n" default:"50" help:"Limit results (0 = unlimited)."`
 }
 
@@ -45,6 +48,8 @@ func (c *ListCmd) Run(r *runCtx) error {
 		PriorityMin:   c.PriorityMin,
 		PriorityMax:   c.PriorityMax,
 		IDs:           c.ID,
+		Deferred:      c.Deferred,
+		Overdue:       c.Overdue,
 		Limit:         c.Limit,
 	}
 	if f.Status == "all" {

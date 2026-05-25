@@ -33,6 +33,8 @@ type CLI struct {
 	Update     UpdateCmd     `cmd:"" help:"Update fields on an issue."`
 	Dep        DepCmd        `cmd:"" help:"Manage dependency edges."`
 	Label      LabelCmd      `cmd:"" help:"Manage labels on an issue."`
+	Defer      DeferCmd      `cmd:"" help:"Defer an issue until a later time."`
+	Undefer    UndeferCmd    `cmd:"" help:"Clear an issue's deferral."`
 	Version    VersionCmd    `cmd:"" help:"Print version information."`
 	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
 }
@@ -202,6 +204,9 @@ func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string) {
 	fmt.Fprintf(w, "Updated:  %s\n", time.Unix(i.Updated, 0).Format(time.RFC3339))
 	if i.Closed != nil {
 		fmt.Fprintf(w, "Closed:   %s\n", time.Unix(*i.Closed, 0).Format(time.RFC3339))
+	}
+	if i.DeferUntil != nil {
+		fmt.Fprintf(w, "Deferred: %s\n", time.Unix(*i.DeferUntil, 0).Format(time.RFC3339))
 	}
 	if len(labels) > 0 {
 		fmt.Fprintf(w, "Labels:   %s\n", strings.Join(labels, ", "))

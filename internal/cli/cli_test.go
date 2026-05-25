@@ -302,6 +302,42 @@ func TestCLIListFilterByTitle(t *testing.T) {
 	}
 }
 
+func TestCLIDeferUndefer(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "later"))
+	c.run("defer", id, "+1h")
+
+	// Excluded from ready.
+	out := c.run("ready")
+	if strings.Contains(out, id) {
+		t.Fatalf("deferred should not be ready:\n%s", out)
+	}
+	// Shown by --deferred filter.
+	out = c.run("list", "--deferred")
+	if !strings.Contains(out, id) {
+		t.Fatalf("deferred should appear in --deferred list:\n%s", out)
+	}
+	// Show includes Deferred line.
+	out = c.run("show", id)
+	if !strings.Contains(out, "Deferred:") {
+		t.Fatalf("show missing Deferred line:\n%s", out)
+	}
+	// Undefer restores readiness.
+	c.run("undefer", id)
+	out = c.run("ready")
+	if !strings.Contains(out, id) {
+		t.Fatalf("undeferred should be ready again:\n%s", out)
+	}
+}
+
+func TestCLIDeferBadDuration(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.runFail("defer", id, "+nope")
+}
+
 func TestCLIVersion(t *testing.T) {
 	c := newTestCLI(t)
 	out := c.run("version")

@@ -9,7 +9,8 @@ import (
 // Keep in sync with the CLI struct in cli.go when adding commands.
 var completionCmds = []string{
 	"init", "create", "list", "ready", "show", "claim", "close",
-	"update", "dep", "label", "version", "completion",
+	"update", "dep", "label", "defer", "undefer",
+	"version", "completion",
 }
 
 type CompletionCmd struct {
