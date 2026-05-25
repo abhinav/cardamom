@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/rovak/beadsv2/internal/dbq"
 	"modernc.org/sqlite"
 	_ "modernc.org/sqlite"
 	sqlite3 "modernc.org/sqlite/lib"
@@ -156,13 +157,36 @@ func (s *Store) Create(title, typ string, priority int, agent *string) (Issue, e
 	return Issue{}, errors.New("failed to allocate unique id after 8 tries")
 }
 
+// Get fetches a single issue by ID.
+// This method is wired through sqlc-generated code as a preview of the
+// full migration; the rest of Store still uses hand-written SQL.
 func (s *Store) Get(id string) (Issue, error) {
-	var i Issue
-	err := scanIssue(s.db.QueryRow(`SELECT `+issueCols+` FROM issues WHERE id = ?`, id), &i)
+	row, err := dbq.New(s.db).GetIssue(context.TODO(), id)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound
 	}
-	return i, err
+	if err != nil {
+		return Issue{}, err
+	}
+	return issueFromDBQ(row), nil
+}
+
+// issueFromDBQ converts a sqlc-generated Issue to the local Issue type.
+// Identical field-for-field except Priority (int64 vs int) — this mapping
+// goes away if we standardise on the generated type.
+func issueFromDBQ(r dbq.Issue) Issue {
+	return Issue{
+		ID:       r.ID,
+		Title:    r.Title,
+		Type:     r.Type,
+		Status:   r.Status,
+		Priority: int(r.Priority),
+		Agent:    r.Agent,
+		Assignee: r.Assignee,
+		Created:  r.Created,
+		Updated:  r.Updated,
+		Closed:   r.Closed,
+	}
 }
 
 // List returns issues filtered by status and/or agent.
