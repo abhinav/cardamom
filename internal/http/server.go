@@ -40,6 +40,10 @@ func New(s *store.Store) *Server {
 func (s *Server) Mux() stdhttp.Handler {
 	mux := stdhttp.NewServeMux()
 
+	// Root: small JSON banner with the available endpoints so
+	// `curl http://127.0.0.1:7777/` returns something useful instead
+	// of a 404 — useful for sanity-checking the server is up.
+	mux.HandleFunc("GET /{$}", s.handleRoot)
 	mux.HandleFunc("GET /api/healthz", s.handleHealthz)
 	mux.HandleFunc("GET /api/meta", s.handleMeta)
 	mux.HandleFunc("GET /api/agents", s.handleAgents)
@@ -179,6 +183,39 @@ func respondErr(w stdhttp.ResponseWriter, err error) {
 // loading the page.
 func (s *Server) handleHealthz(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	writeJSON(w, stdhttp.StatusOK, map[string]any{"ok": true})
+}
+
+// handleRoot returns a banner with the API's name + headline endpoint
+// groups. Lets `curl http://127.0.0.1:7777/` confirm the server is up
+// without having to remember the exact paths.
+func (s *Server) handleRoot(w stdhttp.ResponseWriter, r *stdhttp.Request) {
+	writeJSON(w, stdhttp.StatusOK, map[string]any{
+		"name":    "clu",
+		"version": 1,
+		"endpoints": []string{
+			"GET    /api/healthz",
+			"GET    /api/meta",
+			"GET    /api/agents",
+			"GET    /api/tags",
+			"GET    /api/issues",
+			"POST   /api/issues",
+			"GET    /api/issues/{id}",
+			"PATCH  /api/issues/{id}",
+			"POST   /api/issues/{id}/close",
+			"POST   /api/issues/{id}/reopen",
+			"POST   /api/issues/{id}/claim",
+			"POST   /api/issues/{id}/labels",
+			"DELETE /api/issues/{id}/labels/{label}",
+			"POST   /api/issues/{id}/deps",
+			"DELETE /api/issues/{id}/deps/{parent}",
+			"GET    /api/issues/{id}/comments",
+			"POST   /api/issues/{id}/comments",
+			"POST   /api/checkpoints/{id}/approve",
+			"POST   /api/checkpoints/{id}/fail",
+		},
+		"identity_header": agentHeader,
+		"docs":            "https://github.com/Rovak/agents-clu",
+	})
 }
 
 // ctxOf is a tiny shim so handler functions don't have to keep typing

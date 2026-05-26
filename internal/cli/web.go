@@ -11,6 +11,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"syscall"
 	"time"
 
 	httpsrv "github.com/rovak/clu/internal/http"
@@ -216,6 +217,12 @@ func webCommand(ctx context.Context, c *WebCmd, webDir, apiURL string) (*exec.Cm
 	cmd.Env = env
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
+	// Put the child in its own process group so a single signal can
+	// take down the whole tree (pnpm → node → vite workers). Without
+	// this, killing the immediate child leaves orphaned grandchildren
+	// holding the port — the bug the user hit ("kill 57928 failed:
+	// no such process" while clu still won't exit).
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	return cmd, nil
 }
 
@@ -284,20 +291,32 @@ func openBrowser(url string) {
 	_ = cmd.Start()
 }
 
-// waitOrKill gives a child up to `grace` to exit on its own (it should,
-// because ctx was cancelled and exec.CommandContext sends SIGKILL on
-// cancellation), then force-kills if not.
+// waitOrKill tears down the child process group: SIGTERM the whole
+// group, give it `grace` to exit cleanly, then SIGKILL the group as a
+// last resort. Signaling the negative PID hits every process in the
+// group (since we set Setpgid on launch), so pnpm + node + vite all
+// go down together. Without this, killing only the immediate child
+// leaves grandchildren holding the port and `cmd.Wait()` blocked.
 func waitOrKill(cmd *exec.Cmd, grace time.Duration) error {
 	if cmd == nil || cmd.Process == nil {
 		return nil
 	}
+	pgid := cmd.Process.Pid
 	done := make(chan error, 1)
 	go func() { done <- cmd.Wait() }()
+
+	// First try: polite TERM to the whole group. node + pnpm usually
+	// shut down cleanly on TERM.
+	_ = syscall.Kill(-pgid, syscall.SIGTERM)
+
 	select {
 	case err := <-done:
 		return err
 	case <-time.After(grace):
-		_ = cmd.Process.Kill()
+		// Hard stop. KILL the group so grandchildren that ignored TERM
+		// (or were too busy) also die. cmd.Process.Kill() only hits
+		// the immediate child, which is why we send to -pgid.
+		_ = syscall.Kill(-pgid, syscall.SIGKILL)
 		<-done
 		return nil
 	}
