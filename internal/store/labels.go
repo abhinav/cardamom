@@ -66,6 +66,19 @@ func (s *Store) LabelsForIssue(ctx context.Context, issueID string) ([]string, e
 	return labels, err
 }
 
+// AllLabels returns every distinct label in the project, alphabetically.
+// Includes workflow-internal labels (run:*, step:*, etc.); callers that
+// only want user-managed tags should filter the result.
+func (s *Store) AllLabels(ctx context.Context) ([]string, error) {
+	var labels []string
+	err := s.db.NewSelect().
+		Model((*IssueLabel)(nil)).
+		ColumnExpr("DISTINCT label").
+		OrderExpr("label").
+		Scan(ctx, &labels)
+	return labels, err
+}
+
 // LoadLabels returns a map id -> []labels for the given issue IDs in one query.
 // Used for batch display in list/show output.
 func (s *Store) LoadLabels(ctx context.Context, ids []string) (map[string][]string, error) {

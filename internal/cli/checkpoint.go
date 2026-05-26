@@ -1,10 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
-	"errors"
-	"fmt"
-
 	"github.com/rovak/clu/internal/store"
 )
 
@@ -34,102 +30,32 @@ func (c *CheckpointFailCmd) Run(r *runCtx) error {
 	return resolveCheckpoint(r, c.ID, c.As, false, c.Reason)
 }
 
-// resolveCheckpoint is the shared engine for pass and fail. It loads
-// the issue, validates it is an open checkpoint, checks approver match
-// (pass only), swaps the pending → passed/failed label, optionally
-// records a note, and closes the issue. `as` is the caller identity
-// used for the approver check (defaults to the current OS user via
-// kong's ${user} default).
+// resolveCheckpoint is the CLI-side wrapper around
+// store.Store.ResolveCheckpoint. The engine itself lives in
+// internal/store so HTTP handlers can call it without import cycles;
+// this function only adds the CLI-specific formatting + notice output.
 func resolveCheckpoint(r *runCtx, id, as string, pass bool, reason string) error {
 	if as == "" {
 		as = currentUser()
 	}
 	return withStore(r, func(s *store.Store) error {
-		issue, err := s.Get(r.ctx, id)
+		res, err := s.ResolveCheckpoint(r.ctx, id, as, pass, reason)
 		if err != nil {
 			return err
 		}
-		if issue.Type != "checkpoint" {
-			return fmt.Errorf("%s is a %s, not a checkpoint", id, issue.Type)
-		}
-		if issue.Status == "closed" {
-			return fmt.Errorf("%s is already closed", id)
-		}
-		payload, err := loadCheckpointPayload(r, s, id)
-		if err != nil {
-			return err
-		}
-		if pass && payload.Kind == "approval" {
-			if !containsString(payload.Approvers, as) {
-				return fmt.Errorf("user %q is not in approvers (%v) — pass --agent <approver> to override", as, payload.Approvers)
-			}
-		}
-		// Swap label
-		_ = s.RemoveLabels(r.ctx, id, []string{"checkpoint:pending"})
-		newLabel := "checkpoint:passed"
-		if !pass {
-			newLabel = "checkpoint:failed"
-		}
-		if err := s.AddLabels(r.ctx, id, []string{newLabel}); err != nil {
-			return err
-		}
-		if reason != "" {
-			if _, err := s.AppendNote(r.ctx, id, reason); err != nil {
-				return err
-			}
-		}
-		if pass {
-			closed, err := s.MarkClosed(r.ctx, id)
-			if err != nil {
-				return err
-			}
-			r.notice("passed %s\n", id)
+		if res.Pass {
+			r.notice("passed %s\n", res.Closed.ID)
 			if r.json {
-				labels, _ := s.LabelsForIssue(r.ctx, id)
-				return r.emitJSON(issueOut{Issue: closed, Labels: labels})
+				return r.emitJSON(issueOut{Issue: res.Closed, Labels: res.Labels})
 			}
 			return nil
 		}
-		// Fail: cancel-cascade. Closing the gate would satisfy the
-		// `link` edge from the downstream step and unblock it — which
-		// is exactly the opposite of what "fail" should do. Cancelling
-		// is the terminal-but-not-unblocking transition, and it
-		// naturally cascades to descendants (so the whole stuck-tail
-		// is marked clearly instead of left dangling).
-		cancelled, err := s.Cancel(r.ctx, []string{id})
-		if err != nil {
-			return err
-		}
-		for _, i := range cancelled {
+		for _, i := range res.Cancelled {
 			r.notice("failed %s — %s\n", i.ID, i.Title)
 		}
 		if r.json {
-			return r.emitJSON(cancelled)
+			return r.emitJSON(res.Cancelled)
 		}
 		return nil
 	})
-}
-
-func loadCheckpointPayload(r *runCtx, s *store.Store, id string) (checkpointPayload, error) {
-	raw, err := s.KVGet(r.ctx, "cp:"+id)
-	if err != nil {
-		if errors.Is(err, store.ErrKVNotFound) {
-			return checkpointPayload{}, fmt.Errorf("checkpoint %s has no wait payload (cp:%s missing in KV)", id, id)
-		}
-		return checkpointPayload{}, err
-	}
-	var p checkpointPayload
-	if err := json.Unmarshal([]byte(raw), &p); err != nil {
-		return checkpointPayload{}, fmt.Errorf("checkpoint %s: invalid KV payload: %w", id, err)
-	}
-	return p, nil
-}
-
-func containsString(haystack []string, needle string) bool {
-	for _, s := range haystack {
-		if s == needle {
-			return true
-		}
-	}
-	return false
 }

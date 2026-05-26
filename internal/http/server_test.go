@@ -1,0 +1,334 @@
+package http
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	stdhttp "net/http"
+	"net/http/httptest"
+	"path/filepath"
+	"strings"
+	"testing"
+
+	"github.com/rovak/clu/internal/store"
+)
+
+var ctx = context.Background()
+
+// newTestServer spins up an httptest.Server backed by a fresh on-disk
+// store. The store directory is t.TempDir()-scoped, so each test gets a
+// clean DB and everything is cleaned up at test end.
+func newTestServer(t *testing.T) (*httptest.Server, *store.Store) {
+	t.Helper()
+	dir := t.TempDir()
+	s, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open store: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+	ts := httptest.NewServer(New(s).Mux())
+	t.Cleanup(ts.Close)
+	return ts, s
+}
+
+// do is a thin fetch helper: builds the request, optionally sets the
+// X-Clu-Agent header, optionally JSON-encodes the body, and returns
+// the response + decoded body bytes.
+func do(t *testing.T, ts *httptest.Server, method, path, agent string, body any) (*stdhttp.Response, []byte) {
+	t.Helper()
+	var rdr io.Reader
+	if body != nil {
+		buf, err := json.Marshal(body)
+		if err != nil {
+			t.Fatalf("marshal body: %v", err)
+		}
+		rdr = bytes.NewReader(buf)
+	}
+	req, err := stdhttp.NewRequest(method, ts.URL+path, rdr)
+	if err != nil {
+		t.Fatalf("new request: %v", err)
+	}
+	if body != nil {
+		req.Header.Set("Content-Type", "application/json")
+	}
+	if agent != "" {
+		req.Header.Set(agentHeader, agent)
+	}
+	resp, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("%s %s: %v", method, path, err)
+	}
+	defer resp.Body.Close()
+	data, _ := io.ReadAll(resp.Body)
+	return resp, data
+}
+
+func mustJSON(t *testing.T, data []byte, v any) {
+	t.Helper()
+	if err := json.Unmarshal(data, v); err != nil {
+		t.Fatalf("unmarshal %s: %v", string(data), err)
+	}
+}
+
+func TestHealthz(t *testing.T) {
+	ts, _ := newTestServer(t)
+	resp, _ := do(t, ts, "GET", "/api/healthz", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+}
+
+func TestMeta(t *testing.T) {
+	ts, _ := newTestServer(t)
+	resp, data := do(t, ts, "GET", "/api/meta", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("status = %d, body = %s", resp.StatusCode, data)
+	}
+	var out metaOut
+	mustJSON(t, data, &out)
+	if len(out.Statuses) == 0 || len(out.Types) == 0 {
+		t.Fatalf("empty meta: %+v", out)
+	}
+	if out.IDPrefix == "" {
+		t.Fatalf("missing id_prefix")
+	}
+}
+
+func TestCreateGetPatch(t *testing.T) {
+	ts, _ := newTestServer(t)
+
+	// Create
+	resp, data := do(t, ts, "POST", "/api/issues", "", map[string]any{
+		"title":    "first",
+		"priority": 1,
+	})
+	if resp.StatusCode != 201 {
+		t.Fatalf("create status = %d, body = %s", resp.StatusCode, data)
+	}
+	var created issueOut
+	mustJSON(t, data, &created)
+	if created.ID == "" || created.Title != "first" {
+		t.Fatalf("unexpected created: %+v", created)
+	}
+
+	// Get
+	resp, data = do(t, ts, "GET", "/api/issues/"+created.ID, "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("get status = %d", resp.StatusCode)
+	}
+	var got issueDetailOut
+	mustJSON(t, data, &got)
+	if got.Title != "first" {
+		t.Fatalf("got.Title = %q", got.Title)
+	}
+
+	// Patch — change title + clear assignee (it was unset; this exercises
+	// the jsonOpt absent path) + set description + add a tag.
+	resp, data = do(t, ts, "PATCH", "/api/issues/"+created.ID, "", map[string]any{
+		"title":       "renamed",
+		"description": "now with body",
+		"tags":        []string{"backend", "urgent"},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("patch status = %d, body = %s", resp.StatusCode, data)
+	}
+	var patched issueOut
+	mustJSON(t, data, &patched)
+	if patched.Title != "renamed" {
+		t.Fatalf("not renamed: %+v", patched)
+	}
+	if patched.Description == nil || *patched.Description != "now with body" {
+		t.Fatalf("description not set: %+v", patched.Description)
+	}
+	if len(patched.Labels) != 2 {
+		t.Fatalf("expected 2 labels, got %v", patched.Labels)
+	}
+}
+
+func TestPatchClearsDescription(t *testing.T) {
+	ts, s := newTestServer(t)
+	i, err := s.Create(ctx, "x", "task", 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Update(ctx, i.ID, store.UpdateFields{
+		Description: ptrPtr("temp"),
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	// Send {"description": null} — should clear.
+	resp, data := do(t, ts, "PATCH", "/api/issues/"+i.ID, "", map[string]any{
+		"description": nil,
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("patch status = %d, body = %s", resp.StatusCode, data)
+	}
+	var out issueOut
+	mustJSON(t, data, &out)
+	if out.Description != nil {
+		t.Fatalf("description not cleared: %v", *out.Description)
+	}
+}
+
+func TestClaimRequiresAgent(t *testing.T) {
+	ts, s := newTestServer(t)
+	i, _ := s.Create(ctx, "x", "task", 1, nil)
+
+	resp, _ := do(t, ts, "POST", "/api/issues/"+i.ID+"/claim", "", nil)
+	if resp.StatusCode != 400 {
+		t.Fatalf("expected 400, got %d", resp.StatusCode)
+	}
+
+	resp, data := do(t, ts, "POST", "/api/issues/"+i.ID+"/claim", "alice", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("claim status = %d, body = %s", resp.StatusCode, data)
+	}
+	var out issueOut
+	mustJSON(t, data, &out)
+	if out.Assignee == nil || *out.Assignee != "alice" {
+		t.Fatalf("assignee not set: %+v", out.Assignee)
+	}
+	if out.Status != "in_progress" {
+		t.Fatalf("status = %q", out.Status)
+	}
+}
+
+func TestCloseReopen(t *testing.T) {
+	ts, s := newTestServer(t)
+	i, _ := s.Create(ctx, "x", "task", 1, nil)
+
+	resp, _ := do(t, ts, "POST", "/api/issues/"+i.ID+"/close", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("close status = %d", resp.StatusCode)
+	}
+	resp, _ = do(t, ts, "POST", "/api/issues/"+i.ID+"/reopen", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("reopen status = %d", resp.StatusCode)
+	}
+}
+
+func TestListWithFilter(t *testing.T) {
+	ts, s := newTestServer(t)
+	a, _ := s.Create(ctx, "alpha", "task", 1, nil)
+	_, _ = s.Create(ctx, "beta", "bug", 2, nil)
+	_ = s.AddLabels(ctx, a.ID, []string{"frontend"})
+
+	resp, data := do(t, ts, "GET", "/api/issues?type=task", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("list status = %d", resp.StatusCode)
+	}
+	var out []issueOut
+	mustJSON(t, data, &out)
+	if len(out) != 1 || out[0].Type != "task" {
+		t.Fatalf("unexpected: %+v", out)
+	}
+
+	// Tag filter (label_any).
+	resp, data = do(t, ts, "GET", "/api/issues?tag=frontend", "", nil)
+	mustJSON(t, data, &out)
+	if len(out) != 1 || out[0].ID != a.ID {
+		t.Fatalf("tag filter wrong: %+v", out)
+	}
+}
+
+func TestCommentsRoundtrip(t *testing.T) {
+	ts, s := newTestServer(t)
+	i, _ := s.Create(ctx, "x", "task", 1, nil)
+
+	resp, data := do(t, ts, "POST", "/api/issues/"+i.ID+"/comments", "alice", map[string]any{
+		"body": "looks good",
+	})
+	if resp.StatusCode != 201 {
+		t.Fatalf("post comment status = %d, body = %s", resp.StatusCode, data)
+	}
+	resp, data = do(t, ts, "GET", "/api/issues/"+i.ID+"/comments", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("list comments status = %d", resp.StatusCode)
+	}
+	var cs []store.Comment
+	mustJSON(t, data, &cs)
+	if len(cs) != 1 || cs[0].Author != "alice" || cs[0].Body != "looks good" {
+		t.Fatalf("unexpected comments: %+v", cs)
+	}
+}
+
+func TestDepsRoundtrip(t *testing.T) {
+	ts, s := newTestServer(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	b, _ := s.Create(ctx, "b", "task", 1, nil)
+
+	// b depends on a
+	resp, data := do(t, ts, "POST", "/api/issues/"+b.ID+"/deps", "", map[string]any{
+		"parent": a.ID,
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("add dep status = %d, body = %s", resp.StatusCode, data)
+	}
+
+	// Cycle: a → b should now be rejected.
+	resp, data = do(t, ts, "POST", "/api/issues/"+a.ID+"/deps", "", map[string]any{
+		"parent": b.ID,
+	})
+	if resp.StatusCode != 400 {
+		t.Fatalf("cycle should 400, got %d (%s)", resp.StatusCode, data)
+	}
+}
+
+func TestCheckpointApprove(t *testing.T) {
+	ts, s := newTestServer(t)
+	// Create a checkpoint issue and prime the KV payload by hand.
+	cp, err := s.Create(ctx, "review gate", "checkpoint", 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = s.AddLabels(ctx, cp.ID, []string{"checkpoint:pending"})
+	_ = s.KVSet(ctx, "cp:"+cp.ID, `{"kind":"approval","approvers":["alice"]}`)
+
+	// Wrong approver → 400 (ErrNotApprover).
+	resp, _ := do(t, ts, "POST", "/api/checkpoints/"+cp.ID+"/approve", "bob", map[string]any{})
+	if resp.StatusCode != 400 {
+		t.Fatalf("wrong approver should be 400, got %d", resp.StatusCode)
+	}
+
+	// Right approver → 200; res.pass = true.
+	resp, data := do(t, ts, "POST", "/api/checkpoints/"+cp.ID+"/approve", "alice", map[string]any{
+		"reason": "lgtm",
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("approve status = %d, body = %s", resp.StatusCode, data)
+	}
+	var out store.CheckpointResult
+	mustJSON(t, data, &out)
+	if !out.Pass || out.Closed.Status != "closed" {
+		t.Fatalf("checkpoint not passed/closed: %+v", out)
+	}
+	hasPassedLabel := false
+	for _, l := range out.Labels {
+		if l == "checkpoint:passed" {
+			hasPassedLabel = true
+		}
+	}
+	if !hasPassedLabel {
+		t.Fatalf("missing checkpoint:passed label: %v", out.Labels)
+	}
+}
+
+func TestNotFoundIsJSON(t *testing.T) {
+	ts, _ := newTestServer(t)
+	resp, data := do(t, ts, "GET", "/api/issues/nope", "", nil)
+	if resp.StatusCode != 404 {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	var body errorBody
+	mustJSON(t, data, &body)
+	if !strings.Contains(body.Error, "not found") {
+		t.Fatalf("error body = %q", body.Error)
+	}
+}
+
+func ptrPtr[T any](v T) **T {
+	p := &v
+	return &p
+}

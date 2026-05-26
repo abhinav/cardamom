@@ -61,6 +61,7 @@ type CLI struct {
 	Statuses   StatusesCmd   `cmd:"" help:"List valid issue statuses."`
 	Types      TypesCmd      `cmd:"" help:"List valid issue types."`
 	Doctor     DoctorCmd     `cmd:"" help:"Run integrity and health checks against the database."`
+	HTTP       HTTPCmd       `cmd:"" name:"http" help:"Start a REST API server backed by the project's store."`
 	Run        RunCmd        `cmd:"" help:"Instantiate a workflow template into issues + deps."`
 	Template   TemplateCmd   `cmd:"" help:"Inspect and validate workflow templates."`
 	Checkpoint CheckpointCmd `cmd:"" help:"Pass or fail a checkpoint step."`

@@ -19,6 +19,7 @@ var completionCmds = []string{
 	"cron", "agent", "brief",
 	"lock", "unlock", "locks",
 	"run", "template", "checkpoint", "approve",
+	"http",
 	"version", "completion",
 }
 

@@ -82,17 +82,14 @@ func (c *RunCmd) Run(r *runCtx) error {
 	})
 }
 
-// checkpointPayload is the JSON shape stored in KV under "cp:<issue-id>".
-type checkpointPayload struct {
-	Kind      string   `json:"kind"`
-	Approvers []string `json:"approvers,omitempty"`
-}
-
-func newCheckpointPayload(w *workflow.Wait) checkpointPayload {
+// newCheckpointPayload converts a workflow.Wait into the KV shape the
+// store package understands. Kept in cli/ because it depends on the
+// workflow package (which store deliberately doesn't import).
+func newCheckpointPayload(w *workflow.Wait) store.CheckpointPayload {
 	if w.Manual {
-		return checkpointPayload{Kind: "manual"}
+		return store.CheckpointPayload{Kind: "manual"}
 	}
-	return checkpointPayload{Kind: "approval", Approvers: append([]string(nil), w.Approval...)}
+	return store.CheckpointPayload{Kind: "approval", Approvers: append([]string(nil), w.Approval...)}
 }
 
 // loadTemplate resolves a template by name or by file path.
