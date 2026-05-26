@@ -169,6 +169,7 @@ func contextDone(ctx context.Context) bool {
 func runAPIServer(ctx context.Context, r *runCtx, ln net.Listener) error {
 	return withStore(r, func(s *store.Store) error {
 		srv := httpsrv.New(s)
+		srv.Start(ctx)
 		httpServer := &stdhttp.Server{
 			Handler:           srv.Mux(),
 			ReadHeaderTimeout: 10 * time.Second,

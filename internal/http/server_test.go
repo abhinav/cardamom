@@ -9,7 +9,9 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/rovak/clu/internal/store"
 )
@@ -331,4 +333,101 @@ func TestNotFoundIsJSON(t *testing.T) {
 func ptrPtr[T any](v T) **T {
 	p := &v
 	return &p
+}
+
+// TestBrokerFanout exercises the SSE broker without going through an
+// HTTP roundtrip: subscribe twice, tick the watermark, both
+// subscribers should receive an issues-changed event.
+func TestBrokerFanout(t *testing.T) {
+	b := newBroker()
+	b.pollInterval = 5 * time.Millisecond
+	var watermark int64
+	lookup := func(_ context.Context) (int64, error) {
+		return atomic.LoadInt64(&watermark), nil
+	}
+
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	b.start(ctx, lookup)
+	// Let start() seed lastSeen against the zero watermark.
+	time.Sleep(20 * time.Millisecond)
+
+	s1, unsub1 := b.subscribe()
+	defer unsub1()
+	s2, unsub2 := b.subscribe()
+	defer unsub2()
+
+	atomic.StoreInt64(&watermark, 42)
+
+	for _, ch := range []chan event{s1, s2} {
+		select {
+		case e := <-ch:
+			if e.Type != "issues-changed" {
+				t.Fatalf("got event type %q, want issues-changed", e.Type)
+			}
+		case <-time.After(200 * time.Millisecond):
+			t.Fatalf("subscriber did not receive event")
+		}
+	}
+}
+
+// TestEventsEndpoint exercises the SSE HTTP handler: subscribe via a
+// real request, mutate the store, verify the byte stream carries an
+// issues-changed event. Drives the broker by speeding up its poll
+// interval.
+func TestEventsEndpoint(t *testing.T) {
+	ts, s := newTestServer(t)
+	// We need to dig into the server's broker to bump poll speed —
+	// the default 1s would make this test too slow.
+	// (Test-only access: package-private fields are visible here.)
+	// Re-create the server with a fast broker.
+	// Reuse the store from newTestServer but ignore its TS.
+	ts.Close()
+
+	srv := New(s)
+	srv.broker.pollInterval = 10 * time.Millisecond
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	srv.Start(ctx)
+	ts2 := httptest.NewServer(srv.Mux())
+	defer ts2.Close()
+
+	req, _ := stdhttp.NewRequest("GET", ts2.URL+"/api/events", nil)
+	req.Header.Set("Accept", "text/event-stream")
+	cctx, ccancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer ccancel()
+	req = req.WithContext(cctx)
+
+	resp, err := stdhttp.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("connect: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.Header.Get("Content-Type") != "text/event-stream" {
+		t.Fatalf("wrong content-type: %q", resp.Header.Get("Content-Type"))
+	}
+
+	// Cause a state change. The poll loop should pick it up within
+	// ~10ms and push an issues-changed frame.
+	if _, err := s.Create(ctx, "watch me", "task", 1, nil); err != nil {
+		t.Fatal(err)
+	}
+
+	// Read frames until we see issues-changed or hit the deadline.
+	buf := make([]byte, 1024)
+	deadline := time.Now().Add(2 * time.Second)
+	var seen string
+	for time.Now().Before(deadline) {
+		n, err := resp.Body.Read(buf)
+		if n > 0 {
+			seen += string(buf[:n])
+			if strings.Contains(seen, "event: issues-changed") {
+				return
+			}
+		}
+		if err != nil {
+			break
+		}
+	}
+	t.Fatalf("did not see issues-changed; saw: %q", seen)
 }

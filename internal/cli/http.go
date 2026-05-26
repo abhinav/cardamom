@@ -24,6 +24,7 @@ type HTTPCmd struct {
 func (c *HTTPCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
 		srv := httpsrv.New(s)
+		srv.Start(r.ctx)
 		addr := fmt.Sprintf("%s:%d", c.Bind, c.Port)
 		ln, err := net.Listen("tcp", addr)
 		if err != nil {

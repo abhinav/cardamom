@@ -23,15 +23,26 @@ import (
 	"github.com/rovak/clu/internal/store"
 )
 
-// Server is the REST API bound to a single Store. Construct with New
-// and pass to http.Server (or call Mux for tests).
+// Server is the REST API bound to a single Store. Construct with New,
+// then call Start(ctx) before serving so the change-stream broker
+// begins polling. Mux returns the routed handler.
 type Server struct {
-	store *store.Store
+	store  *store.Store
+	broker *broker
 }
 
-// New constructs a Server.
+// New constructs a Server. Background goroutines don't start until
+// Start(ctx) is called.
 func New(s *store.Store) *Server {
-	return &Server{store: s}
+	return &Server{store: s, broker: newBroker()}
+}
+
+// Start launches background goroutines (currently: the change-stream
+// poll loop that fans out to /api/events subscribers). They exit
+// when ctx is cancelled. Idempotent for tests is not guaranteed —
+// call once per server lifetime.
+func (s *Server) Start(ctx context.Context) {
+	s.broker.start(ctx, s.store.MaxUpdated)
 }
 
 // Mux returns the routed handler. Routes use Go 1.22 method-aware
@@ -45,6 +56,7 @@ func (s *Server) Mux() stdhttp.Handler {
 	// of a 404 — useful for sanity-checking the server is up.
 	mux.HandleFunc("GET /{$}", s.handleRoot)
 	mux.HandleFunc("GET /api/healthz", s.handleHealthz)
+	mux.HandleFunc("GET /api/events", s.handleEvents)
 	mux.HandleFunc("GET /api/meta", s.handleMeta)
 	mux.HandleFunc("GET /api/agents", s.handleAgents)
 	mux.HandleFunc("GET /api/tags", s.handleTags)
@@ -194,6 +206,7 @@ func (s *Server) handleRoot(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		"version": 1,
 		"endpoints": []string{
 			"GET    /api/healthz",
+			"GET    /api/events    (SSE — issues-changed pushes)",
 			"GET    /api/meta",
 			"GET    /api/agents",
 			"GET    /api/tags",

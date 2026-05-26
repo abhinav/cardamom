@@ -226,6 +226,23 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	return out, nil
 }
 
+// MaxUpdated returns the largest `updated` timestamp across all
+// issues, or 0 if there are no rows. Used by the HTTP server's
+// change-stream poll loop to detect cross-process writes (e.g. a
+// `clu close <id>` run in another terminal while a web client is
+// connected). Cheap — single aggregate, no scan.
+func (s *Store) MaxUpdated(ctx context.Context) (int64, error) {
+	var v int64
+	err := s.db.NewSelect().
+		Model((*Issue)(nil)).
+		ColumnExpr("COALESCE(MAX(updated), 0)").
+		Scan(ctx, &v)
+	if err != nil {
+		return 0, err
+	}
+	return v, nil
+}
+
 // Blocked returns open issues that have at least one non-closed dependency.
 // Inverse of Ready. Same agent-lane semantics.
 func (s *Store) Blocked(ctx context.Context, limit int, agent *string) ([]Issue, error) {
