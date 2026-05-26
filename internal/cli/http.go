@@ -10,6 +10,7 @@ import (
 
 	httpsrv "github.com/rovak/clu/internal/http"
 	"github.com/rovak/clu/internal/store"
+	"github.com/rovak/clu/internal/workflow"
 )
 
 // HTTPCmd starts a REST API server backed by the project's store.
@@ -23,7 +24,7 @@ type HTTPCmd struct {
 
 func (c *HTTPCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		srv := httpsrv.New(s)
+		srv := httpsrv.New(s).WithTemplatesDir(workflow.TemplatesPath(r.dir))
 		srv.Start(r.ctx)
 		addr := fmt.Sprintf("%s:%d", c.Bind, c.Port)
 		ln, err := net.Listen("tcp", addr)

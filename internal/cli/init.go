@@ -8,6 +8,7 @@ import (
 
 	"github.com/rovak/clu/internal/config"
 	"github.com/rovak/clu/internal/store"
+	"github.com/rovak/clu/internal/workflow"
 )
 
 // InitCmd lays down the project skeleton:
@@ -73,7 +74,7 @@ func (c *InitCmd) Run(r *runCtx) error {
 	s.Close()
 
 	// 3. templates/example.yaml — write only if missing.
-	tmplDir := filepath.Join(r.dir, "templates")
+	tmplDir := workflow.TemplatesPath(r.dir)
 	if err := os.MkdirAll(tmplDir, 0o755); err != nil {
 		return err
 	}

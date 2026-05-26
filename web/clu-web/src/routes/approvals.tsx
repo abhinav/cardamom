@@ -74,12 +74,11 @@ function CheckpointCard({ cp }: { cp: PendingCheckpoint }) {
   const [agent] = useIdentity()
   const [reason, setReason] = useState('')
 
-  // Approval-kind checkpoints require the approver to be on the
-  // declared list. Manual-kind accepts anyone with a set identity.
+  // Approver list is informational only — this is a single-user
+  // local tool, no role enforcement. The list still renders so the
+  // template author's intent is visible, but the buttons aren't
+  // gated by membership.
   const approvers = cp.approvers ?? []
-  const requiresList = cp.kind === 'approval' && approvers.length > 0
-  const youCanApprove =
-    !!agent && (!requiresList || approvers.includes(agent))
 
   const resolve = useMutation({
     mutationFn: ({ pass }: { pass: boolean }) =>
@@ -133,12 +132,12 @@ function CheckpointCard({ cp }: { cp: PendingCheckpoint }) {
           </div>
         )}
 
-        {/* Approvers strip */}
-        {requiresList && (
+        {/* Approvers strip — informational. Anyone with identity can act. */}
+        {approvers.length > 0 && (
           <div>
             <div className="text-muted-foreground mb-1.5 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide">
               <UserCheck className="size-3.5" />
-              Approvers
+              Suggested approvers
             </div>
             <div className="flex flex-wrap gap-1.5">
               {approvers.map((a) => {
@@ -191,14 +190,10 @@ function CheckpointCard({ cp }: { cp: PendingCheckpoint }) {
           <div className="flex items-center gap-2">
             <Button
               size="sm"
-              disabled={!youCanApprove || resolve.isPending}
+              disabled={!agent || resolve.isPending}
               onClick={() => resolve.mutate({ pass: true })}
               title={
-                youCanApprove
-                  ? 'approve and close the gate'
-                  : !agent
-                    ? 'set identity to approve'
-                    : `only ${approvers.join(', ')} can approve`
+                agent ? 'approve and close the gate' : 'set identity to approve'
               }
             >
               <CheckCircle2 />
@@ -225,11 +220,6 @@ function CheckpointCard({ cp }: { cp: PendingCheckpoint }) {
             {!agent && (
               <span className="text-muted-foreground text-xs">
                 set identity in the sidebar to act
-              </span>
-            )}
-            {agent && requiresList && !approvers.includes(agent) && (
-              <span className="text-muted-foreground text-xs">
-                only {approvers.join(', ')} can approve
               </span>
             )}
           </div>

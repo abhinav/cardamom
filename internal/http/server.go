@@ -28,14 +28,23 @@ import (
 // then call Start(ctx) before serving so the change-stream broker
 // begins polling. Mux returns the routed handler.
 type Server struct {
-	store  *store.Store
-	broker *broker
+	store        *store.Store
+	broker       *broker
+	templatesDir string // path to .clu/templates; "" disables /api/templates
 }
 
 // New constructs a Server. Background goroutines don't start until
 // Start(ctx) is called.
 func New(s *store.Store) *Server {
 	return &Server{store: s, broker: newBroker()}
+}
+
+// WithTemplatesDir tells the server where to load workflow templates
+// from. Defaults to disabled — /api/templates returns 503 until set.
+// Wired by the CLI from `<project-dir>/templates`.
+func (s *Server) WithTemplatesDir(dir string) *Server {
+	s.templatesDir = dir
+	return s
 }
 
 // Start launches background goroutines (currently: the change-stream
@@ -83,6 +92,10 @@ func (s *Server) Mux() stdhttp.Handler {
 	mux.HandleFunc("POST /api/checkpoints/{id}/approve", s.handleApproveCheckpoint)
 	mux.HandleFunc("POST /api/checkpoints/{id}/fail", s.handleFailCheckpoint)
 
+	mux.HandleFunc("GET /api/templates", s.handleListTemplates)
+	mux.HandleFunc("POST /api/templates/{name}/plan", s.handlePlanTemplate)
+	mux.HandleFunc("POST /api/templates/{name}/run", s.handleRunTemplate)
+
 	return withCORS(mux)
 }
 
@@ -95,14 +108,6 @@ const agentHeader = "X-Clu-Agent"
 // means "no agent identity supplied".
 func agentFrom(r *stdhttp.Request) string {
 	return strings.TrimSpace(r.Header.Get(agentHeader))
-}
-
-// agentPtr is the *string convention the store uses for assignee/agent.
-func agentPtr(s string) *string {
-	if s == "" {
-		return nil
-	}
-	return &s
 }
 
 // requireAgent is for endpoints that need an identity (claim, comment,
@@ -238,6 +243,9 @@ func (s *Server) handleRoot(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			"GET    /api/checkpoints",
 			"POST   /api/checkpoints/{id}/approve",
 			"POST   /api/checkpoints/{id}/fail",
+			"GET    /api/templates",
+			"POST   /api/templates/{name}/plan",
+			"POST   /api/templates/{name}/run",
 		},
 		"identity_header": agentHeader,
 		"docs":            "https://github.com/Rovak/agents-clu",

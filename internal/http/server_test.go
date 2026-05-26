@@ -7,6 +7,7 @@ import (
 	"io"
 	stdhttp "net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"strings"
 	"sync/atomic"
@@ -14,6 +15,7 @@ import (
 	"time"
 
 	"github.com/rovak/clu/internal/store"
+	"github.com/rovak/clu/internal/workflow"
 )
 
 var ctx = context.Background()
@@ -371,6 +373,133 @@ func TestListCheckpoints(t *testing.T) {
 	}
 	if len(got.Blocks) != 1 || got.Blocks[0] != blocked.ID {
 		t.Fatalf("blocks wrong: %v", got.Blocks)
+	}
+}
+
+// TestTemplatesRoundtrip exercises the workflow templates endpoints:
+// list returns the seeded template, plan dry-runs without writing,
+// run instantiates and we can find the parent + steps in the store.
+func TestTemplatesRoundtrip(t *testing.T) {
+	dir := t.TempDir()
+	tdir := workflow.TemplatesPath(dir)
+	if err := os.MkdirAll(tdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	yml := `name: spike
+description: Three-step spike workflow
+vars:
+  scope:
+    required: true
+    label: "Short scope tag"
+steps:
+  - id: investigate
+    title: "Investigate: {{scope}}"
+  - id: implement
+    title: "Implement: {{scope}}"
+    needs: [investigate]
+  - id: review
+    title: "Review: {{scope}}"
+    type: checkpoint
+    needs: [implement]
+    wait:
+      approval: [alice]
+`
+	if err := os.WriteFile(filepath.Join(tdir, "spike.yaml"), []byte(yml), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	s, err := store.Open(filepath.Join(dir, "test.db"))
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	t.Cleanup(func() { s.Close() })
+	srv := New(s).WithTemplatesDir(tdir)
+	ts := httptest.NewServer(srv.Mux())
+	t.Cleanup(ts.Close)
+
+	// List
+	resp, data := do(t, ts, "GET", "/api/templates", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("list status=%d body=%s", resp.StatusCode, data)
+	}
+	var list templatesListOut
+	mustJSON(t, data, &list)
+	if len(list.Templates) != 1 || list.Templates[0].Name != "spike" {
+		t.Fatalf("unexpected list: %+v", list)
+	}
+	if list.Templates[0].StepCount != 3 {
+		t.Fatalf("step count = %d", list.Templates[0].StepCount)
+	}
+	if len(list.Templates[0].Vars) != 1 || list.Templates[0].Vars[0].Name != "scope" {
+		t.Fatalf("vars wrong: %+v", list.Templates[0].Vars)
+	}
+
+	// Plan with missing required var → 400
+	resp, _ = do(t, ts, "POST", "/api/templates/spike/plan", "", map[string]any{})
+	if resp.StatusCode != 400 {
+		t.Fatalf("expected 400 for missing var, got %d", resp.StatusCode)
+	}
+
+	// Plan with var → 200, no DB writes
+	resp, data = do(t, ts, "POST", "/api/templates/spike/plan", "", map[string]any{
+		"vars": map[string]string{"scope": "auth-fix"},
+	})
+	if resp.StatusCode != 200 {
+		t.Fatalf("plan status=%d body=%s", resp.StatusCode, data)
+	}
+	var plan planOut
+	mustJSON(t, data, &plan)
+	if len(plan.Steps) != 3 {
+		t.Fatalf("plan steps = %d", len(plan.Steps))
+	}
+	if plan.Title != "spike auth-fix" {
+		t.Fatalf("plan title = %q", plan.Title)
+	}
+	// Plan didn't write anything.
+	issues, _ := s.List(ctx, store.ListFilter{})
+	if len(issues) != 0 {
+		t.Fatalf("plan wrote issues: %d", len(issues))
+	}
+
+	// Run actually instantiates.
+	resp, data = do(t, ts, "POST", "/api/templates/spike/run", "", map[string]any{
+		"vars": map[string]string{"scope": "auth-fix"},
+	})
+	if resp.StatusCode != 201 {
+		t.Fatalf("run status=%d body=%s", resp.StatusCode, data)
+	}
+	var runOut struct {
+		ParentID string `json:"parent_id"`
+	}
+	mustJSON(t, data, &runOut)
+	if runOut.ParentID == "" {
+		t.Fatalf("missing parent_id in %s", data)
+	}
+	issues, _ = s.List(ctx, store.ListFilter{})
+	if len(issues) != 4 { // parent + 3 steps
+		t.Fatalf("after run, issues = %d (want 4)", len(issues))
+	}
+	// Checkpoint step should have a cp:<id> KV row with approvers.
+	var checkpointID string
+	for _, i := range issues {
+		if i.Type == "checkpoint" {
+			checkpointID = i.ID
+		}
+	}
+	if checkpointID == "" {
+		t.Fatalf("no checkpoint step created")
+	}
+	if _, err := s.GetCheckpointPayload(ctx, checkpointID); err != nil {
+		t.Fatalf("checkpoint payload missing: %v", err)
+	}
+}
+
+func TestTemplatesNotConfigured(t *testing.T) {
+	// Server with no templates dir set → 503 on the templates endpoints.
+	ts, _ := newTestServer(t)
+	resp, _ := do(t, ts, "GET", "/api/templates", "", nil)
+	if resp.StatusCode != 503 {
+		t.Fatalf("expected 503 when templates dir unset, got %d", resp.StatusCode)
 	}
 }
 

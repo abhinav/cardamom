@@ -73,7 +73,7 @@ func (s *Store) PendingCheckpoints(ctx context.Context) ([]PendingCheckpoint, er
 	err := s.db.NewSelect().
 		Model(&issues).
 		Where("i.type = ?", "checkpoint").
-		Where("i.status IN (?)", bun.In([]string{"open", "in_progress"})).
+		Where("i.status IN (?)", bun.List([]string{"open", "in_progress"})).
 		Where("EXISTS (SELECT 1 FROM issue_labels WHERE issue_id = i.id AND label = 'checkpoint:pending')").
 		OrderExpr("i.created ASC").
 		Scan(ctx)
@@ -140,14 +140,13 @@ func (s *Store) ResolveCheckpoint(ctx context.Context, id, as string, pass bool,
 			return CheckpointResult{}, fmt.Errorf("%w: %s has unresolved prerequisites — wait for them to close, or `clu checkpoint fail` to cancel the gated chain", ErrCheckpointBlocked, id)
 		}
 	}
-	payload, err := s.GetCheckpointPayload(ctx, id)
-	if err != nil {
-		return CheckpointResult{}, err
-	}
-	if pass && payload.Kind == "approval" && !containsString(payload.Approvers, as) {
-		return CheckpointResult{}, fmt.Errorf("%w: %q not in %v", ErrNotApprover, as, payload.Approvers)
-	}
-	_ = s.RemoveLabels(ctx, id, []string{"checkpoint:pending"})
+	// Approver-list enforcement was dropped: this is a single-user
+	// local tool; the declared approver list is informational, not a
+	// gate. ErrNotApprover stays defined for backwards compatibility
+	// but is no longer returned from this path, and we no longer load
+	// the payload here — saves a KV read on every pass/fail.
+	_ = as
+	_, _ = s.RemoveLabels(ctx, id, []string{"checkpoint:pending"})
 	newLabel := "checkpoint:passed"
 	if !pass {
 		newLabel = "checkpoint:failed"
@@ -179,11 +178,3 @@ func (s *Store) ResolveCheckpoint(ctx context.Context, id, as string, pass bool,
 	return CheckpointResult{Pass: false, Cancelled: cancelled}, nil
 }
 
-func containsString(haystack []string, needle string) bool {
-	for _, s := range haystack {
-		if s == needle {
-			return true
-		}
-	}
-	return false
-}

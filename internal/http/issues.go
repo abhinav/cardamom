@@ -419,7 +419,7 @@ func replaceLabels(ctx context.Context, s *store.Store, id string, want []string
 		}
 	}
 	if len(toRemove) > 0 {
-		if err := s.RemoveLabels(ctx, id, toRemove); err != nil {
+		if _, err := s.RemoveLabels(ctx, id, toRemove); err != nil {
 			return err
 		}
 	}

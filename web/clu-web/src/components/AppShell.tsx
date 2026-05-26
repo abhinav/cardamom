@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
-import { Columns3, List, ShieldCheck, Sparkles, Zap } from 'lucide-react'
+import { Columns3, GitBranch, List, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import IdentityPicker from './IdentityPicker'
 import ThemeToggle from './ThemeToggle'
 import { Badge } from './ui/badge'
@@ -57,6 +57,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
             }
           >
             Approvals
+          </NavLink>
+          <NavLink to="/workflows" icon={<GitBranch className="size-4" />}>
+            Workflows
           </NavLink>
           <NavLink to="/list" icon={<List className="size-4" />}>
             List

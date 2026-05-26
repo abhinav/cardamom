@@ -9,12 +9,18 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WorkflowsRouteImport } from './routes/workflows'
 import { Route as ReadyRouteImport } from './routes/ready'
 import { Route as ListRouteImport } from './routes/list'
 import { Route as ApprovalsRouteImport } from './routes/approvals'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as IssuesIdRouteImport } from './routes/issues.$id'
 
+const WorkflowsRoute = WorkflowsRouteImport.update({
+  id: '/workflows',
+  path: '/workflows',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReadyRoute = ReadyRouteImport.update({
   id: '/ready',
   path: '/ready',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/approvals': typeof ApprovalsRoute
   '/list': typeof ListRoute
   '/ready': typeof ReadyRoute
+  '/workflows': typeof WorkflowsRoute
   '/issues/$id': typeof IssuesIdRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/approvals': typeof ApprovalsRoute
   '/list': typeof ListRoute
   '/ready': typeof ReadyRoute
+  '/workflows': typeof WorkflowsRoute
   '/issues/$id': typeof IssuesIdRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,28 @@ export interface FileRoutesById {
   '/approvals': typeof ApprovalsRoute
   '/list': typeof ListRoute
   '/ready': typeof ReadyRoute
+  '/workflows': typeof WorkflowsRoute
   '/issues/$id': typeof IssuesIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/approvals' | '/list' | '/ready' | '/issues/$id'
+  fullPaths:
+    | '/'
+    | '/approvals'
+    | '/list'
+    | '/ready'
+    | '/workflows'
+    | '/issues/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/approvals' | '/list' | '/ready' | '/issues/$id'
-  id: '__root__' | '/' | '/approvals' | '/list' | '/ready' | '/issues/$id'
+  to: '/' | '/approvals' | '/list' | '/ready' | '/workflows' | '/issues/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/approvals'
+    | '/list'
+    | '/ready'
+    | '/workflows'
+    | '/issues/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,11 +98,19 @@ export interface RootRouteChildren {
   ApprovalsRoute: typeof ApprovalsRoute
   ListRoute: typeof ListRoute
   ReadyRoute: typeof ReadyRoute
+  WorkflowsRoute: typeof WorkflowsRoute
   IssuesIdRoute: typeof IssuesIdRoute
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/workflows': {
+      id: '/workflows'
+      path: '/workflows'
+      fullPath: '/workflows'
+      preLoaderRoute: typeof WorkflowsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/ready': {
       id: '/ready'
       path: '/ready'
@@ -124,6 +154,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApprovalsRoute: ApprovalsRoute,
   ListRoute: ListRoute,
   ReadyRoute: ReadyRoute,
+  WorkflowsRoute: WorkflowsRoute,
   IssuesIdRoute: IssuesIdRoute,
 }
 export const routeTree = rootRouteImport

@@ -104,6 +104,57 @@ export interface PendingCheckpoint extends Issue {
   blocks: string[]
 }
 
+// ---- Workflow templates ----
+
+export interface TemplateVar {
+  name: string
+  label?: string
+  default?: string
+  required?: boolean
+  pattern?: string
+}
+
+export interface TemplateSummary {
+  name: string
+  description?: string
+  vars: TemplateVar[]
+  step_count: number
+}
+
+export interface TemplateLoadError {
+  file: string
+  error: string
+}
+
+export interface TemplatesList {
+  templates: TemplateSummary[]
+  errors?: TemplateLoadError[]
+}
+
+export interface PlanStep {
+  id: string
+  title: string
+  description?: string
+  type: string
+  priority: number
+  needs?: string[]
+  agent?: string
+  wait?: { manual?: boolean; approval?: string[] } | null
+  is_leaf: boolean
+}
+
+export interface Plan {
+  template: string
+  title: string
+  vars: Record<string, string>
+  steps: PlanStep[]
+}
+
+export interface RunResult {
+  parent_id: string
+  plan: Plan
+}
+
 export interface ActiveAgent {
   name: string
   pid: number

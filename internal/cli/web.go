@@ -18,6 +18,7 @@ import (
 
 	httpsrv "github.com/rovak/clu/internal/http"
 	"github.com/rovak/clu/internal/store"
+	"github.com/rovak/clu/internal/workflow"
 )
 
 // WebCmd boots the local web UI: starts the REST API in-process and
@@ -168,7 +169,7 @@ func contextDone(ctx context.Context) bool {
 // http` subprocess to manage.
 func runAPIServer(ctx context.Context, r *runCtx, ln net.Listener) error {
 	return withStore(r, func(s *store.Store) error {
-		srv := httpsrv.New(s)
+		srv := httpsrv.New(s).WithTemplatesDir(workflow.TemplatesPath(r.dir))
 		srv.Start(ctx)
 		httpServer := &stdhttp.Server{
 			Handler:           srv.Mux(),
@@ -271,11 +272,7 @@ func resolveWebDir(chosen string) (string, error) {
 		return candidate, nil
 	}
 	return "", fmt.Errorf(
-		"could not locate the web project. Tried:\n"+
-			"  - %s (installed)\n"+
-			"  - %s (repo checkout)\n"+
-			"Fix: run `clu web --install` inside the agents-clu repo, "+
-			"or pass --web-dir / set CLU_WEB_DIR.",
+		"could not locate the web project — tried %s (installed) and %s (repo checkout); run `clu web --install` inside the agents-clu repo, or pass --web-dir / set CLU_WEB_DIR",
 		installedWebDir(), candidate,
 	)
 }

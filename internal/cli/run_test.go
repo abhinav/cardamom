@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"github.com/rovak/clu/internal/workflow"
 )
 
 const releaseYAML = `
@@ -28,7 +30,7 @@ steps:
 
 func (c *testCLI) writeTemplate(name, body string) {
 	c.t.Helper()
-	dir := filepath.Join(c.dir, "templates")
+	dir := workflow.TemplatesPath(c.dir)
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		c.t.Fatal(err)
 	}
