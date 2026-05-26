@@ -4,6 +4,7 @@ import {
   createRootRouteWithContext,
 } from '@tanstack/react-router'
 import AppShell from '../components/AppShell'
+import { Toaster } from '../components/ui/sonner'
 import appCss from '../styles.css?url'
 
 import type { QueryClient } from '@tanstack/react-query'
@@ -38,6 +39,7 @@ function RootDocument({ children }: { children: React.ReactNode }) {
       </head>
       <body>
         <AppShell>{children}</AppShell>
+        <Toaster />
         <Scripts />
       </body>
     </html>

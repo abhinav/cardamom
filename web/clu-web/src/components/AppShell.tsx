@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router'
-import { Columns3, List, Sparkles } from 'lucide-react'
+import { Columns3, List, Sparkles, Zap } from 'lucide-react'
 import IdentityPicker from './IdentityPicker'
 import ThemeToggle from './ThemeToggle'
 import { useChangeStream } from '../lib/use-change-stream'
@@ -31,6 +31,9 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
         <nav className="flex flex-col gap-0.5 px-3 pt-2">
           <NavLink to="/" icon={<Columns3 className="size-4" />} exact>
             Board
+          </NavLink>
+          <NavLink to="/ready" icon={<Zap className="size-4" />}>
+            Ready
           </NavLink>
           <NavLink to="/list" icon={<List className="size-4" />}>
             List

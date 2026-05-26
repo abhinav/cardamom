@@ -1,10 +1,12 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery } from '@tanstack/react-query'
 import { useState } from 'react'
-import { ChevronDown, RefreshCw, Search, X } from 'lucide-react'
+import { ChevronDown, Plus, Search, X } from 'lucide-react'
 import { api, filtersToQuery, type Issue, type Meta } from '../lib/api'
 import { formatRelative, type Status } from '../lib/issue-display'
 import { PriorityBadge, StatusBadge } from '../components/StatusBadge'
+import NewIssueDialog from '../components/NewIssueDialog'
+import LiveIndicator from '../components/LiveIndicator'
 import { Button } from '../components/ui/button'
 import { Input } from '../components/ui/input'
 import { Badge } from '../components/ui/badge'
@@ -37,6 +39,7 @@ function ListPage() {
   const [typeFilter, setTypeFilter] = useState<string>('')
   const [agentFilter, setAgentFilter] = useState<string>('')
   const [q, setQ] = useState<string>('')
+  const [newOpen, setNewOpen] = useState(false)
 
   const { data: meta } = useQuery<Meta>({
     queryKey: ['meta'],
@@ -51,9 +54,7 @@ function ListPage() {
     limit: 500,
   })
 
-  const { data: issues = [], isLoading, error, refetch, isFetching } = useQuery<
-    Issue[]
-  >({
+  const { data: issues = [], isLoading, error } = useQuery<Issue[]>({
     queryKey: ['issues', 'list', { filterQuery }],
     queryFn: () => api.get('/api/issues' + filterQuery),
   })
@@ -73,15 +74,13 @@ function ListPage() {
             {activeFilters > 0 ? ` · ${activeFilters} filter applied` : ''}
           </p>
         </div>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={() => refetch()}
-          disabled={isFetching}
-          aria-label="refresh"
-        >
-          <RefreshCw className={isFetching ? 'animate-spin' : ''} />
-        </Button>
+        <div className="flex items-center gap-1.5">
+          <LiveIndicator />
+          <Button size="sm" onClick={() => setNewOpen(true)}>
+            <Plus />
+            New issue
+          </Button>
+        </div>
       </header>
 
       <div className="border-b px-6 py-3">
@@ -182,6 +181,8 @@ function ListPage() {
           </TableBody>
         </Table>
       </ScrollArea>
+
+      <NewIssueDialog open={newOpen} onOpenChange={setNewOpen} />
     </div>
   )
 }

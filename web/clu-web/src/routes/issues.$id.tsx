@@ -3,8 +3,10 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useEffect, useRef, useState } from 'react'
 import {
   ArrowLeft,
+  Ban,
   CheckCircle2,
   MessageSquare,
+  MoreHorizontal,
   RotateCcw,
   ShieldCheck,
   UserPlus,
@@ -24,6 +26,7 @@ import {
   type Status,
 } from '../lib/issue-display'
 import { useIdentity } from '../lib/use-identity'
+import { notifyError, notifyOk } from '../lib/toast-helpers'
 import { PriorityBadge, StatusBadge } from '../components/StatusBadge'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
@@ -31,6 +34,25 @@ import { Input } from '../components/ui/input'
 import { Card, CardContent, CardHeader } from '../components/ui/card'
 import { Separator } from '../components/ui/separator'
 import { ScrollArea } from '../components/ui/scroll-area'
+import LiveIndicator from '../components/LiveIndicator'
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '../components/ui/select'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '../components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '../components/ui/dropdown-menu'
 
 export const Route = createFileRoute('/issues/$id')({
   component: IssueDetailPage,
@@ -55,17 +77,26 @@ function IssueDetailPage() {
     mutationFn: (body: PatchIssueBody) =>
       api.patch<Issue>(`/api/issues/${id}`, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['issue', id] }),
+    onError: (err) => notifyError('Could not update issue', err),
   })
 
   const claim = useMutation({
     mutationFn: () => api.post<Issue>(`/api/issues/${id}/claim`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['issue', id] }),
+    onSuccess: (i) => {
+      qc.invalidateQueries({ queryKey: ['issue', id] })
+      notifyOk('Claimed', `${i.id} assigned to ${i.assignee ?? 'you'}`)
+    },
+    onError: (err) => notifyError('Could not claim issue', err),
   })
 
   const closeOrReopen = useMutation({
     mutationFn: (action: 'close' | 'reopen') =>
       api.post<Issue>(`/api/issues/${id}/${action}`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['issue', id] }),
+    onSuccess: (_data, action) => {
+      qc.invalidateQueries({ queryKey: ['issue', id] })
+      notifyOk(action === 'close' ? 'Closed' : 'Reopened')
+    },
+    onError: (err) => notifyError('Action failed', err),
   })
 
   if (error) {
@@ -111,13 +142,14 @@ function IssueDetailPage() {
           <PriorityBadge priority={issue.priority} />
         </div>
         <div className="flex items-center gap-1.5">
+          <LiveIndicator />
           {!issue.assignee && isOpen && (
             <Button size="sm" variant="outline" onClick={() => claim.mutate()}>
               <UserPlus />
               Claim
             </Button>
           )}
-          {issue.status !== 'closed' && (
+          {issue.status !== 'closed' && issue.status !== 'cancelled' && (
             <Button
               size="sm"
               variant="outline"
@@ -127,7 +159,7 @@ function IssueDetailPage() {
               Close
             </Button>
           )}
-          {issue.status === 'closed' && (
+          {(issue.status === 'closed' || issue.status === 'cancelled') && (
             <Button
               size="sm"
               variant="outline"
@@ -137,6 +169,30 @@ function IssueDetailPage() {
               Reopen
             </Button>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                size="icon-sm"
+                variant="ghost"
+                aria-label="more actions"
+              >
+                <MoreHorizontal />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  if (!window.confirm('Cancel this issue?'))
+                    return
+                  patch.mutate({ status: 'cancelled' })
+                }}
+              >
+                <Ban />
+                Cancel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </header>
 
@@ -186,43 +242,58 @@ function IssueDetailPage() {
           {/* Sidebar */}
           <aside className="flex flex-col gap-4 text-sm">
             <Field label="Status">
-              <select
+              <Select
                 value={issue.status}
-                onChange={(e) => patch.mutate({ status: e.target.value })}
-                className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring h-8 w-full rounded-md border px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2"
+                onValueChange={(v) => patch.mutate({ status: v })}
               >
-                {meta?.statuses.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger size="sm" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {meta?.statuses.map((s) => (
+                    <SelectItem key={s} value={s}>
+                      {s.replace('_', ' ')}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
 
             <Field label="Priority">
-              <Input
-                type="number"
-                min={0}
-                value={issue.priority}
-                onChange={(e) =>
-                  patch.mutate({ priority: Number(e.target.value) })
-                }
-                className="h-8"
-              />
+              <Select
+                value={String(issue.priority)}
+                onValueChange={(v) => patch.mutate({ priority: Number(v) })}
+              >
+                <SelectTrigger size="sm" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[0, 1, 2, 3, 4].map((p) => (
+                    <SelectItem key={p} value={String(p)}>
+                      p{p}
+                      {p === 0 ? ' (urgent)' : p === 4 ? ' (low)' : ''}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
 
             <Field label="Type">
-              <select
+              <Select
                 value={issue.type}
-                onChange={(e) => patch.mutate({ type: e.target.value })}
-                className="border-input bg-background h-8 w-full rounded-md border px-2 text-sm"
+                onValueChange={(v) => patch.mutate({ type: v })}
               >
-                {meta?.types.map((t) => (
-                  <option key={t} value={t}>
-                    {t}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger size="sm" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {meta?.types.map((t) => (
+                    <SelectItem key={t} value={t}>
+                      {t}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </Field>
 
             <Field label="Assignee">
@@ -300,11 +371,9 @@ function IssueDetailPage() {
             <Separator />
 
             <dl className="text-muted-foreground space-y-1 text-xs">
-              <Meta label="Created" value={formatDate(issue.created)} />
-              <Meta label="Updated" value={formatDate(issue.updated)} />
-              {issue.closed && (
-                <Meta label="Closed" value={formatDate(issue.closed)} />
-              )}
+              <TimeRow label="Created" t={issue.created} />
+              <TimeRow label="Updated" t={issue.updated} />
+              {issue.closed && <TimeRow label="Closed" t={issue.closed} />}
             </dl>
           </aside>
         </div>
@@ -337,6 +406,26 @@ function Meta({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between">
       <dt>{label}</dt>
       <dd className="font-mono tabular text-[11px]">{value}</dd>
+    </div>
+  )
+}
+
+// TimeRow — relative "2h ago" with hover tooltip for the absolute
+// timestamp. Far easier to scan than raw locale strings.
+function TimeRow({ label, t }: { label: string; t: number }) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt>{label}</dt>
+      <dd>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <span className="tabular cursor-help text-[11px]">
+              {formatRelative(t)}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent side="left">{formatDate(t)}</TooltipContent>
+        </Tooltip>
+      </dd>
     </div>
   )
 }
@@ -590,7 +679,9 @@ function CommentsSection({
     onSuccess: () => {
       setDraft('')
       onChange()
+      notifyOk('Comment posted')
     },
+    onError: (err) => notifyError('Could not post comment', err),
   })
 
   return (
@@ -677,7 +768,11 @@ function CheckpointActions({
       api.post(`/api/checkpoints/${id}/${pass ? 'approve' : 'fail'}`, {
         reason: reason || undefined,
       }),
-    onSuccess: (_data, { pass }) => onDone(pass),
+    onSuccess: (_data, { pass }) => {
+      onDone(pass)
+      notifyOk(pass ? 'Checkpoint approved' : 'Checkpoint failed')
+    },
+    onError: (err) => notifyError('Checkpoint action failed', err),
   })
 
   return (

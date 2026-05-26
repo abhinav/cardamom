@@ -148,4 +148,6 @@ export interface CreateIssueBody {
   agent?: string | null
   labels?: string[]
   parents?: string[]
+  description?: string
+  notes?: string
 }

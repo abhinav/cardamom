@@ -1,9 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useState } from 'react'
-import { Plus, RefreshCw } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { Plus } from 'lucide-react'
 import { api, type Issue, type PatchIssueBody } from '../lib/api'
+import { notifyError, notifyOk } from '../lib/toast-helpers'
 import IssueCard from '../components/IssueCard'
+import NewIssueDialog from '../components/NewIssueDialog'
+import LiveIndicator from '../components/LiveIndicator'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { ScrollArea } from '../components/ui/scroll-area'
@@ -24,15 +27,35 @@ const COLUMNS: Array<{ key: string; label: string; status?: string }> = [
 
 function BoardPage() {
   const qc = useQueryClient()
-  const { data: issues = [], isLoading, error, refetch, isFetching } = useQuery<
-    Issue[]
-  >({
+  const [newOpen, setNewOpen] = useState(false)
+
+  const { data: issues = [], isLoading, error } = useQuery<Issue[]>({
     queryKey: ['issues', 'board'],
     queryFn: () =>
       api.get(
         '/api/issues?status=open&status=in_progress&status=closed&limit=500',
       ),
   })
+
+  // Global "c" shortcut opens the New Issue dialog from anywhere on
+  // the board, as long as the user isn't typing in a field already.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key !== 'c') return
+      const t = e.target as HTMLElement | null
+      if (
+        t?.tagName === 'INPUT' ||
+        t?.tagName === 'TEXTAREA' ||
+        t?.isContentEditable
+      ) {
+        return
+      }
+      e.preventDefault()
+      setNewOpen(true)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   // Drag-drop write: PATCH status, optimistic + rollback. We invalidate
   // on settle so any server-side derived fields (blocked, updated)
@@ -55,9 +78,11 @@ function BoardPage() {
       }
       return { prev }
     },
-    onError: (_e, _v, ctx) => {
+    onError: (err, _v, ctx) => {
       if (ctx?.prev) qc.setQueryData(['issues', 'board'], ctx.prev)
+      notifyError('Could not move card', err)
     },
+    onSuccess: (i) => notifyOk(`Moved ${i.id} → ${i.status.replace('_', ' ')}`),
     onSettled: () => qc.invalidateQueries({ queryKey: ['issues'] }),
   })
 
@@ -70,20 +95,13 @@ function BoardPage() {
         subtitle={`${issues.length} issue${issues.length === 1 ? '' : 's'}`}
         actions={
           <>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              onClick={() => refetch()}
-              disabled={isFetching}
-              aria-label="refresh"
-            >
-              <RefreshCw
-                className={isFetching ? 'animate-spin' : ''}
-              />
-            </Button>
-            <Button size="sm" disabled title="Coming soon">
+            <LiveIndicator />
+            <Button size="sm" onClick={() => setNewOpen(true)}>
               <Plus />
-              New
+              New issue
+              <kbd className="bg-foreground/10 ml-1 hidden rounded px-1 text-[10px] font-mono sm:inline">
+                c
+              </kbd>
             </Button>
           </>
         }
@@ -103,6 +121,7 @@ function BoardPage() {
             issues={byColumn[col.key] ?? []}
             loading={isLoading}
             droppable={col.status !== undefined}
+            onAdd={col.key === 'open' ? () => setNewOpen(true) : undefined}
             onDrop={(issueId) => {
               if (!col.status) return
               move.mutate({ id: issueId, status: col.status })
@@ -110,6 +129,8 @@ function BoardPage() {
           />
         ))}
       </div>
+
+      <NewIssueDialog open={newOpen} onOpenChange={setNewOpen} />
     </div>
   )
 }
@@ -136,9 +157,10 @@ interface ColumnProps {
   loading: boolean
   droppable: boolean
   onDrop: (issueId: string) => void
+  onAdd?: () => void
 }
 
-function Column({ label, issues, loading, droppable, onDrop }: ColumnProps) {
+function Column({ label, issues, loading, droppable, onDrop, onAdd }: ColumnProps) {
   const [isOver, setIsOver] = useState(false)
   return (
     <section
@@ -175,13 +197,13 @@ function Column({ label, issues, loading, droppable, onDrop }: ColumnProps) {
             {issues.length}
           </Badge>
         </div>
-        {droppable && (
+        {onAdd && (
           <Button
             variant="ghost"
             size="icon-xs"
-            className="opacity-50 hover:opacity-100"
-            disabled
-            title="Coming soon"
+            onClick={onAdd}
+            aria-label="add issue"
+            title="add issue"
           >
             <Plus />
           </Button>

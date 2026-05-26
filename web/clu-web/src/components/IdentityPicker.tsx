@@ -38,17 +38,22 @@ export default function IdentityPicker() {
     >
       <PopoverTrigger asChild>
         <Button
-          variant="outline"
+          variant={agent ? 'outline' : 'default'}
           size="sm"
           className="w-full justify-between font-normal"
+          title={agent ? 'change identity' : 'set your identity — required for claim/comment/checkpoint'}
         >
           <span className="flex items-center gap-2 truncate">
             <User className="size-3.5" />
             <span className="truncate">
-              {agent || (
-                <span className="text-muted-foreground">set identity</span>
-              )}
+              {agent || 'set identity'}
             </span>
+            {!agent && (
+              <span
+                className="bg-amber-400 inline-block size-1.5 rounded-full"
+                aria-label="identity required"
+              />
+            )}
           </span>
           <ChevronsUpDown className="size-3.5 opacity-50" />
         </Button>
