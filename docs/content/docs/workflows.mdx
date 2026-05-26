@@ -1,0 +1,76 @@
+---
+title: Workflows
+description: YAML templates that materialize as issues, dependencies, and labels — with optional human approval gates.
+---
+
+A workflow template is a YAML graph of steps. Running it creates plain issues
+plus dependency edges plus `run:<parent>` / `step:<id>` labels — no new
+tables.
+
+## Template format
+
+Templates live in `.clu/templates/*.yaml`.
+
+```yaml
+name: release
+vars:
+  version: { required: true, pattern: '^\d+\.\d+\.\d+$' }
+steps:
+  - id: build
+    title: "Build {{version}}"
+  - id: test
+    title: "Test {{version}}"
+    needs: [build]
+  - id: approve
+    type: checkpoint                          # human gate
+    title: "Approve {{version}} for prod"
+    wait: { approval: [alice, bob] }
+    needs: [test]
+  - id: deploy
+    title: "Deploy {{version}}"
+    needs: [approve]
+```
+
+`vars` declares typed variables that must be supplied at run time. `needs` is
+the dependency graph between steps. `{{var}}` interpolation happens in titles
+and descriptions.
+
+## Running
+
+```bash
+clu run release -v version=1.2.3
+```
+
+That single command creates the parent issue, four children, and all dep edges
+in one shot. Agents drive the run by claiming `ready` issues as each step
+closes; humans clear checkpoint gates via:
+
+```bash
+clu approve <id>
+```
+
+## Checkpoints
+
+A step with `type: checkpoint` additionally gets:
+
+- a `checkpoint:pending` label, and
+- a `cp:<issue-id>` KV entry holding `{kind, approvers}` JSON.
+
+`clu approve` checks the calling agent against the `approvers` list before
+closing the checkpoint. **Failing** a checkpoint cascade-cancels the rest of
+the run via the same forward-walk that powers `clu cancel`.
+
+See [`demo-workflow.sh`](https://github.com/Rovak/agents-clu/blob/main/demo-workflow.sh)
+in the repo for the full demo.
+
+## Architecture
+
+Workflows are split in two:
+
+- `internal/workflow/` is pure — YAML loader, validation, variable resolution,
+  `MakePlan(Template, vars) → Plan`. No store calls.
+- `internal/cli/run.go` walks the Plan, calls `store.Create` per step, writes
+  deps and the run/step labels.
+
+This keeps the planner trivially testable and the storage layer free of
+template concepts.

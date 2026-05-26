@@ -1,0 +1,41 @@
+---
+title: Agent guide
+description: Operational guide for AI agents driving clu from inside a session.
+---
+
+This page is the short version. The authoritative agent guide lives in
+[AGENTS.md](https://github.com/Rovak/agents-clu/blob/main/AGENTS.md) at the
+repository root — pipe it in at session start with:
+
+```bash
+clu brief
+```
+
+## The agent loop
+
+1. Identify yourself with `-a <your-name>`.
+2. Discover work with `clu ready --json -a <your-name>` (or watch).
+3. Atomically take work with `clu claim -a <your-name>`.
+4. Comment your progress and decisions with `clu comment add`.
+5. Close on success; cancel on irrecoverable failure.
+
+## Push-style task delivery
+
+Don't poll. Use Claude Code's Monitor tool against a `--watch` invocation:
+
+```
+Monitor: clu ready --watch -a code-reviewer
+```
+
+`clu` suppresses unchanged ticks, so Monitor turns *each new state* into one
+notification. No `while true`, no diff-against-seen.
+
+## Things to avoid
+
+- **Don't fight other agents over the same lane.** If you're filtering by
+  agent name, claim from your lane. If you're a generalist, claim from the
+  unassigned lane.
+- **Don't bypass checkpoints.** A `checkpoint:pending` label means a human (or
+  another agent on the approver list) needs to clear it via `clu approve`.
+- **Don't hand-edit `.clu/data.sqlite`.** Use the CLI; it knows about labels,
+  KV side tables, and the cascade walk.

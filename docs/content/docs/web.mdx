@@ -1,0 +1,42 @@
+---
+title: Web UI
+description: The bundled TanStack Start app served by `clu web`.
+---
+
+`clu` ships with a small web UI — kanban board, issue list, and issue detail
+view — that's served by the CLI itself.
+
+```bash
+clu web
+```
+
+starts a local HTTP server on `:5757` (configurable with `--port`) that exposes
+a REST API over the same SQLite store and serves the prebuilt TanStack Start
+frontend.
+
+## Installation
+
+`make install` runs `clu web --install` automatically. To rebuild the UI bundle
+explicitly:
+
+```bash
+clu web --install
+```
+
+This runs `pnpm install` + `pnpm build` inside `web/clu-web/` and copies the
+output to `~/.local/share/clu/web` so `clu web` can find it from any
+directory. If `pnpm` isn't on `PATH`, the step is skipped silently — the CLI
+still works without the UI.
+
+## What's in it
+
+- **Kanban** — columns by status, drag to reassign or change state.
+- **List** — filterable table with the same data as `clu list`.
+- **Detail** — full issue view with comments, deps, and labels.
+- **Theme toggle** — light + dark.
+
+## When to use it vs. the CLI
+
+Use the web UI when you want to **see the shape** of the work — what's stuck,
+what's piling up, which agent is overloaded. Use the CLI for everything else:
+it's faster, scriptable, and is what every agent talks to anyway.

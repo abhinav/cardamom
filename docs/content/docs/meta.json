@@ -1,0 +1,18 @@
+{
+  "title": "clu",
+  "pages": [
+    "index",
+    "---Get started---",
+    "getting-started",
+    "multi-agent",
+    "workflows",
+    "---Reference---",
+    "commands",
+    "storage",
+    "web",
+    "---Background---",
+    "agents",
+    "design",
+    "faq"
+  ]
+}

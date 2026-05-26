@@ -1,7 +1,7 @@
 <h1 align="center">clu</h1>
 
 <p align="center">
-  <img src="docs/header.jpg" alt="clu — agent-coordination issue tracker" width="100%">
+  <img src="assets/header.jpg" alt="clu — agent-coordination issue tracker" width="100%">
 </p>
 
 <p align="center">

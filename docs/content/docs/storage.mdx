@@ -1,0 +1,59 @@
+---
+title: Storage
+description: What lives in .clu/ — SQLite schema, config, templates.
+---
+
+`clu` stores everything for a project in the `.clu/` directory at the project
+root:
+
+```
+.clu/
+├── data.sqlite       # the database (gitignore this)
+├── config.yaml       # agent declarations, id_prefix (commit this)
+└── templates/        # workflow templates (commit these)
+    └── release.yaml
+```
+
+Override the location with the `CLU_DIR` environment variable.
+
+## config.yaml
+
+```yaml
+id_prefix: clu-
+agents:
+  code-reviewer:
+    description: "Reviews Go code for correctness and security"
+    capabilities: [go-review, security-review]
+```
+
+`id_prefix` is per-project and shows up in every issue ID (`clu-a3f8`). Pick
+something short and project-specific if you'll be moving issues between repos.
+
+## Schema
+
+The schema is managed by hand-rolled migrations in
+`internal/store/store.go`'s `migrations[]` slice, gated by `PRAGMA user_version`.
+**Migrations are append-only** — never edit a past entry, only add new ones.
+
+Core tables:
+
+| table | what it holds |
+|---|---|
+| `issues` | id, title, description, status, priority, assignee, timestamps |
+| `deps` | edges: `from → to` (the `to` issue blocks until `from` is closed) |
+| `labels` | many-to-many string labels on issues |
+| `comments` | per-issue append-only log; author is an agent name |
+| `kv` | namespaced key/value scratch space (workflows use `cp:*` here) |
+| `agents` | declared agents (synced from config.yaml) + last-heartbeat |
+| `locks` | named TTL'd locks for cross-cutting coordination |
+
+## Queries
+
+Most queries go through **Bun** with sqlitedialect. Raw SQL is reserved for
+exactly two cases:
+
+1. **`Claim`** — `UPDATE … RETURNING` with a subquery `WHERE` clause, to make
+   the read-then-update atomic.
+2. **Cycle check and cascade-cancel** — a recursive CTE walks the dep graph.
+
+Everything else is composed via Bun's query builder.

@@ -1,0 +1,76 @@
+---
+title: Commands
+description: Every clu subcommand at a glance.
+---
+
+`clu` is a single binary with kong-driven subcommands. Every command supports
+`--json` for one-shot machine output and `--quiet` to suppress narrative.
+
+For the authoritative list, run:
+
+```bash
+clu --help
+clu <command> --help
+```
+
+## Project setup
+
+| command | what it does |
+|---|---|
+| `clu init` | Create `.clu/` with `data.sqlite` + a default `config.yaml`. |
+| `clu brief` | Print agent guide + declared agents + who's live. Pipe into your agent session. |
+| `clu doctor` | Sanity-check the store and config. |
+
+## Issue lifecycle
+
+| command | what it does |
+|---|---|
+| `clu create <title>` | Create a new issue. Flags: `-p` priority, `-a` assignee, `-d` depends-on, `--capability`, `--description`, `--notes`. |
+| `clu list` | List issues. Filter by `-a <agent>`, status, label, priority. |
+| `clu show <id>` | Print one issue's full record. |
+| `clu ready` | Print issues whose deps are satisfied and that are not yet claimed. |
+| `clu claim` | Atomically take the next ready issue. `--wait` blocks until one appears; `--heartbeat` advertises liveness. |
+| `clu close <id...>` | Mark issue(s) closed. Unblocks dependents. |
+| `clu reopen <id...>` | Reverse `closed` or `cancelled`. |
+| `clu cancel <id>` | Mark issue + all transitive descendants as cancelled. |
+
+## Sugar verbs
+
+Thin wrappers that delegate to existing store methods — each is 10–20 lines:
+
+| command | what it does |
+|---|---|
+| `clu assign <id> <agent>` | Set assignee. |
+| `clu priority <id> <n>` | Set priority. |
+| `clu tag <id> <label...>` | Add labels. |
+| `clu link <a> <b>` | Add a dependency edge. |
+| `clu describe <id> <text>` | Update description. |
+
+## Comments + approvals
+
+| command | what it does |
+|---|---|
+| `clu comment add -a <agent> <id> <text>` | Append a comment authored by `<agent>`. |
+| `clu approve -a <agent> <id>` | Clear a checkpoint, if `<agent>` is on the approver list. |
+| `clu checkpoint pass -a <agent> <id>` | Same as `approve`, scoped to checkpoint issues. |
+
+## Workflows
+
+| command | what it does |
+|---|---|
+| `clu run <template>` | Instantiate a workflow template. Pass vars with `-v key=value`. |
+| `clu template list` | List templates in `.clu/templates/`. |
+
+## Locks
+
+| command | what it does |
+|---|---|
+| `clu lock <name> -- <cmd>` | Acquire a TTL'd named lock around `<cmd>`. |
+| `clu lock ls` | List active locks. |
+
+## Web UI
+
+| command | what it does |
+|---|---|
+| `clu web` | Start the kanban + list + detail UI on `:5757`. |
+| `clu web --install` | Build the bundled UI and copy it to `~/.local/share/clu/web`. |

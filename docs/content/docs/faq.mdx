@@ -1,0 +1,56 @@
+---
+title: FAQ
+description: Common questions, mostly about what clu deliberately doesn't do.
+---
+
+### Why not just use GitHub Issues / Linear / Jira?
+
+Because trackers integrate with each other badly, and a hosted tracker isn't a
+useful place to coordinate ephemeral agent work that happens many times a
+second. `clu` is fast, local, and scoped to *this checkout of this repo* — it
+deletes cleanly when you `rm -rf .clu/`.
+
+If you want to mirror selected issues to a hosted tracker, do it as a one-way
+sync from a script — `clu list --json` is the seam.
+
+### Can two machines share a `clu` tracker?
+
+Copy the file. There is no built-in cross-machine sync layer; that's a much
+bigger problem and not one this tool tries to solve. `data.sqlite` is a
+self-contained SQLite database — `scp` it, commit it (don't), or layer
+something on top.
+
+### Does `clu` talk to the network?
+
+No. No telemetry, no update checks, no cloud, no nothing. The only network
+activity is whatever your shell or agent does around it.
+
+### Why is the binary not called `bd`?
+
+Upstream beads uses `bd`, and we wanted a name that wouldn't conflict if you
+also have upstream installed. `clu` is the Tron reference, three letters, no
+clash.
+
+### Why is the project folder still called `beadsv2`?
+
+That's just the on-disk folder name — it has no cascading effect on imports
+(`github.com/rovak/clu`) or the binary (`clu`). Renaming the folder is
+cosmetic.
+
+### Can I use `clu` for non-agent work?
+
+Yes — there's nothing agent-specific about creating issues, depending one on
+another, claiming, and closing. The multi-agent bits (capability routing,
+`--heartbeat`, watch) are opt-in.
+
+### What's *not* in scope?
+
+`clu` is deliberately small. It doesn't try to be:
+
+- a cross-machine sync layer
+- a generic project-management tool (sprints, milestones, OKRs)
+- a bridge to GitHub / Linear / Jira / Notion / ADO
+- an agent runtime
+- a memory system
+
+See `CLAUDE.md` at the repo root for the full "not in scope" list.

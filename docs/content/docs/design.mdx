@@ -1,0 +1,60 @@
+---
+title: Design notes
+description: Sticky decisions about clu's stack and conventions.
+---
+
+These are the load-bearing decisions. The rationale for each lives in
+`CLAUDE.md` at the repo root; don't re-debate them in PRs.
+
+## The name
+
+The tool is **`clu`** — inspired by Tron's "**C**odified **L**ikeness
+**U**tility". Short, on-theme, no conflict with the upstream `bd`. The old
+`cli` / `bd` / "beads" names are gone from user-facing surfaces.
+
+## Identity
+
+There is **one** identity flag, `-a` / `--agent <name>`. It's both the lane
+filter (where do I pull from?) and the actor identity (who did the thing?). No
+separate `--as` flag — the user/agent distinction was deliberately collapsed
+on this local-only tool.
+
+## Stack
+
+- **SQLite via `modernc.org/sqlite`** — pure Go, no CGo.
+- **Bun + sqlitedialect** for queries. Raw SQL only for `Claim` (UPDATE…
+  RETURNING with subquery WHERE) and the recursive-CTE cycle check.
+- **Kong** for the CLI — struct-tag commands, intermixed flags,
+  `IsSet`/env support.
+- **Hand-rolled migrations** via `PRAGMA user_version` in
+  `internal/store/store.go`'s `migrations[]`. Append-only.
+
+We tried sqlc, reverted. Don't propose it again.
+
+## Code conventions
+
+- **One file per kong command** in `internal/cli/`. Register on the root `CLI`
+  struct in `cli.go`; add the name to `completionCmds` in `completion.go`.
+- **`r.notice("…")`** for narrative output ("closed bd-X", "claimed …").
+  Auto-suppressed by `--quiet` and `--json`. Data output goes straight to
+  `r.stdout`.
+- **Sentinel errors are entity-specific.** `ErrNotFound` (issues),
+  `ErrKVNotFound` (kv). Add a new sentinel rather than overloading.
+- **`eachID(r, ids, fn)`** centralises variadic-ID commands. Aggregates errors
+  via `errors.Join`; emits a JSON array under `--json`.
+- **Every `--json` invocation emits exactly one JSON value** on stdout. No
+  leading notice, no trailing summary.
+
+## Tests
+
+- Store tests: `internal/store/store_test.go`. Use `newTestStore(t)`.
+- CLI tests: `internal/cli/cli_test.go`. Use `newTestCLI(t)`, then `c.run(...)`
+  or `c.runFail(...)`.
+- Smoke tests live in `demo.sh` and `demo-workflow.sh` — they exercise the
+  built binary end-to-end against a scratch dir.
+
+Run before every commit:
+
+```bash
+go build ./... && go test ./...
+```
