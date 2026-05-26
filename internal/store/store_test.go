@@ -237,7 +237,7 @@ func TestListFilter(t *testing.T) {
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
 	b, _ := s.Create(ctx, "b", "task", 1, nil)
 	_, _ = s.MarkClosed(ctx, a.ID)
-	open, _ := s.List(ctx, ListFilter{Status: "open"})
+	open, _ := s.List(ctx, ListFilter{Statuses: []string{"open"}})
 	if len(open) != 1 || open[0].ID != b.ID {
 		t.Fatalf("expected only b open, got %+v", open)
 	}

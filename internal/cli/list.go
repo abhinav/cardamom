@@ -12,7 +12,7 @@ import (
 // stay in lock-step. Limit is intentionally separate from the embed:
 // list cares about it, count does not.
 type listFilterFlags struct {
-	Status string `default:"open" enum:"open,in_progress,closed,all" help:"Filter by stored status."`
+	Status []string `default:"open,in_progress" sep:"," enum:"open,in_progress,closed,active,all" help:"Filter by status. Comma-separated; 'active' = open+in_progress; 'all' disables the filter."`
 	Agent  string `short:"a" help:"Filter by agent lane."`
 	Type   string `short:"t" help:"Filter by type."`
 
@@ -49,7 +49,7 @@ type listFilterFlags struct {
 
 func (f listFilterFlags) toFilter() (store.ListFilter, error) {
 	out := store.ListFilter{
-		Status:        f.Status,
+		Statuses:      expandStatuses(f.Status),
 		Agent:         agentPtr(f.Agent),
 		Type:          f.Type,
 		Labels:        f.Label,
@@ -69,9 +69,6 @@ func (f listFilterFlags) toFilter() (store.ListFilter, error) {
 		Reverse:          f.Reverse,
 		DescContains:     f.DescContains,
 		EmptyDescription: f.EmptyDescription,
-	}
-	if out.Status == "all" {
-		out.Status = ""
 	}
 	var err error
 	if out.CreatedAfter, err = parseDate(f.CreatedAfter); err != nil {
@@ -112,6 +109,38 @@ func (c *ListCmd) Run(r *runCtx) error {
 		printIssues(r, issues, labels)
 		return nil
 	})
+}
+
+// expandStatuses translates CLI status tokens into the slice the store expects.
+//   - "all" anywhere → nil (no filter)
+//   - "active" → "open" + "in_progress"
+//   - other tokens → themselves
+// Duplicates are removed.
+func expandStatuses(in []string) []string {
+	for _, s := range in {
+		if s == "all" {
+			return nil
+		}
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, s := range in {
+		switch s {
+		case "active":
+			for _, v := range []string{"open", "in_progress"} {
+				if !seen[v] {
+					seen[v] = true
+					out = append(out, v)
+				}
+			}
+		default:
+			if !seen[s] {
+				seen[s] = true
+				out = append(out, s)
+			}
+		}
+	}
+	return out
 }
 
 // parseDate accepts "YYYY-MM-DD" or RFC3339 and returns a Unix-epoch pointer.

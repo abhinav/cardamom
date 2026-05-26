@@ -22,15 +22,13 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			if err != nil {
 				return err
 			}
-			r.notice("claimed %s (%s)\n", i.ID, i.Title)
-			return nil
+			return reportClaimed(r, s, i)
 		}
 		agent := agentPtr(c.Agent)
 		for {
 			i, err := s.Claim(r.ctx, c.As, agent)
 			if err == nil {
-				r.notice("claimed %s (%s)\n", i.ID, i.Title)
-				return nil
+				return reportClaimed(r, s, i)
 			}
 			if !errors.Is(err, store.ErrNotFound) {
 				return err
@@ -46,4 +44,25 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			}
 		}
 	})
+}
+
+// reportClaimed prints the just-claimed issue in full (matches `cli show`).
+// JSON mode emits the same structured payload as `show --json`. Human mode
+// prefixes a "claimed …" notice for narrative.
+func reportClaimed(r *runCtx, s *store.Store, i store.Issue) error {
+	r.notice("claimed %s (%s)\n", i.ID, i.Title)
+	parents, blocks, err := s.Deps(r.ctx, i.ID)
+	if err != nil {
+		return err
+	}
+	labels, err := s.LabelsForIssue(r.ctx, i.ID)
+	if err != nil {
+		return err
+	}
+	comments, err := s.Comments(r.ctx, i.ID)
+	if err != nil {
+		return err
+	}
+	printIssue(r, i, parents, blocks, labels, comments)
+	return nil
 }

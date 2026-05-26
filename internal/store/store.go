@@ -248,7 +248,7 @@ func (s *Store) Get(ctx context.Context, id string) (Issue, error) {
 // ListFilter scopes the result set for Store.List. Zero/nil values mean
 // "no filter on this dimension".
 type ListFilter struct {
-	Status        string   // exact match (e.g. "open")
+	Statuses      []string // any-of match (e.g. {"open","in_progress"}). nil/empty = no filter.
 	Agent         *string  // exact match on agent lane (nil = no filter)
 	Type          string   // exact match (e.g. "bug")
 	Labels        []string // AND: issue must have ALL of these labels
@@ -309,8 +309,8 @@ func (f ListFilter) orderExpr() string {
 // applyListFilter mutates q with WHERE clauses derived from f. Shared by
 // List and Count so a filter change in one stays in lock-step with the other.
 func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
-	if f.Status != "" {
-		q = q.Where("i.status = ?", f.Status)
+	if len(f.Statuses) > 0 {
+		q = q.Where("i.status IN (?)", bun.In(f.Statuses))
 	}
 	if f.Agent != nil {
 		q = q.Where("i.agent = ?", *f.Agent)

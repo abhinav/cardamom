@@ -66,11 +66,13 @@ type runCtx struct {
 	quiet  bool
 }
 
-// notice writes a friendly status message to stdout unless --quiet is set.
-// Use for narrative output ("closed bd-1234", "claimed …"). For data
-// output (IDs, lists, JSON), always write directly to r.stdout.
+// notice writes a friendly status message to stdout. Suppressed by
+// --quiet, and also suppressed in --json mode so it doesn't pollute
+// the JSON document on stdout. Use for narrative output ("closed
+// bd-1234", "claimed …"); data output (IDs, lists, JSON) goes
+// directly to r.stdout.
 func (r *runCtx) notice(format string, args ...any) {
-	if r.quiet {
+	if r.quiet || r.json {
 		return
 	}
 	fmt.Fprintf(r.stdout, format, args...)

@@ -724,6 +724,83 @@ func TestCLIDeferBadDuration(t *testing.T) {
 	c.runFail("defer", id, "+nope")
 }
 
+func TestCLIListDefaultIncludesInProgress(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	open := strings.TrimSpace(c.run("create", "still open"))
+	wip := strings.TrimSpace(c.run("create", "in progress"))
+	closed := strings.TrimSpace(c.run("create", "done"))
+	c.run("close", closed)
+	c.run("claim", wip, "--as", "alice")
+
+	out := c.run("list") // default --status open,in_progress
+	if !strings.Contains(out, open) {
+		t.Fatalf("expected open issue in default list:\n%s", out)
+	}
+	if !strings.Contains(out, wip) {
+		t.Fatalf("expected in_progress issue in default list:\n%s", out)
+	}
+	if strings.Contains(out, closed) {
+		t.Fatalf("closed issue should be hidden in default list:\n%s", out)
+	}
+}
+
+func TestCLIListStatusAll(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	c.run("close", b)
+	out := c.run("list", "--status", "all")
+	if !strings.Contains(out, a) || !strings.Contains(out, b) {
+		t.Fatalf("--status all should include closed:\n%s", out)
+	}
+}
+
+func TestCLIListStatusCommaSeparated(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	c.run("close", b)
+	out := c.run("list", "--status", "closed")
+	if strings.Contains(out, a) || !strings.Contains(out, b) {
+		t.Fatalf("--status closed should show only closed:\n%s", out)
+	}
+}
+
+func TestCLIClaimEmitsFullIssue(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "-p", "0", "claim me"))
+	c.run("describe", id, "the long form")
+	out := c.run("claim", "--as", "alice")
+	// Human mode includes the notice header and a full show-style block.
+	if !strings.Contains(out, "claimed "+id) {
+		t.Fatalf("expected notice header:\n%s", out)
+	}
+	if !strings.Contains(out, "Description:") || !strings.Contains(out, "the long form") {
+		t.Fatalf("expected full issue body:\n%s", out)
+	}
+}
+
+func TestCLIClaimJSONIsCleanJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "claim me")
+	out := c.run("--json", "claim", "--as", "alice")
+	if strings.HasPrefix(out, "claimed ") {
+		t.Fatalf("notice leaked into --json output: %q", out)
+	}
+	var row map[string]any
+	if err := json.Unmarshal([]byte(out), &row); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if row["status"] != "in_progress" || row["assignee"] != "alice" {
+		t.Fatalf("missing claim mutations in JSON: %+v", row)
+	}
+}
+
 func TestCLIVersion(t *testing.T) {
 	c := newTestCLI(t)
 	out := c.run("version")
