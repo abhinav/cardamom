@@ -36,9 +36,11 @@ type Var struct {
 	Required bool   `yaml:"required,omitempty"`
 	Default  string `yaml:"default,omitempty"`
 	Pattern  string `yaml:"pattern,omitempty"`
-	// Prompt is shown when `clu run` asks for the value interactively.
-	// Defaults to "<name>: " when empty.
-	Prompt string `yaml:"prompt,omitempty"`
+	// Label is a short human-readable name for the variable. Used by
+	// the interactive prompt today; future surfaces (docs, GUI, JSON
+	// schemas) will reuse the same string. Defaults to the var name
+	// when empty.
+	Label string `yaml:"label,omitempty"`
 }
 
 // Step is one step in a workflow.

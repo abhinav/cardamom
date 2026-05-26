@@ -152,7 +152,7 @@ func promptMissingVars(r *runCtx, t workflow.Template, vars map[string]string) e
 // readVar prompts once for `name`, re-prompting on pattern mismatch.
 // EOF mid-prompt → error (caller's stdin was closed; we can't continue).
 func readVar(reader *bufio.Reader, w io.Writer, name string, v workflow.Var) (string, error) {
-	label := v.Prompt
+	label := v.Label
 	if label == "" {
 		label = name
 	}

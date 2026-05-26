@@ -17,14 +17,14 @@ spec: |
 vars:
   summary:
     required: true
-    prompt: "One-line bug summary"
+    label: "One-line bug summary"
   repo:
     required: true
-    prompt: "Repo (org/name)"
+    label: "Repo (org/name)"
     pattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
   reporter:
     default: "unknown"
-    prompt: "Reporter (issue # or name)"
+    label: "Reporter (issue # or name)"
 
 steps:
   - id: reproduce

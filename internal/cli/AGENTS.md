@@ -405,7 +405,7 @@ spec: |
 vars:
   repo:
     required: true
-    prompt: "Repo (org/name)"      # shown by the interactive prompt
+    label: "Repo (org/name)"       # short name; shown by the prompter, future docs/GUI
   version:
     required: true
     pattern: '^\d+\.\d+\.\d+$'     # validated when running
@@ -440,8 +440,8 @@ Fields:
 
 - **Template:** `name` (handle), `description` (one-liner), `spec`
   (multi-line shared context), `vars` (declared inputs), `steps`.
-- **Var:** `required`, `default`, `pattern` (regex), `prompt`
-  (label shown by the interactive prompter).
+- **Var:** `required`, `default`, `pattern` (regex), `label`
+  (short human name; shown by the prompter, reused by docs/JSON).
 - **Step:** `id` (kebab-case), `title`, `description`
   (acceptance criteria), `type` (`task` or `checkpoint`), `priority`
   (0..4), `needs` (list of step IDs), `agent` (pre-assign to a lane),

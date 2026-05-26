@@ -20,19 +20,19 @@ spec: |
 vars:
   project:
     required: true
-    prompt: "Project name (kebab-case)"
+    label: "Project name (kebab-case)"
     pattern: '^[a-z][a-z0-9-]*$'
   framework:
     required: true
-    prompt: "Framework"
+    label: "Framework"
     pattern: '^(vite-react|tanstack-start|next|astro)$'
   repo:
     required: true
-    prompt: "GitHub repo (org/name)"
+    label: "GitHub repo (org/name)"
     pattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
   cloudflare_account:
     default: ""
-    prompt: "Cloudflare account ID (blank to skip CF deploy)"
+    label: "Cloudflare account ID (blank to skip CF deploy)"
 
 steps:
   - id: scaffold
