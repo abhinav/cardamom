@@ -1,0 +1,86 @@
+package store
+
+import "github.com/uptrace/bun"
+
+type Issue struct {
+	bun.BaseModel `bun:"table:issues,alias:i" json:"-"`
+
+	ID       string  `bun:"id,pk" json:"id"`
+	Title    string  `bun:"title,notnull" json:"title"`
+	Type     string  `bun:"type,notnull" json:"type"`
+	Status   string  `bun:"status,notnull" json:"status"`
+	Priority int     `bun:"priority,notnull" json:"priority"`
+	Agent    *string `bun:"agent" json:"agent,omitempty"`
+	Assignee *string `bun:"assignee" json:"assignee,omitempty"`
+	Created     int64   `bun:"created,notnull" json:"created"`
+	Updated     int64   `bun:"updated,notnull" json:"updated"`
+	Closed      *int64  `bun:"closed" json:"closed,omitempty"`
+	DeferUntil  *int64  `bun:"defer_until" json:"defer_until,omitempty"`
+	Description *string `bun:"description" json:"description,omitempty"`
+	Notes       *string `bun:"notes" json:"notes,omitempty"`
+}
+
+type Dep struct {
+	bun.BaseModel `bun:"table:deps"`
+
+	ChildID  string `bun:"child_id,pk"`
+	ParentID string `bun:"parent_id,pk"`
+}
+
+type IssueLabel struct {
+	bun.BaseModel `bun:"table:issue_labels"`
+
+	IssueID string `bun:"issue_id,pk"`
+	Label   string `bun:"label,pk"`
+}
+
+type Comment struct {
+	bun.BaseModel `bun:"table:comments,alias:c" json:"-"`
+
+	ID      int64  `bun:"id,pk,autoincrement" json:"id"`
+	IssueID string `bun:"issue_id,notnull" json:"issue_id"`
+	Author  string `bun:"author,notnull" json:"author"`
+	Body    string `bun:"body,notnull" json:"body"`
+	Created int64  `bun:"created,notnull" json:"created"`
+}
+
+// KV is one entry in the generic key-value store. Independent of issues —
+// use for feature flags, config snippets, persistent agent scratch data, etc.
+type KV struct {
+	bun.BaseModel `bun:"table:kv" json:"-"`
+
+	Key   string `bun:"key,pk" json:"key"`
+	Value string `bun:"value,notnull" json:"value"`
+}
+
+// ActiveAgent is the heartbeat row for one currently-running agent —
+// some Claude Code session (or other process) sitting in a `claim --wait`
+// or `list --watch` poll loop. The loop upserts last_seen each tick;
+// queries filter out rows older than a freshness threshold so crashed
+// processes drop off without explicit cleanup.
+type ActiveAgent struct {
+	bun.BaseModel `bun:"table:active_agents" json:"-"`
+
+	Name         string `bun:"name,pk" json:"name"`
+	PID          int    `bun:"pid,notnull" json:"pid"`
+	Host         string `bun:"host,notnull" json:"host"`
+	Capabilities string `bun:"capabilities,notnull" json:"capabilities"` // JSON array
+	StartedAt    int64  `bun:"started_at,notnull" json:"started_at"`
+	LastSeen     int64  `bun:"last_seen,notnull" json:"last_seen"`
+}
+
+// CronJob is one scheduled invocation. The `Job` field carries a
+// JSON-encoded payload whose shape depends on its discriminator —
+// see the v9 migration comment for the current vocabulary.
+type CronJob struct {
+	bun.BaseModel `bun:"table:cron_jobs" json:"-"`
+
+	Name       string  `bun:"name,pk" json:"name"`
+	Schedule   string  `bun:"schedule,notnull" json:"schedule"`
+	Job        string  `bun:"job,notnull" json:"job"` // JSON; opaque at this layer
+	Enabled    bool    `bun:"enabled,notnull" json:"enabled"`
+	NextRun    int64   `bun:"next_run,notnull" json:"next_run"`
+	LastRun    *int64  `bun:"last_run" json:"last_run,omitempty"`
+	LastStatus *string `bun:"last_status" json:"last_status,omitempty"`
+	LastOutput *string `bun:"last_output" json:"last_output,omitempty"`
+}

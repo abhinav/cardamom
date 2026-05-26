@@ -1,0 +1,80 @@
+package store
+
+import (
+	"context"
+	"errors"
+)
+
+// AddComment appends a new comment to an issue. Validates the issue
+// exists. Returns the inserted Comment with its allocated ID and
+// `created` timestamp.
+func (s *Store) AddComment(ctx context.Context, issueID, author, body string) (Comment, error) {
+	if author == "" {
+		return Comment{}, errors.New("author required")
+	}
+	if body == "" {
+		return Comment{}, errors.New("body required")
+	}
+	if err := s.exists(ctx, issueID); err != nil {
+		return Comment{}, err
+	}
+	c := Comment{IssueID: issueID, Author: author, Body: body, Created: now()}
+	if _, err := s.db.NewInsert().Model(&c).Exec(ctx); err != nil {
+		return Comment{}, err
+	}
+	return c, nil
+}
+
+// Comments returns all comments on an issue in chronological order.
+// Returns ErrNotFound if the issue itself doesn't exist (distinct from
+// "no comments yet", which returns an empty slice).
+func (s *Store) Comments(ctx context.Context, issueID string) ([]Comment, error) {
+	if err := s.exists(ctx, issueID); err != nil {
+		return nil, err
+	}
+	var cs []Comment
+	err := s.db.NewSelect().
+		Model(&cs).
+		Where("issue_id = ?", issueID).
+		OrderExpr("id ASC").
+		Scan(ctx)
+	return cs, err
+}
+
+// RemoveComment deletes a comment by its numeric ID. Returns
+// ErrCommentNotFound if no such comment exists — distinct from
+// ErrNotFound (which is for issues) so the CLI can say "comment not
+// found" instead of "issue not found".
+func (s *Store) RemoveComment(ctx context.Context, commentID int64) error {
+	res, err := s.db.NewDelete().
+		Model((*Comment)(nil)).
+		Where("id = ?", commentID).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrCommentNotFound
+	}
+	return nil
+}
+
+// UpsertComment inserts a comment with an explicit ID (used by import).
+// On conflict, updates every field.
+func (s *Store) UpsertComment(ctx context.Context, c Comment) error {
+	_, err := s.db.NewInsert().Model(&c).
+		On("CONFLICT (id) DO UPDATE").
+		Set("issue_id = EXCLUDED.issue_id").
+		Set("author = EXCLUDED.author").
+		Set("body = EXCLUDED.body").
+		Set("created = EXCLUDED.created").
+		Exec(ctx)
+	return err
+}
+
+// AllComments returns every comment, ordered deterministically for export.
+func (s *Store) AllComments(ctx context.Context) ([]Comment, error) {
+	var cs []Comment
+	err := s.db.NewSelect().Model(&cs).OrderExpr("id ASC").Scan(ctx)
+	return cs, err
+}

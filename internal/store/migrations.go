@@ -1,0 +1,137 @@
+package store
+
+import (
+	"database/sql"
+	"fmt"
+)
+
+// migrations are applied in order; PRAGMA user_version tracks progress.
+// Append new migrations, never edit existing ones.
+var migrations = []string{
+	// v1: initial schema.
+	`
+    CREATE TABLE IF NOT EXISTS issues (
+        id        TEXT PRIMARY KEY,
+        title     TEXT NOT NULL,
+        type      TEXT NOT NULL DEFAULT 'task',
+        status    TEXT NOT NULL DEFAULT 'open',
+        priority  INTEGER NOT NULL DEFAULT 2,
+        assignee  TEXT,
+        created   INTEGER NOT NULL,
+        updated   INTEGER NOT NULL,
+        closed    INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_issues_status ON issues(status);
+
+    CREATE TABLE IF NOT EXISTS deps (
+        child_id  TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        parent_id TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        PRIMARY KEY (child_id, parent_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_deps_parent ON deps(parent_id);
+    `,
+	// v2: agent lane.
+	`
+    ALTER TABLE issues ADD COLUMN agent TEXT;
+    CREATE INDEX IF NOT EXISTS idx_issues_agent ON issues(agent);
+    `,
+	// v3: labels.
+	`
+    CREATE TABLE IF NOT EXISTS issue_labels (
+        issue_id TEXT NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        label    TEXT NOT NULL,
+        PRIMARY KEY (issue_id, label)
+    );
+    CREATE INDEX IF NOT EXISTS idx_issue_labels_label ON issue_labels(label);
+    `,
+	// v4: defer_until.
+	`
+    ALTER TABLE issues ADD COLUMN defer_until INTEGER;
+    CREATE INDEX IF NOT EXISTS idx_issues_defer_until ON issues(defer_until);
+    `,
+	// v5: description.
+	`
+    ALTER TABLE issues ADD COLUMN description TEXT;
+    `,
+	// v6: notes.
+	`
+    ALTER TABLE issues ADD COLUMN notes TEXT;
+    `,
+	// v7: comments.
+	`
+    CREATE TABLE IF NOT EXISTS comments (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        issue_id TEXT    NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        author   TEXT    NOT NULL,
+        body     TEXT    NOT NULL,
+        created  INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_id, id);
+    `,
+	// v8: kv (generic key-value store).
+	`
+    CREATE TABLE IF NOT EXISTS kv (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
+    `,
+	// v9: cron jobs (scheduled invocations).
+	//
+	// job is a JSON-encoded tagged union so the schema doesn't have to
+	// grow as we add new kinds. For v1 only kind="cli" exists:
+	//   {"kind":"cli","args":["create","-a","infra-agent","Check CI"]}
+	`
+    CREATE TABLE IF NOT EXISTS cron_jobs (
+        name        TEXT PRIMARY KEY,
+        schedule    TEXT NOT NULL,
+        job         TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        next_run    INTEGER NOT NULL,
+        last_run    INTEGER,
+        last_status TEXT,
+        last_output TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_cron_jobs_due ON cron_jobs(enabled, next_run);
+    `,
+	// v10: active agents (heartbeat from --wait/--watch loops).
+	`
+    CREATE TABLE IF NOT EXISTS active_agents (
+        name         TEXT PRIMARY KEY,
+        pid          INTEGER NOT NULL,
+        host         TEXT NOT NULL,
+        capabilities TEXT NOT NULL,
+        started_at   INTEGER NOT NULL,
+        last_seen    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_active_agents_last_seen ON active_agents(last_seen);
+    `,
+}
+
+func migrate(db *sql.DB) error {
+	var version int
+	if err := db.QueryRow(`PRAGMA user_version`).Scan(&version); err != nil {
+		return err
+	}
+	for ; version < len(migrations); version++ {
+		tx, err := db.Begin()
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(migrations[version]); err != nil {
+			tx.Rollback()
+			return fmt.Errorf("migration %d: %w", version+1, err)
+		}
+		if _, err := tx.Exec(fmt.Sprintf(`PRAGMA user_version = %d`, version+1)); err != nil {
+			tx.Rollback()
+			return err
+		}
+		if err := tx.Commit(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// SchemaVersion is the number of migrations applied to a fresh DB.
+// Equal to PRAGMA user_version after Open() completes.
+func SchemaVersion() int { return len(migrations) }

@@ -1540,3 +1540,115 @@ func TestCLISubcommandHelpExits0(t *testing.T) {
 		t.Fatalf("expected usage on show --help, got:\n%s", out)
 	}
 }
+
+func TestCLICancelCascadesToDependents(t *testing.T) {
+	// Shape:  A ← B ← C   and   A ← D
+	// Cancel A → everything in this graph should be cancelled.
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "root"))
+	b := strings.TrimSpace(c.run("create", "child of a"))
+	cc := strings.TrimSpace(c.run("create", "grandchild via b"))
+	d := strings.TrimSpace(c.run("create", "sibling child of a"))
+	unrelated := strings.TrimSpace(c.run("create", "unrelated"))
+	c.run("link", b, a)
+	c.run("link", cc, b)
+	c.run("link", d, a)
+
+	out := c.run("cancel", a)
+	for _, want := range []string{a, b, cc, d} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("cancel output missing %s:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, unrelated) {
+		t.Fatalf("unrelated issue %s should not be cancelled:\n%s", unrelated, out)
+	}
+
+	// Verify status persisted for each cancelled issue and unchanged for unrelated.
+	for _, id := range []string{a, b, cc, d} {
+		s := c.run("show", id)
+		if !strings.Contains(s, "cancelled") {
+			t.Fatalf("show %s should report cancelled status:\n%s", id, s)
+		}
+	}
+	if s := c.run("show", unrelated); !strings.Contains(s, "open") {
+		t.Fatalf("unrelated should still be open:\n%s", s)
+	}
+}
+
+func TestCLICancelSkipsAlreadyTerminal(t *testing.T) {
+	// Closing one descendant first: cancel should skip it (not re-mark) and
+	// only cancel the still-non-terminal ones.
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "root"))
+	b := strings.TrimSpace(c.run("create", "child"))
+	cc := strings.TrimSpace(c.run("create", "grandchild"))
+	c.run("link", b, a)
+	c.run("link", cc, b)
+	c.run("close", b) // b is already terminal
+
+	out := c.run("cancel", a)
+	// a and cc should be cancelled; b should NOT appear (already closed).
+	if !strings.Contains(out, a) || !strings.Contains(out, cc) {
+		t.Fatalf("expected a and cc in output:\n%s", out)
+	}
+	if strings.Contains(out, "cancelled "+b) {
+		t.Fatalf("already-closed b should not be re-cancelled:\n%s", out)
+	}
+	if s := c.run("show", b); !strings.Contains(s, "closed") {
+		t.Fatalf("b should remain closed:\n%s", s)
+	}
+}
+
+func TestCLICancelNothingToDo(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "root"))
+	c.run("close", a)
+	out := c.run("cancel", a)
+	if !strings.Contains(out, "nothing to cancel") {
+		t.Fatalf("expected 'nothing to cancel' notice:\n%s", out)
+	}
+}
+
+func TestCLICancelUnknownIDFails(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("cancel", "clu-deadbeef")
+}
+
+func TestCLICancelReopenRestoresOpen(t *testing.T) {
+	// cancelled → reopen should round-trip to open.
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "root"))
+	c.run("cancel", a)
+	c.run("reopen", a)
+	if s := c.run("show", a); !strings.Contains(s, "open") {
+		t.Fatalf("expected reopen to restore status=open:\n%s", s)
+	}
+}
+
+func TestCLICancelJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "root"))
+	b := strings.TrimSpace(c.run("create", "child"))
+	c.run("link", b, a)
+
+	out := c.run("--json", "cancel", a)
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 cancelled rows, got %d:\n%s", len(rows), out)
+	}
+	for _, r := range rows {
+		if r["status"] != "cancelled" {
+			t.Fatalf("expected status=cancelled, got %v", r["status"])
+		}
+	}
+}

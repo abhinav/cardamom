@@ -31,6 +31,7 @@ type CLI struct {
 	Show       ShowCmd       `cmd:"" help:"Show details for one issue."`
 	Claim      ClaimCmd      `cmd:"" help:"Claim the next ready issue (or a specific one)."`
 	Close      CloseCmd      `cmd:"" help:"Close an issue."`
+	Cancel     CancelCmd     `cmd:"" help:"Cancel an issue and all its transitive dependents."`
 	Update     UpdateCmd     `cmd:"" help:"Update fields on an issue."`
 	Dep        DepCmd        `cmd:"" help:"Manage dependency edges."`
 	Label      LabelCmd      `cmd:"" help:"Manage labels on an issue."`

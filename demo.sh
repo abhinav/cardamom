@@ -103,8 +103,12 @@ timed "$BD" show "$A"
 
 # -----------------------------------------------------------------
 hr "claim, close, defer, reopen, priority, assign"
-run "$BD" claim --agent worker-1
-run "$BD" claim --agent worker-2 -a code-reviewer
+note "bare 'claim' picks from the default (unassigned) lane:"
+run "$BD" claim
+note "-a code-reviewer claims from the code-reviewer lane:"
+run "$BD" claim -a code-reviewer
+note "cancel cascades through dependents:"
+run "$BD" cancel "${IDS[6]}"  # cancels IDS[6] + IDS[7] (which depends on it)
 run "$BD" close "${IDS[2]}"
 run "$BD" close "${IDS[3]}"
 run "$BD" defer "${IDS[10]}" "+2h"

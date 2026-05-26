@@ -125,13 +125,13 @@ timed "$BD" blocked
 
 # -----------------------------------------------------------------
 hr "drive the workflow: claim & close build, then test"
-BUILD_ID=$("$BD" --json ready | grep -oE 'bd-[a-f0-9]+' | head -1)
+BUILD_ID=$("$BD" --json ready | grep -oE 'clu-[a-f0-9]+' | head -1)
 run "$BD" claim "$BUILD_ID" --agent worker
 run "$BD" close "$BUILD_ID"
 
 note "after closing build, test should become ready:"
 timed "$BD" ready
-TEST_ID=$("$BD" --json ready | grep -oE 'bd-[a-f0-9]+' | head -1)
+TEST_ID=$("$BD" --json ready | grep -oE 'clu-[a-f0-9]+' | head -1)
 run "$BD" close "$TEST_ID"
 
 note "after closing test, deploy should become ready:"
@@ -142,7 +142,7 @@ hr "instantiate the parallel template too"
 run "$BD" run parallel
 
 note "two parallel builds should both be ready (after setup closes):"
-SETUP_ID=$("$BD" --json list | grep -oE '"id":"bd-[a-f0-9]+","title":"Bootstrap workspace"' | grep -oE 'bd-[a-f0-9]+' | head -1)
+SETUP_ID=$("$BD" --json list | grep -oE '"id":"clu-[a-f0-9]+","title":"Bootstrap workspace"' | grep -oE 'clu-[a-f0-9]+' | head -1)
 run "$BD" close "$SETUP_ID"
 timed "$BD" ready
 

@@ -14,7 +14,7 @@ import (
 // stay in lock-step. Limit is intentionally separate from the embed:
 // list cares about it, count does not.
 type listFilterFlags struct {
-	Status []string `default:"open,in_progress" sep:"," enum:"open,in_progress,closed,active,all" help:"Filter by status. Comma-separated; 'active' = open+in_progress; 'all' disables the filter."`
+	Status []string `default:"open,in_progress" sep:"," enum:"open,in_progress,closed,cancelled,active,all" help:"Filter by status. Comma-separated; 'active' = open+in_progress; 'all' disables the filter."`
 	Agent  string `short:"a" help:"Filter by agent lane."`
 	Type   string `short:"t" help:"Filter by type."`
 

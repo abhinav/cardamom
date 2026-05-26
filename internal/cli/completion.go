@@ -9,6 +9,7 @@ import (
 // Keep in sync with the CLI struct in cli.go when adding commands.
 var completionCmds = []string{
 	"init", "create", "list", "ls", "ready", "blocked", "show", "claim", "close",
+	"cancel",
 	"update", "dep", "label", "defer", "undefer",
 	"count", "stats", "reopen",
 	"assign", "priority", "tag", "link",
