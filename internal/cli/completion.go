@@ -17,6 +17,7 @@ var completionCmds = []string{
 	"info", "statuses", "types", "doctor",
 	"describe", "note", "comment", "kv",
 	"cron", "agent", "brief",
+	"lock", "unlock", "locks",
 	"run", "template", "checkpoint", "approve",
 	"version", "completion",
 }

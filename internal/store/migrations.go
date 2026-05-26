@@ -105,6 +105,23 @@ var migrations = []string{
     );
     CREATE INDEX IF NOT EXISTS idx_active_agents_last_seen ON active_agents(last_seen);
     `,
+	// v11: named locks for ad-hoc coordination.
+	//
+	// `expires` is a required wall-clock TTL — there is no infinite
+	// lock. The acquire path overwrites a row whose expires has passed,
+	// so a crashed holder can't wedge the lock forever. PID + host are
+	// recorded for `clu locks` diagnostics, not enforcement.
+	`
+    CREATE TABLE IF NOT EXISTS locks (
+        name     TEXT PRIMARY KEY,
+        holder   TEXT NOT NULL,
+        pid      INTEGER NOT NULL,
+        host     TEXT NOT NULL,
+        acquired INTEGER NOT NULL,
+        expires  INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_locks_expires ON locks(expires);
+    `,
 }
 
 func migrate(db *sql.DB) error {

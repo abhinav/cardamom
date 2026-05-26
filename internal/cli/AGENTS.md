@@ -229,6 +229,48 @@ clu cancel A         # cancels A, B, C, D (full cascade)
 
 `reopen` accepts either, so cancellation is reversible.
 
+## Coordinating around shared resources (locks)
+
+For work that isn't shaped like an issue — a build directory, a test
+database, a deploy slot, `npm install` — use a named lock:
+
+```bash
+# Acquire (fails immediately if already held)
+clu lock deploy --ttl 1h -a <your-name>
+
+# Block until free, then acquire
+clu lock deploy --ttl 1h -a <your-name> --wait
+
+# Best form: acquire, run a command, auto-release on exit
+clu lock deploy --ttl 1h -a <your-name> -- ./deploy.sh production
+
+# Release manually (only works if you're the holder)
+clu unlock deploy -a <your-name>
+
+# See what's held
+clu locks
+```
+
+Every acquire requires a finite `--ttl` (default 5m) — there are no
+forever-locks. If your process crashes, the lock auto-expires after
+TTL elapses, so a stuck agent can't wedge everyone else permanently.
+Pick a TTL that bounds the worst-case blast radius if you crash.
+
+**Use locks for cross-cutting concerns; use the dep graph for
+issue-shaped serialization.** If A must finish before B, that's
+`clu link B A`, not a lock. Locks are for "two agents can't both
+`npm install` in this repo at the same time" — coordination that
+doesn't correspond to a tracked work item.
+
+The `--` trailing-command form is the recommended shape — clu owns
+the acquire+release lifecycle, so leakage is impossible even on a
+non-zero exit:
+
+```bash
+clu lock build --ttl 5m -- go build ./...
+clu lock test-db --ttl 10m -- pytest tests/integration/
+```
+
 ## Talking to other agents
 
 ```bash

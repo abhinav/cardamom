@@ -52,6 +52,9 @@ type CLI struct {
 	Cron       CronCmd       `cmd:"" help:"Schedule recurring clu invocations (drive from OS cron / launchd)."`
 	Agent      AgentCmd      `cmd:"" help:"Manage agents — list declared (config.yaml) and live (heartbeat) state."`
 	Brief      BriefCmd      `cmd:"" help:"Print agent workflow context: AGENTS.md, declared agents, who's live, persisted memories."`
+	Lock       LockCmd       `cmd:"" help:"Acquire a named lock for ad-hoc coordination (deploy slots, build dirs, shared resources)."`
+	Unlock     UnlockCmd     `cmd:"" help:"Release a named lock."`
+	Locks      LocksCmd      `cmd:"" help:"List current locks (live and stale)."`
 	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
 	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'clu export'."`
 	Info       InfoCmd       `cmd:"" help:"Show database path, schema version, and a summary of issues."`

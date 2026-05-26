@@ -20,6 +20,9 @@ var (
 	ErrNotDeferred     = errors.New("issue is not deferred")
 	ErrCronJobNotFound = errors.New("cron job not found")
 	ErrCronJobExists   = errors.New("cron job already exists")
+	ErrLockHeld        = errors.New("lock is currently held")
+	ErrLockNotFound    = errors.New("lock not found")
+	ErrLockNotHolder   = errors.New("lock is held by someone else")
 )
 
 func isUniqueErr(err error) bool {

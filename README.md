@@ -50,6 +50,7 @@ When you run more than one AI coding session against the same project, they need
 | ⚡ **Atomic claim** | `UPDATE … RETURNING` with subquery — racing agents get different issues. |
 | 🎯 **Capability routing** | Agents declare capabilities in `config.yaml`; `cap:foo` labels flow to matching agents. |
 | 🌊 **Cascading cancel** | `clu cancel <id>` walks the dep graph forward and cancels the whole tail. |
+| 🔒 **Named locks** | `clu lock deploy -- ./deploy.sh` for cross-cutting coordination outside the issue graph. TTL-required, leak-proof. |
 | 📋 **Workflow templates** | YAML graphs of issues + deps with optional human-approval checkpoints. |
 | 🧾 **JSON everywhere** | Every command takes `--json` and emits exactly one JSON value to stdout. |
 | 👀 **Watch-driven** | `clu ready --watch` + Claude Code's Monitor tool = push-style task delivery. |
