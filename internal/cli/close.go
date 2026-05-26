@@ -3,16 +3,18 @@ package cli
 import "github.com/rovak/beadsv2/internal/store"
 
 type CloseCmd struct {
-	ID string `arg:"" help:"Issue ID."`
+	IDs []string `arg:"" required:"" name:"id" help:"One or more issue IDs to close."`
 }
 
 func (c *CloseCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		i, err := s.MarkClosed(r.ctx, c.ID)
-		if err != nil {
-			return err
-		}
-		r.notice("closed %s\n", i.ID)
-		return nil
+		return eachID(r, c.IDs, func(id string) (any, error) {
+			i, err := s.MarkClosed(r.ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			r.notice("closed %s\n", i.ID)
+			return i, nil
+		})
 	})
 }

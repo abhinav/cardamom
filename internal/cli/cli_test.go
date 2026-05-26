@@ -724,6 +724,87 @@ func TestCLIDeferBadDuration(t *testing.T) {
 	c.runFail("defer", id, "+nope")
 }
 
+func TestCLICloseMultiple(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	cd := strings.TrimSpace(c.run("create", "c"))
+	out := c.run("close", a, b, cd)
+	for _, id := range []string{a, b, cd} {
+		if !strings.Contains(out, "closed "+id) {
+			t.Fatalf("missing close notice for %s:\n%s", id, out)
+		}
+	}
+}
+
+func TestCLICloseMultipleJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	out := c.run("--json", "close", a, b)
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if len(rows) != 2 {
+		t.Fatalf("expected 2 rows, got %d", len(rows))
+	}
+	for _, row := range rows {
+		if row["status"] != "closed" {
+			t.Fatalf("row not closed: %+v", row)
+		}
+	}
+}
+
+func TestCLICloseContinuesPastErrors(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	cd := strings.TrimSpace(c.run("create", "c"))
+	// Middle ID is bogus.
+	c.runFail("close", a, "bd-zzzz", cd)
+	// Both real ones should still be closed.
+	for _, id := range []string{a, cd} {
+		out := c.run("show", id)
+		if !strings.Contains(out, "Status:   closed") {
+			t.Fatalf("expected %s closed after partial-failure batch:\n%s", id, out)
+		}
+	}
+}
+
+func TestCLIReopenMultiple(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	c.run("close", a, b)
+	c.run("reopen", a, b)
+	for _, id := range []string{a, b} {
+		out := c.run("show", id)
+		if !strings.Contains(out, "Status:   open") {
+			t.Fatalf("expected %s open after batch reopen:\n%s", id, out)
+		}
+	}
+}
+
+func TestCLIUndeferMultiple(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	c.run("defer", a, "+1h")
+	c.run("defer", b, "+1h")
+	c.run("undefer", a, b)
+	for _, id := range []string{a, b} {
+		out := c.run("show", id)
+		if strings.Contains(out, "Deferred:") {
+			t.Fatalf("expected %s undeferred:\n%s", id, out)
+		}
+	}
+}
+
 func TestCLIListDefaultIncludesInProgress(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

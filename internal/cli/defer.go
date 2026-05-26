@@ -31,17 +31,19 @@ func (c *DeferCmd) Run(r *runCtx) error {
 }
 
 type UndeferCmd struct {
-	ID string `arg:"" help:"Issue ID."`
+	IDs []string `arg:"" required:"" name:"id" help:"One or more issue IDs to undefer."`
 }
 
 func (c *UndeferCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		_, err := s.SetDefer(r.ctx, c.ID, nil)
-		if err != nil {
-			return err
-		}
-		r.notice("undeferred %s\n", c.ID)
-		return nil
+		return eachID(r, c.IDs, func(id string) (any, error) {
+			i, err := s.SetDefer(r.ctx, id, nil)
+			if err != nil {
+				return nil, err
+			}
+			r.notice("undeferred %s\n", id)
+			return i, nil
+		})
 	})
 }
 

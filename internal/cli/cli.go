@@ -66,6 +66,31 @@ type runCtx struct {
 	quiet  bool
 }
 
+// eachID applies fn to every id, collecting successes and per-id errors.
+// Successful results are emitted as a JSON array in --json mode (call sites
+// supply a slice with one entry per success). In human mode, fn is expected
+// to print its own notice as it goes. Errors are aggregated via errors.Join
+// so partial work still completes — useful for batch close/reopen/undefer.
+func eachID(r *runCtx, ids []string, fn func(string) (any, error)) error {
+	results := make([]any, 0, len(ids))
+	var errs []error
+	for _, id := range ids {
+		v, err := fn(id)
+		if err != nil {
+			errs = append(errs, fmt.Errorf("%s: %w", id, err))
+			continue
+		}
+		results = append(results, v)
+	}
+	if r.json {
+		_ = json.NewEncoder(r.stdout).Encode(results)
+	}
+	if len(errs) > 0 {
+		return errors.Join(errs...)
+	}
+	return nil
+}
+
 // notice writes a friendly status message to stdout. Suppressed by
 // --quiet, and also suppressed in --json mode so it doesn't pollute
 // the JSON document on stdout. Use for narrative output ("closed
