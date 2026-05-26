@@ -78,6 +78,7 @@ func (s *Server) Mux() stdhttp.Handler {
 	mux.HandleFunc("GET /api/issues/{id}/comments", s.handleListComments)
 	mux.HandleFunc("POST /api/issues/{id}/comments", s.handleAddComment)
 
+	mux.HandleFunc("GET /api/checkpoints", s.handleListCheckpoints)
 	mux.HandleFunc("POST /api/checkpoints/{id}/approve", s.handleApproveCheckpoint)
 	mux.HandleFunc("POST /api/checkpoints/{id}/fail", s.handleFailCheckpoint)
 
@@ -223,6 +224,7 @@ func (s *Server) handleRoot(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			"DELETE /api/issues/{id}/deps/{parent}",
 			"GET    /api/issues/{id}/comments",
 			"POST   /api/issues/{id}/comments",
+			"GET    /api/checkpoints",
 			"POST   /api/checkpoints/{id}/approve",
 			"POST   /api/checkpoints/{id}/fail",
 		},

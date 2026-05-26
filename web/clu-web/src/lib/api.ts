@@ -95,6 +95,15 @@ export interface Meta {
   schema_version: number
 }
 
+// PendingCheckpoint mirrors internal/http's pendingCheckpointOut.
+// Embeds the Issue fields directly (the Go side flattens via
+// embedded struct).
+export interface PendingCheckpoint extends Issue {
+  kind: 'approval' | 'manual'
+  approvers?: string[]
+  blocks: string[]
+}
+
 export interface ActiveAgent {
   name: string
   pid: number

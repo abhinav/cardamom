@@ -5,6 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+
+	"github.com/uptrace/bun"
 )
 
 // CheckpointPayload is the JSON shape stored in KV under "cp:<issue-id>"
@@ -40,6 +42,57 @@ func (s *Store) GetCheckpointPayload(ctx context.Context, id string) (Checkpoint
 		return CheckpointPayload{}, fmt.Errorf("checkpoint %s: invalid KV payload: %w", id, err)
 	}
 	return p, nil
+}
+
+// PendingCheckpoint bundles a checkpoint issue with the parsed
+// payload the approval UI needs to render an actionable card. The
+// embedded Issue carries description/title/timestamps; Approvers /
+// Kind come from the cp:<id> KV row.
+type PendingCheckpoint struct {
+	Issue
+	Kind      string   `json:"kind"`                // "approval" | "manual"
+	Approvers []string `json:"approvers,omitempty"` // approval kind only
+}
+
+// PendingCheckpoints returns every open checkpoint issue with its
+// parsed cp:<id> payload — the data feeding the /approvals page.
+//
+// Open = status in (open, in_progress) AND label "checkpoint:pending"
+// is present. Checkpoints that have already been passed / failed lose
+// the pending label, so this filter naturally excludes them.
+//
+// Issues that have no cp:<id> KV row (shouldn't happen for templated
+// runs, but a hand-created checkpoint might) get an empty Approvers
+// + Kind = "manual" so the UI can still render them.
+//
+// Ordered: oldest first (FIFO). Approvals are work-to-do; the oldest
+// pending one is the most likely to be blocking something.
+func (s *Store) PendingCheckpoints(ctx context.Context) ([]PendingCheckpoint, error) {
+	var issues []Issue
+	err := s.db.NewSelect().
+		Model(&issues).
+		Where("i.type = ?", "checkpoint").
+		Where("i.status IN (?)", bun.In([]string{"open", "in_progress"})).
+		Where("EXISTS (SELECT 1 FROM issue_labels WHERE issue_id = i.id AND label = 'checkpoint:pending')").
+		OrderExpr("i.created ASC").
+		Scan(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]PendingCheckpoint, len(issues))
+	for i, is := range issues {
+		out[i] = PendingCheckpoint{Issue: is, Kind: "manual"}
+		p, err := s.GetCheckpointPayload(ctx, is.ID)
+		if err != nil {
+			if errors.Is(err, ErrCheckpointNoPayload) {
+				continue // already defaulted to manual
+			}
+			return nil, err
+		}
+		out[i].Kind = p.Kind
+		out[i].Approvers = p.Approvers
+	}
+	return out, nil
 }
 
 // CheckpointResult bundles the outputs of ResolveCheckpoint so callers

@@ -1,7 +1,10 @@
 import { Link } from '@tanstack/react-router'
-import { Columns3, List, Sparkles, Zap } from 'lucide-react'
+import { useQuery } from '@tanstack/react-query'
+import { Columns3, List, ShieldCheck, Sparkles, Zap } from 'lucide-react'
 import IdentityPicker from './IdentityPicker'
 import ThemeToggle from './ThemeToggle'
+import { Badge } from './ui/badge'
+import { api, type PendingCheckpoint } from '../lib/api'
 import { useChangeStream } from '../lib/use-change-stream'
 
 // AppShell is the global frame: collapsible-feeling left sidebar with
@@ -13,6 +16,13 @@ import { useChangeStream } from '../lib/use-change-stream'
 // terminal — refetches issue queries automatically.
 export default function AppShell({ children }: { children: React.ReactNode }) {
   useChangeStream()
+  // Pending-approval count drives the sidebar badge. Cheap query;
+  // SSE invalidates ['checkpoints'] alongside ['issues'] indirectly
+  // (every checkpoint write touches an issue row).
+  const { data: pending = [] } = useQuery<PendingCheckpoint[]>({
+    queryKey: ['checkpoints'],
+    queryFn: () => api.get('/api/checkpoints'),
+  })
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
       <aside className="bg-sidebar text-sidebar-foreground flex w-60 shrink-0 flex-col border-r border-sidebar-border">
@@ -34,6 +44,19 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </NavLink>
           <NavLink to="/ready" icon={<Zap className="size-4" />}>
             Ready
+          </NavLink>
+          <NavLink
+            to="/approvals"
+            icon={<ShieldCheck className="size-4" />}
+            trailing={
+              pending.length > 0 ? (
+                <Badge variant="warning" className="font-mono">
+                  {pending.length}
+                </Badge>
+              ) : null
+            }
+          >
+            Approvals
           </NavLink>
           <NavLink to="/list" icon={<List className="size-4" />}>
             List
@@ -57,11 +80,13 @@ function NavLink({
   to,
   icon,
   exact,
+  trailing,
   children,
 }: {
   to: string
   icon: React.ReactNode
   exact?: boolean
+  trailing?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -71,7 +96,8 @@ function NavLink({
       className="text-sidebar-foreground/70 hover:text-sidebar-foreground hover:bg-sidebar-accent data-[status=active]:bg-sidebar-accent data-[status=active]:text-sidebar-foreground inline-flex items-center gap-2 rounded-md px-2.5 py-1.5 text-sm font-medium no-underline"
     >
       {icon}
-      {children}
+      <span className="flex-1">{children}</span>
+      {trailing}
     </Link>
   )
 }

@@ -317,6 +317,63 @@ func TestCheckpointApprove(t *testing.T) {
 	}
 }
 
+// TestListCheckpoints exercises /api/checkpoints — the feed for the
+// /approvals UI. Tests: a pending checkpoint with approvers shows
+// up, a non-pending checkpoint (no checkpoint:pending label) does
+// not, and the response is an empty array (not null) when none.
+func TestListCheckpoints(t *testing.T) {
+	ts, s := newTestServer(t)
+
+	// Empty case first.
+	resp, data := do(t, ts, "GET", "/api/checkpoints", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("status = %d", resp.StatusCode)
+	}
+	if string(data) != "[]\n" {
+		t.Fatalf("empty checkpoints body = %q (want %q)", string(data), "[]\n")
+	}
+
+	// Pending checkpoint with approvers.
+	pending, _ := s.Create(ctx, "Review release", "checkpoint", 1, nil)
+	_ = s.AddLabels(ctx, pending.ID, []string{"checkpoint:pending"})
+	_ = s.KVSet(ctx, "cp:"+pending.ID,
+		`{"kind":"approval","approvers":["alice","bob"]}`)
+
+	// A second issue that the checkpoint blocks (so .blocks is non-empty).
+	blocked, _ := s.Create(ctx, "Roll out the change", "task", 1, nil)
+	if err := s.AddDep(ctx, blocked.ID, pending.ID); err != nil {
+		t.Fatal(err)
+	}
+
+	// A non-pending checkpoint (already approved) — should be excluded.
+	approved, _ := s.Create(ctx, "Old gate", "checkpoint", 1, nil)
+	_ = s.AddLabels(ctx, approved.ID, []string{"checkpoint:passed"})
+	_ = s.KVSet(ctx, "cp:"+approved.ID, `{"kind":"manual"}`)
+
+	resp, data = do(t, ts, "GET", "/api/checkpoints", "", nil)
+	if resp.StatusCode != 200 {
+		t.Fatalf("status = %d, body = %s", resp.StatusCode, data)
+	}
+	var out []pendingCheckpointOut
+	mustJSON(t, data, &out)
+	if len(out) != 1 {
+		t.Fatalf("expected 1 pending checkpoint, got %d (%+v)", len(out), out)
+	}
+	got := out[0]
+	if got.ID != pending.ID {
+		t.Fatalf("wrong issue: %s", got.ID)
+	}
+	if got.Kind != "approval" {
+		t.Fatalf("wrong kind: %q", got.Kind)
+	}
+	if len(got.Approvers) != 2 || got.Approvers[0] != "alice" {
+		t.Fatalf("approvers wrong: %v", got.Approvers)
+	}
+	if len(got.Blocks) != 1 || got.Blocks[0] != blocked.ID {
+		t.Fatalf("blocks wrong: %v", got.Blocks)
+	}
+}
+
 func TestNotFoundIsJSON(t *testing.T) {
 	ts, _ := newTestServer(t)
 	resp, data := do(t, ts, "GET", "/api/issues/nope", "", nil)
