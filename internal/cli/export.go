@@ -30,7 +30,7 @@ type depExport struct {
 }
 
 type ExportCmd struct {
-	Out string `short:"o" name:"out" help:"Write JSONL to this file (default: stdout)."`
+	Out string `short:"o" name:"out" help:"Write JSONL to this file. Prefer this over '> file.jsonl' — -o writes only data to the file; the summary notice goes to stderr."`
 }
 
 func (c *ExportCmd) Run(r *runCtx) error {

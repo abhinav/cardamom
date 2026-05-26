@@ -2,6 +2,7 @@ package cli
 
 import (
 	"errors"
+	"fmt"
 	"time"
 
 	"github.com/rovak/clu/internal/store"
@@ -67,7 +68,7 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 				return err
 			}
 			if !c.Wait {
-				return errors.New("no ready issues")
+				return noReadyError(r, s, laneAgent)
 			}
 			if _, err := s.WaitReady(r.ctx, 1, laneAgent, caps, c.Interval); err != nil {
 				return err
@@ -98,4 +99,22 @@ func reportClaimed(r *runCtx, s *store.Store, i store.Issue) error {
 	}
 	printIssue(r, i, parents, blocks, labels, comments, blocked[i.ID])
 	return nil
+}
+
+// noReadyError returns the "no ready issues" error with a hint about
+// other lanes when the caller scoped to a named lane and the default
+// lane has work. Without this, `claim -a foo` against issues created
+// without -a returns a terse "no ready issues" with no clue why.
+func noReadyError(r *runCtx, s *store.Store, laneAgent *string) error {
+	if laneAgent == nil {
+		// No lane scoping; nothing else to suggest.
+		return errors.New("no ready issues")
+	}
+	// Count work in the default lane to know if there's a hint to give.
+	defaultReady, err := s.Ready(r.ctx, 1, nil, nil)
+	if err != nil || len(defaultReady) == 0 {
+		return fmt.Errorf("no ready issues in lane %q", *laneAgent)
+	}
+	return fmt.Errorf("no ready issues in lane %q (%d issue(s) waiting in the default lane — drop --agent / -a to claim from there, or re-create with -a %s)",
+		*laneAgent, len(defaultReady), *laneAgent)
 }

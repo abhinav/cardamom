@@ -355,7 +355,7 @@ If you're parsing IDs out of human output, the regex is `clu-[a-f0-9]+`
 | key-value scratch | `clu kv set foo bar` / `clu kv get foo` |
 | database health | `clu doctor` |
 | schema/db info | `clu info` |
-| export everything | `clu export -o dump.jsonl` |
+| export everything | `clu export -o dump.jsonl` (preferred over `> dump.jsonl`) |
 | import a dump | `clu import dump.jsonl` |
 
 ## Things not to do

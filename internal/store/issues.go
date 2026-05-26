@@ -224,7 +224,7 @@ func (s *Store) Cancel(ctx context.Context, roots []string) ([]Issue, error) {
 		setArgs = append(setArgs, idArgs...)
 		_, err = tx.ExecContext(ctx, `
             UPDATE issues
-            SET status = 'cancelled', closed = ?, updated = ?
+            SET status = 'cancelled', closed = ?, updated = ?, defer_until = NULL
             WHERE id IN (`+placeholders(len(ids))+`)`,
 			setArgs...)
 		if err != nil {
@@ -239,6 +239,9 @@ func (s *Store) Cancel(ctx context.Context, roots []string) ([]Issue, error) {
 }
 
 // MarkClosed transitions an open/in-progress issue to closed.
+// Clears defer_until — once an issue is terminal, the wait window
+// is moot, and the doctor's "Closed+deferred" check otherwise flags
+// every previously-deferred issue we close.
 func (s *Store) MarkClosed(ctx context.Context, id string) (Issue, error) {
 	t := now()
 	res, err := s.db.NewUpdate().
@@ -246,6 +249,7 @@ func (s *Store) MarkClosed(ctx context.Context, id string) (Issue, error) {
 		Set("status = 'closed'").
 		Set("closed = ?", t).
 		Set("updated = ?", t).
+		Set("defer_until = NULL").
 		Where("id = ? AND status != 'closed'", id).
 		Exec(ctx)
 	if err != nil {
@@ -279,6 +283,23 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 		if err := ValidateStatus(*f.Status); err != nil {
 			return Issue{}, err
 		}
+		// in_progress without an assignee is a stuck row waiting to
+		// happen — doctor's "Stuck in_progress" check would fire on
+		// it after the threshold. claim is the documented path that
+		// sets assignee + status atomically. Refuse the bare update.
+		if *f.Status == "in_progress" {
+			cur, gerr := s.Get(ctx, id)
+			if gerr != nil {
+				return Issue{}, gerr
+			}
+			resultingAssignee := cur.Assignee
+			if f.Assignee != nil {
+				resultingAssignee = *f.Assignee
+			}
+			if resultingAssignee == nil {
+				return Issue{}, fmt.Errorf("%w: in_progress requires an assignee — use `clu claim` to take an issue, or pass --assignee", ErrInvalid)
+			}
+		}
 	}
 	if f.Type != nil {
 		if err := ValidateType(*f.Type); err != nil {
@@ -309,7 +330,10 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 		// timestamp on an issue whose status is open/in_progress.
 		switch *f.Status {
 		case "closed", "cancelled":
-			q = q.Set("closed = ?", now())
+			// Terminal transitions clear defer_until too (doctor's
+			// Closed+deferred check otherwise fires on any previously
+			// deferred row we close).
+			q = q.Set("closed = ?", now()).Set("defer_until = NULL")
 		default:
 			q = q.Set("closed = NULL")
 		}

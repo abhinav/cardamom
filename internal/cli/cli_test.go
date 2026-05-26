@@ -1674,6 +1674,36 @@ func TestCLIListShowsDeferred(t *testing.T) {
 	}
 }
 
+func TestCLICloseClearsDeferUntil(t *testing.T) {
+	// Regression: closing a deferred issue used to leave defer_until
+	// set, so doctor's Closed+deferred check fired forever.
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.run("defer", id, "+1h")
+	c.run("close", id)
+	out := c.run("--json", "show", id)
+	if strings.Contains(out, `"defer_until":`) {
+		t.Fatalf("close should clear defer_until:\n%s", out)
+	}
+	// Cancel-cascade should clear it too.
+	id2 := strings.TrimSpace(c.run("create", "y"))
+	c.run("defer", id2, "+1h")
+	c.run("cancel", id2)
+	out = c.run("--json", "show", id2)
+	if strings.Contains(out, `"defer_until":`) {
+		t.Fatalf("cancel should clear defer_until:\n%s", out)
+	}
+	// `update --status closed` path too.
+	id3 := strings.TrimSpace(c.run("create", "z"))
+	c.run("defer", id3, "+1h")
+	c.run("update", id3, "--status", "closed")
+	out = c.run("--json", "show", id3)
+	if strings.Contains(out, `"defer_until":`) {
+		t.Fatalf("update --status closed should clear defer_until:\n%s", out)
+	}
+}
+
 func TestCLIInfoOpenCountLabel(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
