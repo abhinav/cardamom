@@ -20,7 +20,11 @@ func (c *ShowCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssue(r, i, parents, blocks, labels)
+		comments, err := s.Comments(r.ctx, i.ID)
+		if err != nil {
+			return err
+		}
+		printIssue(r, i, parents, blocks, labels, comments)
 		return nil
 	})
 }

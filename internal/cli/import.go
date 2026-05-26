@@ -32,7 +32,7 @@ func (c *ImportCmd) Run(r *runCtx) error {
 		// 16 MiB max line — enough for very large issue bodies.
 		scan.Buffer(make([]byte, 1<<20), 16<<20)
 
-		var issues, deps int
+		var issues, deps, comments int
 		for ln := 1; scan.Scan(); ln++ {
 			line := scan.Bytes()
 			if len(bytes.TrimSpace(line)) == 0 {
@@ -73,6 +73,18 @@ func (c *ImportCmd) Run(r *runCtx) error {
 					return fmt.Errorf("line %d: upsert dep %s->%s: %w", ln, rec.Child, rec.Parent, err)
 				}
 				deps++
+			case "comment":
+				var rec store.Comment
+				if err := json.Unmarshal(hdr.Data, &rec); err != nil {
+					if c.Lenient {
+						continue
+					}
+					return fmt.Errorf("line %d (comment): %w", ln, err)
+				}
+				if err := s.UpsertComment(r.ctx, rec); err != nil {
+					return fmt.Errorf("line %d: upsert comment #%d: %w", ln, rec.ID, err)
+				}
+				comments++
 			default:
 				if !c.Lenient {
 					return fmt.Errorf("line %d: unknown kind %q", ln, hdr.Kind)
@@ -82,7 +94,7 @@ func (c *ImportCmd) Run(r *runCtx) error {
 		if err := scan.Err(); err != nil {
 			return fmt.Errorf("read: %w", err)
 		}
-		r.notice("imported %d issues, %d deps\n", issues, deps)
+		r.notice("imported %d issues, %d deps, %d comments\n", issues, deps, comments)
 		return nil
 	})
 }

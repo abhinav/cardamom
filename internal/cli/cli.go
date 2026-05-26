@@ -45,6 +45,7 @@ type CLI struct {
 	Link       LinkCmd       `cmd:"" help:"Add a dependency edge (alias for 'dep add')."`
 	Describe   DescribeCmd   `cmd:"" help:"Set or clear an issue's description (sugar for 'update --description')."`
 	Note       NoteCmd       `cmd:"" help:"Manage an issue's freeform notes."`
+	Comment    CommentCmd    `cmd:"" help:"Manage threaded comments on an issue."`
 	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
 	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'bd export'."`
 	Info       InfoCmd       `cmd:"" help:"Show database path, schema version, and a summary of issues."`
@@ -112,10 +113,20 @@ func agentPtr(s string) *string {
 
 // Run is the entrypoint used by main and the tests.
 func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
+	// Pre-flight: handle `-V` / `--version-flag` before kong, which
+	// requires a subcommand and conflicts with our custom Exit hook.
+	// Anywhere in the arg list short-circuits to the version command.
+	for _, a := range args {
+		if a == "-V" || a == "--version-flag" {
+			rctx := &runCtx{ctx: ctx, stdout: stdout, stderr: stderr}
+			(&VersionCmd{}).Run(rctx)
+			return 0
+		}
+	}
 	var cli CLI
 	parser, err := kong.New(&cli,
 		kong.Name("bd"),
-		kong.Description("Minimal SQLite-backed issue tracker."),
+		kong.Description("Minimal SQLite-backed issue tracker. Use -V or 'bd version' to print version."),
 		kong.Writers(stdout, stderr),
 		kong.Exit(func(int) {}), // we manage exit codes ourselves
 		kong.UsageOnError(),
@@ -160,12 +171,13 @@ type issueOut struct {
 	Labels []string `json:"labels,omitempty"`
 }
 
-// issueShowOut adds parents/blocks for the show command.
+// issueShowOut adds parents/blocks/comments for the show command.
 type issueShowOut struct {
 	store.Issue
-	Labels  []string `json:"labels,omitempty"`
-	Depends []string `json:"depends_on,omitempty"`
-	Blocks  []string `json:"blocks,omitempty"`
+	Labels   []string        `json:"labels,omitempty"`
+	Depends  []string        `json:"depends_on,omitempty"`
+	Blocks   []string        `json:"blocks,omitempty"`
+	Comments []store.Comment `json:"comments,omitempty"`
 }
 
 func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string) {
@@ -198,9 +210,9 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string) {
 	}
 }
 
-func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string) {
+func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comments []store.Comment) {
 	if r.json {
-		out := issueShowOut{Issue: i, Labels: labels, Depends: parents, Blocks: blocks}
+		out := issueShowOut{Issue: i, Labels: labels, Depends: parents, Blocks: blocks, Comments: comments}
 		_ = json.NewEncoder(r.stdout).Encode(out)
 		return
 	}
@@ -238,5 +250,15 @@ func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string) {
 	}
 	if len(blocks) > 0 {
 		fmt.Fprintf(w, "Blocks:   %s\n", strings.Join(blocks, ", "))
+	}
+	if len(comments) > 0 {
+		fmt.Fprintf(w, "Comments (%d):\n", len(comments))
+		for _, cm := range comments {
+			ts := time.Unix(cm.Created, 0).Format(time.RFC3339)
+			fmt.Fprintf(w, "  [#%d] %s %s\n", cm.ID, cm.Author, ts)
+			for _, line := range strings.Split(cm.Body, "\n") {
+				fmt.Fprintf(w, "    %s\n", line)
+			}
+		}
 	}
 }

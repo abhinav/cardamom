@@ -78,7 +78,20 @@ func (c *ExportCmd) Run(r *runCtx) error {
 				return err
 			}
 		}
-		r.notice("exported %d issues, %d deps\n", len(issues), len(deps))
+		comments, err := s.AllComments(r.ctx)
+		if err != nil {
+			return err
+		}
+		for _, cm := range comments {
+			data, err := json.Marshal(cm)
+			if err != nil {
+				return err
+			}
+			if err := enc.Encode(exportLine{Kind: "comment", Data: data}); err != nil {
+				return err
+			}
+		}
+		r.notice("exported %d issues, %d deps, %d comments\n", len(issues), len(deps), len(comments))
 		return nil
 	})
 }

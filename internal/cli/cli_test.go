@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -498,6 +499,76 @@ func TestCLINoteSetAppendClearShow(t *testing.T) {
 	c.run("note", "clear", id)
 	if out := c.run("note", "show", id); !strings.Contains(out, "(no notes)") {
 		t.Fatalf("clear didn't clear:\n%s", out)
+	}
+}
+
+func TestCLIVersionShort(t *testing.T) {
+	c := newTestCLI(t)
+	out := c.run("-V")
+	if !strings.HasPrefix(out, "bd ") {
+		t.Fatalf("expected -V to print version: %q", out)
+	}
+}
+
+func TestCLICommentRoundTrip(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.run("comment", "add", id, "first", "thought", "--as", "alice")
+	c.run("comment", "add", id, "second", "thought", "--as", "bob")
+	out := c.run("comment", "ls", id)
+	if !strings.Contains(out, "alice") || !strings.Contains(out, "bob") ||
+		!strings.Contains(out, "first thought") || !strings.Contains(out, "second thought") {
+		t.Fatalf("ls missing content:\n%s", out)
+	}
+	// bd show includes comments at the bottom.
+	out = c.run("show", id)
+	if !strings.Contains(out, "Comments (2)") {
+		t.Fatalf("show missing comments header:\n%s", out)
+	}
+}
+
+func TestCLICommentRm(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.run("comment", "add", id, "delete me", "--as", "a")
+	// Pull the numeric ID via JSON.
+	out := c.run("--json", "comment", "ls", id)
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatal(err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 comment: %+v", rows)
+	}
+	cid := fmt.Sprintf("%v", rows[0]["id"])
+	c.run("comment", "rm", cid)
+	out = c.run("comment", "ls", id)
+	if !strings.Contains(out, "(no comments)") {
+		t.Fatalf("expected empty after rm: %s", out)
+	}
+}
+
+func TestCLICommentExportImportRoundTrip(t *testing.T) {
+	// Build dataset with comments.
+	src := newTestCLI(t)
+	src.run("init")
+	id := strings.TrimSpace(src.run("create", "issue"))
+	src.run("comment", "add", id, "first", "--as", "alice")
+	src.run("comment", "add", id, "second", "--as", "bob")
+
+	dump := filepath.Join(t.TempDir(), "dump.jsonl")
+	src.run("export", "-o", dump)
+
+	dst := newTestCLI(t)
+	dst.run("init")
+	dst.run("import", dump)
+
+	out := dst.run("comment", "ls", id)
+	if !strings.Contains(out, "alice") || !strings.Contains(out, "bob") ||
+		!strings.Contains(out, "first") || !strings.Contains(out, "second") {
+		t.Fatalf("comments lost on roundtrip:\n%s", out)
 	}
 }
 

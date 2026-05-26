@@ -14,7 +14,7 @@ var completionCmds = []string{
 	"assign", "priority", "tag", "link",
 	"export", "import",
 	"info", "statuses", "types", "doctor",
-	"describe", "note",
+	"describe", "note", "comment",
 	"version", "completion",
 }
 

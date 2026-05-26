@@ -49,6 +49,16 @@ type IssueLabel struct {
 	Label   string `bun:"label,pk"`
 }
 
+type Comment struct {
+	bun.BaseModel `bun:"table:comments,alias:c" json:"-"`
+
+	ID      int64  `bun:"id,pk,autoincrement" json:"id"`
+	IssueID string `bun:"issue_id,notnull" json:"issue_id"`
+	Author  string `bun:"author,notnull" json:"author"`
+	Body    string `bun:"body,notnull" json:"body"`
+	Created int64  `bun:"created,notnull" json:"created"`
+}
+
 // ---- Migrations (kept manual, independent of Bun) ----
 
 // migrations are applied in order; PRAGMA user_version tracks progress.
@@ -102,6 +112,17 @@ var migrations = []string{
 	// v6: notes.
 	`
     ALTER TABLE issues ADD COLUMN notes TEXT;
+    `,
+	// v7: comments.
+	`
+    CREATE TABLE IF NOT EXISTS comments (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        issue_id TEXT    NOT NULL REFERENCES issues(id) ON DELETE CASCADE,
+        author   TEXT    NOT NULL,
+        body     TEXT    NOT NULL,
+        created  INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_id, id);
     `,
 }
 
@@ -599,6 +620,73 @@ func (s *Store) UpsertDep(ctx context.Context, child, parent string) error {
 		On("CONFLICT DO NOTHING").
 		Exec(ctx)
 	return err
+}
+
+// AddComment appends a new comment to an issue. Validates the issue
+// exists. Returns the inserted Comment with its allocated ID and
+// `created` timestamp.
+func (s *Store) AddComment(ctx context.Context, issueID, author, body string) (Comment, error) {
+	if author == "" {
+		return Comment{}, errors.New("author required")
+	}
+	if body == "" {
+		return Comment{}, errors.New("body required")
+	}
+	if err := s.exists(ctx, issueID); err != nil {
+		return Comment{}, err
+	}
+	c := Comment{IssueID: issueID, Author: author, Body: body, Created: now()}
+	if _, err := s.db.NewInsert().Model(&c).Exec(ctx); err != nil {
+		return Comment{}, err
+	}
+	return c, nil
+}
+
+// Comments returns all comments on an issue in chronological order.
+func (s *Store) Comments(ctx context.Context, issueID string) ([]Comment, error) {
+	var cs []Comment
+	err := s.db.NewSelect().
+		Model(&cs).
+		Where("issue_id = ?", issueID).
+		OrderExpr("id ASC").
+		Scan(ctx)
+	return cs, err
+}
+
+// RemoveComment deletes a comment by its numeric ID. Returns ErrNotFound
+// if no such comment exists.
+func (s *Store) RemoveComment(ctx context.Context, commentID int64) error {
+	res, err := s.db.NewDelete().
+		Model((*Comment)(nil)).
+		Where("id = ?", commentID).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// UpsertComment inserts a comment with an explicit ID (used by import).
+// On conflict, updates every field.
+func (s *Store) UpsertComment(ctx context.Context, c Comment) error {
+	_, err := s.db.NewInsert().Model(&c).
+		On("CONFLICT (id) DO UPDATE").
+		Set("issue_id = EXCLUDED.issue_id").
+		Set("author = EXCLUDED.author").
+		Set("body = EXCLUDED.body").
+		Set("created = EXCLUDED.created").
+		Exec(ctx)
+	return err
+}
+
+// AllComments returns every comment, ordered deterministically for export.
+func (s *Store) AllComments(ctx context.Context) ([]Comment, error) {
+	var cs []Comment
+	err := s.db.NewSelect().Model(&cs).OrderExpr("id ASC").Scan(ctx)
+	return cs, err
 }
 
 // SetNotes replaces an issue's notes. Pass an empty string to clear.

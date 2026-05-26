@@ -782,6 +782,93 @@ func TestNotesMissingIssue(t *testing.T) {
 	}
 }
 
+func TestCommentsRoundTrip(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "issue", "task", 1, nil)
+	c1, err := s.AddComment(ctx, a.ID, "alice", "first thought")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c1.ID == 0 {
+		t.Fatalf("expected non-zero ID, got %+v", c1)
+	}
+	if _, err := s.AddComment(ctx, a.ID, "bob", "second thought"); err != nil {
+		t.Fatal(err)
+	}
+	cs, _ := s.Comments(ctx, a.ID)
+	if len(cs) != 2 || cs[0].Author != "alice" || cs[1].Author != "bob" {
+		t.Fatalf("expected chronological order: %+v", cs)
+	}
+}
+
+func TestAddCommentMissingIssue(t *testing.T) {
+	s := newTestStore(t)
+	if _, err := s.AddComment(ctx, "bd-zzzz", "alice", "x"); err != ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
+func TestAddCommentValidates(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "x", "task", 1, nil)
+	if _, err := s.AddComment(ctx, a.ID, "", "body"); err == nil {
+		t.Fatal("expected error on empty author")
+	}
+	if _, err := s.AddComment(ctx, a.ID, "alice", ""); err == nil {
+		t.Fatal("expected error on empty body")
+	}
+}
+
+func TestRemoveComment(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "x", "task", 1, nil)
+	c1, _ := s.AddComment(ctx, a.ID, "alice", "x")
+	if err := s.RemoveComment(ctx, c1.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RemoveComment(ctx, c1.ID); err != ErrNotFound {
+		t.Fatalf("expected ErrNotFound on repeat, got %v", err)
+	}
+}
+
+func TestCommentsCascadeOnIssueDelete(t *testing.T) {
+	// FK ON DELETE CASCADE — but we don't currently have a public
+	// "delete issue" API. Sanity check that the index/FK is wired
+	// by deleting via raw SQL.
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "x", "task", 1, nil)
+	_, _ = s.AddComment(ctx, a.ID, "alice", "x")
+	if _, err := s.db.ExecContext(ctx, "DELETE FROM issues WHERE id = ?", a.ID); err != nil {
+		t.Fatal(err)
+	}
+	cs, _ := s.Comments(ctx, a.ID)
+	if len(cs) != 0 {
+		t.Fatalf("expected comments cascaded away, got %+v", cs)
+	}
+}
+
+func TestUpsertCommentPreservesID(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "x", "task", 1, nil)
+	c := Comment{ID: 42, IssueID: a.ID, Author: "alice", Body: "imported", Created: 1700000000}
+	if err := s.UpsertComment(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	cs, _ := s.Comments(ctx, a.ID)
+	if len(cs) != 1 || cs[0].ID != 42 || cs[0].Body != "imported" {
+		t.Fatalf("upsert by id failed: %+v", cs)
+	}
+	// Re-upserting with the same ID updates fields.
+	c.Body = "rewritten"
+	if err := s.UpsertComment(ctx, c); err != nil {
+		t.Fatal(err)
+	}
+	cs, _ = s.Comments(ctx, a.ID)
+	if len(cs) != 1 || cs[0].Body != "rewritten" {
+		t.Fatalf("re-upsert didn't update: %+v", cs)
+	}
+}
+
 func TestDepsListing(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
