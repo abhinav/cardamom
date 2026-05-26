@@ -57,8 +57,15 @@ export function useChangeStream() {
   const qc = useQueryClient()
   useEffect(() => {
     ensureOpen(() => {
+      // Every write that touches an issue row bumps MAX(updated)
+      // → SSE fires. Invalidate everything that derives from the
+      // issues table: list/board/ready/detail (`issues`, `issue`)
+      // and pending-checkpoints (`checkpoints`, drives the
+      // approvals page + the sidebar badge). Cheap — TanStack
+      // Query only refetches queries with active observers.
       qc.invalidateQueries({ queryKey: ['issues'] })
       qc.invalidateQueries({ queryKey: ['issue'] })
+      qc.invalidateQueries({ queryKey: ['checkpoints'] })
     })
     // Intentionally no cleanup — the EventSource is a singleton kept
     // open for the lifetime of the app. Closing it on unmount would
