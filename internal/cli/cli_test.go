@@ -1063,3 +1063,37 @@ func TestCLIListBadDate(t *testing.T) {
 	c.run("init")
 	c.runFail("list", "--created-after", "not-a-date")
 }
+
+func TestCLIHelpDoesNotRunCommand(t *testing.T) {
+	// `cli init --help` must print help and NOT initialize the DB.
+	c := newTestCLI(t)
+	out := c.run("init", "--help")
+	if !strings.Contains(out, "Usage:") {
+		t.Fatalf("expected help output, got:\n%s", out)
+	}
+	if strings.Contains(out, "initialized") {
+		t.Fatalf("init ran as a side effect of --help:\n%s", out)
+	}
+	// The DB file must not exist after asking for help.
+	if _, err := os.Stat(filepath.Join(c.dir, "data.sqlite")); err == nil {
+		t.Fatalf("DB file created by --help (expected nothing)")
+	}
+}
+
+func TestCLITopLevelHelpExits0(t *testing.T) {
+	// `cli --help` should exit 0 and print usage.
+	c := newTestCLI(t)
+	out := c.run("--help")
+	if !strings.Contains(out, "Usage:") {
+		t.Fatalf("expected usage on --help, got:\n%s", out)
+	}
+}
+
+func TestCLISubcommandHelpExits0(t *testing.T) {
+	// `cli show --help` must exit 0 even without a required <id> arg.
+	c := newTestCLI(t)
+	out := c.run("show", "--help")
+	if !strings.Contains(out, "Usage:") {
+		t.Fatalf("expected usage on show --help, got:\n%s", out)
+	}
+}

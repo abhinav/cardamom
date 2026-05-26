@@ -151,6 +151,19 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 			return 0
 		}
 	}
+	// Pre-flight: detect --help / -h anywhere in args. Kong prints help
+	// inside parser.Parse() (via the helpFlag's BeforeReset hook), but it
+	// also calls Exit(0) which we've overridden to a no-op — so without
+	// short-circuiting here we'd then run the selected command anyway.
+	// Asking for help should be exit 0, not 2, and must never run a side
+	// effect (e.g. `cli init --help` creating the database).
+	wantHelp := false
+	for _, a := range args {
+		if a == "--help" || a == "-h" {
+			wantHelp = true
+			break
+		}
+	}
 	var cli CLI
 	parser, err := kong.New(&cli,
 		kong.Name("cli"),
@@ -163,6 +176,14 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 	if err != nil {
 		fmt.Fprintln(stderr, "error:", err)
 		return 2
+	}
+	if wantHelp {
+		// Parse for the side effect of printing help. Any parse error is
+		// secondary to the help request — it would've been raised because
+		// the user didn't specify a subcommand (or a required arg), which
+		// is irrelevant when they're asking for help.
+		_, _ = parser.Parse(args)
+		return 0
 	}
 	kctx, err := parser.Parse(args)
 	if err != nil {
