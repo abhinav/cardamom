@@ -106,13 +106,26 @@ func (c *ExportCmd) Run(r *runCtx) error {
 				return err
 			}
 		}
+		crons, err := s.CronJobList(r.ctx)
+		if err != nil {
+			return err
+		}
+		for _, cj := range crons {
+			data, err := json.Marshal(cj)
+			if err != nil {
+				return err
+			}
+			if err := enc.Encode(exportLine{Kind: "cron", Data: data}); err != nil {
+				return err
+			}
+		}
 		// Summary goes to stderr — stdout may be the JSONL stream
 		// itself (`cli export > dump.jsonl`); mixing the two corrupts
 		// the output. When writing to a file (-o) the summary is fine
 		// either way, but stderr keeps the behaviour uniform.
 		if !r.quiet {
-			fmt.Fprintf(r.stderr, "exported %d issues, %d deps, %d comments, %d kv\n",
-				len(issues), len(deps), len(comments), len(kvs))
+			fmt.Fprintf(r.stderr, "exported %d issues, %d deps, %d comments, %d kv, %d cron\n",
+				len(issues), len(deps), len(comments), len(kvs), len(crons))
 		}
 		return nil
 	})

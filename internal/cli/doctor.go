@@ -43,6 +43,7 @@ func (c *DoctorCmd) Run(r *runCtx) error {
 		check("Invalid status", fmt.Sprintf("%d", rep.InvalidStatus), rep.InvalidStatus == 0)
 		check("Invalid type", fmt.Sprintf("%d", rep.InvalidType), rep.InvalidType == 0)
 		check("Invalid priority", fmt.Sprintf("%d", rep.InvalidPriority), rep.InvalidPriority == 0)
+		check("Failing cron jobs", fmt.Sprintf("%d", rep.CronJobsFailing), rep.CronJobsFailing == 0)
 		for _, e := range rep.ForeignKeyErrors {
 			fmt.Fprintf(r.stdout, "  fk error: %s\n", e)
 		}

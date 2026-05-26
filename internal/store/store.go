@@ -68,6 +68,22 @@ type KV struct {
 	Value string `bun:"value,notnull" json:"value"`
 }
 
+// CronJob is one scheduled invocation. The `Job` field carries a
+// JSON-encoded payload whose shape depends on its discriminator —
+// see the v9 migration comment for the current vocabulary.
+type CronJob struct {
+	bun.BaseModel `bun:"table:cron_jobs" json:"-"`
+
+	Name       string  `bun:"name,pk" json:"name"`
+	Schedule   string  `bun:"schedule,notnull" json:"schedule"`
+	Job        string  `bun:"job,notnull" json:"job"` // JSON; opaque at this layer
+	Enabled    bool    `bun:"enabled,notnull" json:"enabled"`
+	NextRun    int64   `bun:"next_run,notnull" json:"next_run"`
+	LastRun    *int64  `bun:"last_run" json:"last_run,omitempty"`
+	LastStatus *string `bun:"last_status" json:"last_status,omitempty"`
+	LastOutput *string `bun:"last_output" json:"last_output,omitempty"`
+}
+
 // ---- Migrations (kept manual, independent of Bun) ----
 
 // migrations are applied in order; PRAGMA user_version tracks progress.
@@ -139,6 +155,24 @@ var migrations = []string{
         key   TEXT PRIMARY KEY,
         value TEXT NOT NULL
     );
+    `,
+	// v9: cron jobs (scheduled invocations).
+	//
+	// job is a JSON-encoded tagged union so the schema doesn't have to
+	// grow as we add new kinds. For v1 only kind="cli" exists:
+	//   {"kind":"cli","args":["create","-a","infra-agent","Check CI"]}
+	`
+    CREATE TABLE IF NOT EXISTS cron_jobs (
+        name        TEXT PRIMARY KEY,
+        schedule    TEXT NOT NULL,
+        job         TEXT NOT NULL,
+        enabled     INTEGER NOT NULL DEFAULT 1,
+        next_run    INTEGER NOT NULL,
+        last_run    INTEGER,
+        last_status TEXT,
+        last_output TEXT
+    );
+    CREATE INDEX IF NOT EXISTS idx_cron_jobs_due ON cron_jobs(enabled, next_run);
     `,
 }
 
@@ -251,6 +285,8 @@ var (
 	ErrCommentNotFound = errors.New("comment not found")
 	ErrDepNotFound     = errors.New("dependency edge not found")
 	ErrNotDeferred     = errors.New("issue is not deferred")
+	ErrCronJobNotFound = errors.New("cron job not found")
+	ErrCronJobExists   = errors.New("cron job already exists")
 )
 
 func isUniqueErr(err error) bool {
@@ -881,6 +917,7 @@ type DoctorReport struct {
 	InvalidStatus     int      `json:"invalid_status"`
 	InvalidType       int      `json:"invalid_type"`
 	InvalidPriority   int      `json:"invalid_priority"`
+	CronJobsFailing   int      `json:"cron_jobs_failing"`
 }
 
 // OK returns true when nothing is wrong.
@@ -893,7 +930,8 @@ func (d DoctorReport) OK() bool {
 		d.ClosedButDeferred == 0 &&
 		d.InvalidStatus == 0 &&
 		d.InvalidType == 0 &&
-		d.InvalidPriority == 0
+		d.InvalidPriority == 0 &&
+		d.CronJobsFailing == 0
 }
 
 // Doctor runs integrity checks against the live database. Issues
@@ -957,6 +995,10 @@ func (s *Store) Doctor(ctx context.Context, stuckThresholdHours int) (DoctorRepo
 	}
 	if r.InvalidPriority, err = s.db.NewSelect().Model((*Issue)(nil)).
 		Where("i.priority < ? OR i.priority > ?", MinPriority, MaxPriority).Count(ctx); err != nil {
+		return r, err
+	}
+	if r.CronJobsFailing, err = s.db.NewSelect().Model((*CronJob)(nil)).
+		Where("last_status IS NOT NULL AND last_status != 'ok'").Count(ctx); err != nil {
 		return r, err
 	}
 	return r, nil
@@ -1290,4 +1332,137 @@ func (s *Store) WaitReady(ctx context.Context, limit int, agent *string, interva
 		case <-time.After(interval):
 		}
 	}
+}
+
+// ---- Cron jobs ----
+
+// CronJobAdd inserts a new scheduled job. Returns ErrCronJobExists if a job
+// with the same name already exists.
+func (s *Store) CronJobAdd(ctx context.Context, j CronJob) error {
+	if j.Name == "" {
+		return errors.New("name required")
+	}
+	_, err := s.db.NewInsert().Model(&j).Exec(ctx)
+	if isUniqueErr(err) {
+		return fmt.Errorf("%w: %s", ErrCronJobExists, j.Name)
+	}
+	return err
+}
+
+// CronJobGet looks up one job by name.
+func (s *Store) CronJobGet(ctx context.Context, name string) (CronJob, error) {
+	var j CronJob
+	err := s.db.NewSelect().Model(&j).Where("name = ?", name).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return CronJob{}, ErrCronJobNotFound
+	}
+	return j, err
+}
+
+// CronJobList returns every job, alphabetised by name.
+func (s *Store) CronJobList(ctx context.Context) ([]CronJob, error) {
+	var jobs []CronJob
+	err := s.db.NewSelect().Model(&jobs).OrderExpr("name ASC").Scan(ctx)
+	return jobs, err
+}
+
+// CronJobDelete removes a job by name. Returns ErrCronJobNotFound if absent.
+func (s *Store) CronJobDelete(ctx context.Context, name string) error {
+	res, err := s.db.NewDelete().Model((*CronJob)(nil)).Where("name = ?", name).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrCronJobNotFound
+	}
+	return nil
+}
+
+// CronJobSetEnabled flips the enabled bit. Returns ErrCronJobNotFound if absent.
+func (s *Store) CronJobSetEnabled(ctx context.Context, name string, enabled bool) error {
+	res, err := s.db.NewUpdate().
+		Model((*CronJob)(nil)).
+		Set("enabled = ?", enabled).
+		Where("name = ?", name).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrCronJobNotFound
+	}
+	return nil
+}
+
+// CronJobsDue returns the enabled jobs whose next_run is now or earlier,
+// in deterministic (name) order.
+func (s *Store) CronJobsDue(ctx context.Context, asOf int64) ([]CronJob, error) {
+	var jobs []CronJob
+	err := s.db.NewSelect().
+		Model(&jobs).
+		Where("enabled = 1 AND next_run <= ?", asOf).
+		OrderExpr("name ASC").
+		Scan(ctx)
+	return jobs, err
+}
+
+// CronJobRecordRun stores the outcome of one execution and advances next_run.
+// status/output are nullable: pass empty strings to mean "no value".
+func (s *Store) CronJobRecordRun(ctx context.Context, name string, ranAt, nextRun int64, status, output string) error {
+	var statusP, outputP *string
+	if status != "" {
+		statusP = &status
+	}
+	if output != "" {
+		outputP = &output
+	}
+	res, err := s.db.NewUpdate().
+		Model((*CronJob)(nil)).
+		Set("last_run = ?", ranAt).
+		Set("last_status = ?", statusP).
+		Set("last_output = ?", outputP).
+		Set("next_run = ?", nextRun).
+		Where("name = ?", name).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrCronJobNotFound
+	}
+	return nil
+}
+
+// CronJobUpsert inserts or replaces a job, preserving the same name. Used by
+// import; bypasses the duplicate-name check in CronJobAdd.
+func (s *Store) CronJobUpsert(ctx context.Context, j CronJob) error {
+	_, err := s.db.NewInsert().Model(&j).
+		On("CONFLICT (name) DO UPDATE").
+		Set("schedule = EXCLUDED.schedule").
+		Set("job = EXCLUDED.job").
+		Set("enabled = EXCLUDED.enabled").
+		Set("next_run = EXCLUDED.next_run").
+		Set("last_run = EXCLUDED.last_run").
+		Set("last_status = EXCLUDED.last_status").
+		Set("last_output = EXCLUDED.last_output").
+		Exec(ctx)
+	return err
+}
+
+// CronJobUpdateSchedule changes a job's schedule and recomputes next_run as
+// the caller specified. Use when a user edits an existing entry.
+func (s *Store) CronJobUpdateSchedule(ctx context.Context, name, schedule string, nextRun int64) error {
+	res, err := s.db.NewUpdate().
+		Model((*CronJob)(nil)).
+		Set("schedule = ?", schedule).
+		Set("next_run = ?", nextRun).
+		Where("name = ?", name).
+		Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrCronJobNotFound
+	}
+	return nil
 }
