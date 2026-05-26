@@ -130,6 +130,53 @@ func (s *Store) IDsBlocked(ctx context.Context, ids []string) (map[string]bool, 
 	return out, nil
 }
 
+// Children returns the IDs of direct children of `parent` — issues
+// whose `child_id -> parent` edge exists. Verifies the parent exists
+// first so callers can distinguish "no children" from "no such parent".
+func (s *Store) Children(ctx context.Context, parent string) ([]string, error) {
+	if err := s.exists(ctx, parent); err != nil {
+		return nil, fmt.Errorf("%s: %w", parent, err)
+	}
+	var ids []string
+	err := s.db.NewSelect().
+		Model((*Dep)(nil)).
+		Column("child_id").
+		Where("parent_id = ?", parent).
+		OrderExpr("child_id").
+		Scan(ctx, &ids)
+	return ids, err
+}
+
+// Descendants returns the IDs of all transitive children of `parent`
+// (direct + their children, etc.) via a recursive CTE. The parent
+// itself is excluded. Used by `label propagate --deep` and any future
+// "fan out across an epic" operations.
+func (s *Store) Descendants(ctx context.Context, parent string) ([]string, error) {
+	if err := s.exists(ctx, parent); err != nil {
+		return nil, fmt.Errorf("%s: %w", parent, err)
+	}
+	rows, err := s.db.QueryContext(ctx, `
+        WITH RECURSIVE closure(id) AS (
+            SELECT child_id FROM deps WHERE parent_id = ?
+            UNION
+            SELECT d.child_id FROM deps d JOIN closure c ON d.parent_id = c.id
+        )
+        SELECT id FROM closure ORDER BY id`, parent)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var ids []string
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		ids = append(ids, id)
+	}
+	return ids, rows.Err()
+}
+
 // AllDeps returns every dep edge, ordered for deterministic export.
 func (s *Store) AllDeps(ctx context.Context) ([]Dep, error) {
 	var deps []Dep

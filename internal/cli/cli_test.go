@@ -2033,9 +2033,10 @@ agents:
 }
 
 func TestCLIListByAgentMatchesAssigneeToo(t *testing.T) {
-	// Regression: assigning an issue to bug-fixer (without changing
-	// its lane) should still surface under `clu list -a bug-fixer`.
-	// The flag means "show me bug-fixer's work" — both columns count.
+	// Regression (pre-v13): with the old agent/assignee split, `clu
+	// assign <id> X` set only assignee and `clu list -a X` missed it.
+	// Post-v13 there's one assignee column and this is naturally the
+	// case; the test guards against re-splitting.
 	c := newTestCLI(t)
 	c.run("init")
 	id := strings.TrimSpace(c.run("create", "needs a fix"))
@@ -2133,5 +2134,105 @@ agents:
 	}
 	if len(b.Agents) != 1 || b.Agents[0].Name != "doc-writer" {
 		t.Fatalf("expected one declared agent doc-writer, got %+v", b.Agents)
+	}
+}
+
+func TestCLILabelPropagateDirect(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	parent := strings.TrimSpace(c.run("create", "epic"))
+	a := strings.TrimSpace(c.run("create", "subtask a", "--dep", parent))
+	b := strings.TrimSpace(c.run("create", "subtask b", "--dep", parent))
+	grandchild := strings.TrimSpace(c.run("create", "deep", "--dep", b))
+
+	// Pre-seed: a already has branch:foo so the propagate must skip it.
+	c.run("label", "add", a, "branch:foo")
+
+	out := c.run("label", "propagate", parent, "branch:foo", "perf")
+	if !strings.Contains(out, "2 direct child(ren)") {
+		t.Fatalf("expected 2 direct child summary:\n%s", out)
+	}
+	if !strings.Contains(out, "branch:foo: 1 added, 1 already present") {
+		t.Fatalf("expected per-label skip count:\n%s", out)
+	}
+
+	// a got perf (had branch:foo); b got both.
+	out = c.run("label", "ls", a)
+	if !strings.Contains(out, "branch:foo") || !strings.Contains(out, "perf") {
+		t.Fatalf("a should have both labels:\n%s", out)
+	}
+	out = c.run("label", "ls", b)
+	if !strings.Contains(out, "branch:foo") || !strings.Contains(out, "perf") {
+		t.Fatalf("b should have both labels:\n%s", out)
+	}
+	// Direct mode does NOT touch the grandchild.
+	out = c.run("label", "ls", grandchild)
+	if strings.Contains(out, "branch:foo") || strings.Contains(out, "perf") {
+		t.Fatalf("direct propagate must not reach grandchild:\n%s", out)
+	}
+}
+
+func TestCLILabelPropagateDeep(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	parent := strings.TrimSpace(c.run("create", "epic"))
+	mid := strings.TrimSpace(c.run("create", "mid", "--dep", parent))
+	leaf := strings.TrimSpace(c.run("create", "leaf", "--dep", mid))
+
+	out := c.run("label", "propagate", "--deep", parent, "branch:foo")
+	if !strings.Contains(out, "2 descendant(s)") {
+		t.Fatalf("expected 2 descendant summary:\n%s", out)
+	}
+	for _, id := range []string{mid, leaf} {
+		out := c.run("label", "ls", id)
+		if !strings.Contains(out, "branch:foo") {
+			t.Fatalf("expected %s to have branch:foo:\n%s", id, out)
+		}
+	}
+}
+
+func TestCLILabelPropagateJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	parent := strings.TrimSpace(c.run("create", "epic"))
+	child := strings.TrimSpace(c.run("create", "child", "--dep", parent))
+
+	out := c.run("--json", "label", "propagate", parent, "branch:foo")
+	var body struct {
+		Parent   string   `json:"parent"`
+		Deep     bool     `json:"deep"`
+		Labels   []string `json:"labels"`
+		Children []string `json:"children"`
+		Results  []struct {
+			ID      string   `json:"id"`
+			Added   []string `json:"added"`
+			Skipped []string `json:"skipped"`
+		} `json:"results"`
+	}
+	if err := json.Unmarshal([]byte(out), &body); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if body.Parent != parent || body.Deep {
+		t.Fatalf("wrong header: %+v", body)
+	}
+	if len(body.Results) != 1 || body.Results[0].ID != child {
+		t.Fatalf("expected one result for child %s: %+v", child, body.Results)
+	}
+	if len(body.Results[0].Added) != 1 || body.Results[0].Added[0] != "branch:foo" {
+		t.Fatalf("expected branch:foo in added: %+v", body.Results[0])
+	}
+	// Empty `skipped` must serialize as [] not null.
+	if body.Results[0].Skipped == nil {
+		t.Fatalf("skipped should be empty []; got null")
+	}
+}
+
+func TestCLILabelPropagateNoChildren(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "lonely"))
+	out := c.run("label", "propagate", id, "branch:foo")
+	if !strings.Contains(out, "no direct child(ren)") {
+		t.Fatalf("expected no-children notice:\n%s", out)
 	}
 }
