@@ -304,6 +304,46 @@ clu lock build --ttl 5m -- go build ./...
 clu lock test-db --ttl 10m -- pytest tests/integration/
 ```
 
+## Pinging another agent (fire-and-forget mailbox)
+
+For coordination chatter that doesn't belong on a ticket — "I'm
+touching auth.go for 30m, hold off on session.go", "FYI the staging
+deploy is mid-flight", "did you see the new sentry alert?" — use the
+mailbox. Fire-and-forget, addressed to an agent, TTL'd, doesn't
+pollute the work log.
+
+```bash
+# Send. Body via args, '-', or piped stdin.
+clu ping eng2 "hold off on session.go, refactoring it for ~30m"
+echo "lint green, deploying preview" | clu ping reviewer -
+
+# Read your inbox (marks read on consume).
+clu inbox
+clu inbox --peek                  # see without consuming
+clu inbox --all                   # include already-read (TTL applies)
+clu inbox --since 1h              # only recent
+clu inbox --clear                 # dismiss all unread
+
+# Continuous push feed (works with Claude Code's Monitor tool).
+Monitor: clu inbox --watch -a <your-name>
+```
+
+`clu brief` shows your unread-pings count at session start, so a
+fresh agent knows to check.
+
+**When to ping vs. comment vs. ticket:**
+
+- **Ticket** (`clu create`): there's work to do that someone needs to
+  track and close.
+- **Comment** (`clu comment add <issue>`): durable note attached to a
+  specific work item.
+- **Ping** (`clu ping <agent>`): ephemeral signal to a person. No work
+  item, no permanent record (auto-expires after 7d by default, max 30d).
+
+Pings are the right tool when the conversation isn't about one
+specific tracked issue. Don't ping things you'll need to find again —
+that's what comments and notes are for.
+
 ## Talking to other agents
 
 ```bash

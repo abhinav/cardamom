@@ -24,10 +24,11 @@ var agentsManual string
 type BriefCmd struct{}
 
 type briefJSON struct {
-	Manual   string            `json:"manual"`
-	Agents   []briefAgentJSON  `json:"agents"`
-	Active   []briefActiveJSON `json:"active"`
-	Memories []briefMemoryJSON `json:"memories"`
+	Manual      string            `json:"manual"`
+	Agents      []briefAgentJSON  `json:"agents"`
+	Active      []briefActiveJSON `json:"active"`
+	UnreadPings int               `json:"unread_pings"`
+	Memories    []briefMemoryJSON `json:"memories"`
 }
 
 type briefAgentJSON struct {
@@ -66,9 +67,11 @@ func (c *BriefCmd) Run(r *runCtx) error {
 	}
 	sort.Slice(declared, func(i, j int) bool { return declared[i].Name < declared[j].Name })
 
-	// Collect active agents from the DB if it exists. DB absence is also fine —
-	// `clu brief` should work pre-init to help bootstrap a new project.
+	// Collect active agents + unread ping count from the DB if it
+	// exists. DB absence is fine — `clu brief` works pre-init for
+	// bootstrap.
 	var active []briefActiveJSON
+	unread := 0
 	s, err := r.openStore()
 	if err == nil {
 		defer s.Close()
@@ -85,14 +88,20 @@ func (c *BriefCmd) Run(r *runCtx) error {
 				})
 			}
 		}
+		// Surface unread mailbox count for the calling identity ($USER).
+		// Cheap query and a high-value heads-up at session start.
+		if n, err := s.InboxUnreadCount(r.ctx, currentUser()); err == nil {
+			unread = n
+		}
 	}
 
 	if r.json {
 		return r.emitJSON(briefJSON{
-			Manual:   agentsManual,
-			Agents:   declared,
-			Active:   active,
-			Memories: []briefMemoryJSON{},
+			Manual:      agentsManual,
+			Agents:      declared,
+			Active:      active,
+			UnreadPings: unread,
+			Memories:    []briefMemoryJSON{},
 		})
 	}
 
@@ -129,6 +138,14 @@ func (c *BriefCmd) Run(r *runCtx) error {
 			fmt.Fprintf(r.stdout, "- **%s** (pid %d on %s, last seen %ds ago)\n",
 				a.Name, a.PID, a.Host, time.Now().Unix()-a.LastSeen)
 		}
+	}
+	fmt.Fprintln(r.stdout)
+	fmt.Fprintln(r.stdout, "## Your mailbox")
+	fmt.Fprintln(r.stdout)
+	if unread == 0 {
+		fmt.Fprintln(r.stdout, "_No unread pings._")
+	} else {
+		fmt.Fprintf(r.stdout, "**%d unread ping(s).** Read with `clu inbox` (marks them read), or `clu inbox --peek` to see without consuming.\n", unread)
 	}
 	fmt.Fprintln(r.stdout)
 	fmt.Fprintln(r.stdout, "## Persisted memories")

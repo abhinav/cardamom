@@ -291,8 +291,8 @@ func parseVarPairs(pairs []string) (map[string]string, error) {
 func emitPlan(r *runCtx, plan workflow.Plan, parentID string, stepIDs map[string]string) error {
 	if r.json {
 		type stepOut struct {
-			ID          string         `json:"id"`                  // template step id (e.g. "build")
-			IssueID     string         `json:"issue_id,omitempty"`  // concrete clu-XXXX after instantiation
+			ID          string         `json:"id"`                 // template step id (e.g. "build")
+			IssueID     string         `json:"issue_id,omitempty"` // concrete clu-XXXX after instantiation
 			Title       string         `json:"title"`
 			Description string         `json:"description,omitempty"`
 			Type        string         `json:"type"`

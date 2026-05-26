@@ -60,7 +60,6 @@ func (s *Store) RemoveComment(ctx context.Context, commentID int64) error {
 	return nil
 }
 
-
 // EditComment replaces the body of an existing comment. Preserves
 // author and created so issue-history references stay stable. Returns
 // ErrCommentNotFound if no row matches.

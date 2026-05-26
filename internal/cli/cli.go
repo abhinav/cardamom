@@ -54,12 +54,14 @@ type CLI struct {
 	Defer    DeferCmd    `cmd:"" group:"edits" help:"Defer an issue until a later time."`
 	Undefer  UndeferCmd  `cmd:"" group:"edits" help:"Clear an issue's deferral."`
 
-	// --- coordination: agents, brief, locks ---
+	// --- coordination: agents, brief, locks, mailbox ---
 	Agent  AgentCmd  `cmd:"" group:"coord" help:"Manage agents — list declared (config.yaml) and live (heartbeat) state."`
 	Brief  BriefCmd  `cmd:"" group:"coord" help:"Print agent workflow context: AGENTS.md, declared agents, who's live, persisted memories."`
 	Lock   LockCmd   `cmd:"" group:"coord" help:"Acquire a named lock for ad-hoc coordination (deploy slots, build dirs, shared resources)."`
 	Unlock UnlockCmd `cmd:"" group:"coord" help:"Release a named lock."`
 	Locks  LocksCmd  `cmd:"" group:"coord" help:"List current locks (live and stale)."`
+	Ping   PingCmd   `cmd:"" group:"coord" help:"Send a fire-and-forget message to another agent's mailbox (TTL'd, doesn't pollute the work log)."`
+	Inbox  InboxCmd  `cmd:"" group:"coord" help:"Read pings addressed to you (the mailbox). Marks read on consume unless --peek."`
 
 	// --- workflows ---
 	Run        RunCmd        `cmd:"" group:"workflow" help:"Instantiate a workflow template into issues + deps."`

@@ -123,11 +123,11 @@ func (s *Server) handleGetIssue(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 // value, silently routing every API-created issue to P0.
 type createIssueReq struct {
 	Title       string   `json:"title"`
-	Type        string   `json:"type,omitempty"`    // default "task"
+	Type        string   `json:"type,omitempty"`     // default "task"
 	Priority    *int     `json:"priority,omitempty"` // default 2 (matches CLI)
-	Agent       *string  `json:"agent,omitempty"`   // lane; nil = unassigned
-	Labels      []string `json:"labels,omitempty"`  // attached after create
-	Parents     []string `json:"parents,omitempty"` // dep edges to add
+	Agent       *string  `json:"agent,omitempty"`    // lane; nil = unassigned
+	Labels      []string `json:"labels,omitempty"`   // attached after create
+	Parents     []string `json:"parents,omitempty"`  // dep edges to add
 	Description string   `json:"description,omitempty"`
 	Notes       string   `json:"notes,omitempty"`
 }

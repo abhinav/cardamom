@@ -122,6 +122,22 @@ var migrations = []string{
     );
     CREATE INDEX IF NOT EXISTS idx_locks_expires ON locks(expires);
     `,
+	// v12: mailbox for fire-and-forget inter-agent messages (clu ping
+	// + clu inbox). Distinct from issues + comments: ephemeral, expires
+	// after a TTL, doesn't pollute the work log. read_at NULL = unread.
+	`
+    CREATE TABLE IF NOT EXISTS mailbox (
+        id        INTEGER PRIMARY KEY AUTOINCREMENT,
+        sender    TEXT    NOT NULL,
+        recipient TEXT    NOT NULL,
+        body      TEXT    NOT NULL,
+        created   INTEGER NOT NULL,
+        expires   INTEGER NOT NULL,
+        read_at   INTEGER
+    );
+    CREATE INDEX IF NOT EXISTS idx_mailbox_recipient_read ON mailbox(recipient, read_at);
+    CREATE INDEX IF NOT EXISTS idx_mailbox_expires ON mailbox(expires);
+    `,
 }
 
 func migrate(db *sql.DB) error {
