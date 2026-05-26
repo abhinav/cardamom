@@ -10,10 +10,16 @@ type TagCmd struct {
 
 func (c *TagCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		if err := s.AddLabels(r.ctx, c.ID, c.Labels); err != nil {
+		added, err := s.AddLabels(r.ctx, c.ID, c.Labels)
+		if err != nil {
 			return err
 		}
-		r.notice("tagged %s with %d label(s)\n", c.ID, len(c.Labels))
+		skipped := len(c.Labels) - added
+		if skipped > 0 {
+			r.notice("tagged %s with %d label(s) (%d already present)\n", c.ID, added, skipped)
+		} else {
+			r.notice("tagged %s with %d label(s)\n", c.ID, added)
+		}
 		return nil
 	})
 }

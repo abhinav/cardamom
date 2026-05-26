@@ -29,30 +29,31 @@ const (
 	MaxPriority = 4
 )
 
-// ValidateStatus returns nil if s is in ValidStatuses, else an error.
+// ValidateStatus returns nil if s is in ValidStatuses, else an error
+// wrapping ErrInvalid (so HTTP can map it to 400).
 func ValidateStatus(s string) error {
 	for _, v := range ValidStatuses {
 		if v == s {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid status %q (valid: %s)", s, strings.Join(ValidStatuses, ", "))
+	return fmt.Errorf("%w: invalid status %q (valid: %s)", ErrInvalid, s, strings.Join(ValidStatuses, ", "))
 }
 
-// ValidateType returns nil if t is in ValidTypes, else an error.
+// ValidateType returns nil if t is in ValidTypes, else an ErrInvalid.
 func ValidateType(t string) error {
 	for _, v := range ValidTypes {
 		if v == t {
 			return nil
 		}
 	}
-	return fmt.Errorf("invalid type %q (valid: %s)", t, strings.Join(ValidTypes, ", "))
+	return fmt.Errorf("%w: invalid type %q (valid: %s)", ErrInvalid, t, strings.Join(ValidTypes, ", "))
 }
 
 // ValidatePriority returns nil if p is within [MinPriority, MaxPriority].
 func ValidatePriority(p int) error {
 	if p < MinPriority || p > MaxPriority {
-		return fmt.Errorf("invalid priority %d (must be %d..%d)", p, MinPriority, MaxPriority)
+		return fmt.Errorf("%w: invalid priority %d (must be %d..%d)", ErrInvalid, p, MinPriority, MaxPriority)
 	}
 	return nil
 }

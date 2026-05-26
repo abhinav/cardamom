@@ -256,8 +256,8 @@ func TestCapabilityRouting(t *testing.T) {
 	plain, _ := s.Create(ctx, "plain", "task", 1, nil)
 	gated, _ := s.Create(ctx, "gated", "task", 1, nil)
 	other, _ := s.Create(ctx, "other", "task", 1, nil)
-	_ = s.AddLabels(ctx, gated.ID, []string{"cap:go-review"})
-	_ = s.AddLabels(ctx, other.ID, []string{"cap:security"})
+	_, _ = s.AddLabels(ctx, gated.ID, []string{"cap:go-review"})
+	_, _ = s.AddLabels(ctx, other.ID, []string{"cap:security"})
 
 	// Default claim (no agent, no caps): plain only.
 	got, _ := s.Ready(ctx, 10, nil, nil)
@@ -412,11 +412,11 @@ func TestUpdateAgent(t *testing.T) {
 func TestLabelsAddListRemove(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "with labels", "task", 1, nil)
-	if err := s.AddLabels(ctx, a.ID, []string{"security", "p0"}); err != nil {
+	if _, err := s.AddLabels(ctx, a.ID, []string{"security", "p0"}); err != nil {
 		t.Fatal(err)
 	}
 	// Adding the same again is a no-op.
-	if err := s.AddLabels(ctx, a.ID, []string{"security"}); err != nil {
+	if _, err := s.AddLabels(ctx, a.ID, []string{"security"}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ := s.LabelsForIssue(ctx, a.ID)
@@ -434,7 +434,7 @@ func TestLabelsAddListRemove(t *testing.T) {
 
 func TestAddLabelsMissingIssue(t *testing.T) {
 	s := newTestStore(t)
-	if err := s.AddLabels(ctx, "bd-zzzz", []string{"x"}); err != ErrNotFound {
+	if _, err := s.AddLabels(ctx, "bd-zzzz", []string{"x"}); err != ErrNotFound {
 		t.Fatalf("expected ErrNotFound, got %v", err)
 	}
 }
@@ -444,8 +444,8 @@ func TestLoadLabelsBatch(t *testing.T) {
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
 	b, _ := s.Create(ctx, "b", "task", 1, nil)
 	_, _ = s.Create(ctx, "c (no labels)", "task", 1, nil)
-	_ = s.AddLabels(ctx, a.ID, []string{"x", "y"})
-	_ = s.AddLabels(ctx, b.ID, []string{"y"})
+	_, _ = s.AddLabels(ctx, a.ID, []string{"x", "y"})
+	_, _ = s.AddLabels(ctx, b.ID, []string{"y"})
 	m, _ := s.LoadLabels(ctx, []string{a.ID, b.ID})
 	if len(m[a.ID]) != 2 || len(m[b.ID]) != 1 {
 		t.Fatalf("unexpected map: %+v", m)
@@ -456,8 +456,8 @@ func TestListFilterByLabelsAnd(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
 	b, _ := s.Create(ctx, "b", "task", 1, nil)
-	_ = s.AddLabels(ctx, a.ID, []string{"security", "p0"})
-	_ = s.AddLabels(ctx, b.ID, []string{"security"})
+	_, _ = s.AddLabels(ctx, a.ID, []string{"security", "p0"})
+	_, _ = s.AddLabels(ctx, b.ID, []string{"security"})
 	// Must have BOTH labels.
 	got, _ := s.List(ctx, ListFilter{Labels: []string{"security", "p0"}})
 	if len(got) != 1 || got[0].ID != a.ID {
@@ -470,8 +470,8 @@ func TestListFilterByLabelsAny(t *testing.T) {
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
 	b, _ := s.Create(ctx, "b", "task", 1, nil)
 	_, _ = s.Create(ctx, "c", "task", 1, nil)
-	_ = s.AddLabels(ctx, a.ID, []string{"x"})
-	_ = s.AddLabels(ctx, b.ID, []string{"y"})
+	_, _ = s.AddLabels(ctx, a.ID, []string{"x"})
+	_, _ = s.AddLabels(ctx, b.ID, []string{"y"})
 	got, _ := s.List(ctx, ListFilter{LabelsAny: []string{"x", "y"}})
 	if len(got) != 2 {
 		t.Fatalf("expected 2 (a and b), got %d: %+v", len(got), got)
@@ -482,7 +482,7 @@ func TestListFilterNoLabels(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "labeled", "task", 1, nil)
 	b, _ := s.Create(ctx, "bare", "task", 1, nil)
-	_ = s.AddLabels(ctx, a.ID, []string{"x"})
+	_, _ = s.AddLabels(ctx, a.ID, []string{"x"})
 	got, _ := s.List(ctx, ListFilter{NoLabels: true})
 	if len(got) != 1 || got[0].ID != b.ID {
 		t.Fatalf("expected only b (unlabeled), got %+v", got)
@@ -694,8 +694,8 @@ func TestListFilterLabelPattern(t *testing.T) {
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
 	b, _ := s.Create(ctx, "b", "task", 1, nil)
 	_, _ = s.Create(ctx, "c", "task", 1, nil)
-	_ = s.AddLabels(ctx, a.ID, []string{"tech-debt"})
-	_ = s.AddLabels(ctx, b.ID, []string{"tech-legacy"})
+	_, _ = s.AddLabels(ctx, a.ID, []string{"tech-debt"})
+	_, _ = s.AddLabels(ctx, b.ID, []string{"tech-legacy"})
 	got, _ := s.List(ctx, ListFilter{LabelPattern: "tech-*"})
 	if len(got) != 2 {
 		t.Fatalf("expected 2 matching tech-*, got %d: %+v", len(got), got)
@@ -707,8 +707,8 @@ func TestListFilterExcludeLabels(t *testing.T) {
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
 	b, _ := s.Create(ctx, "b", "task", 1, nil)
 	c, _ := s.Create(ctx, "c", "task", 1, nil)
-	_ = s.AddLabels(ctx, a.ID, []string{"x"})
-	_ = s.AddLabels(ctx, b.ID, []string{"y"})
+	_, _ = s.AddLabels(ctx, a.ID, []string{"x"})
+	_, _ = s.AddLabels(ctx, b.ID, []string{"y"})
 	got, _ := s.List(ctx, ListFilter{ExcludeLabels: []string{"x"}})
 	if len(got) != 2 {
 		t.Fatalf("expected 2 (b, c), got %d: %+v", len(got), got)
@@ -974,10 +974,10 @@ func TestKVRequiresKey(t *testing.T) {
 func TestAddLabelsRejectsEmptyString(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "x", "task", 1, nil)
-	if err := s.AddLabels(ctx, a.ID, []string{""}); err == nil {
+	if _, err := s.AddLabels(ctx, a.ID, []string{""}); err == nil {
 		t.Fatal("expected error on empty label")
 	}
-	if err := s.AddLabels(ctx, a.ID, []string{"ok", ""}); err == nil {
+	if _, err := s.AddLabels(ctx, a.ID, []string{"ok", ""}); err == nil {
 		t.Fatal("expected error on mixed valid+empty labels")
 	}
 }

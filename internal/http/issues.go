@@ -116,10 +116,15 @@ func (s *Server) handleGetIssue(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 }
 
 // createIssueReq is the POST /api/issues body.
+//
+// Priority is a *int (not int) so we can distinguish "omitted, apply
+// default" from "explicitly set to 0". The CLI's --priority defaults
+// to 2; the HTTP surface used to decode missing priority as the zero
+// value, silently routing every API-created issue to P0.
 type createIssueReq struct {
 	Title       string   `json:"title"`
 	Type        string   `json:"type,omitempty"`    // default "task"
-	Priority    int      `json:"priority"`          // 0 = highest
+	Priority    *int     `json:"priority,omitempty"` // default 2 (matches CLI)
 	Agent       *string  `json:"agent,omitempty"`   // lane; nil = unassigned
 	Labels      []string `json:"labels,omitempty"`  // attached after create
 	Parents     []string `json:"parents,omitempty"` // dep edges to add
@@ -137,7 +142,11 @@ func (s *Server) handleCreateIssue(w stdhttp.ResponseWriter, r *stdhttp.Request)
 		writeError(w, stdhttp.StatusBadRequest, err.Error())
 		return
 	}
-	issue, err := s.store.CreateWithLinks(ctxOf(r), body.Title, body.Type, body.Priority, body.Agent, store.CreateOpts{
+	priority := 2
+	if body.Priority != nil {
+		priority = *body.Priority
+	}
+	issue, err := s.store.CreateWithLinks(ctxOf(r), body.Title, body.Type, priority, body.Agent, store.CreateOpts{
 		Parents:     body.Parents,
 		Description: body.Description,
 		Notes:       body.Notes,
@@ -147,7 +156,7 @@ func (s *Server) handleCreateIssue(w stdhttp.ResponseWriter, r *stdhttp.Request)
 		return
 	}
 	if len(body.Labels) > 0 {
-		if err := s.store.AddLabels(ctxOf(r), issue.ID, body.Labels); err != nil {
+		if _, err := s.store.AddLabels(ctxOf(r), issue.ID, body.Labels); err != nil {
 			respondErr(w, err)
 			return
 		}
@@ -405,7 +414,7 @@ func replaceLabels(ctx context.Context, s *store.Store, id string, want []string
 		}
 	}
 	if len(toAdd) > 0 {
-		if err := s.AddLabels(ctx, id, toAdd); err != nil {
+		if _, err := s.AddLabels(ctx, id, toAdd); err != nil {
 			return err
 		}
 	}

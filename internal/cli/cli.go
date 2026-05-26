@@ -264,11 +264,12 @@ func agentPtr(s string) *string {
 
 // Run is the entrypoint used by main and the tests.
 func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
-	// Pre-flight: handle `-V` / `--version-flag` before kong, which
-	// requires a subcommand and conflicts with our custom Exit hook.
-	// Anywhere in the arg list short-circuits to the version command.
+	// Pre-flight: handle `-V` / `--version` / `--version-flag` before
+	// kong, which requires a subcommand and conflicts with our custom
+	// Exit hook. Anywhere in the arg list short-circuits to the version
+	// command.
 	for _, a := range args {
-		if a == "-V" || a == "--version-flag" {
+		if a == "-V" || a == "--version" || a == "--version-flag" {
 			rctx := &runCtx{ctx: ctx, stdout: stdout, stderr: stderr}
 			(&VersionCmd{}).Run(rctx)
 			return 0
@@ -386,13 +387,16 @@ type issueOut struct {
 }
 
 // issueShowOut adds parents/blocks/comments for the show command.
+// Slices and the blocked flag are emitted *unconditionally* (omitempty
+// removed) so generic consumers see a uniform shape — `.labels[]`
+// always exists as an array, never as a missing key.
 type issueShowOut struct {
 	store.Issue
-	Labels   []string        `json:"labels,omitempty"`
-	Depends  []string        `json:"depends_on,omitempty"`
-	Blocks   []string        `json:"blocks,omitempty"`
-	Comments []store.Comment `json:"comments,omitempty"`
-	Blocked  bool            `json:"blocked,omitempty"`
+	Labels   []string        `json:"labels"`
+	Depends  []string        `json:"depends_on"`
+	Blocks   []string        `json:"blocks"`
+	Comments []store.Comment `json:"comments"`
+	Blocked  bool            `json:"blocked"`
 }
 
 // displayStatus is the user-facing status. It's the stored status for
@@ -418,6 +422,7 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string, bl
 		fmt.Fprintln(r.stdout, "(none)")
 		return
 	}
+	now := time.Now().Unix()
 	for _, i := range issues {
 		assignee := "-"
 		if i.Assignee != nil {
@@ -427,7 +432,20 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string, bl
 		if i.Agent != nil {
 			agent = *i.Agent
 		}
-		fmt.Fprintf(r.stdout, "%s  p%d  %-12s  %-12s  %-10s  %s", i.ID, i.Priority, displayStatus(i, blocked[i.ID]), agent, assignee, i.Title)
+		status := displayStatus(i, blocked[i.ID])
+		// Surface a deferred row's wait state inline. `ready` already
+		// excludes deferred issues; `list` previously showed them as
+		// plain "open" with no indication. Past-due defers show as
+		// "overdue" so the user notices something they thought was
+		// gated is back in play.
+		if i.DeferUntil != nil && status != "closed" && status != "cancelled" {
+			if *i.DeferUntil > now {
+				status = "deferred"
+			} else {
+				status = "overdue"
+			}
+		}
+		fmt.Fprintf(r.stdout, "%s  p%d  %-12s  %-12s  %-10s  %s", i.ID, i.Priority, status, agent, assignee, i.Title)
 		if ls := labels[i.ID]; len(ls) > 0 {
 			fmt.Fprintf(r.stdout, "  [%s]", strings.Join(ls, ", "))
 		}
@@ -437,6 +455,21 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string, bl
 
 func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comments []store.Comment, blocked bool) {
 	if r.json {
+		// Always emit non-nil slices so `jq -r '.labels[]'` etc. don't
+		// trip on missing keys when the issue has no labels / deps /
+		// comments.
+		if parents == nil {
+			parents = []string{}
+		}
+		if blocks == nil {
+			blocks = []string{}
+		}
+		if labels == nil {
+			labels = []string{}
+		}
+		if comments == nil {
+			comments = []store.Comment{}
+		}
 		out := issueShowOut{Issue: i, Labels: labels, Depends: parents, Blocks: blocks, Comments: comments, Blocked: blocked}
 		_ = r.emitJSON(out)
 		return

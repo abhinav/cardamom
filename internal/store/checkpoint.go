@@ -23,6 +23,7 @@ var (
 	ErrNotCheckpoint       = errors.New("issue is not a checkpoint")
 	ErrCheckpointClosed    = errors.New("checkpoint is already closed")
 	ErrCheckpointNoPayload = errors.New("checkpoint has no wait payload")
+	ErrCheckpointBlocked   = errors.New("checkpoint has unresolved prerequisites")
 	ErrNotApprover         = errors.New("user is not in approvers")
 )
 
@@ -126,6 +127,19 @@ func (s *Store) ResolveCheckpoint(ctx context.Context, id, as string, pass bool,
 	if issue.Status == "closed" {
 		return CheckpointResult{}, fmt.Errorf("%w: %s", ErrCheckpointClosed, id)
 	}
+	// Refuse to pass while the gate itself is still blocked. Approving
+	// a gate whose `needs:` aren't done means downstream becomes ready
+	// without the gated work having happened. Only enforced for pass —
+	// fail on a still-blocked gate is fine (cancel cascade).
+	if pass {
+		blockedMap, err := s.IDsBlocked(ctx, []string{id})
+		if err != nil {
+			return CheckpointResult{}, err
+		}
+		if blockedMap[id] {
+			return CheckpointResult{}, fmt.Errorf("%w: %s has unresolved prerequisites — wait for them to close, or `clu checkpoint fail` to cancel the gated chain", ErrCheckpointBlocked, id)
+		}
+	}
 	payload, err := s.GetCheckpointPayload(ctx, id)
 	if err != nil {
 		return CheckpointResult{}, err
@@ -138,7 +152,7 @@ func (s *Store) ResolveCheckpoint(ctx context.Context, id, as string, pass bool,
 	if !pass {
 		newLabel = "checkpoint:failed"
 	}
-	if err := s.AddLabels(ctx, id, []string{newLabel}); err != nil {
+	if _, err := s.AddLabels(ctx, id, []string{newLabel}); err != nil {
 		return CheckpointResult{}, err
 	}
 	if reason != "" {

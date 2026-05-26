@@ -105,6 +105,23 @@ func TestCheckpointApproval(t *testing.T) {
 	}
 }
 
+func TestCheckpointPassRejectsBlockedGate(t *testing.T) {
+	// Regression for the S1 in pass 4: `checkpoint pass` succeeded on
+	// gates whose own predecessors were still open, so downstream
+	// went ready without the gated work happening. Must refuse.
+	c := newTestCLI(t)
+	c.run("init")
+	user := currentUserName(t)
+	c.writeTemplate("deploy.yaml", strings.Replace(checkpointYAML, "%s", user, 1))
+	c.run("run", "deploy")
+	ids := checkpointIDs(t, c)
+	// Skip closing the build step — gate-manual still has an unmet parent.
+	c.runFail("approve", ids["gate-manual"])
+	// Closing the predecessor unblocks the path and pass should now work.
+	c.run("close", ids["build"])
+	c.run("approve", ids["gate-manual"])
+}
+
 func TestCheckpointApprovalRejectsWrongUser(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

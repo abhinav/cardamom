@@ -57,7 +57,7 @@ func (c *ImportCmd) Run(r *runCtx) error {
 				if err := s.UpsertIssue(r.ctx, rec.Issue); err != nil {
 					return fmt.Errorf("line %d: upsert issue %s: %w", ln, rec.Issue.ID, err)
 				}
-				if err := s.AddLabels(r.ctx, rec.Issue.ID, rec.Labels); err != nil {
+				if _, err := s.AddLabels(r.ctx, rec.Issue.ID, rec.Labels); err != nil {
 					return fmt.Errorf("line %d: labels for %s: %w", ln, rec.Issue.ID, err)
 				}
 				issues++

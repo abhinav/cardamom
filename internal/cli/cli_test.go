@@ -1569,6 +1569,121 @@ func TestCLISubcommandHelpExits0(t *testing.T) {
 	}
 }
 
+func TestCLICreateRejectsWhitespaceTitle(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("create", "")
+	c.runFail("create", "   ")
+	c.runFail("create", " \t\n ")
+}
+
+func TestCLIVersionLongFlag(t *testing.T) {
+	// --version (long form) should work the same as -V.
+	c := newTestCLI(t)
+	out := c.run("--version")
+	if !strings.HasPrefix(out, "clu ") {
+		t.Fatalf("expected version banner, got:\n%s", out)
+	}
+}
+
+func TestCLIDepLsListsBothDirections(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "parent"))
+	b := strings.TrimSpace(c.run("create", "child"))
+	d := strings.TrimSpace(c.run("create", "another child"))
+	c.run("link", b, a)
+	c.run("link", d, a)
+	// On a: blocks both children, depends on nothing.
+	out := c.run("dep", "ls", a)
+	if !strings.Contains(out, b) || !strings.Contains(out, d) {
+		t.Fatalf("expected both children listed under blocks:\n%s", out)
+	}
+	if !strings.Contains(out, "depends on: (none)") {
+		t.Fatalf("expected '(none)' for empty parents:\n%s", out)
+	}
+	// Unknown ID errors.
+	c.runFail("dep", "ls", "clu-9999")
+}
+
+func TestCLILabelAddHonestCount(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.run("label", "add", id, "alpha", "beta")
+	// Re-add: both already present.
+	out := c.run("label", "add", id, "alpha", "beta")
+	if !strings.Contains(out, "added 0") || !strings.Contains(out, "2 already present") {
+		t.Fatalf("expected '0 added, 2 already present', got:\n%s", out)
+	}
+}
+
+func TestCLICommentEdit(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	add := c.run("comment", "add", id, "first draft", "-a", "alice")
+	// Extract comment ID from notice "(#N)".
+	var cid string
+	for _, tok := range strings.Fields(add) {
+		if strings.HasPrefix(tok, "(#") && strings.HasSuffix(tok, ")") {
+			cid = tok[2 : len(tok)-1]
+		}
+	}
+	if cid == "" {
+		t.Fatalf("could not extract comment id from: %s", add)
+	}
+	c.run("comment", "edit", cid, "revised")
+	ls := c.run("comment", "ls", id)
+	if !strings.Contains(ls, "revised") {
+		t.Fatalf("edit didn't apply:\n%s", ls)
+	}
+	if strings.Contains(ls, "first draft") {
+		t.Fatalf("old body still present:\n%s", ls)
+	}
+}
+
+func TestCLIShowJSONShapeIsStable(t *testing.T) {
+	// Regression: clu --json show used to omit empty labels/depends/
+	// blocks/comments arrays. Consumers want a uniform shape.
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "no deps no labels"))
+	out := c.run("--json", "show", id)
+	for _, want := range []string{
+		`"labels":[]`,
+		`"depends_on":[]`,
+		`"blocks":[]`,
+		`"comments":[]`,
+		`"blocked":false`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("expected stable %q in JSON, got:\n%s", want, out)
+		}
+	}
+}
+
+func TestCLIListShowsDeferred(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.run("defer", id, "+1h")
+	out := c.run("list", "--status", "all")
+	if !strings.Contains(out, "deferred") {
+		t.Fatalf("deferred row should show 'deferred' status:\n%s", out)
+	}
+}
+
+func TestCLIInfoOpenCountLabel(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "x")
+	out := c.run("info")
+	if !strings.Contains(out, "open (incl. blocked)") {
+		t.Fatalf("info should label open as 'open (incl. blocked)':\n%s", out)
+	}
+}
+
 func TestCLICancelCascadesToDependents(t *testing.T) {
 	// Shape:  A ← B ← C   and   A ← D
 	// Cancel A → everything in this graph should be cancelled.

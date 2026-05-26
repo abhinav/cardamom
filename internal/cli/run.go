@@ -44,7 +44,7 @@ func (c *RunCmd) Run(r *runCtx) error {
 		return err
 	}
 	if c.DryRun {
-		return emitPlan(r, plan, "")
+		return emitPlan(r, plan, "", nil)
 	}
 	return withStore(r, func(s *store.Store) error {
 		parent, err := s.CreateWithLinks(r.ctx, plan.Parent.Title, "task", 2, nil, store.CreateOpts{
@@ -54,7 +54,7 @@ func (c *RunCmd) Run(r *runCtx) error {
 			return err
 		}
 		runLabel := "run:" + parent.ID
-		if err := s.AddLabels(r.ctx, parent.ID, []string{runLabel, "template:" + plan.TemplateName}); err != nil {
+		if _, err := s.AddLabels(r.ctx, parent.ID, []string{runLabel, "template:" + plan.TemplateName}); err != nil {
 			return err
 		}
 		stepIDs := map[string]string{} // step-id → issue-id
@@ -70,7 +70,7 @@ func (c *RunCmd) Run(r *runCtx) error {
 			if step.Type == "checkpoint" {
 				labels = append(labels, "checkpoint:pending")
 			}
-			if err := s.AddLabels(r.ctx, issue.ID, labels); err != nil {
+			if _, err := s.AddLabels(r.ctx, issue.ID, labels); err != nil {
 				return err
 			}
 			for _, need := range step.Needs {
@@ -95,7 +95,7 @@ func (c *RunCmd) Run(r *runCtx) error {
 				return err
 			}
 		}
-		return emitPlan(r, plan, parent.ID)
+		return emitPlan(r, plan, parent.ID, stepIDs)
 	})
 }
 
@@ -284,12 +284,15 @@ func parseVarPairs(pairs []string) (map[string]string, error) {
 	return out, nil
 }
 
-// emitPlan prints a human or JSON summary of a Plan. parentID is "" in
-// --dry-run mode.
-func emitPlan(r *runCtx, plan workflow.Plan, parentID string) error {
+// emitPlan prints a human or JSON summary of a Plan. parentID is ""
+// and stepIDs is nil in --dry-run mode. Real runs pass both so each
+// row carries its concrete issue ID — otherwise the user has to
+// re-query via `clu list -l step:<id>` to act on a step.
+func emitPlan(r *runCtx, plan workflow.Plan, parentID string, stepIDs map[string]string) error {
 	if r.json {
 		type stepOut struct {
-			ID          string         `json:"id"`
+			ID          string         `json:"id"`                  // template step id (e.g. "build")
+			IssueID     string         `json:"issue_id,omitempty"`  // concrete clu-XXXX after instantiation
 			Title       string         `json:"title"`
 			Description string         `json:"description,omitempty"`
 			Type        string         `json:"type"`
@@ -317,7 +320,8 @@ func emitPlan(r *runCtx, plan workflow.Plan, parentID string) error {
 		}
 		for _, s := range plan.Steps {
 			out.Steps = append(out.Steps, stepOut{
-				ID: s.StepID, Title: s.Title, Description: s.Description, Type: s.Type,
+				ID: s.StepID, IssueID: stepIDs[s.StepID], Title: s.Title,
+				Description: s.Description, Type: s.Type,
 				Priority: s.Priority, Needs: s.Needs, Wait: s.Wait, IsLeaf: s.IsLeaf,
 			})
 		}
@@ -328,8 +332,15 @@ func emitPlan(r *runCtx, plan workflow.Plan, parentID string) error {
 	} else {
 		fmt.Fprintf(r.stdout, "%s  %s\n", parentID, plan.Parent.Title)
 	}
+	// Two columns up front in real runs (issue ID + template step ID)
+	// so the user can paste straight into `clu claim`, `clu approve`,
+	// etc. Dry-run mode skips the issue-ID column since none allocated.
 	for _, s := range plan.Steps {
-		fmt.Fprintf(r.stdout, "  %-16s  %-10s  %s", s.StepID, s.Type, s.Title)
+		if parentID != "" {
+			fmt.Fprintf(r.stdout, "  %-10s  %-16s  %-10s  %s", stepIDs[s.StepID], s.StepID, s.Type, s.Title)
+		} else {
+			fmt.Fprintf(r.stdout, "  %-16s  %-10s  %s", s.StepID, s.Type, s.Title)
+		}
 		if len(s.Needs) > 0 {
 			fmt.Fprintf(r.stdout, "  needs: %s", strings.Join(s.Needs, ","))
 		}

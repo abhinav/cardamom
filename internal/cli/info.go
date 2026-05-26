@@ -51,7 +51,16 @@ func (c *InfoCmd) Run(r *runCtx) error {
 			fmt.Fprintln(r.stdout, "By status:")
 			for _, k := range store.ValidStatuses {
 				if n, ok := out.IssuesByStatus[k]; ok {
-					fmt.Fprintf(r.stdout, "  %-12s  %d\n", k, n)
+					// `open` here is the stored status; `list`/`show`
+					// further compute a derived "blocked" subset of
+					// open. Spelling that out avoids the
+					// "list shows 3 blocked but info says 1 open"
+					// reconciliation confusion.
+					label := k
+					if k == "open" {
+						label = "open (incl. blocked)"
+					}
+					fmt.Fprintf(r.stdout, "  %-22s  %d\n", label, n)
 				}
 			}
 		}

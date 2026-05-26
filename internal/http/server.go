@@ -17,6 +17,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"io"
 	stdhttp "net/http"
 	"strings"
 
@@ -155,11 +156,19 @@ func writeError(w stdhttp.ResponseWriter, status int, msg string) {
 // readJSON decodes the request body into v with a hard cap and
 // DisallowUnknownFields so typos in clients surface as 400s instead of
 // silent no-ops. 1 MB cap is plenty for any single-issue payload.
+// io.EOF (empty body) is translated to a clearer "request body required"
+// message; the raw json decoder otherwise reports just "EOF".
 func readJSON(r *stdhttp.Request, v any) error {
 	r.Body = stdhttp.MaxBytesReader(nil, r.Body, 1<<20)
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
-	return dec.Decode(v)
+	if err := dec.Decode(v); err != nil {
+		if errors.Is(err, io.EOF) {
+			return errors.New("request body required (got empty body)")
+		}
+		return err
+	}
+	return nil
 }
 
 // errorStatus maps store sentinel errors to HTTP status codes. Anything
@@ -175,9 +184,11 @@ func errorStatus(err error) int {
 	case errors.Is(err, store.ErrAlreadyClosed),
 		errors.Is(err, store.ErrAlreadyOpen),
 		errors.Is(err, store.ErrNotClaimable),
-		errors.Is(err, store.ErrCheckpointClosed):
+		errors.Is(err, store.ErrCheckpointClosed),
+		errors.Is(err, store.ErrCheckpointBlocked):
 		return stdhttp.StatusConflict
-	case errors.Is(err, store.ErrCycle),
+	case errors.Is(err, store.ErrInvalid),
+		errors.Is(err, store.ErrCycle),
 		errors.Is(err, store.ErrSelfDep),
 		errors.Is(err, store.ErrNotDeferred),
 		errors.Is(err, store.ErrNotCheckpoint),

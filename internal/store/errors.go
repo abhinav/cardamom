@@ -8,6 +8,12 @@ import (
 )
 
 var (
+	// ErrInvalid is the umbrella sentinel for caller-input validation
+	// errors (bad status string, missing title, out-of-range priority,
+	// empty capability, etc). HTTP handlers translate it to 400 Bad
+	// Request; the CLI just surfaces the wrapped message.
+	ErrInvalid = errors.New("invalid input")
+
 	ErrNotFound        = errors.New("issue not found")
 	ErrAlreadyClosed   = errors.New("issue already closed")
 	ErrAlreadyOpen     = errors.New("issue already open")

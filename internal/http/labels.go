@@ -23,7 +23,7 @@ func (s *Server) handleAddLabels(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 		writeError(w, stdhttp.StatusBadRequest, "labels required")
 		return
 	}
-	if err := s.store.AddLabels(ctxOf(r), id, body.Labels); err != nil {
+	if _, err := s.store.AddLabels(ctxOf(r), id, body.Labels); err != nil {
 		respondErr(w, err)
 		return
 	}

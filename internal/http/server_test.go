@@ -215,7 +215,7 @@ func TestListWithFilter(t *testing.T) {
 	ts, s := newTestServer(t)
 	a, _ := s.Create(ctx, "alpha", "task", 1, nil)
 	_, _ = s.Create(ctx, "beta", "bug", 2, nil)
-	_ = s.AddLabels(ctx, a.ID, []string{"frontend"})
+	_, _ = s.AddLabels(ctx, a.ID, []string{"frontend"})
 
 	resp, data := do(t, ts, "GET", "/api/issues?type=task", "", nil)
 	if resp.StatusCode != 200 {
@@ -285,7 +285,7 @@ func TestCheckpointApprove(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	_ = s.AddLabels(ctx, cp.ID, []string{"checkpoint:pending"})
+	_, _ = s.AddLabels(ctx, cp.ID, []string{"checkpoint:pending"})
 	_ = s.KVSet(ctx, "cp:"+cp.ID, `{"kind":"approval","approvers":["alice"]}`)
 
 	// Wrong approver → 400 (ErrNotApprover).
@@ -335,7 +335,7 @@ func TestListCheckpoints(t *testing.T) {
 
 	// Pending checkpoint with approvers.
 	pending, _ := s.Create(ctx, "Review release", "checkpoint", 1, nil)
-	_ = s.AddLabels(ctx, pending.ID, []string{"checkpoint:pending"})
+	_, _ = s.AddLabels(ctx, pending.ID, []string{"checkpoint:pending"})
 	_ = s.KVSet(ctx, "cp:"+pending.ID,
 		`{"kind":"approval","approvers":["alice","bob"]}`)
 
@@ -347,7 +347,7 @@ func TestListCheckpoints(t *testing.T) {
 
 	// A non-pending checkpoint (already approved) — should be excluded.
 	approved, _ := s.Create(ctx, "Old gate", "checkpoint", 1, nil)
-	_ = s.AddLabels(ctx, approved.ID, []string{"checkpoint:passed"})
+	_, _ = s.AddLabels(ctx, approved.ID, []string{"checkpoint:passed"})
 	_ = s.KVSet(ctx, "cp:"+approved.ID, `{"kind":"manual"}`)
 
 	resp, data = do(t, ts, "GET", "/api/checkpoints", "", nil)

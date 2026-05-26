@@ -20,7 +20,8 @@ type LabelAddCmd struct {
 
 func (c *LabelAddCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		if err := s.AddLabels(r.ctx, c.ID, c.Labels); err != nil {
+		added, err := s.AddLabels(r.ctx, c.ID, c.Labels)
+		if err != nil {
 			return err
 		}
 		if r.json {
@@ -34,7 +35,14 @@ func (c *LabelAddCmd) Run(r *runCtx) error {
 			}
 			return r.emitJSON(issueOut{Issue: i, Labels: labels})
 		}
-		r.notice("added %d label(s) to %s\n", len(c.Labels), c.ID)
+		// Honest count: actual inserts vs the (added==len) lie. Tells
+		// the user when a "duplicate add" was effectively a no-op.
+		skipped := len(c.Labels) - added
+		if skipped > 0 {
+			r.notice("added %d label(s) to %s (%d already present)\n", added, c.ID, skipped)
+		} else {
+			r.notice("added %d label(s) to %s\n", added, c.ID)
+		}
 		return nil
 	})
 }

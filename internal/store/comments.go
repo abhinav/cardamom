@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"fmt"
 )
 
 // AddComment appends a new comment to an issue. Validates the issue
@@ -57,6 +58,32 @@ func (s *Store) RemoveComment(ctx context.Context, commentID int64) error {
 		return ErrCommentNotFound
 	}
 	return nil
+}
+
+
+// EditComment replaces the body of an existing comment. Preserves
+// author and created so issue-history references stay stable. Returns
+// ErrCommentNotFound if no row matches.
+func (s *Store) EditComment(ctx context.Context, commentID int64, body string) (Comment, error) {
+	if body == "" {
+		return Comment{}, fmt.Errorf("%w: body required", ErrInvalid)
+	}
+	res, err := s.db.NewUpdate().
+		Model((*Comment)(nil)).
+		Set("body = ?", body).
+		Where("id = ?", commentID).
+		Exec(ctx)
+	if err != nil {
+		return Comment{}, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return Comment{}, ErrCommentNotFound
+	}
+	var cm Comment
+	if err := s.db.NewSelect().Model(&cm).Where("id = ?", commentID).Scan(ctx); err != nil {
+		return Comment{}, err
+	}
+	return cm, nil
 }
 
 // UpsertComment inserts a comment with an explicit ID (used by import).

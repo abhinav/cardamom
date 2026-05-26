@@ -7,28 +7,34 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// AddLabels attaches one or more labels to an issue. No-op for empty list.
-// Returns ErrNotFound if the issue does not exist. Rejects empty-string
-// labels — a label with no characters is almost certainly a quoting
-// mistake and persists as a blank row in `label ls`.
-func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) error {
+// AddLabels attaches one or more labels to an issue. Returns the
+// number actually inserted (i.e. excluding duplicates that were already
+// present). Empty list → (0, nil). Returns ErrNotFound if the issue
+// does not exist. Rejects empty-string labels — a label with no
+// characters is almost certainly a quoting mistake and persists as a
+// blank row in `label ls`.
+func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) (int, error) {
 	if len(labels) == 0 {
-		return nil
+		return 0, nil
 	}
 	for _, l := range labels {
 		if l == "" {
-			return errors.New("label cannot be empty")
+			return 0, errors.New("label cannot be empty")
 		}
 	}
 	if err := s.exists(ctx, issueID); err != nil {
-		return err
+		return 0, err
 	}
 	rows := make([]IssueLabel, len(labels))
 	for i, l := range labels {
 		rows[i] = IssueLabel{IssueID: issueID, Label: l}
 	}
-	_, err := s.db.NewInsert().Model(&rows).On("CONFLICT DO NOTHING").Exec(ctx)
-	return err
+	res, err := s.db.NewInsert().Model(&rows).On("CONFLICT DO NOTHING").Exec(ctx)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
 }
 
 // RemoveLabels detaches labels from an issue. No-op for empty list or for

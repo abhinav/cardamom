@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/uptrace/bun"
 )
@@ -34,8 +35,12 @@ type CreateOpts struct {
 // Parents must already exist; a no-such-parent aborts the whole
 // transaction so we never leave a half-linked issue behind.
 func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority int, agent *string, opts CreateOpts) (Issue, error) {
+	// Trim before the empty check so `clu create "   "` is rejected the
+	// same way as `clu create ""`. Bare whitespace stored as a title
+	// previously surfaced as a blank line in `list`.
+	title = strings.TrimSpace(title)
 	if title == "" {
-		return Issue{}, errors.New("title required")
+		return Issue{}, fmt.Errorf("%w: title required", ErrInvalid)
 	}
 	if typ == "" {
 		typ = "task"
@@ -48,7 +53,7 @@ func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority
 	}
 	for _, c := range opts.Caps {
 		if c == "" {
-			return Issue{}, errors.New("capability cannot be empty")
+			return Issue{}, fmt.Errorf("%w: capability cannot be empty", ErrInvalid)
 		}
 	}
 
