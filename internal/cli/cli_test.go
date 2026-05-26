@@ -1064,6 +1064,31 @@ func TestCLIListBadDate(t *testing.T) {
 	c.runFail("list", "--created-after", "not-a-date")
 }
 
+func TestCLILabelAddRejectsEmptyString(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.runFail("label", "add", id, "")
+}
+
+func TestCLILabelRmRejectsUnknownIssue(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("label", "rm", "bd-zzzz", "foo")
+}
+
+func TestCLILabelLsRejectsUnknownIssue(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("label", "ls", "bd-zzzz")
+}
+
+func TestCLICommentLsRejectsUnknownIssue(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("comment", "ls", "bd-zzzz")
+}
+
 func TestCLIRejectsInvalidStatus(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

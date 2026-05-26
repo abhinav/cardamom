@@ -924,6 +924,17 @@ func TestKVRequiresKey(t *testing.T) {
 	}
 }
 
+func TestAddLabelsRejectsEmptyString(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "x", "task", 1, nil)
+	if err := s.AddLabels(ctx, a.ID, []string{""}); err == nil {
+		t.Fatal("expected error on empty label")
+	}
+	if err := s.AddLabels(ctx, a.ID, []string{"ok", ""}); err == nil {
+		t.Fatal("expected error on mixed valid+empty labels")
+	}
+}
+
 func TestCreateRejectsInvalidType(t *testing.T) {
 	s := newTestStore(t)
 	if _, err := s.Create(ctx, "x", "notatype", 1, nil); err == nil {

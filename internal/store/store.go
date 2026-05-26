@@ -567,10 +567,17 @@ func (s *Store) Reopen(ctx context.Context, id string) (Issue, error) {
 // ---- Labels ----
 
 // AddLabels attaches one or more labels to an issue. No-op for empty list.
-// Returns ErrNotFound if the issue does not exist.
+// Returns ErrNotFound if the issue does not exist. Rejects empty-string
+// labels — a label with no characters is almost certainly a quoting
+// mistake and persists as a blank row in `label ls`.
 func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) error {
 	if len(labels) == 0 {
 		return nil
+	}
+	for _, l := range labels {
+		if l == "" {
+			return errors.New("label cannot be empty")
+		}
 	}
 	if err := s.exists(ctx, issueID); err != nil {
 		return err
@@ -584,8 +591,12 @@ func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) 
 }
 
 // RemoveLabels detaches labels from an issue. No-op for empty list or for
-// labels that are not present.
+// labels that are not present. Returns ErrNotFound if the issue itself
+// doesn't exist (rather than silently no-op'ing on a typo'd ID).
 func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []string) error {
+	if err := s.exists(ctx, issueID); err != nil {
+		return err
+	}
 	if len(labels) == 0 {
 		return nil
 	}
@@ -598,7 +609,12 @@ func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []strin
 }
 
 // LabelsForIssue returns the labels on a single issue, alphabetically.
+// Returns ErrNotFound if the issue doesn't exist (distinct from "issue
+// exists but has no labels", which returns an empty slice).
 func (s *Store) LabelsForIssue(ctx context.Context, issueID string) ([]string, error) {
+	if err := s.exists(ctx, issueID); err != nil {
+		return nil, err
+	}
 	var labels []string
 	err := s.db.NewSelect().
 		Model((*IssueLabel)(nil)).
@@ -702,7 +718,12 @@ func (s *Store) AddComment(ctx context.Context, issueID, author, body string) (C
 }
 
 // Comments returns all comments on an issue in chronological order.
+// Returns ErrNotFound if the issue itself doesn't exist (distinct from
+// "no comments yet", which returns an empty slice).
 func (s *Store) Comments(ctx context.Context, issueID string) ([]Comment, error) {
+	if err := s.exists(ctx, issueID); err != nil {
+		return nil, err
+	}
 	var cs []Comment
 	err := s.db.NewSelect().
 		Model(&cs).
