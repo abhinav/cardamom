@@ -95,37 +95,82 @@ default.
 
 ## Watching for incoming work (Claude Code Monitor tool)
 
-If you're a Claude Code session and want to *react* to new work as it
-appears — rather than block in `claim --wait` — use the **Monitor**
-tool to stream `clu ready --watch`:
+**Important: clu already implements change-detected watching. Do NOT
+write a shell polling loop. Just run one of these in Monitor:**
 
 ```
-Monitor: clu ready --watch -a <your-name> --interval 2s
+Monitor: clu ready --watch -a <your-name>
 ```
 
-`ready --watch` emits the current ready set on first tick and again
-**only when it changes** (issue becomes unblocked, gets claimed, gets
-created). Each emission is a clean block separated by a blank line —
-Monitor delivers one notification per emission, so unchanged ticks
-don't wake you up. Add `--heartbeat` if you want to show up in
-`clu agent ls` while watching.
+```
+Monitor: clu list --watch -a <your-name>
+```
 
-The output is *only* unblocked issues in your lane: parents must be
-closed, defer windows must have elapsed, and the issue must be
-unassigned. When a notification arrives, the typical flow is:
+That's it. No `while true`, no `jq`, no `comm`/`diff`, no `seen=""`
+tracking. The `--watch` flag is the API: clu polls on its own
+interval, suppresses unchanged ticks, and emits each new state as a
+clean block separated by a blank line. Monitor turns each emitted
+block into one push notification — silent ticks don't wake you up.
 
-1. Parse the emitted block (or call `clu --json ready -a <you>`).
+### Which one to use
+
+| command | shows |
+|---|---|
+| `clu ready --watch -a X` | only **unblocked, unassigned** issues in X's lane — i.e. what X can actually start on right now |
+| `clu list --watch -a X` | every open issue in X's lane (claimed, blocked, deferred, all of it) — useful for situational awareness |
+
+For "wake me up when there's something I can pick up," use **`ready
+--watch`**. For "show me everything happening in my area," use **`list
+--watch`**.
+
+### The react-loop
+
+When a notification arrives:
+
+1. Read the emitted block (it's already there in the notification),
+   or call `clu --json ready -a <you>` if you want structured data.
 2. `clu claim -a <you>` to atomically take the top one.
-3. Do the work, `clu close <id>` (or `clu cancel <id>`).
-4. Monitor will deliver the next notification when the next change happens.
+3. Do the work.
+4. `clu close <id>` on success or `clu cancel <id>` to abandon.
+5. The next Monitor notification will arrive whenever the ready set
+   changes again.
 
-This is preferable to polling `ready` from a loop: the watch loop
-handles cadence + change detection for you, and Monitor turns each
-real change into a single event your agent can react to.
+### Common flags worth knowing
 
-Mutually exclusive with `--wait`: pick one. `--wait` = one-shot blocking
-("print once when something's ready, exit"); `--watch` = continuous
-event stream.
+- `--interval 2s` — adjust how often clu polls internally (default 1s).
+  Don't go shorter than ~500ms; you'll just churn the DB.
+- `--heartbeat` — while watching, register `-a <name>` in
+  `clu agent ls` so coordinators see you're online. Opt-in.
+- `--json` is **not** supported with `--watch` (one JSON document per
+  process; `--watch` is a stream). Use `clu --json ready` from within
+  the react-loop if you need structured data.
+
+### Anti-patterns (do not do this)
+
+```bash
+# DON'T. clu --watch already does change detection. This re-invents
+# it badly, sleeps blindly, hides errors, and races against itself.
+seen=""
+while true; do
+  cur=$(clu --json ready -a bug-fixer | jq -r '.[].id' | sort)
+  new=$(comm -13 <(echo "$seen") <(echo "$cur"))
+  …
+done
+```
+
+Just: `Monitor: clu ready --watch -a bug-fixer`.
+
+### Watch vs. wait vs. plain
+
+Three modes, pick the right one:
+
+| flag | semantics | when to use |
+|---|---|---|
+| (none) | one-shot, exit immediately | scripts, one-off "is anything ready?" |
+| `--wait` | block until ≥1 issue is ready, print it once, exit | "I want to do exactly one task and stop" |
+| `--watch` | continuous; emit each new state, never exits voluntarily | Monitor / long-running agent |
+
+`--wait` and `--watch` are mutually exclusive.
 
 ## Creating work
 
