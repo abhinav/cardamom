@@ -281,6 +281,14 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 		kong.Writers(stdout, stderr),
 		kong.Exit(func(int) {}), // we manage exit codes ourselves
 		kong.UsageOnError(),
+		// Compact + NoExpandSubcommands keeps the top-level help to one
+		// line per command (name + description in columns) instead of
+		// the default two-line-per-command layout. With ~40 commands
+		// the default form is a wall of text.
+		kong.ConfigureHelp(kong.HelpOptions{
+			Compact:             true,
+			NoExpandSubcommands: true,
+		}),
 		kong.Vars{"user": currentUser()},
 	)
 	if err != nil {
