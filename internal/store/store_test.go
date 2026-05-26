@@ -980,6 +980,56 @@ func TestDoctorFlagsPreExistingInvalidRows(t *testing.T) {
 	}
 }
 
+func TestIDsBlocked(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	b, _ := s.Create(ctx, "b", "task", 1, nil)
+	c, _ := s.Create(ctx, "c", "task", 1, nil)
+	free, _ := s.Create(ctx, "free", "task", 1, nil)
+	// b depends on a; c depends on b. Both should report blocked
+	// because a (transitively-only the immediate-parent check) and
+	// b are not closed.
+	_ = s.AddDep(ctx, b.ID, a.ID)
+	_ = s.AddDep(ctx, c.ID, b.ID)
+	got, err := s.IDsBlocked(ctx, []string{a.ID, b.ID, c.ID, free.ID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got[a.ID] {
+		t.Fatalf("a has no parents and should not be blocked")
+	}
+	if !got[b.ID] {
+		t.Fatalf("b should be blocked (a is open)")
+	}
+	if !got[c.ID] {
+		t.Fatalf("c should be blocked (b is open)")
+	}
+	if got[free.ID] {
+		t.Fatalf("free has no deps and should not be blocked")
+	}
+	// After closing a, b's immediate parent is closed -> b is unblocked.
+	// c's immediate parent (b) is still open -> c stays blocked.
+	_, _ = s.MarkClosed(ctx, a.ID)
+	got, _ = s.IDsBlocked(ctx, []string{b.ID, c.ID})
+	if got[b.ID] {
+		t.Fatalf("b's only parent (a) is now closed; should not be blocked")
+	}
+	if !got[c.ID] {
+		t.Fatalf("c's immediate parent (b) is still open; should be blocked")
+	}
+}
+
+func TestIDsBlockedEmpty(t *testing.T) {
+	s := newTestStore(t)
+	got, err := s.IDsBlocked(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got == nil || len(got) != 0 {
+		t.Fatalf("expected non-nil empty map, got %v", got)
+	}
+}
+
 func TestDepsListing(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 1, nil)

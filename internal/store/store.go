@@ -1312,6 +1312,36 @@ func (s *Store) Deps(ctx context.Context, id string) (parents, blocks []string, 
 	return parents, blocks, nil
 }
 
+// IDsBlocked returns the subset of `ids` that have at least one non-closed
+// parent — i.e. the issues that are effectively "blocked" regardless of
+// their own status. Empty input returns an empty (non-nil) map.
+//
+// Used by `cli list` / `cli ready` to surface blocked-ness as a derived
+// status without storing it on the issue row.
+func (s *Store) IDsBlocked(ctx context.Context, ids []string) (map[string]bool, error) {
+	out := make(map[string]bool, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	var rows []struct {
+		ChildID string `bun:"child_id"`
+	}
+	err := s.db.NewSelect().
+		Model((*Dep)(nil)).
+		ColumnExpr("DISTINCT child_id").
+		Join("JOIN issues p ON p.id = dep.parent_id").
+		Where("dep.child_id IN (?)", bun.In(ids)).
+		Where("p.status != 'closed'").
+		Scan(ctx, &rows)
+	if err != nil {
+		return nil, err
+	}
+	for _, r := range rows {
+		out[r.ChildID] = true
+	}
+	return out, nil
+}
+
 // WaitReady polls Ready until at least one issue is returned, the context is
 // cancelled, or an error occurs. Caller controls the poll interval.
 func (s *Store) WaitReady(ctx context.Context, limit int, agent *string, interval time.Duration) ([]Issue, error) {

@@ -316,6 +316,90 @@ func TestCLIBlocked(t *testing.T) {
 	}
 }
 
+func TestCLIListShowsBlockedAsDerivedStatus(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "parent"))
+	b := strings.TrimSpace(c.run("create", "child"))
+	c.run("dep", "add", b, a)
+	out := c.run("list")
+	// a (no open deps) renders as "open".
+	if !strings.Contains(out, a+"  p2  open") {
+		t.Fatalf("expected %s open in list:\n%s", a, out)
+	}
+	// b (has open parent) renders as "blocked".
+	if !strings.Contains(out, b+"  p2  blocked") {
+		t.Fatalf("expected %s blocked in list:\n%s", b, out)
+	}
+	// Closing the parent flips b back to open.
+	c.run("close", a)
+	out = c.run("list")
+	if strings.Contains(out, b+"  p2  blocked") {
+		t.Fatalf("after parent closed, %s should no longer be blocked:\n%s", b, out)
+	}
+	if !strings.Contains(out, b+"  p2  open") {
+		t.Fatalf("expected %s open after parent closed:\n%s", b, out)
+	}
+}
+
+func TestCLIListBlockedJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "parent"))
+	b := strings.TrimSpace(c.run("create", "child"))
+	c.run("dep", "add", b, a)
+	out := c.run("--json", "list")
+	var rows []map[string]any
+	if err := json.Unmarshal([]byte(out), &rows); err != nil {
+		t.Fatal(err)
+	}
+	// JSON's stored status field stays "open"; the derived field "blocked" carries the truth.
+	for _, row := range rows {
+		if row["id"] == a {
+			if row["blocked"] == true {
+				t.Fatalf("parent should not be blocked: %+v", row)
+			}
+		}
+		if row["id"] == b {
+			if row["status"] != "open" {
+				t.Fatalf("child's stored status should stay 'open', got %q", row["status"])
+			}
+			if row["blocked"] != true {
+				t.Fatalf("child should be blocked=true: %+v", row)
+			}
+		}
+	}
+}
+
+func TestCLIShowDisplaysBlocked(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "parent"))
+	b := strings.TrimSpace(c.run("create", "child"))
+	c.run("dep", "add", b, a)
+	out := c.run("show", b)
+	if !strings.Contains(out, "Status:   blocked") {
+		t.Fatalf("show should derive blocked:\n%s", out)
+	}
+}
+
+func TestCLIInProgressNotFlippedToBlocked(t *testing.T) {
+	// A claimed task with an open parent stays "in_progress" — the
+	// blocked overlay is only for status=open.
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "parent"))
+	b := strings.TrimSpace(c.run("create", "child"))
+	c.run("dep", "add", b, a)
+	// ClaimByID lets us claim a blocked issue directly (intentional —
+	// we don't auto-prevent overrides).
+	c.run("claim", b, "--as", "alice")
+	out := c.run("list")
+	if !strings.Contains(out, b+"  p2  in_progress") {
+		t.Fatalf("expected in_progress, not flipped to blocked:\n%s", out)
+	}
+}
+
 func TestCLICount(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

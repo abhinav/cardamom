@@ -31,7 +31,9 @@ func (c *ReadyCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssues(r, issues, labels)
+		// Ready by definition has no open blockers — pass nil so the
+		// display short-circuits without an extra query.
+		printIssues(r, issues, labels, nil)
 		return nil
 	})
 }

@@ -106,7 +106,11 @@ func (c *ListCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssues(r, issues, labels)
+		blocked, err := loadBlockedFor(r.ctx, s, issues)
+		if err != nil {
+			return err
+		}
+		printIssues(r, issues, labels, blocked)
 		return nil
 	})
 }

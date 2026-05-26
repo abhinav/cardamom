@@ -229,11 +229,22 @@ func loadLabelsFor(ctx context.Context, s *store.Store, issues []store.Issue) (m
 	return s.LoadLabels(ctx, ids)
 }
 
+// loadBlockedFor returns the set of issue IDs that have at least one
+// non-closed dependency. Always non-nil.
+func loadBlockedFor(ctx context.Context, s *store.Store, issues []store.Issue) (map[string]bool, error) {
+	ids := make([]string, len(issues))
+	for i, is := range issues {
+		ids[i] = is.ID
+	}
+	return s.IDsBlocked(ctx, ids)
+}
+
 // issueOut wraps a store.Issue with its labels for JSON output. Embeds
 // store.Issue so its json tags are promoted to top-level.
 type issueOut struct {
 	store.Issue
-	Labels []string `json:"labels,omitempty"`
+	Labels  []string `json:"labels,omitempty"`
+	Blocked bool     `json:"blocked,omitempty"` // derived: any non-closed parent
 }
 
 // issueShowOut adds parents/blocks/comments for the show command.
@@ -243,13 +254,24 @@ type issueShowOut struct {
 	Depends  []string        `json:"depends_on,omitempty"`
 	Blocks   []string        `json:"blocks,omitempty"`
 	Comments []store.Comment `json:"comments,omitempty"`
+	Blocked  bool            `json:"blocked,omitempty"`
 }
 
-func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string) {
+// displayStatus is the user-facing status. It's the stored status for
+// closed/in_progress rows; for open rows with at least one non-closed
+// dependency, it becomes the derived "blocked".
+func displayStatus(i store.Issue, blocked bool) string {
+	if i.Status == "open" && blocked {
+		return "blocked"
+	}
+	return i.Status
+}
+
+func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string, blocked map[string]bool) {
 	if r.json {
 		out := make([]issueOut, len(issues))
 		for i, is := range issues {
-			out[i] = issueOut{Issue: is, Labels: labels[is.ID]}
+			out[i] = issueOut{Issue: is, Labels: labels[is.ID], Blocked: blocked[is.ID]}
 		}
 		_ = r.emitJSON(out)
 		return
@@ -267,7 +289,7 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string) {
 		if i.Agent != nil {
 			agent = *i.Agent
 		}
-		fmt.Fprintf(r.stdout, "%s  p%d  %-12s  %-12s  %-10s  %s", i.ID, i.Priority, i.Status, agent, assignee, i.Title)
+		fmt.Fprintf(r.stdout, "%s  p%d  %-12s  %-12s  %-10s  %s", i.ID, i.Priority, displayStatus(i, blocked[i.ID]), agent, assignee, i.Title)
 		if ls := labels[i.ID]; len(ls) > 0 {
 			fmt.Fprintf(r.stdout, "  [%s]", strings.Join(ls, ", "))
 		}
@@ -275,9 +297,9 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string) {
 	}
 }
 
-func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comments []store.Comment) {
+func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comments []store.Comment, blocked bool) {
 	if r.json {
-		out := issueShowOut{Issue: i, Labels: labels, Depends: parents, Blocks: blocks, Comments: comments}
+		out := issueShowOut{Issue: i, Labels: labels, Depends: parents, Blocks: blocks, Comments: comments, Blocked: blocked}
 		_ = r.emitJSON(out)
 		return
 	}
@@ -285,7 +307,7 @@ func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comm
 	fmt.Fprintf(w, "ID:       %s\n", i.ID)
 	fmt.Fprintf(w, "Title:    %s\n", i.Title)
 	fmt.Fprintf(w, "Type:     %s\n", i.Type)
-	fmt.Fprintf(w, "Status:   %s\n", i.Status)
+	fmt.Fprintf(w, "Status:   %s\n", displayStatus(i, blocked))
 	fmt.Fprintf(w, "Priority: %d\n", i.Priority)
 	if i.Agent != nil {
 		fmt.Fprintf(w, "Agent:    %s\n", *i.Agent)

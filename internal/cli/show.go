@@ -24,7 +24,11 @@ func (c *ShowCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssue(r, i, parents, blocks, labels, comments)
+		blocked, err := s.IDsBlocked(r.ctx, []string{i.ID})
+		if err != nil {
+			return err
+		}
+		printIssue(r, i, parents, blocks, labels, comments, blocked[i.ID])
 		return nil
 	})
 }

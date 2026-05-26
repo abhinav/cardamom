@@ -17,7 +17,13 @@ func (c *BlockedCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
-		printIssues(r, issues, labels)
+		// Every row here is blocked by definition — synthesise the map
+		// rather than re-query.
+		blocked := make(map[string]bool, len(issues))
+		for _, i := range issues {
+			blocked[i.ID] = true
+		}
+		printIssues(r, issues, labels, blocked)
 		return nil
 	})
 }
