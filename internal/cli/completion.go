@@ -15,6 +15,7 @@ var completionCmds = []string{
 	"export", "import",
 	"info", "statuses", "types", "doctor",
 	"describe", "note", "comment", "kv",
+	"run", "template",
 	"version", "completion",
 }
 

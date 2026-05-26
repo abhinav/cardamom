@@ -65,8 +65,25 @@ Upstream beads has these; we chose not to copy:
 - Dolt anything — we chose SQLite.
 - Memory system (`prime`, `remember`, `recall`) — agent runtime, not tracker.
 - Integrations: Jira, Linear, GitHub, GitLab, Notion, ADO.
-- `mol`, `swarm`, `formula`, `cook`, `ship`, `convoy` abstractions.
+- `swarm`, `ship`, `convoy` abstractions.
 - Generic federation / branch / worktree.
+
+## Workflows
+
+Templates live in `internal/workflow/` and instantiate to plain issues
++ deps + labels — no new tables. Two layers:
+
+- `internal/workflow/` — pure: YAML loader, validation, var
+  resolution, `MakePlan(Template, vars) → Plan`. No store calls.
+- `internal/cli/run.go` + `internal/cli/template.go` — CLI walks the
+  Plan, calls `store.Create` per step, writes deps and the
+  `run:<parent>` / `step:<id>` labels. Checkpoint steps additionally
+  get `checkpoint:pending` and a `cp:<issue-id>` KV entry holding
+  `{kind, approvers}` JSON.
+
+Templates are loaded from `.db/templates/*.yaml`. The format and
+shape live in `internal/workflow/template.go`. See `demo-workflow.sh`
+for an end-to-end run.
 
 Don't propose adding these without the user explicitly asking.
 

@@ -53,6 +53,8 @@ type CLI struct {
 	Statuses   StatusesCmd   `cmd:"" help:"List valid issue statuses."`
 	Types      TypesCmd      `cmd:"" help:"List valid issue types."`
 	Doctor     DoctorCmd     `cmd:"" help:"Run integrity and health checks against the database."`
+	Run        RunCmd        `cmd:"" help:"Instantiate a workflow template into issues + deps."`
+	Template   TemplateCmd   `cmd:"" help:"Inspect and validate workflow templates."`
 	Version    VersionCmd    `cmd:"" help:"Print version information."`
 	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
 }
