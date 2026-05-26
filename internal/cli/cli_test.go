@@ -724,6 +724,104 @@ func TestCLIDeferBadDuration(t *testing.T) {
 	c.runFail("defer", id, "+nope")
 }
 
+func TestCLIKVRoundTrip(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("kv", "set", "feature_flag", "true")
+	c.run("kv", "set", "api_endpoint", "https://api.example.com")
+	c.run("kv", "set", "max_retries", "3")
+
+	// get prints just the value.
+	if got := strings.TrimSpace(c.run("kv", "get", "feature_flag")); got != "true" {
+		t.Fatalf("expected 'true', got %q", got)
+	}
+	if got := strings.TrimSpace(c.run("kv", "get", "api_endpoint")); got != "https://api.example.com" {
+		t.Fatalf("expected URL, got %q", got)
+	}
+
+	// set overwrites.
+	c.run("kv", "set", "feature_flag", "false")
+	if got := strings.TrimSpace(c.run("kv", "get", "feature_flag")); got != "false" {
+		t.Fatalf("expected 'false' after overwrite, got %q", got)
+	}
+
+	// list shows all three, alphabetised.
+	out := c.run("kv", "list")
+	want := "api_endpoint=https://api.example.com\nfeature_flag=false\nmax_retries=3\n"
+	if out != want {
+		t.Fatalf("list mismatch:\nwant:\n%s\ngot:\n%s", want, out)
+	}
+
+	// clear removes one; the rest stay.
+	c.run("kv", "clear", "api_endpoint")
+	out = c.run("kv", "list")
+	if strings.Contains(out, "api_endpoint") {
+		t.Fatalf("clear didn't remove api_endpoint:\n%s", out)
+	}
+	if !strings.Contains(out, "feature_flag") {
+		t.Fatalf("clear removed too much:\n%s", out)
+	}
+}
+
+func TestCLIKVGetMissingFails(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("kv", "get", "absent_key")
+}
+
+func TestCLIKVListEmpty(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	if got := c.run("kv", "list"); !strings.Contains(got, "(empty)") {
+		t.Fatalf("expected '(empty)' on fresh store, got %q", got)
+	}
+}
+
+func TestCLIKVGetJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("kv", "set", "k", "v")
+	out := c.run("--json", "kv", "get", "k")
+	var row map[string]any
+	if err := json.Unmarshal([]byte(out), &row); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if row["key"] != "k" || row["value"] != "v" {
+		t.Fatalf("unexpected JSON: %+v", row)
+	}
+}
+
+func TestCLIKVValueWithSpaces(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("kv", "set", "msg", "hello", "world", "and", "everyone")
+	if got := strings.TrimSpace(c.run("kv", "get", "msg")); got != "hello world and everyone" {
+		t.Fatalf("expected joined value, got %q", got)
+	}
+}
+
+func TestCLIKVExportImportRoundTrip(t *testing.T) {
+	src := newTestCLI(t)
+	src.run("init")
+	src.run("kv", "set", "feature_flag", "on")
+	src.run("kv", "set", "max_retries", "5")
+	src.run("create", "an issue") // mix with regular data to make sure both kinds export
+
+	dump := filepath.Join(t.TempDir(), "dump.jsonl")
+	src.run("export", "-o", dump)
+
+	dst := newTestCLI(t)
+	dst.run("init")
+	dst.run("import", dump)
+
+	for k, want := range map[string]string{"feature_flag": "on", "max_retries": "5"} {
+		got := strings.TrimSpace(dst.run("kv", "get", k))
+		if got != want {
+			t.Fatalf("kv %s: expected %q, got %q", k, want, got)
+		}
+	}
+}
+
 func TestCLICloseMultiple(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

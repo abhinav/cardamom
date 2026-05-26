@@ -59,6 +59,15 @@ type Comment struct {
 	Created int64  `bun:"created,notnull" json:"created"`
 }
 
+// KV is one entry in the generic key-value store. Independent of issues —
+// use for feature flags, config snippets, persistent agent scratch data, etc.
+type KV struct {
+	bun.BaseModel `bun:"table:kv" json:"-"`
+
+	Key   string `bun:"key,pk" json:"key"`
+	Value string `bun:"value,notnull" json:"value"`
+}
+
 // ---- Migrations (kept manual, independent of Bun) ----
 
 // migrations are applied in order; PRAGMA user_version tracks progress.
@@ -123,6 +132,13 @@ var migrations = []string{
         created  INTEGER NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_id, id);
+    `,
+	// v8: kv (generic key-value store).
+	`
+    CREATE TABLE IF NOT EXISTS kv (
+        key   TEXT PRIMARY KEY,
+        value TEXT NOT NULL
+    );
     `,
 }
 
@@ -195,6 +211,7 @@ var (
 	ErrNotClaimable  = errors.New("issue not claimable")
 	ErrCycle         = errors.New("dependency would create a cycle")
 	ErrSelfDep       = errors.New("issue cannot depend on itself")
+	ErrKVNotFound    = errors.New("key not found")
 )
 
 func isUniqueErr(err error) bool {
@@ -687,6 +704,53 @@ func (s *Store) AllComments(ctx context.Context) ([]Comment, error) {
 	var cs []Comment
 	err := s.db.NewSelect().Model(&cs).OrderExpr("id ASC").Scan(ctx)
 	return cs, err
+}
+
+// ---- KV ----
+
+// KVSet upserts a key-value pair. Replaces the value if the key exists.
+func (s *Store) KVSet(ctx context.Context, key, value string) error {
+	if key == "" {
+		return errors.New("key required")
+	}
+	kv := KV{Key: key, Value: value}
+	_, err := s.db.NewInsert().Model(&kv).
+		On("CONFLICT (key) DO UPDATE").
+		Set("value = EXCLUDED.value").
+		Exec(ctx)
+	return err
+}
+
+// KVGet returns the value for a key, or ErrKVNotFound if missing.
+func (s *Store) KVGet(ctx context.Context, key string) (string, error) {
+	var kv KV
+	err := s.db.NewSelect().Model(&kv).Where("key = ?", key).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", ErrKVNotFound
+	}
+	if err != nil {
+		return "", err
+	}
+	return kv.Value, nil
+}
+
+// KVDelete removes a key. Returns ErrKVNotFound if it wasn't present.
+func (s *Store) KVDelete(ctx context.Context, key string) error {
+	res, err := s.db.NewDelete().Model((*KV)(nil)).Where("key = ?", key).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrKVNotFound
+	}
+	return nil
+}
+
+// KVList returns every entry, alphabetised by key. Also used for export.
+func (s *Store) KVList(ctx context.Context) ([]KV, error) {
+	var kvs []KV
+	err := s.db.NewSelect().Model(&kvs).OrderExpr("key ASC").Scan(ctx)
+	return kvs, err
 }
 
 // SetNotes replaces an issue's notes. Pass an empty string to clear.

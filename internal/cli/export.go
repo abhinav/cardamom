@@ -91,7 +91,21 @@ func (c *ExportCmd) Run(r *runCtx) error {
 				return err
 			}
 		}
-		r.notice("exported %d issues, %d deps, %d comments\n", len(issues), len(deps), len(comments))
+		kvs, err := s.KVList(r.ctx)
+		if err != nil {
+			return err
+		}
+		for _, kv := range kvs {
+			data, err := json.Marshal(kv)
+			if err != nil {
+				return err
+			}
+			if err := enc.Encode(exportLine{Kind: "kv", Data: data}); err != nil {
+				return err
+			}
+		}
+		r.notice("exported %d issues, %d deps, %d comments, %d kv\n",
+			len(issues), len(deps), len(comments), len(kvs))
 		return nil
 	})
 }

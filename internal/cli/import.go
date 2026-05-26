@@ -32,7 +32,7 @@ func (c *ImportCmd) Run(r *runCtx) error {
 		// 16 MiB max line — enough for very large issue bodies.
 		scan.Buffer(make([]byte, 1<<20), 16<<20)
 
-		var issues, deps, comments int
+		var issues, deps, comments, kvs int
 		for ln := 1; scan.Scan(); ln++ {
 			line := scan.Bytes()
 			if len(bytes.TrimSpace(line)) == 0 {
@@ -85,6 +85,18 @@ func (c *ImportCmd) Run(r *runCtx) error {
 					return fmt.Errorf("line %d: upsert comment #%d: %w", ln, rec.ID, err)
 				}
 				comments++
+			case "kv":
+				var rec store.KV
+				if err := json.Unmarshal(hdr.Data, &rec); err != nil {
+					if c.Lenient {
+						continue
+					}
+					return fmt.Errorf("line %d (kv): %w", ln, err)
+				}
+				if err := s.KVSet(r.ctx, rec.Key, rec.Value); err != nil {
+					return fmt.Errorf("line %d: upsert kv %s: %w", ln, rec.Key, err)
+				}
+				kvs++
 			default:
 				if !c.Lenient {
 					return fmt.Errorf("line %d: unknown kind %q", ln, hdr.Kind)
@@ -94,7 +106,7 @@ func (c *ImportCmd) Run(r *runCtx) error {
 		if err := scan.Err(); err != nil {
 			return fmt.Errorf("read: %w", err)
 		}
-		r.notice("imported %d issues, %d deps, %d comments\n", issues, deps, comments)
+		r.notice("imported %d issues, %d deps, %d comments, %d kv\n", issues, deps, comments, kvs)
 		return nil
 	})
 }

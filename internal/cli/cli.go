@@ -46,6 +46,7 @@ type CLI struct {
 	Describe   DescribeCmd   `cmd:"" help:"Set or clear an issue's description (sugar for 'update --description')."`
 	Note       NoteCmd       `cmd:"" help:"Manage an issue's freeform notes."`
 	Comment    CommentCmd    `cmd:"" help:"Manage threaded comments on an issue."`
+	KV         KVCmd         `cmd:"" help:"Manage a generic key-value store (feature flags, env, scratch data)."`
 	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
 	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'bd export'."`
 	Info       InfoCmd       `cmd:"" help:"Show database path, schema version, and a summary of issues."`

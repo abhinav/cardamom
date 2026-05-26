@@ -869,6 +869,61 @@ func TestUpsertCommentPreservesID(t *testing.T) {
 	}
 }
 
+func TestKVSetGetUpdate(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.KVSet(ctx, "feature_flag", "on"); err != nil {
+		t.Fatal(err)
+	}
+	v, err := s.KVGet(ctx, "feature_flag")
+	if err != nil || v != "on" {
+		t.Fatalf("expected 'on', got %q (err=%v)", v, err)
+	}
+	// Set again — must replace, not append.
+	if err := s.KVSet(ctx, "feature_flag", "off"); err != nil {
+		t.Fatal(err)
+	}
+	v, _ = s.KVGet(ctx, "feature_flag")
+	if v != "off" {
+		t.Fatalf("expected 'off' after overwrite, got %q", v)
+	}
+}
+
+func TestKVGetMissing(t *testing.T) {
+	s := newTestStore(t)
+	if _, err := s.KVGet(ctx, "absent"); err != ErrKVNotFound {
+		t.Fatalf("expected ErrKVNotFound, got %v", err)
+	}
+}
+
+func TestKVDelete(t *testing.T) {
+	s := newTestStore(t)
+	_ = s.KVSet(ctx, "k", "v")
+	if err := s.KVDelete(ctx, "k"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.KVDelete(ctx, "k"); err != ErrKVNotFound {
+		t.Fatalf("expected ErrKVNotFound on second delete, got %v", err)
+	}
+}
+
+func TestKVListSortedByKey(t *testing.T) {
+	s := newTestStore(t)
+	_ = s.KVSet(ctx, "banana", "1")
+	_ = s.KVSet(ctx, "apple", "2")
+	_ = s.KVSet(ctx, "cherry", "3")
+	kvs, _ := s.KVList(ctx)
+	if len(kvs) != 3 || kvs[0].Key != "apple" || kvs[2].Key != "cherry" {
+		t.Fatalf("expected alphabetised list, got %+v", kvs)
+	}
+}
+
+func TestKVRequiresKey(t *testing.T) {
+	s := newTestStore(t)
+	if err := s.KVSet(ctx, "", "x"); err == nil {
+		t.Fatal("expected error for empty key")
+	}
+}
+
 func TestDepsListing(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
