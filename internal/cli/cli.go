@@ -292,7 +292,10 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 	for _, a := range args {
 		if a == "-V" || a == "--version" || a == "--version-flag" {
 			rctx := &runCtx{ctx: ctx, stdout: stdout, stderr: stderr}
-			(&VersionCmd{}).Run(rctx)
+			// Ignore err — VersionCmd.Run only fails when emitJSON
+			// fails (i.e. stdout's broken), at which point we have
+			// no way to report the error anyway.
+			_ = (&VersionCmd{}).Run(rctx)
 			return 0
 		}
 	}

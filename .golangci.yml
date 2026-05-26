@@ -11,6 +11,34 @@ linters:
     - ineffassign
     - staticcheck
     - unused
+  settings:
+    errcheck:
+      # Excluded: functions whose error returns are conventionally
+      # ignored. errcheck without these is mostly noise — defer-Close
+      # on read paths, Fprintln to stdout, Rollback after a commit
+      # failure all surface "errors" we have no useful response to.
+      # Genuine missed-error sites (tx.Commit, encoder writes that
+      # need a status bump, file Writes that need fsync, etc.) still
+      # trip the linter.
+      exclude-functions:
+        # stdout/stderr writes — if these fail, the process is doomed
+        # in ways we can't paper over.
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln
+        # Resource cleanup — defer X.Close() on read paths is
+        # idiomatic Go. Match concrete types we touch.
+        - (*os.File).Close
+        - (*database/sql.DB).Close
+        - (*database/sql.Rows).Close
+        - (*github.com/rovak/clu/internal/store.Store).Close
+        - (io.Closer).Close
+        # Best-effort temp-dir cleanup.
+        - os.RemoveAll
+        # Rollback after a primary error — surfacing the rollback
+        # failure would mask the original.
+        - (*database/sql.Tx).Rollback
+        - (github.com/uptrace/bun.Tx).Rollback
 
 formatters:
   enable:
