@@ -1,6 +1,15 @@
 package workflow
 
-import "testing"
+import (
+	"os"
+	"strings"
+	"testing"
+)
+
+func contains(s, sub string) bool   { return strings.Contains(s, sub) }
+func writeFile(path, body string) error {
+	return os.WriteFile(path, []byte(body), 0o644)
+}
 
 func TestMakePlan(t *testing.T) {
 	p := writeTemplate(t, "release.yaml", goodYAML)
@@ -44,6 +53,87 @@ func TestMakePlan(t *testing.T) {
 	}
 	if byID["build"].IsLeaf {
 		t.Errorf("build should not be a leaf (test needs it)")
+	}
+}
+
+func TestMakePlanSpecAndStepDescription(t *testing.T) {
+	yaml := `
+name: scaffold
+spec: |
+  Project: {{project}}
+  Conventions: kebab-case files, tailwind v4, react 19.
+vars:
+  project:
+    required: true
+steps:
+  - id: install
+    title: install deps
+    description: |
+      Run pnpm install. Acceptance: lockfile committed.
+  - id: build
+    title: build
+    needs: [install]
+`
+	p := writeTemplate(t, "scaffold.yaml", yaml)
+	tmpl, _ := Load(p)
+	plan, err := MakePlan(tmpl, map[string]string{"project": "demo"})
+	if err != nil {
+		t.Fatalf("MakePlan: %v", err)
+	}
+	if !contains(plan.Spec, "Project: demo") {
+		t.Errorf("spec not interpolated: %q", plan.Spec)
+	}
+	if plan.Parent.Description != plan.Spec {
+		t.Errorf("parent description should equal spec, got %q", plan.Parent.Description)
+	}
+	byID := map[string]StepSpec{}
+	for _, s := range plan.Steps {
+		byID[s.StepID] = s
+	}
+	install := byID["install"]
+	// Description should contain spec + the step's own body.
+	if !contains(install.Description, "Project: demo") {
+		t.Errorf("install missing spec: %q", install.Description)
+	}
+	if !contains(install.Description, "Acceptance: lockfile committed") {
+		t.Errorf("install missing step-specific body: %q", install.Description)
+	}
+	if !contains(install.Description, "---") {
+		t.Errorf("install missing separator between spec and step body: %q", install.Description)
+	}
+	// A step with no description should still get the spec alone.
+	build := byID["build"]
+	if !contains(build.Description, "Project: demo") {
+		t.Errorf("build missing spec: %q", build.Description)
+	}
+	if contains(build.Description, "---") {
+		t.Errorf("build has separator but no step body: %q", build.Description)
+	}
+}
+
+func TestLoadSpecFromExternalFile(t *testing.T) {
+	dir := t.TempDir()
+	specPath := dir + "/spec.md"
+	if err := writeFile(specPath, "# Project spec\nUse foo."); err != nil {
+		t.Fatal(err)
+	}
+	yaml := `
+name: external
+spec: "@spec.md"
+steps:
+  - id: a
+    title: only step
+`
+	p := dir + "/external.yaml"
+	if err := writeFile(p, yaml); err != nil {
+		t.Fatal(err)
+	}
+	tmpl, err := Load(p)
+	if err != nil {
+		t.Fatalf("Load: %v", err)
+	}
+	if !contains(tmpl.Spec, "# Project spec") {
+		t.Errorf("spec not loaded from file: %q", tmpl.Spec)
 	}
 }
 

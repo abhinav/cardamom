@@ -20,10 +20,15 @@ import (
 
 // Template is a parsed workflow definition.
 type Template struct {
-	Name        string         `yaml:"name"`
-	Description string         `yaml:"description,omitempty"`
-	Vars        map[string]Var `yaml:"vars,omitempty"`
-	Steps       []Step         `yaml:"steps"`
+	Name        string `yaml:"name"`
+	Description string `yaml:"description,omitempty"`
+	// Spec is shared context prepended to every step's description on
+	// instantiation. Inline string, or @<path> to load from a file
+	// relative to the template (so a 50-line scaffold-spec.md can live
+	// next to the template). {{var}} placeholders interpolate.
+	Spec  string         `yaml:"spec,omitempty"`
+	Vars  map[string]Var `yaml:"vars,omitempty"`
+	Steps []Step         `yaml:"steps"`
 }
 
 // Var is a single variable declaration.
@@ -31,17 +36,25 @@ type Var struct {
 	Required bool   `yaml:"required,omitempty"`
 	Default  string `yaml:"default,omitempty"`
 	Pattern  string `yaml:"pattern,omitempty"`
+	// Prompt is shown when `clu run` asks for the value interactively.
+	// Defaults to "<name>: " when empty.
+	Prompt string `yaml:"prompt,omitempty"`
 }
 
 // Step is one step in a workflow.
 type Step struct {
-	ID       string   `yaml:"id"`
-	Title    string   `yaml:"title"`
-	Type     string   `yaml:"type,omitempty"`
-	Priority *int     `yaml:"priority,omitempty"`
-	Needs    []string `yaml:"needs,omitempty"`
-	Agent    string   `yaml:"agent,omitempty"` // pre-assigns the step to an agent lane
-	Wait     *Wait    `yaml:"wait,omitempty"`
+	ID    string `yaml:"id"`
+	Title string `yaml:"title"`
+	// Description is per-step instructions — acceptance criteria, the
+	// specific job, any references downstream agents will need.
+	// {{var}} interpolation applies. The template's spec is prepended
+	// at instantiation so each step issue is self-contained.
+	Description string   `yaml:"description,omitempty"`
+	Type        string   `yaml:"type,omitempty"`
+	Priority    *int     `yaml:"priority,omitempty"`
+	Needs       []string `yaml:"needs,omitempty"`
+	Agent       string   `yaml:"agent,omitempty"` // pre-assigns the step to an agent lane
+	Wait        *Wait    `yaml:"wait,omitempty"`
 }
 
 // Wait describes the blocking condition for a checkpoint step.
@@ -56,7 +69,10 @@ var (
 	interpRe  = regexp.MustCompile(`\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}`)
 )
 
-// Load reads and parses a template file.
+// Load reads and parses a template file. If `spec:` starts with @,
+// the rest is treated as a path (resolved relative to the template
+// file) and its contents replace the @-string. Useful for keeping
+// long shared-context blocks in a sibling markdown file.
 func Load(path string) (Template, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -68,6 +84,18 @@ func Load(path string) (Template, error) {
 	}
 	if t.Name == "" {
 		t.Name = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
+	}
+	if strings.HasPrefix(t.Spec, "@") {
+		ref := strings.TrimSpace(t.Spec[1:])
+		specPath := ref
+		if !filepath.IsAbs(specPath) {
+			specPath = filepath.Join(filepath.Dir(path), ref)
+		}
+		body, err := os.ReadFile(specPath)
+		if err != nil {
+			return Template{}, fmt.Errorf("%s: spec %s: %w", filepath.Base(path), ref, err)
+		}
+		t.Spec = string(body)
 	}
 	return t, nil
 }

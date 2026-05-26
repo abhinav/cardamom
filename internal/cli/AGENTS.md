@@ -391,18 +391,39 @@ clu template validate <name>       # check structure without running
 ```yaml
 name: release                      # used as the template handle
 description: Build → test → deploy
+
+# Shared context. Prepended to every step's description so every
+# issue is self-contained — agents don't have to chase a separate
+# doc. {{var}} interpolation applies. Use "@scaffold-spec.md" to
+# load the body from a sibling file when it gets long.
+spec: |
+  ## Project context
+  Repo: {{repo}}. Conventions: kebab-case, no force-pushes.
+  Each step should leave a final comment on its issue summarizing
+  what changed and where downstream steps can find their inputs.
+
 vars:
+  repo:
+    required: true
+    prompt: "Repo (org/name)"      # shown by the interactive prompt
   version:
     required: true
     pattern: '^\d+\.\d+\.\d+$'     # validated when running
   channel:
     default: stable                # used if -v channel=… omitted
+
 steps:
   - id: build                      # step ID — local to this template
     title: "Build {{version}}"     # {{var}} interpolated from -v bindings
+    description: |                 # per-step acceptance criteria
+      Run `pnpm build`. Acceptance: dist/ contains the bundled output.
+      On close, post a comment with the path to the artefact.
     priority: 1                    # optional; defaults to 2
   - id: test
     title: "Test {{version}} on {{channel}}"
+    description: |
+      Run the integration suite against {{channel}}. Acceptance: all
+      tests pass. If any flake, link the flake to this issue.
     needs: [build]                 # test only becomes ready after build closes
   - id: gate
     type: checkpoint               # special: blocks downstream until you pass/fail
@@ -415,10 +436,19 @@ steps:
     agent: deployer                # pre-assigns this step to a specific lane
 ```
 
-Step fields: `id` (required, kebab-case), `title` (required), `type`
-(defaults to `task`; use `checkpoint` for gates), `priority` (0..4),
-`needs` (list of prior step IDs), `agent` (route to a lane), `wait`
-(only for `checkpoint`).
+Fields:
+
+- **Template:** `name` (handle), `description` (one-liner), `spec`
+  (multi-line shared context), `vars` (declared inputs), `steps`.
+- **Var:** `required`, `default`, `pattern` (regex), `prompt`
+  (label shown by the interactive prompter).
+- **Step:** `id` (kebab-case), `title`, `description`
+  (acceptance criteria), `type` (`task` or `checkpoint`), `priority`
+  (0..4), `needs` (list of step IDs), `agent` (pre-assign to a lane),
+  `wait` (only for `checkpoint`).
+
+Each step's issue gets `spec + "\n---\n" + step.description` as its
+body — `clu show <step-id>` is fully self-contained.
 
 ### Running one
 
@@ -426,7 +456,13 @@ Step fields: `id` (required, kebab-case), `title` (required), `type`
 clu run release -v version=1.2.3                # writes to DB
 clu run release -v version=1.2.3 --dry-run      # print plan, no writes
 clu run release -v version=1.2.3 --json         # emit the plan as JSON
+clu run release                                  # interactive: prompts for required vars
+clu run release --no-prompt                      # fail fast on missing vars (CI)
 ```
+
+`clu run` prompts on stdin for any required var you didn't pass, when
+stdin is a TTY. Pattern-validated; bad input re-prompts. Skipped under
+`--json`, `--quiet`, when stdin is a pipe, or with `--no-prompt`.
 
 After running, you'll see:
 

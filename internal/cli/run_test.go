@@ -135,3 +135,62 @@ func TestCLIRunRejectsBadVar(t *testing.T) {
 	c.runFail("run", "release") // version required
 	c.runFail("run", "nope", "--var", "version=1.0.0")
 }
+
+func TestCLIRunNoPromptFailsOnMissingVar(t *testing.T) {
+	// --no-prompt should error rather than prompting/hanging when a
+	// required var is missing. (Tests run with non-TTY stdin so the
+	// flag is mostly belt-and-braces, but explicit is better.)
+	c := newTestCLI(t)
+	c.run("init")
+	c.writeTemplate("release.yaml", releaseYAML)
+	c.runFail("run", "release", "--no-prompt")
+}
+
+const releaseWithSpecYAML = `
+name: release-with-spec
+spec: |
+  ## Project context
+  Repo: {{repo}}
+  Conventions: kebab-case files, no force-pushes.
+vars:
+  repo:
+    required: true
+  version:
+    default: "1.0.0"
+steps:
+  - id: build
+    title: "Build {{version}}"
+    description: |
+      Run the project's build command. Acceptance: artefact in dist/.
+  - id: deploy
+    title: "Deploy {{version}}"
+    needs: [build]
+`
+
+func TestCLIRunThreadsSpecAndStepDescription(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.writeTemplate("rspec.yaml", releaseWithSpecYAML)
+	c.run("run", "release-with-spec", "-v", "repo=acme/widget")
+
+	// Find the build step's issue ID by step:build label.
+	listOut := c.run("list", "--json", "-l", "step:build")
+	var issues []map[string]any
+	if err := json.Unmarshal([]byte(listOut), &issues); err != nil {
+		t.Fatalf("list --json: %v: %s", err, listOut)
+	}
+	if len(issues) != 1 {
+		t.Fatalf("expected one build step, got %d", len(issues))
+	}
+	id, _ := issues[0]["id"].(string)
+	show := c.run("show", id)
+	for _, want := range []string{
+		"Repo: acme/widget",                       // spec interpolated
+		"Acceptance: artefact in dist/",           // per-step description
+		"---",                                     // separator between spec and step body
+	} {
+		if !strings.Contains(show, want) {
+			t.Fatalf("show missing %q:\n%s", want, show)
+		}
+	}
+}
