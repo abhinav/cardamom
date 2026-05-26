@@ -93,6 +93,40 @@ exit is nonzero and stderr says "no ready issues".
 liveness via `clu agent ls`. The bare `--wait` loop does not heartbeat by
 default.
 
+## Watching for incoming work (Claude Code Monitor tool)
+
+If you're a Claude Code session and want to *react* to new work as it
+appears — rather than block in `claim --wait` — use the **Monitor**
+tool to stream `clu ready --watch`:
+
+```
+Monitor: clu ready --watch -a <your-name> --interval 2s
+```
+
+`ready --watch` emits the current ready set on first tick and again
+**only when it changes** (issue becomes unblocked, gets claimed, gets
+created). Each emission is a clean block separated by a blank line —
+Monitor delivers one notification per emission, so unchanged ticks
+don't wake you up. Add `--heartbeat` if you want to show up in
+`clu agent ls` while watching.
+
+The output is *only* unblocked issues in your lane: parents must be
+closed, defer windows must have elapsed, and the issue must be
+unassigned. When a notification arrives, the typical flow is:
+
+1. Parse the emitted block (or call `clu --json ready -a <you>`).
+2. `clu claim -a <you>` to atomically take the top one.
+3. Do the work, `clu close <id>` (or `clu cancel <id>`).
+4. Monitor will deliver the next notification when the next change happens.
+
+This is preferable to polling `ready` from a loop: the watch loop
+handles cadence + change detection for you, and Monitor turns each
+real change into a single event your agent can react to.
+
+Mutually exclusive with `--wait`: pick one. `--wait` = one-shot blocking
+("print once when something's ready, exit"); `--watch` = continuous
+event stream.
+
 ## Creating work
 
 ```bash

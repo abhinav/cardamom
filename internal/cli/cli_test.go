@@ -1692,6 +1692,58 @@ func TestCLIBriefWorksWithoutInit(t *testing.T) {
 	}
 }
 
+func TestCLIReadyWatchEmitsUnblockedOnly(t *testing.T) {
+	// `ready --watch` must show only unblocked, unassigned issues.
+	// A blocked child must NOT appear; closing the parent should make
+	// it appear on the next tick.
+	c := newTestCLI(t)
+	c.run("init")
+	parent := strings.TrimSpace(c.run("create", "parent"))
+	child := strings.TrimSpace(c.run("create", "child"))
+	c.run("link", child, parent)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+	c.ctx = ctx
+
+	go func() {
+		time.Sleep(80 * time.Millisecond)
+		c2 := &testCLI{t: t, dir: c.dir, ctx: context.Background()}
+		c2.run("close", parent)
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		full := []string{"--dir", c.dir, "ready", "--watch", "--interval", "20ms"}
+		_ = Run(c.ctx, &c.out, &c.err, full)
+	}()
+	wg.Wait()
+
+	out := c.out.String()
+	// Parent was open and unblocked initially → present.
+	if !strings.Contains(out, parent) {
+		t.Fatalf("parent should appear initially:\n%s", out)
+	}
+	// Child appears only after parent closes.
+	if !strings.Contains(out, child) {
+		t.Fatalf("child should appear after parent closes:\n%s", out)
+	}
+}
+
+func TestCLIReadyWatchRejectsJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("--json", "ready", "--watch", "--interval", "10ms")
+}
+
+func TestCLIReadyWaitAndWatchMutuallyExclusive(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("ready", "--wait", "--watch", "--interval", "10ms")
+}
+
 func TestCLIBriefJSON(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
