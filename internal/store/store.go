@@ -200,6 +200,42 @@ var ValidStatuses = []string{"open", "in_progress", "closed"}
 // and discoverability.
 var ValidTypes = []string{"task", "bug", "feature", "epic", "chore", "decision"}
 
+// Valid priority range, inclusive. 0 = highest, 4 = lowest. Five
+// buckets keeps the urgency hierarchy meaningful without explicit
+// label proliferation.
+const (
+	MinPriority = 0
+	MaxPriority = 4
+)
+
+// ValidateStatus returns nil if s is in ValidStatuses, else an error.
+func ValidateStatus(s string) error {
+	for _, v := range ValidStatuses {
+		if v == s {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid status %q (valid: %s)", s, strings.Join(ValidStatuses, ", "))
+}
+
+// ValidateType returns nil if t is in ValidTypes, else an error.
+func ValidateType(t string) error {
+	for _, v := range ValidTypes {
+		if v == t {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid type %q (valid: %s)", t, strings.Join(ValidTypes, ", "))
+}
+
+// ValidatePriority returns nil if p is within [MinPriority, MaxPriority].
+func ValidatePriority(p int) error {
+	if p < MinPriority || p > MaxPriority {
+		return fmt.Errorf("invalid priority %d (must be %d..%d)", p, MinPriority, MaxPriority)
+	}
+	return nil
+}
+
 // SchemaVersion is the number of migrations applied to a fresh DB.
 // Equal to PRAGMA user_version after Open() completes.
 func SchemaVersion() int { return len(migrations) }
@@ -234,6 +270,12 @@ func (s *Store) Create(ctx context.Context, title, typ string, priority int, age
 	}
 	if typ == "" {
 		typ = "task"
+	}
+	if err := ValidateType(typ); err != nil {
+		return Issue{}, err
+	}
+	if err := ValidatePriority(priority); err != nil {
+		return Issue{}, err
 	}
 	for tries := 0; tries < 8; tries++ {
 		t := now()
@@ -810,6 +852,9 @@ type DoctorReport struct {
 	StuckInProgress   int      `json:"stuck_in_progress"`
 	StuckThresholdH   int      `json:"stuck_threshold_hours"`
 	ClosedButDeferred int      `json:"closed_but_deferred"`
+	InvalidStatus     int      `json:"invalid_status"`
+	InvalidType       int      `json:"invalid_type"`
+	InvalidPriority   int      `json:"invalid_priority"`
 }
 
 // OK returns true when nothing is wrong.
@@ -819,7 +864,10 @@ func (d DoctorReport) OK() bool {
 		d.OrphanedLabels == 0 &&
 		d.OrphanedDeps == 0 &&
 		d.StuckInProgress == 0 &&
-		d.ClosedButDeferred == 0
+		d.ClosedButDeferred == 0 &&
+		d.InvalidStatus == 0 &&
+		d.InvalidType == 0 &&
+		d.InvalidPriority == 0
 }
 
 // Doctor runs integrity checks against the live database. Issues
@@ -867,6 +915,22 @@ func (s *Store) Doctor(ctx context.Context, stuckThresholdHours int) (DoctorRepo
 	}
 
 	if err := s.db.NewRaw("SELECT COUNT(*) FROM issues WHERE status = 'closed' AND defer_until IS NOT NULL").Scan(ctx, &r.ClosedButDeferred); err != nil {
+		return r, err
+	}
+
+	// Pre-existing rows that escape current validation. The store
+	// itself rejects bad values at write time, but older rows (or
+	// imports that bypass Create/Update) may still be in violation.
+	if r.InvalidStatus, err = s.db.NewSelect().Model((*Issue)(nil)).
+		Where("i.status NOT IN (?)", bun.In(ValidStatuses)).Count(ctx); err != nil {
+		return r, err
+	}
+	if r.InvalidType, err = s.db.NewSelect().Model((*Issue)(nil)).
+		Where("i.type NOT IN (?)", bun.In(ValidTypes)).Count(ctx); err != nil {
+		return r, err
+	}
+	if r.InvalidPriority, err = s.db.NewSelect().Model((*Issue)(nil)).
+		Where("i.priority < ? OR i.priority > ?", MinPriority, MaxPriority).Count(ctx); err != nil {
 		return r, err
 	}
 	return r, nil
@@ -1036,6 +1100,21 @@ type UpdateFields struct {
 func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, error) {
 	if _, err := s.Get(ctx, id); err != nil {
 		return Issue{}, err
+	}
+	if f.Status != nil {
+		if err := ValidateStatus(*f.Status); err != nil {
+			return Issue{}, err
+		}
+	}
+	if f.Type != nil {
+		if err := ValidateType(*f.Type); err != nil {
+			return Issue{}, err
+		}
+	}
+	if f.Priority != nil {
+		if err := ValidatePriority(*f.Priority); err != nil {
+			return Issue{}, err
+		}
 	}
 	q := s.db.NewUpdate().
 		Model((*Issue)(nil)).

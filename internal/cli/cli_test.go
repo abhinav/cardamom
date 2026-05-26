@@ -630,7 +630,7 @@ func TestCLIListSortReverse(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	c.run("create", "-p", "0", "hi")
-	c.run("create", "-p", "5", "lo")
+	c.run("create", "-p", "4", "lo")
 	out := c.run("list", "-r")
 	// Reverse default puts lower priority first.
 	lines := strings.Split(strings.TrimSpace(out), "\n")
@@ -1062,6 +1062,38 @@ func TestCLIListBadDate(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	c.runFail("list", "--created-after", "not-a-date")
+}
+
+func TestCLIRejectsInvalidStatus(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.runFail("update", id, "--status", "invalid")
+	// Pre-existing status untouched.
+	out := c.run("show", id)
+	if !strings.Contains(out, "Status:   open") {
+		t.Fatalf("status should still be open:\n%s", out)
+	}
+}
+
+func TestCLIRejectsInvalidType(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("create", "x", "-t", "notatype")
+}
+
+func TestCLIRejectsInvalidPriorityOnCreate(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("create", "x", "-p", "99")
+	c.runFail("create", "x", "-p", "-1")
+}
+
+func TestCLIRejectsInvalidPriorityOnSugar(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.runFail("priority", id, "99")
 }
 
 func TestCLIHelpDoesNotRunCommand(t *testing.T) {

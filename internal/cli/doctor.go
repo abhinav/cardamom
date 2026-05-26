@@ -41,6 +41,9 @@ func (c *DoctorCmd) Run(r *runCtx) error {
 			check("Stuck in_progress", fmt.Sprintf("%d (>%dh)", rep.StuckInProgress, rep.StuckThresholdH), rep.StuckInProgress == 0)
 		}
 		check("Closed+deferred", fmt.Sprintf("%d", rep.ClosedButDeferred), rep.ClosedButDeferred == 0)
+		check("Invalid status", fmt.Sprintf("%d", rep.InvalidStatus), rep.InvalidStatus == 0)
+		check("Invalid type", fmt.Sprintf("%d", rep.InvalidType), rep.InvalidType == 0)
+		check("Invalid priority", fmt.Sprintf("%d", rep.InvalidPriority), rep.InvalidPriority == 0)
 		for _, e := range rep.ForeignKeyErrors {
 			fmt.Fprintf(r.stdout, "  fk error: %s\n", e)
 		}

@@ -98,7 +98,7 @@ func TestReadyExcludesAssigned(t *testing.T) {
 
 func TestReadyOrderedByPriority(t *testing.T) {
 	s := newTestStore(t)
-	_, _ = s.Create(ctx, "low", "task", 5, nil)
+	_, _ = s.Create(ctx, "low", "task", 4, nil)
 	hi, _ := s.Create(ctx, "hi", "task", 0, nil)
 	_, _ = s.Create(ctx, "mid", "task", 2, nil)
 	ready, _ := s.Ready(ctx, 10, nil)
@@ -689,7 +689,7 @@ func TestListFilterSortByPriorityReverse(t *testing.T) {
 	s := newTestStore(t)
 	hi, _ := s.Create(ctx, "hi", "task", 0, nil)
 	_, _ = s.Create(ctx, "mid", "task", 2, nil)
-	lo, _ := s.Create(ctx, "lo", "task", 5, nil)
+	lo, _ := s.Create(ctx, "lo", "task", 4, nil)
 	got, _ := s.List(ctx, ListFilter{Reverse: true})
 	if got[0].ID != lo.ID || got[len(got)-1].ID != hi.ID {
 		t.Fatalf("reverse-default sort wrong: %+v", got)
@@ -921,6 +921,51 @@ func TestKVRequiresKey(t *testing.T) {
 	s := newTestStore(t)
 	if err := s.KVSet(ctx, "", "x"); err == nil {
 		t.Fatal("expected error for empty key")
+	}
+}
+
+func TestCreateRejectsInvalidType(t *testing.T) {
+	s := newTestStore(t)
+	if _, err := s.Create(ctx, "x", "notatype", 1, nil); err == nil {
+		t.Fatal("expected error on invalid type")
+	}
+}
+
+func TestCreateRejectsOutOfRangePriority(t *testing.T) {
+	s := newTestStore(t)
+	if _, err := s.Create(ctx, "x", "task", 99, nil); err == nil {
+		t.Fatal("expected error on out-of-range priority")
+	}
+	if _, err := s.Create(ctx, "x", "task", -1, nil); err == nil {
+		t.Fatal("expected error on negative priority")
+	}
+}
+
+func TestUpdateRejectsInvalidStatus(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "x", "task", 1, nil)
+	if _, err := s.Update(ctx, a.ID, UpdateFields{Status: ptr("invalid")}); err == nil {
+		t.Fatal("expected error on invalid status")
+	}
+}
+
+func TestDoctorFlagsPreExistingInvalidRows(t *testing.T) {
+	s := newTestStore(t)
+	// Bypass validation by hitting the underlying DB directly to
+	// simulate rows imported from an older format.
+	if _, err := s.db.ExecContext(ctx, "INSERT INTO issues (id,title,type,status,priority,created,updated) VALUES (?,?,?,?,?,?,?)",
+		"bd-aaaa", "bad", "garbage", "ghost", 99, 1, 1); err != nil {
+		t.Fatal(err)
+	}
+	r, err := s.Doctor(ctx, 24)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.InvalidStatus != 1 || r.InvalidType != 1 || r.InvalidPriority != 1 {
+		t.Fatalf("expected each invalid count = 1, got %+v", r)
+	}
+	if r.OK() {
+		t.Fatal("OK() should be false when invalid rows exist")
 	}
 }
 
