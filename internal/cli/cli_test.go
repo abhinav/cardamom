@@ -1652,3 +1652,74 @@ func TestCLICancelJSON(t *testing.T) {
 		}
 	}
 }
+
+func TestCLIBriefIncludesManualAndDeclaredAgents(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  code-reviewer:
+    description: "Reviews Go code"
+    capabilities: [go-review]
+`)
+	out := c.run("brief")
+	for _, want := range []string{
+		"Using `clu` as a Claude Code agent", // from AGENTS.md
+		"This project's agents",
+		"code-reviewer",
+		"Reviews Go code",
+		"go-review",
+		"Currently active",
+		"Persisted memories",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("brief output missing %q:\n%s", want, out)
+		}
+	}
+}
+
+func TestCLIBriefWorksWithoutInit(t *testing.T) {
+	// brief should work pre-init so a fresh agent can read it before
+	// the project has a database.
+	c := newTestCLI(t)
+	out := c.run("brief")
+	if !strings.Contains(out, "Using `clu` as a Claude Code agent") {
+		t.Fatalf("brief should include the manual even without init:\n%s", out)
+	}
+	if !strings.Contains(out, "No agents declared") {
+		t.Fatalf("expected 'No agents declared' notice:\n%s", out)
+	}
+}
+
+func TestCLIBriefJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  doc-writer:
+    description: "Writes docs"
+    capabilities: [docs]
+`)
+	out := c.run("--json", "brief")
+	var b struct {
+		Manual string `json:"manual"`
+		Agents []struct {
+			Name         string   `json:"name"`
+			Description  string   `json:"description"`
+			Capabilities []string `json:"capabilities"`
+		} `json:"agents"`
+		Active   []any `json:"active"`
+		Memories []any `json:"memories"`
+	}
+	if err := json.Unmarshal([]byte(out), &b); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if !strings.Contains(b.Manual, "claim --agent") {
+		t.Fatalf("manual missing key content: %s", b.Manual[:200])
+	}
+	if len(b.Agents) != 1 || b.Agents[0].Name != "doc-writer" {
+		t.Fatalf("expected one declared agent doc-writer, got %+v", b.Agents)
+	}
+}

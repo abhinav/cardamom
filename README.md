@@ -78,7 +78,10 @@ clu ready                                   # tests are now ready
 ```
 
 That's the whole core loop. See `demo.sh` for a runnable end-to-end
-exercise, or `AGENTS.md` for the agent-facing operational guide.
+exercise, or [`AGENTS.md`](AGENTS.md) for the agent-facing operational
+guide. From inside a session, `clu brief` prints the same guide plus
+the project's declared agents and who's currently live — pipe it into
+your agent at session start.
 
 ## Status semantics
 
