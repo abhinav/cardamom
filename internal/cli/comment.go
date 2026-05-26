@@ -54,7 +54,7 @@ func (c *CommentLsCmd) Run(r *runCtx) error {
 }
 
 type CommentRmCmd struct {
-	ID int64 `arg:"" help:"Comment ID (numeric, as shown in 'bd comment ls')."`
+	ID int64 `arg:"" help:"Comment ID (numeric, as shown in 'cli comment ls')."`
 }
 
 func (c *CommentRmCmd) Run(r *runCtx) error {

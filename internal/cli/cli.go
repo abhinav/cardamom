@@ -48,7 +48,7 @@ type CLI struct {
 	Comment    CommentCmd    `cmd:"" help:"Manage threaded comments on an issue."`
 	KV         KVCmd         `cmd:"" help:"Manage a generic key-value store (feature flags, env, scratch data)."`
 	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
-	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'bd export'."`
+	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'cli export'."`
 	Info       InfoCmd       `cmd:"" help:"Show database path, schema version, and a summary of issues."`
 	Statuses   StatusesCmd   `cmd:"" help:"List valid issue statuses."`
 	Types      TypesCmd      `cmd:"" help:"List valid issue types."`

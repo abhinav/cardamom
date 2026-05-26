@@ -40,6 +40,16 @@ type UndeferCmd struct {
 func (c *UndeferCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
 		return eachID(r, c.IDs, func(id string) (any, error) {
+			// Look first so we can distinguish "wasn't deferred" from
+			// the operation succeeding. SetDefer alone can't tell us
+			// the before-state.
+			cur, err := s.Get(r.ctx, id)
+			if err != nil {
+				return nil, err
+			}
+			if cur.DeferUntil == nil {
+				return nil, store.ErrNotDeferred
+			}
 			i, err := s.SetDefer(r.ctx, id, nil)
 			if err != nil {
 				return nil, err

@@ -1058,6 +1058,49 @@ func TestCLICompletionBash(t *testing.T) {
 	}
 }
 
+func TestCLIClaimMissingSaysNotFound(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("claim", "bd-zzzz", "--as", "alice")
+	if !strings.Contains(c.err.String(), "not found") {
+		t.Fatalf("expected 'not found' for missing issue, got: %s", c.err.String())
+	}
+}
+
+func TestCLICommentRmMissingSaysCommentNotFound(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("comment", "rm", "99999")
+	if !strings.Contains(c.err.String(), "comment not found") {
+		t.Fatalf("expected 'comment not found', got: %s", c.err.String())
+	}
+}
+
+func TestCLIDepRmNoEdgeErrors(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	// No edge between them yet.
+	c.runFail("dep", "rm", a, b)
+}
+
+func TestCLIUndeferNotDeferredErrors(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.runFail("undefer", id)
+}
+
+func TestCLIInitTwiceSaysAlreadyInitialized(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	out := c.run("init")
+	if !strings.Contains(out, "already initialized") {
+		t.Fatalf("expected 'already initialized', got: %s", out)
+	}
+}
+
 func TestCLIJSONWriteCommandsEmitObject(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

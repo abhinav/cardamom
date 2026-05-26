@@ -241,13 +241,16 @@ func ValidatePriority(p int) error {
 func SchemaVersion() int { return len(migrations) }
 
 var (
-	ErrNotFound      = errors.New("issue not found")
-	ErrAlreadyClosed = errors.New("issue already closed")
-	ErrAlreadyOpen   = errors.New("issue already open")
-	ErrNotClaimable  = errors.New("issue not claimable")
-	ErrCycle         = errors.New("dependency would create a cycle")
-	ErrSelfDep       = errors.New("issue cannot depend on itself")
-	ErrKVNotFound    = errors.New("key not found")
+	ErrNotFound        = errors.New("issue not found")
+	ErrAlreadyClosed   = errors.New("issue already closed")
+	ErrAlreadyOpen     = errors.New("issue already open")
+	ErrNotClaimable    = errors.New("issue not claimable")
+	ErrCycle           = errors.New("dependency would create a cycle")
+	ErrSelfDep         = errors.New("issue cannot depend on itself")
+	ErrKVNotFound      = errors.New("key not found")
+	ErrCommentNotFound = errors.New("comment not found")
+	ErrDepNotFound     = errors.New("dependency edge not found")
+	ErrNotDeferred     = errors.New("issue is not deferred")
 )
 
 func isUniqueErr(err error) bool {
@@ -733,8 +736,10 @@ func (s *Store) Comments(ctx context.Context, issueID string) ([]Comment, error)
 	return cs, err
 }
 
-// RemoveComment deletes a comment by its numeric ID. Returns ErrNotFound
-// if no such comment exists.
+// RemoveComment deletes a comment by its numeric ID. Returns
+// ErrCommentNotFound if no such comment exists — distinct from
+// ErrNotFound (which is for issues) so the CLI can say "comment not
+// found" instead of "issue not found".
 func (s *Store) RemoveComment(ctx context.Context, commentID int64) error {
 	res, err := s.db.NewDelete().
 		Model((*Comment)(nil)).
@@ -744,7 +749,7 @@ func (s *Store) RemoveComment(ctx context.Context, commentID int64) error {
 		return err
 	}
 	if n, _ := res.RowsAffected(); n == 0 {
-		return ErrNotFound
+		return ErrCommentNotFound
 	}
 	return nil
 }
@@ -1064,6 +1069,9 @@ func (s *Store) Claim(ctx context.Context, assignee string, agent *string) (Issu
 }
 
 // ClaimByID claims a specific issue if open and unassigned.
+// Distinguishes "missing issue" (ErrNotFound) from "exists but already
+// claimed / not open" (ErrNotClaimable) so error messages match the
+// failure mode.
 func (s *Store) ClaimByID(ctx context.Context, id, assignee string) (Issue, error) {
 	if assignee == "" {
 		return Issue{}, errors.New("assignee required")
@@ -1080,6 +1088,10 @@ func (s *Store) ClaimByID(ctx context.Context, id, assignee string) (Issue, erro
 	}
 	n, _ := res.RowsAffected()
 	if n == 0 {
+		// Discriminate missing vs not-open/already-claimed.
+		if _, err := s.Get(ctx, id); errors.Is(err, ErrNotFound) {
+			return Issue{}, fmt.Errorf("%w: %s", ErrNotFound, id)
+		}
 		return Issue{}, fmt.Errorf("%w: %s", ErrNotClaimable, id)
 	}
 	return s.Get(ctx, id)
@@ -1219,12 +1231,21 @@ func issueExistsTx(ctx context.Context, tx bun.Tx, id string) error {
 	return nil
 }
 
+// RemoveDep deletes a child->parent dependency edge. Returns
+// ErrDepNotFound if no such edge exists; lets the CLI distinguish
+// "actually removed something" from "no-op" in scripted contexts.
 func (s *Store) RemoveDep(ctx context.Context, child, parent string) error {
-	_, err := s.db.NewDelete().
+	res, err := s.db.NewDelete().
 		Model((*Dep)(nil)).
 		Where("child_id = ? AND parent_id = ?", child, parent).
 		Exec(ctx)
-	return err
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrDepNotFound
+	}
+	return nil
 }
 
 // Deps returns the IDs of issues this one depends on (parents) and

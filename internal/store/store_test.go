@@ -826,8 +826,8 @@ func TestRemoveComment(t *testing.T) {
 	if err := s.RemoveComment(ctx, c1.ID); err != nil {
 		t.Fatal(err)
 	}
-	if err := s.RemoveComment(ctx, c1.ID); err != ErrNotFound {
-		t.Fatalf("expected ErrNotFound on repeat, got %v", err)
+	if err := s.RemoveComment(ctx, c1.ID); err != ErrCommentNotFound {
+		t.Fatalf("expected ErrCommentNotFound on repeat, got %v", err)
 	}
 }
 
