@@ -1,0 +1,83 @@
+# Incident response: three parallel workstreams launch immediately,
+# then a sync, an executive sign-off gate, mitigation, and a
+# post-mortem with a named approver.
+#
+# Pattern: parallel kickoff + named approval. Investigator, fixer, and
+# comms agents all start at once. Once they converge, an exec must
+# sign off (named approval, not anonymous manual) before the fix is
+# rolled out. Post-mortem closes the loop and is reviewed by SRE.
+#
+#   triage ─┬─► investigate (investigator)  ─┐
+#           ├─► hotfix     (fixer)           ├─► sync ─► exec-signoff ─► rollout ─► postmortem ─► sre-review
+#           └─► comms      (comms-agent)     ─┘
+#
+# The exec-signoff approver is a variable so each invocation can
+# bind it to the current on-call.
+#
+# Try:
+#   cli run incident-response --var incident=INC-2026-05 --var exec=$(id -un)
+#   cli ready -a investigator
+#   cli ready -a fixer
+#   cli ready -a comms-agent
+#   # close all three → sync becomes ready → close → exec checkpoint ready
+#   cli approve <signoff-id>        # current user must equal --var exec
+name: incident-response
+description: Parallel kickoff (investigate || hotfix || comms) → sync → exec sign-off → rollout → post-mortem
+
+vars:
+  incident:
+    required: true
+    pattern: '^[A-Z0-9-]+$'
+  exec:
+    required: true
+
+steps:
+  - id: triage
+    title: "{{incident}}: triage and classify"
+    agent: oncall-agent
+    priority: 0
+
+  - id: investigate
+    title: "{{incident}}: root-cause investigation"
+    agent: investigator
+    priority: 0
+    needs: [triage]
+
+  - id: hotfix
+    title: "{{incident}}: prepare mitigation"
+    agent: fixer
+    priority: 0
+    needs: [triage]
+
+  - id: comms
+    title: "{{incident}}: customer + internal comms"
+    agent: comms-agent
+    priority: 1
+    needs: [triage]
+
+  - id: sync
+    title: "{{incident}}: sync findings + readiness check"
+    agent: oncall-agent
+    needs: [investigate, hotfix, comms]
+
+  - id: exec-signoff
+    type: checkpoint
+    title: "{{incident}}: exec sign-off to roll out fix"
+    wait: { approval: ["{{exec}}"] }
+    needs: [sync]
+
+  - id: rollout
+    title: "{{incident}}: roll out mitigation"
+    agent: deploy-agent
+    needs: [exec-signoff]
+
+  - id: postmortem
+    title: "{{incident}}: post-mortem draft"
+    agent: writer-agent
+    needs: [rollout]
+
+  - id: sre-review
+    type: checkpoint
+    title: "{{incident}}: SRE review of post-mortem"
+    wait: { manual: true }
+    needs: [postmortem]

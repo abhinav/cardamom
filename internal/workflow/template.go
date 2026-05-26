@@ -40,6 +40,7 @@ type Step struct {
 	Type     string   `yaml:"type,omitempty"`
 	Priority *int     `yaml:"priority,omitempty"`
 	Needs    []string `yaml:"needs,omitempty"`
+	Agent    string   `yaml:"agent,omitempty"` // pre-assigns the step to an agent lane
 	Wait     *Wait    `yaml:"wait,omitempty"`
 }
 

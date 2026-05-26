@@ -12,7 +12,7 @@ import (
 
 // RunCmd instantiates a workflow template into issues + deps.
 type RunCmd struct {
-	Template string   `arg:"" help:"Template name (matches a file in .db/templates/)."`
+	Template string   `arg:"" help:"Template name (in .db/templates/) or path to a .yaml file."`
 	Var      []string `short:"v" name:"var" placeholder:"KEY=VALUE" help:"Variable bindings (repeatable)."`
 	DryRun   bool     `name:"dry-run" help:"Validate and print the plan without writing to the DB."`
 }
@@ -44,7 +44,7 @@ func (c *RunCmd) Run(r *runCtx) error {
 		}
 		stepIDs := map[string]string{} // step-id → issue-id
 		for _, step := range plan.Steps {
-			issue, err := s.Create(r.ctx, step.Title, step.Type, step.Priority, nil)
+			issue, err := s.Create(r.ctx, step.Title, step.Type, step.Priority, agentPtr(step.Agent))
 			if err != nil {
 				return err
 			}
@@ -95,18 +95,36 @@ func newCheckpointPayload(w *workflow.Wait) checkpointPayload {
 	return checkpointPayload{Kind: "approval", Approvers: append([]string(nil), w.Approval...)}
 }
 
-// loadTemplate fetches a single named template from .db/templates/.
-func loadTemplate(r *runCtx, name string) (workflow.Template, error) {
+// loadTemplate resolves a template by name or by file path.
+//
+// If `ref` contains a path separator or ends in .yaml/.yml, it is loaded
+// directly as a file (relative paths are resolved against the process
+// cwd, not the DB dir). Otherwise it's treated as a name and looked up
+// in .db/templates/.
+func loadTemplate(r *runCtx, ref string) (workflow.Template, error) {
+	if looksLikePath(ref) {
+		return workflow.Load(ref)
+	}
 	dir := templatesDir(r)
 	all, err := workflow.LoadDir(dir)
 	if err != nil {
 		return workflow.Template{}, err
 	}
-	t, ok := all[name]
+	t, ok := all[ref]
 	if !ok {
-		return workflow.Template{}, fmt.Errorf("template %q not found in %s", name, dir)
+		return workflow.Template{}, fmt.Errorf("template %q not found in %s (or pass a path ending in .yaml)", ref, dir)
 	}
 	return t, nil
+}
+
+// looksLikePath returns true if ref is clearly a file path rather than
+// a template name.
+func looksLikePath(ref string) bool {
+	if strings.ContainsAny(ref, "/\\") {
+		return true
+	}
+	ext := strings.ToLower(filepath.Ext(ref))
+	return ext == ".yaml" || ext == ".yml"
 }
 
 func templatesDir(r *runCtx) string {

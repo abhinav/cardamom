@@ -56,17 +56,13 @@ func (c *TemplateLsCmd) Run(r *runCtx) error {
 }
 
 type TemplateShowCmd struct {
-	Name string `arg:"" help:"Template name."`
+	Name string `arg:"" help:"Template name (in .db/templates/) or path to a .yaml file."`
 }
 
 func (c *TemplateShowCmd) Run(r *runCtx) error {
-	all, err := workflow.LoadDir(templatesDir(r))
+	t, err := loadTemplate(r, c.Name)
 	if err != nil {
 		return err
-	}
-	t, ok := all[c.Name]
-	if !ok {
-		return fmt.Errorf("template %q not found", c.Name)
 	}
 	if r.json {
 		return r.emitJSON(t)
@@ -77,21 +73,17 @@ func (c *TemplateShowCmd) Run(r *runCtx) error {
 }
 
 type TemplateValidateCmd struct {
-	Name string `arg:"" help:"Template name."`
+	Name string `arg:"" help:"Template name (in .db/templates/) or path to a .yaml file."`
 }
 
 func (c *TemplateValidateCmd) Run(r *runCtx) error {
-	all, err := workflow.LoadDir(templatesDir(r))
+	t, err := loadTemplate(r, c.Name)
 	if err != nil {
 		return err
-	}
-	t, ok := all[c.Name]
-	if !ok {
-		return fmt.Errorf("template %q not found", c.Name)
 	}
 	if err := t.Validate(); err != nil {
 		return err
 	}
-	r.notice("ok: %s\n", c.Name)
+	r.notice("ok: %s\n", t.Name)
 	return nil
 }

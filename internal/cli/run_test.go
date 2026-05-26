@@ -103,6 +103,30 @@ func TestCLIRunCreatesIssues(t *testing.T) {
 	}
 }
 
+func TestCLIRunByPath(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+
+	// Write a template *outside* .db/templates/ — only reachable by path.
+	tmp := t.TempDir()
+	path := filepath.Join(tmp, "ad-hoc.yaml")
+	if err := os.WriteFile(path, []byte(releaseYAML), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Name-lookup fails (template not in .db/templates/).
+	c.runFail("run", "ad-hoc", "--var", "version=1.0.0", "--dry-run")
+
+	// Path-lookup succeeds.
+	out := c.run("run", path, "--var", "version=1.0.0", "--dry-run")
+	if !strings.Contains(out, "Build 1.0.0") {
+		t.Fatalf("path-overloaded run failed:\n%s", out)
+	}
+
+	// `template validate` accepts the same path form.
+	c.run("template", "validate", path)
+}
+
 func TestCLIRunRejectsBadVar(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

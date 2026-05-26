@@ -27,6 +27,7 @@ type StepSpec struct {
 	Type     string   // "task" or "checkpoint"
 	Priority int
 	Needs    []string // step ids, not issue ids
+	Agent    string   // pre-assigned agent lane; "" = unassigned
 	Wait     *Wait    // checkpoint config; nil for tasks
 	IsLeaf   bool     // no other step needs this one — parent depends on it
 }
@@ -61,13 +62,18 @@ func MakePlan(t Template, in map[string]string) (Plan, error) {
 		if typ == "" {
 			typ = "task"
 		}
+		wait, err := interpolateWait(s.Wait, vars)
+		if err != nil {
+			return Plan{}, fmt.Errorf("step %s: wait: %w", s.ID, err)
+		}
 		steps = append(steps, StepSpec{
 			StepID:   s.ID,
 			Title:    title,
 			Type:     typ,
 			Priority: pr,
 			Needs:    append([]string(nil), s.Needs...),
-			Wait:     s.Wait,
+			Agent:    s.Agent,
+			Wait:     wait,
 			IsLeaf:   !needed[s.ID],
 		})
 	}
@@ -77,6 +83,27 @@ func MakePlan(t Template, in map[string]string) (Plan, error) {
 		Parent:       ParentSpec{Title: parentTitle(t, vars)},
 		Steps:        steps,
 	}, nil
+}
+
+// interpolateWait runs {{var}} substitution on every string inside a
+// Wait clause (currently just the approvers list). Returns nil if w is
+// nil; otherwise returns a fresh Wait with substituted values.
+func interpolateWait(w *Wait, vars map[string]string) (*Wait, error) {
+	if w == nil {
+		return nil, nil
+	}
+	out := &Wait{Manual: w.Manual}
+	if len(w.Approval) > 0 {
+		out.Approval = make([]string, len(w.Approval))
+		for i, a := range w.Approval {
+			v, err := Interpolate(a, vars)
+			if err != nil {
+				return nil, err
+			}
+			out.Approval[i] = v
+		}
+	}
+	return out, nil
 }
 
 // parentTitle produces e.g. "release 1.2.3" by appending var values
