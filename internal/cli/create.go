@@ -13,6 +13,7 @@ type CreateCmd struct {
 	Type       string   `short:"t" default:"task" help:"Issue type."`
 	Agent      string   `short:"a" help:"Assign directly to an agent lane (e.g. code-reviewer)."`
 	Capability []string `name:"capability" sep:"," help:"Required capability for routing (e.g. go-review). Expands to a cap:* label. Comma-separated or repeatable."`
+	Dep        []string `name:"dep" short:"d" sep:"," help:"Parent issue IDs the new issue depends on. Comma-separated or repeatable; equivalent to running 'clu link <new-id> <parent>' for each."`
 	Title      []string `arg:"" required:"" help:"Issue title."`
 }
 
@@ -31,21 +32,15 @@ func (c *CreateCmd) Run(r *runCtx) error {
 				fmt.Fprintf(r.stderr, "warning: agent %q is not declared in .clu/config.yaml; the issue will only be visible to claimers passing --agent %s\n", c.Agent, c.Agent)
 			}
 		}
-		i, err := s.Create(r.ctx, title, c.Type, c.Priority, agentPtr(c.Agent))
+		// CreateWithLinks does the insert + cap labels + dep edges in
+		// one transaction. This matters for --dep: without the tx, the
+		// new issue would briefly exist as a parent-less open row and
+		// a concurrent `claim --watch` could grab it before the edges
+		// land. With the tx, the row is never visible without its
+		// edges.
+		i, err := s.CreateWithLinks(r.ctx, title, c.Type, c.Priority, agentPtr(c.Agent), c.Capability, c.Dep)
 		if err != nil {
 			return err
-		}
-		// Attach capability labels (cap:<name>) so capability-routing
-		// in claim/ready picks the issue up for agents that advertise
-		// any of these.
-		if len(c.Capability) > 0 {
-			labels := make([]string, len(c.Capability))
-			for j, cap := range c.Capability {
-				labels[j] = "cap:" + cap
-			}
-			if err := s.AddLabels(r.ctx, i.ID, labels); err != nil {
-				return err
-			}
 		}
 		if r.json {
 			// Reload to include the just-added cap labels in the JSON view.

@@ -1772,6 +1772,61 @@ func TestCLIReopenWarnsOnStuckParent(t *testing.T) {
 	}
 }
 
+func TestCLICreateWithDepWiresEdges(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "parent A"))
+	b := strings.TrimSpace(c.run("create", "parent B"))
+	child := strings.TrimSpace(c.run("create", "--dep", a, "--dep", b, "child"))
+	// Child is blocked by both parents until either closes.
+	out := c.run("blocked")
+	if !strings.Contains(out, child) {
+		t.Fatalf("child should appear in blocked list:\n%s", out)
+	}
+	// Comma-separated also accepted.
+	a2 := strings.TrimSpace(c.run("create", "p1"))
+	b2 := strings.TrimSpace(c.run("create", "p2"))
+	c2 := strings.TrimSpace(c.run("create", "-d", a2+","+b2, "c2"))
+	out = c.run("show", c2)
+	if !strings.Contains(out, "Depends:") || !strings.Contains(out, a2) || !strings.Contains(out, b2) {
+		t.Fatalf("show should list both parents:\n%s", out)
+	}
+}
+
+func TestCLICreateWithDepRejectsMissingParent(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	// No issue was ever created; --dep <unknown> must fail and not
+	// leave a half-linked child behind.
+	c.runFail("create", "--dep", "clu-ffff", "orphan")
+	out := c.run("list", "--status", "all")
+	if strings.Contains(out, "orphan") {
+		t.Fatalf("failed create should not have inserted the issue:\n%s", out)
+	}
+}
+
+func TestCLICreateWithDepIsAtomicVsClaimWatch(t *testing.T) {
+	// The race the --dep flag is meant to close: a watching claim
+	// loop must NOT see a parent-less version of the new issue. After
+	// create completes, the issue must already be blocked.
+	//
+	// We can't reliably observe the intermediate state in a unit test
+	// (it's a sub-millisecond window the tx now closes), but we can
+	// at least assert the post-condition: immediately after create,
+	// `ready` does not include the new child.
+	c := newTestCLI(t)
+	c.run("init")
+	parent := strings.TrimSpace(c.run("create", "parent"))
+	child := strings.TrimSpace(c.run("create", "--dep", parent, "child"))
+	out := c.run("ready")
+	if strings.Contains(out, child) {
+		t.Fatalf("child must not appear in `ready` after --dep create:\n%s", out)
+	}
+	if !strings.Contains(out, parent) {
+		t.Fatalf("parent should still be ready:\n%s", out)
+	}
+}
+
 func TestCLICreateWarnsOnUndeclaredAgent(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

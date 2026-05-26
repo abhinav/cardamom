@@ -108,6 +108,13 @@ exit is nonzero and stderr says "no ready issues".
 liveness via `clu agent ls`. The bare `--wait` loop does not heartbeat by
 default.
 
+> **Don't run `clu show` after `claim`.** `claim` already prints the
+> full issue — title, status, description, notes, dependencies, and
+> the full comment thread. Same output as `show`. Reading both is just
+> a redundant DB round-trip. In `--json` mode you get the whole issue
+> object back too. One command, all the context you need to start
+> working.
+
 ## Watching for incoming work (Claude Code Monitor tool)
 
 **Important: clu already implements change-detected watching. Do NOT
@@ -194,6 +201,8 @@ clu create "title"                              # default lane, type=task, prior
 clu create -p 1 -t bug "title"                  # higher priority, type=bug
 clu create -a code-reviewer "title"             # route to a specific lane
 clu create --capability go-review "title"       # add cap:go-review for routing
+clu create -d clu-a3f8 "title"                  # new issue depends on clu-a3f8
+clu create -d clu-a3f8,clu-7c11 "title"         # multiple parents
 clu describe <id> "longer description"          # set description
 clu note set <id> "freeform working notes"
 clu note append <id> "addendum"
@@ -202,6 +211,13 @@ clu link <child> <parent>                       # child needs parent to close fi
 
 Returned ID goes to stdout (one per call). In `--json` mode, the whole
 issue is returned.
+
+> **Prefer `clu create --dep`** over `clu create` followed by
+> `clu link` when you know the parents upfront. The two-step form
+> leaves a brief window where the new issue exists with no
+> dependencies and a watching `claim` could grab it. `--dep` wires
+> everything in one transaction so the issue is never visible
+> without its edges.
 
 ## Dependencies + cascade
 

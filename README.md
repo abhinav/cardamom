@@ -71,9 +71,8 @@ Add `$HOME/go/bin` to your `PATH`. Verify with `clu --help`.
 ```bash
 mkdir my-project && cd my-project
 clu init                                    # 📂 creates .clu/ with DB + config
-clu create -p 1 "fix the login redirect"    # → clu-a3f8
-clu create "add tests for the redirect"     # → clu-7c11
-clu link clu-7c11 clu-a3f8                  # 🔗 tests depend on the fix
+clu create -p 1 "fix the login redirect"          # → clu-a3f8
+clu create -d clu-a3f8 "add tests for the redirect"  # 🔗 wires the dep atomically
 
 clu ready                                   # 🟢 what's unblocked?
 clu claim                                   # 🎯 atomically take the next one
