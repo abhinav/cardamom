@@ -1,87 +1,167 @@
 import { createFileRoute } from '@tanstack/react-router'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useState } from 'react'
+import { api, type Issue, type PatchIssueBody } from '../lib/api'
+import IssueCard from '../components/IssueCard'
 
-export const Route = createFileRoute('/')({ component: App })
+export const Route = createFileRoute('/')({
+  component: BoardPage,
+})
 
-function App() {
+// Columns to render. "blocked" is derived (status=open AND blocked=true)
+// and pulls from the open column at render time. cancelled is hidden by
+// default — surface via the list view if needed.
+const COLUMNS: Array<{ key: string; label: string; status?: string }> = [
+  { key: 'open', label: 'Open', status: 'open' },
+  { key: 'in_progress', label: 'In progress', status: 'in_progress' },
+  { key: 'blocked', label: 'Blocked' },
+  { key: 'closed', label: 'Closed', status: 'closed' },
+]
+
+function BoardPage() {
+  const qc = useQueryClient()
+  const { data: issues = [], isLoading, error } = useQuery<Issue[]>({
+    queryKey: ['issues', { board: true }],
+    queryFn: () =>
+      api.get(
+        // Pull every non-cancelled status; we partition client-side
+        // (blocked is derived from blocked=true on open issues).
+        '/api/issues?status=open&status=in_progress&status=closed&limit=500',
+      ),
+  })
+
+  // Status mutation is the drag-drop write path: PATCH status on the
+  // target issue. Optimistic update so the card moves before the
+  // network round-trip; rollback on failure.
+  const move = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => {
+      const body: PatchIssueBody = { status }
+      return api.patch<Issue>(`/api/issues/${id}`, body)
+    },
+    onMutate: async ({ id, status }) => {
+      await qc.cancelQueries({ queryKey: ['issues'] })
+      const prev = qc.getQueryData<Issue[]>(['issues', { board: true }])
+      if (prev) {
+        qc.setQueryData<Issue[]>(
+          ['issues', { board: true }],
+          prev.map((i) => (i.id === id ? { ...i, status: status as Issue['status'] } : i)),
+        )
+      }
+      return { prev }
+    },
+    onError: (_e, _v, ctx) => {
+      if (ctx?.prev) {
+        qc.setQueryData(['issues', { board: true }], ctx.prev)
+      }
+    },
+    onSettled: () => qc.invalidateQueries({ queryKey: ['issues'] }),
+  })
+
+  const byColumn = partitionByColumn(issues)
+
+  if (error) {
+    return (
+      <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm">
+        Failed to load issues: {(error as Error).message}
+      </div>
+    )
+  }
+
   return (
-    <main className="page-wrap px-4 pb-8 pt-14">
-      <section className="island-shell rise-in relative overflow-hidden rounded-[2rem] px-6 py-10 sm:px-10 sm:py-14">
-        <div className="pointer-events-none absolute -left-20 -top-24 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(79,184,178,0.32),transparent_66%)]" />
-        <div className="pointer-events-none absolute -bottom-20 -right-20 h-56 w-56 rounded-full bg-[radial-gradient(circle,rgba(47,106,74,0.18),transparent_66%)]" />
-        <p className="island-kicker mb-3">TanStack Start Base Template</p>
-        <h1 className="display-title mb-5 max-w-3xl text-4xl leading-[1.02] font-bold tracking-tight text-[var(--sea-ink)] sm:text-6xl">
-          Start simple, ship quickly.
-        </h1>
-        <p className="mb-8 max-w-2xl text-base text-[var(--sea-ink-soft)] sm:text-lg">
-          This base starter intentionally keeps things light: two routes, clean
-          structure, and the essentials you need to build from scratch.
-        </p>
-        <div className="flex flex-wrap gap-3">
-          <a
-            href="/about"
-            className="rounded-full border border-[rgba(50,143,151,0.3)] bg-[rgba(79,184,178,0.14)] px-5 py-2.5 text-sm font-semibold text-[var(--lagoon-deep)] no-underline transition hover:-translate-y-0.5 hover:bg-[rgba(79,184,178,0.24)]"
-          >
-            About This Starter
-          </a>
-          <a
-            href="https://tanstack.com/router"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-[rgba(23,58,64,0.2)] bg-white/50 px-5 py-2.5 text-sm font-semibold text-[var(--sea-ink)] no-underline transition hover:-translate-y-0.5 hover:border-[rgba(23,58,64,0.35)]"
-          >
-            Router Guide
-          </a>
-        </div>
-      </section>
-
-      <section className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          [
-            'Type-Safe Routing',
-            'Routes and links stay in sync across every page.',
-          ],
-          [
-            'Server Functions',
-            'Call server code from your UI without creating API boilerplate.',
-          ],
-          [
-            'Streaming by Default',
-            'Ship progressively rendered responses for faster experiences.',
-          ],
-          [
-            'Tailwind Native',
-            'Design quickly with utility-first styling and reusable tokens.',
-          ],
-        ].map(([title, desc], index) => (
-          <article
-            key={title}
-            className="island-shell feature-card rise-in rounded-2xl p-5"
-            style={{ animationDelay: `${index * 90 + 80}ms` }}
-          >
-            <h2 className="mb-2 text-base font-semibold text-[var(--sea-ink)]">
-              {title}
-            </h2>
-            <p className="m-0 text-sm text-[var(--sea-ink-soft)]">{desc}</p>
-          </article>
+    <div>
+      <h1 className="mb-4 text-xl font-semibold">Board</h1>
+      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+        {COLUMNS.map((col) => (
+          <Column
+            key={col.key}
+            label={col.label}
+            issues={byColumn[col.key] ?? []}
+            loading={isLoading}
+            droppable={col.status !== undefined}
+            onDrop={(issueId) => {
+              if (!col.status) return
+              move.mutate({ id: issueId, status: col.status })
+            }}
+          />
         ))}
-      </section>
+      </div>
+    </div>
+  )
+}
 
-      <section className="island-shell mt-8 rounded-2xl p-6">
-        <p className="island-kicker mb-2">Quick Start</p>
-        <ul className="m-0 list-disc space-y-2 pl-5 text-sm text-[var(--sea-ink-soft)]">
-          <li>
-            Edit <code>src/routes/index.tsx</code> to customize the home page.
-          </li>
-          <li>
-            Update <code>src/components/Header.tsx</code> and{' '}
-            <code>src/components/Footer.tsx</code> for brand links.
-          </li>
-          <li>
-            Add routes in <code>src/routes</code> and tweak visual tokens in{' '}
-            <code>src/styles.css</code>.
-          </li>
-        </ul>
-      </section>
-    </main>
+function partitionByColumn(issues: Issue[]): Record<string, Issue[]> {
+  const out: Record<string, Issue[]> = {
+    open: [],
+    in_progress: [],
+    blocked: [],
+    closed: [],
+  }
+  for (const i of issues) {
+    if (i.status === 'open' && i.blocked) out.blocked.push(i)
+    else if (i.status === 'open') out.open.push(i)
+    else if (i.status === 'in_progress') out.in_progress.push(i)
+    else if (i.status === 'closed') out.closed.push(i)
+  }
+  return out
+}
+
+interface ColumnProps {
+  label: string
+  issues: Issue[]
+  loading: boolean
+  droppable: boolean
+  onDrop: (issueId: string) => void
+}
+
+function Column({ label, issues, loading, droppable, onDrop }: ColumnProps) {
+  const [isOver, setIsOver] = useState(false)
+  return (
+    <section
+      onDragOver={
+        droppable
+          ? (e) => {
+              e.preventDefault()
+              e.dataTransfer.dropEffect = 'move'
+              if (!isOver) setIsOver(true)
+            }
+          : undefined
+      }
+      onDragLeave={droppable ? () => setIsOver(false) : undefined}
+      onDrop={
+        droppable
+          ? (e) => {
+              e.preventDefault()
+              setIsOver(false)
+              const id = e.dataTransfer.getData('text/x-clu-issue-id')
+              if (id) onDrop(id)
+            }
+          : undefined
+      }
+      className={`rounded-xl border bg-[var(--surface)] p-3 transition ${
+        isOver
+          ? 'border-[var(--lagoon-deep)] bg-[var(--surface-strong)]'
+          : 'border-[var(--line)]'
+      }`}
+    >
+      <header className="mb-2 flex items-baseline justify-between px-1">
+        <h2 className="text-sm font-semibold text-[var(--sea-ink)]">{label}</h2>
+        <span className="text-xs opacity-60">{issues.length}</span>
+      </header>
+      <div className="flex flex-col gap-2">
+        {loading && issues.length === 0 && (
+          <div className="rounded-lg border border-dashed border-[var(--line)] p-3 text-center text-xs opacity-50">
+            loading…
+          </div>
+        )}
+        {!loading && issues.length === 0 && (
+          <div className="rounded-lg border border-dashed border-[var(--line)] p-3 text-center text-xs opacity-50">
+            empty
+          </div>
+        )}
+        {issues.map((issue) => (
+          <IssueCard key={issue.id} issue={issue} draggable={droppable} />
+        ))}
+      </div>
+    </section>
   )
 }
