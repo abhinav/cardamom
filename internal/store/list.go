@@ -71,7 +71,7 @@ func (f ListFilter) orderExpr() string {
 // List and Count so a filter change in one stays in lock-step with the other.
 func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
 	if len(f.Statuses) > 0 {
-		q = q.Where("i.status IN (?)", bun.In(f.Statuses))
+		q = q.Where("i.status IN (?)", bun.List(f.Statuses))
 	}
 	if f.Agent != nil {
 		// `-a X` means "X's work" from a user POV. clu tracks two
@@ -88,13 +88,13 @@ func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
 	if len(f.Labels) > 0 {
 		q = q.Where(
 			"i.id IN (SELECT issue_id FROM issue_labels WHERE label IN (?) GROUP BY issue_id HAVING COUNT(DISTINCT label) = ?)",
-			bun.In(f.Labels), len(f.Labels),
+			bun.List(f.Labels), len(f.Labels),
 		)
 	}
 	if len(f.LabelsAny) > 0 {
 		q = q.Where(
 			"i.id IN (SELECT issue_id FROM issue_labels WHERE label IN (?))",
-			bun.In(f.LabelsAny),
+			bun.List(f.LabelsAny),
 		)
 	}
 	if f.NoLabels {
@@ -125,7 +125,7 @@ func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
 		q = q.Where("i.updated <= ?", *f.UpdatedBefore)
 	}
 	if len(f.IDs) > 0 {
-		q = q.Where("i.id IN (?)", bun.In(f.IDs))
+		q = q.Where("i.id IN (?)", bun.List(f.IDs))
 	}
 	if f.Deferred {
 		q = q.Where("i.defer_until IS NOT NULL AND i.defer_until > ?", now())
@@ -142,11 +142,11 @@ func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
 	if len(f.ExcludeLabels) > 0 {
 		q = q.Where(
 			"i.id NOT IN (SELECT issue_id FROM issue_labels WHERE label IN (?))",
-			bun.In(f.ExcludeLabels),
+			bun.List(f.ExcludeLabels),
 		)
 	}
 	if len(f.ExcludeTypes) > 0 {
-		q = q.Where("i.type NOT IN (?)", bun.In(f.ExcludeTypes))
+		q = q.Where("i.type NOT IN (?)", bun.List(f.ExcludeTypes))
 	}
 	if f.DescContains != "" {
 		q = q.Where("LOWER(i.description) LIKE ?", "%"+strings.ToLower(f.DescContains)+"%")

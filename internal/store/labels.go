@@ -51,7 +51,7 @@ func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []strin
 	res, err := s.db.NewDelete().
 		Model((*IssueLabel)(nil)).
 		Where("issue_id = ?", issueID).
-		Where("label IN (?)", bun.In(labels)).
+		Where("label IN (?)", bun.List(labels)).
 		Exec(ctx)
 	if err != nil {
 		return 0, err
@@ -100,7 +100,7 @@ func (s *Store) LoadLabels(ctx context.Context, ids []string) (map[string][]stri
 	var rows []IssueLabel
 	err := s.db.NewSelect().
 		Model(&rows).
-		Where("issue_id IN (?)", bun.In(ids)).
+		Where("issue_id IN (?)", bun.List(ids)).
 		OrderExpr("issue_id, label").
 		Scan(ctx)
 	if err != nil {

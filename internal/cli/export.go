@@ -35,7 +35,7 @@ type ExportCmd struct {
 
 func (c *ExportCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		var w io.Writer = r.stdout
+		w := io.Writer(r.stdout)
 		if c.Out != "" {
 			f, err := os.Create(c.Out)
 			if err != nil {

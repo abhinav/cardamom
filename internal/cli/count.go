@@ -11,7 +11,7 @@ type CountCmd struct {
 }
 
 func (c *CountCmd) Run(r *runCtx) error {
-	f, err := c.listFilterFlags.toFilter()
+	f, err := c.toFilter()
 	if err != nil {
 		return err
 	}

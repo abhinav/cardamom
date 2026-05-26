@@ -97,7 +97,7 @@ type ListCmd struct {
 }
 
 func (c *ListCmd) Run(r *runCtx) error {
-	f, err := c.listFilterFlags.toFilter()
+	f, err := c.toFilter()
 	if err != nil {
 		return err
 	}

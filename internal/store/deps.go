@@ -118,7 +118,7 @@ func (s *Store) IDsBlocked(ctx context.Context, ids []string) (map[string]bool, 
 		Model((*Dep)(nil)).
 		ColumnExpr("DISTINCT child_id").
 		Join("JOIN issues p ON p.id = dep.parent_id").
-		Where("dep.child_id IN (?)", bun.In(ids)).
+		Where("dep.child_id IN (?)", bun.List(ids)).
 		Where("p.status != 'closed'").
 		Scan(ctx, &rows)
 	if err != nil {

@@ -98,11 +98,11 @@ func (s *Store) Doctor(ctx context.Context, stuckThresholdHours int) (DoctorRepo
 	// itself rejects bad values at write time, but older rows (or
 	// imports that bypass Create/Update) may still be in violation.
 	if r.InvalidStatus, err = s.db.NewSelect().Model((*Issue)(nil)).
-		Where("i.status NOT IN (?)", bun.In(ValidStatuses)).Count(ctx); err != nil {
+		Where("i.status NOT IN (?)", bun.List(ValidStatuses)).Count(ctx); err != nil {
 		return r, err
 	}
 	if r.InvalidType, err = s.db.NewSelect().Model((*Issue)(nil)).
-		Where("i.type NOT IN (?)", bun.In(ValidTypes)).Count(ctx); err != nil {
+		Where("i.type NOT IN (?)", bun.List(ValidTypes)).Count(ctx); err != nil {
 		return r, err
 	}
 	if r.InvalidPriority, err = s.db.NewSelect().Model((*Issue)(nil)).

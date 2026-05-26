@@ -126,7 +126,7 @@ func (s *Store) PingMarkRead(ctx context.Context, recipient string, ids []int64)
 	res, err := s.db.NewUpdate().
 		Model((*Mailbox)(nil)).
 		Set("read_at = ?", t).
-		Where("id IN (?)", bun.In(ids)).
+		Where("id IN (?)", bun.List(ids)).
 		Where("recipient = ?", recipient).
 		Where("read_at IS NULL").
 		Exec(ctx)

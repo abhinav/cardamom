@@ -177,4 +177,3 @@ func (s *Store) ResolveCheckpoint(ctx context.Context, id, as string, pass bool,
 	}
 	return CheckpointResult{Pass: false, Cancelled: cancelled}, nil
 }
-

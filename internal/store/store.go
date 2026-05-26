@@ -80,7 +80,7 @@ func now() int64 { return time.Now().Unix() }
 
 // placeholders returns "?, ?, ?, ..." with n placeholders.
 // Used by raw-SQL paths in claim.go and issues.go (Cancel) that can't
-// rely on bun.In() expansion.
+// rely on bun.List() expansion.
 func placeholders(n int) string {
 	if n <= 0 {
 		return ""

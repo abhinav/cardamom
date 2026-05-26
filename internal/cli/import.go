@@ -96,10 +96,10 @@ func applyImportLine(ctx context.Context, tx bun.Tx, hdr *exportLine, ln int, le
 			return fmt.Errorf("line %d (issue): %w", ln, err)
 		}
 		if err := store.UpsertIssueTx(ctx, tx, rec.Issue); err != nil {
-			return fmt.Errorf("line %d: upsert issue %s: %w", ln, rec.Issue.ID, err)
+			return fmt.Errorf("line %d: upsert issue %s: %w", ln, rec.ID, err)
 		}
-		if _, err := store.AddLabelsTx(ctx, tx, rec.Issue.ID, rec.Labels); err != nil {
-			return fmt.Errorf("line %d: labels for %s: %w", ln, rec.Issue.ID, err)
+		if _, err := store.AddLabelsTx(ctx, tx, rec.ID, rec.Labels); err != nil {
+			return fmt.Errorf("line %d: labels for %s: %w", ln, rec.ID, err)
 		}
 		*issues++
 	case "dep":

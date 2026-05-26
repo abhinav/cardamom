@@ -14,12 +14,6 @@ import (
 
 // ---- Heartbeat helper (used by --wait / --watch loops) ----
 
-// agentIdentity bundles the runtime info recorded in active_agents.
-type agentIdentity struct {
-	Name         string
-	Capabilities []string
-}
-
 // resolveAgent looks up `name` in the project's config.yaml. Returns
 // the matched capabilities, or nil if the agent isn't declared (treated
 // as ad-hoc — heartbeat with empty capabilities, no cap-label routing).

@@ -231,7 +231,7 @@ func (s *Store) Cancel(ctx context.Context, roots []string) ([]Issue, error) {
 			return err
 		}
 		return tx.NewSelect().Model(&changed).
-			Where("id IN (?)", bun.In(ids)).
+			Where("id IN (?)", bun.List(ids)).
 			OrderExpr("id ASC").
 			Scan(ctx)
 	})
