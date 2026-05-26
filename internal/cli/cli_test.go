@@ -1692,6 +1692,26 @@ func TestCLIBriefWorksWithoutInit(t *testing.T) {
 	}
 }
 
+func TestCLIListByAgentMatchesAssigneeToo(t *testing.T) {
+	// Regression: assigning an issue to bug-fixer (without changing
+	// its lane) should still surface under `clu list -a bug-fixer`.
+	// The flag means "show me bug-fixer's work" — both columns count.
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "needs a fix"))
+	c.run("assign", id, "bug-fixer")
+	out := c.run("list", "-a", "bug-fixer")
+	if !strings.Contains(out, id) {
+		t.Fatalf("expected -a to match assignee=bug-fixer too:\n%s", out)
+	}
+	// And the bare-lane case (-a not set) still works for non-bug-fixer work.
+	other := strings.TrimSpace(c.run("create", "in default lane"))
+	out = c.run("list")
+	if !strings.Contains(out, other) {
+		t.Fatalf("bare list should still show default-lane issues:\n%s", out)
+	}
+}
+
 func TestCLIReadyWatchEmitsUnblockedOnly(t *testing.T) {
 	// `ready --watch` must show only unblocked, unassigned issues.
 	// A blocked child must NOT appear; closing the parent should make

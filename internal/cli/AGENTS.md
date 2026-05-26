@@ -30,17 +30,32 @@ That's the whole core loop. Everything below is detail.
 
 ## Identifying yourself
 
-There's exactly one identity flag everywhere: `-a` / `--agent`.
+There's exactly one identity flag everywhere: `-a` / `--agent`. It
+represents *you*, whether you're the one who'll pick the work up or the
+one who already has it.
 
-The same flag does double duty:
-- On `create`, `list`, `ready`, `claim` it's the **lane filter** — which
-  bucket of work to look at.
-- On `claim`, `comment add`, `approve` it's also **who you are** —
-  recorded as the assignee/author/approver.
+What the flag does on each command:
+
+- `create -a X` — route the new issue into X's lane.
+- `list -a X` / `count -a X` / `blocked -a X` — **show me X's work**:
+  anything in X's lane *or* currently assigned to X.
+- `ready -a X` — show **unassigned, unblocked** work that X could
+  claim next (X's lane only, by definition).
+- `claim -a X` — atomically take the next ready issue in X's lane and
+  record X as the assignee.
+- `comment add -a X` / `approve -a X` / `checkpoint pass -a X` —
+  record X as the author/approver.
 
 Bare `clu claim` (no `-a`) means "I am `$USER`, looking at the default
 unassigned lane." Use that if you're operating ad-hoc; use
 `-a <agent-name>` if you're a declared agent in `.clu/config.yaml`.
+
+> **Note on the two columns.** Internally clu still tracks an
+> `agent` column (the lane) and an `assignee` column (who's currently
+> holding the issue). They're being collapsed; for now, `list -a X`
+> matches *either* column so the user-facing model stays "one
+> identity." `ready -a X` stays lane-only — pulling assigned work into
+> "ready" would defeat the point of ready.
 
 To see who's declared:
 

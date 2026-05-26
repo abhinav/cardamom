@@ -74,7 +74,13 @@ func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
 		q = q.Where("i.status IN (?)", bun.In(f.Statuses))
 	}
 	if f.Agent != nil {
-		q = q.Where("i.agent = ?", *f.Agent)
+		// `-a X` means "X's work" from a user POV. clu tracks two
+		// columns (agent = lane / routing; assignee = currently
+		// working on it), and matching only `agent` hides issues
+		// that were assigned to X without changing the lane (e.g.
+		// `clu assign <id> X`). Until the columns are unified, the
+		// filter unions them so the user-facing model is one name.
+		q = q.Where("i.agent = ? OR i.assignee = ?", *f.Agent, *f.Agent)
 	}
 	if f.Type != "" {
 		q = q.Where("i.type = ?", f.Type)
@@ -233,9 +239,10 @@ func (s *Store) Blocked(ctx context.Context, limit int, agent *string) ([]Issue,
 		OrderExpr("i.priority ASC, i.created ASC").
 		Limit(limit)
 	if agent == nil {
-		q = q.Where("i.agent IS NULL")
+		q = q.Where("i.agent IS NULL AND i.assignee IS NULL")
 	} else {
-		q = q.Where("i.agent = ?", *agent)
+		// Mirror the unified `-a` filter from List: match either column.
+		q = q.Where("i.agent = ? OR i.assignee = ?", *agent, *agent)
 	}
 	if err := q.Scan(ctx); err != nil {
 		return nil, err
