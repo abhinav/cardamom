@@ -8,11 +8,12 @@ import (
 )
 
 type ClaimCmd struct {
-	As       string        `default:"${user}" help:"Assignee name (defaults to current user)."`
-	Agent    string        `short:"a" help:"Lane to claim from (default: unassigned)."`
-	Wait     bool          `help:"Block until something is claimable in this lane."`
-	Interval time.Duration `default:"250ms" help:"Poll interval when --wait is set."`
-	ID       string        `arg:"" optional:"" help:"Specific issue to claim; omit for next ready."`
+	As        string        `default:"${user}" help:"Assignee name (defaults to current user)."`
+	Agent     string        `short:"a" help:"Lane to claim from (default: unassigned)."`
+	Wait      bool          `help:"Block until something is claimable in this lane."`
+	Interval  time.Duration `default:"250ms" help:"Poll interval when --wait is set."`
+	Heartbeat bool          `name:"heartbeat" help:"While waiting, register as a live agent so 'clu agent ls' shows this session active. Requires --as."`
+	ID        string        `arg:"" optional:"" help:"Specific issue to claim; omit for next ready."`
 }
 
 func (c *ClaimCmd) Run(r *runCtx) error {
@@ -25,14 +26,19 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			return reportClaimed(r, s, i)
 		}
 		agent := agentPtr(c.Agent)
-		// Capabilities + heartbeat key off `--as` (agent identity), not
+		// Capabilities are looked up by `--as` (agent identity), not
 		// `-a` (lane filter). Often the two are the same name, but the
 		// distinction matters when one agent claims from a shared lane.
 		caps := resolveAgent(r.dir, c.As)
-		// Heartbeat for the duration of the --wait loop. Single-shot
-		// claims don't need it; they finish in milliseconds.
-		if c.Wait && c.As != "" {
-			cleanup, err := startHeartbeat(s, c.As, caps)
+		// Heartbeat is opt-in via --heartbeat. Without it, the claim
+		// loop is invisible to `agent ls` — useful for short scripts
+		// or sessions that don't want to register as a live agent.
+		// --as always has a value (defaults to $USER); the heartbeat
+		// row is keyed on that.
+		hbName := ""
+		if c.Heartbeat && c.Wait {
+			hbName = c.As
+			cleanup, err := startHeartbeat(s, hbName, caps)
 			if err != nil {
 				return err
 			}
@@ -55,9 +61,8 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			if _, err := s.WaitReady(r.ctx, 1, agent, caps, c.Interval); err != nil {
 				return err
 			}
-			// Heartbeat lives within the loop body so each WaitReady
-			// poll cycle bumps last_seen.
-			heartbeatTick(s, c.As, caps)
+			// Heartbeat only fires when explicitly opted in.
+			heartbeatTick(s, hbName, caps)
 		}
 	})
 }

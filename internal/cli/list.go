@@ -93,7 +93,8 @@ type ListCmd struct {
 	Limit         int           `short:"n" default:"50" help:"Limit results (0 = unlimited)."`
 	Watch         bool          `short:"w" name:"watch" help:"Keep updating the list when matching issues change. Ctrl+C to exit."`
 	WatchInterval time.Duration `name:"interval" default:"1s" help:"Poll interval when --watch is set."`
-	As            string        `name:"as" help:"Declare this watcher as a named agent (config.yaml); heartbeats while watching so 'clu agent ls' shows it active."`
+	As            string        `name:"as" help:"Agent identity (must be paired with --heartbeat to register as live)."`
+	Heartbeat     bool          `name:"heartbeat" help:"While watching, register --as <name> as a live agent. Off by default — opt in when you want to show up in 'clu agent ls'."`
 }
 
 func (c *ListCmd) Run(r *runCtx) error {
@@ -129,18 +130,23 @@ func (c *ListCmd) Run(r *runCtx) error {
 			if r.json {
 				return errors.New("--watch is not supported with --json (JSON output is a single document)")
 			}
-			// Optional heartbeat: if the watcher declared an identity,
-			// surface them in `clu agent ls` for the duration of the loop.
-			if c.As != "" {
-				caps := resolveAgent(r.dir, c.As)
-				cleanup, err := startHeartbeat(s, c.As, caps)
+			// Heartbeat is opt-in: --heartbeat requires --as.
+			hbName := ""
+			var hbCaps []string
+			if c.Heartbeat {
+				if c.As == "" {
+					return errors.New("--heartbeat requires --as <name>")
+				}
+				hbName = c.As
+				hbCaps = resolveAgent(r.dir, c.As)
+				cleanup, err := startHeartbeat(s, hbName, hbCaps)
 				if err != nil {
 					return err
 				}
 				defer cleanup()
 			}
 			return watchLoop(r.ctx, r.stdout, c.WatchInterval, func() (string, error) {
-				heartbeatTick(s, c.As, resolveAgent(r.dir, c.As))
+				heartbeatTick(s, hbName, hbCaps)
 				return render(s)
 			})
 		}

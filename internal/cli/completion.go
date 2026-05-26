@@ -8,7 +8,7 @@ import (
 // completionCmds lists the top-level subcommands for shell completion.
 // Keep in sync with the CLI struct in cli.go when adding commands.
 var completionCmds = []string{
-	"init", "create", "list", "ready", "blocked", "show", "claim", "close",
+	"init", "create", "list", "ls", "ready", "blocked", "show", "claim", "close",
 	"update", "dep", "label", "defer", "undefer",
 	"count", "stats", "reopen",
 	"assign", "priority", "tag", "link",

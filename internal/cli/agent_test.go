@@ -103,8 +103,8 @@ agents:
 }
 
 func TestCLIAgentLsShowsLiveHeartbeatFromClaim(t *testing.T) {
-	// Run `claim --wait --as code-reviewer` in a goroutine; while it
-	// loops, `agent ls` should show it active.
+	// Run `claim --wait --as code-reviewer --heartbeat` in a goroutine;
+	// while it loops, `agent ls` should show it active.
 	c := newTestCLI(t)
 	c.run("init")
 	writeAgentsConfig(t, c.dir, `
@@ -122,7 +122,7 @@ agents:
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		full := []string{"--dir", c.dir, "claim", "--wait", "--interval", "20ms", "--as", "code-reviewer"}
+		full := []string{"--dir", c.dir, "claim", "--wait", "--interval", "20ms", "--as", "code-reviewer", "--heartbeat"}
 		_ = Run(ctx, &c.out, &c.err, full)
 	}()
 
@@ -137,6 +137,68 @@ agents:
 
 	if !strings.Contains(out, "●") {
 		t.Fatalf("expected code-reviewer marked active:\n%s", out)
+	}
+}
+
+func TestCLIClaimWaitNoHeartbeatByDefault(t *testing.T) {
+	// Without --heartbeat, the claim --wait loop must NOT show up in
+	// `agent ls` — that was the surprise we removed.
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  code-reviewer:
+    description: "Reviews code"
+    capabilities: [go-review]
+`)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		full := []string{"--dir", c.dir, "claim", "--wait", "--interval", "20ms", "--as", "code-reviewer"}
+		_ = Run(ctx, &c.out, &c.err, full)
+	}()
+
+	time.Sleep(80 * time.Millisecond)
+
+	checker := newTestCLI(t)
+	checker.dir = c.dir
+	out := checker.run("agent", "ls")
+	cancel()
+	wg.Wait()
+
+	if strings.Contains(out, "●") {
+		t.Fatalf("default claim --wait must not heartbeat; agent ls shouldn't show active:\n%s", out)
+	}
+}
+
+func TestCLIHeartbeatRequiresIdentity(t *testing.T) {
+	// `ready --heartbeat` without `-a` should error — ready has no --as
+	// default; the lane name doubles as the agent identity.
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("ready", "--wait", "--heartbeat", "--interval", "20ms")
+}
+
+func TestCLIListHeartbeatRequiresAs(t *testing.T) {
+	// `list --watch --heartbeat` without --as should error.
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("list", "--watch", "--heartbeat", "--interval", "20ms")
+}
+
+func TestCLIListAliasLs(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "a task"))
+	out := c.run("ls")
+	if !strings.Contains(out, id) {
+		t.Fatalf("`ls` should behave like `list`:\n%s", out)
 	}
 }
 

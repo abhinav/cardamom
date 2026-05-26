@@ -26,7 +26,7 @@ type CLI struct {
 
 	Init       InitCmd       `cmd:"" help:"Initialize the database in the current directory."`
 	Create     CreateCmd     `cmd:"" help:"Create a new issue."`
-	List       ListCmd       `cmd:"" help:"List issues."`
+	List       ListCmd       `cmd:"" aliases:"ls" help:"List issues."`
 	Ready      ReadyCmd      `cmd:"" help:"List issues that are ready to work on."`
 	Show       ShowCmd       `cmd:"" help:"Show details for one issue."`
 	Claim      ClaimCmd      `cmd:"" help:"Claim the next ready issue (or a specific one)."`
