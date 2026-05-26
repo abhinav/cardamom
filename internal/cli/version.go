@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"runtime/debug"
 )
@@ -42,7 +41,7 @@ func (c *VersionCmd) Run(r *runCtx) error {
 		}
 	}
 	if r.json {
-		return json.NewEncoder(r.stdout).Encode(v)
+		return r.emitJSON(v)
 	}
 	fmt.Fprintf(r.stdout, "cli %s", v.Version)
 	if v.Revision != "" {

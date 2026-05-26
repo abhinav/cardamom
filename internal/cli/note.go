@@ -26,6 +26,9 @@ func (c *NoteSetCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(issueOut{Issue: i})
+		}
 		r.notice("set notes on %s\n", i.ID)
 		return nil
 	})

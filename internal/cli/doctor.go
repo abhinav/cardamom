@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 
@@ -19,7 +18,7 @@ func (c *DoctorCmd) Run(r *runCtx) error {
 			return err
 		}
 		if r.json {
-			return json.NewEncoder(r.stdout).Encode(rep)
+			return r.emitJSON(rep)
 		}
 		check := func(label, value string, ok bool) {
 			mark := "✓"

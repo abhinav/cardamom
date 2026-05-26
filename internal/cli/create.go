@@ -21,6 +21,9 @@ func (c *CreateCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(issueOut{Issue: i})
+		}
 		fmt.Fprintln(r.stdout, i.ID)
 		return nil
 	})

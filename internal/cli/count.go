@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/rovak/beadsv2/internal/store"
@@ -22,7 +21,7 @@ func (c *CountCmd) Run(r *runCtx) error {
 			return err
 		}
 		if r.json {
-			return json.NewEncoder(r.stdout).Encode(map[string]int{"count": n})
+			return r.emitJSON(map[string]int{"count": n})
 		}
 		fmt.Fprintln(r.stdout, n)
 		return nil

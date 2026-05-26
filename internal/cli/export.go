@@ -57,6 +57,7 @@ func (c *ExportCmd) Run(r *runCtx) error {
 			return err
 		}
 		enc := json.NewEncoder(w)
+		enc.SetEscapeHTML(false)
 		for _, is := range issues {
 			data, err := json.Marshal(issueExport{Issue: is, Labels: labelsMap[is.ID]})
 			if err != nil {

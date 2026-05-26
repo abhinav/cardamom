@@ -46,6 +46,9 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(issueOut{Issue: i})
+		}
 		r.notice("updated %s\n", i.ID)
 		return nil
 	})

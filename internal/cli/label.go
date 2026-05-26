@@ -23,6 +23,17 @@ func (c *LabelAddCmd) Run(r *runCtx) error {
 		if err := s.AddLabels(r.ctx, c.ID, c.Labels); err != nil {
 			return err
 		}
+		if r.json {
+			i, err := s.Get(r.ctx, c.ID)
+			if err != nil {
+				return err
+			}
+			labels, err := s.LabelsForIssue(r.ctx, c.ID)
+			if err != nil {
+				return err
+			}
+			return r.emitJSON(issueOut{Issue: i, Labels: labels})
+		}
 		r.notice("added %d label(s) to %s\n", len(c.Labels), c.ID)
 		return nil
 	})

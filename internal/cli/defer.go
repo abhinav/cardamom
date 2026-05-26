@@ -21,9 +21,12 @@ func (c *DeferCmd) Run(r *runCtx) error {
 	}
 	u := until.Unix()
 	return withStore(r, func(s *store.Store) error {
-		_, err := s.SetDefer(r.ctx, c.ID, &u)
+		i, err := s.SetDefer(r.ctx, c.ID, &u)
 		if err != nil {
 			return err
+		}
+		if r.json {
+			return r.emitJSON(issueOut{Issue: i})
 		}
 		r.notice("deferred %s until %s\n", c.ID, until.Format(time.RFC3339))
 		return nil

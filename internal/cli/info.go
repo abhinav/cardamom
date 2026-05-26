@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 
 	"github.com/rovak/beadsv2/internal/store"
@@ -37,7 +36,7 @@ func (c *InfoCmd) Run(r *runCtx) error {
 			IssuesByStatus: st.Status,
 		}
 		if r.json {
-			return json.NewEncoder(r.stdout).Encode(out)
+			return r.emitJSON(out)
 		}
 		fmt.Fprintf(r.stdout, "DB:               %s\n", out.DBPath)
 		fmt.Fprintf(r.stdout, "Schema version:   %d\n", out.SchemaVersion)

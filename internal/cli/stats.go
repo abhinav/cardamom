@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"sort"
 
@@ -17,7 +16,7 @@ func (c *StatsCmd) Run(r *runCtx) error {
 			return err
 		}
 		if r.json {
-			return json.NewEncoder(r.stdout).Encode(st)
+			return r.emitJSON(st)
 		}
 		printGroup(r, "Status", st.Status)
 		fmt.Fprintln(r.stdout)

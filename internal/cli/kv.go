@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -26,6 +25,9 @@ func (c *KVSetCmd) Run(r *runCtx) error {
 		if err := s.KVSet(r.ctx, c.Key, v); err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(store.KV{Key: c.Key, Value: v})
+		}
 		r.notice("set %s\n", c.Key)
 		return nil
 	})
@@ -46,7 +48,7 @@ func (c *KVGetCmd) Run(r *runCtx) error {
 			return fmt.Errorf("%s: %w", c.Key, err)
 		}
 		if r.json {
-			return json.NewEncoder(r.stdout).Encode(store.KV{Key: c.Key, Value: v})
+			return r.emitJSON(store.KV{Key: c.Key, Value: v})
 		}
 		fmt.Fprintln(r.stdout, v)
 		return nil
@@ -76,7 +78,7 @@ func (c *KVListCmd) Run(r *runCtx) error {
 			return err
 		}
 		if r.json {
-			return json.NewEncoder(r.stdout).Encode(kvs)
+			return r.emitJSON(kvs)
 		}
 		if len(kvs) == 0 {
 			fmt.Fprintln(r.stdout, "(empty)")

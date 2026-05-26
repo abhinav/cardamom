@@ -84,7 +84,7 @@ func eachID(r *runCtx, ids []string, fn func(string) (any, error)) error {
 		results = append(results, v)
 	}
 	if r.json {
-		_ = json.NewEncoder(r.stdout).Encode(results)
+		_ = r.emitJSON(results)
 	}
 	if len(errs) > 0 {
 		return errors.Join(errs...)
@@ -102,6 +102,17 @@ func (r *runCtx) notice(format string, args ...any) {
 		return
 	}
 	fmt.Fprintf(r.stdout, format, args...)
+}
+
+// emitJSON writes v to stdout as a single JSON value. HTML escaping is
+// disabled so substrings like "<none>" survive round-trip; the trailing
+// newline json.Encoder always appends keeps output line-oriented.
+// Used by every write command so the contract under --json is uniform:
+// exactly one JSON value per invocation.
+func (r *runCtx) emitJSON(v any) error {
+	enc := json.NewEncoder(r.stdout)
+	enc.SetEscapeHTML(false)
+	return enc.Encode(v)
 }
 
 func (c *runCtx) dbPath() string { return filepath.Join(c.dir, "data.sqlite") }
@@ -235,7 +246,7 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string) {
 		for i, is := range issues {
 			out[i] = issueOut{Issue: is, Labels: labels[is.ID]}
 		}
-		_ = json.NewEncoder(r.stdout).Encode(out)
+		_ = r.emitJSON(out)
 		return
 	}
 	if len(issues) == 0 {
@@ -262,7 +273,7 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string) {
 func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comments []store.Comment) {
 	if r.json {
 		out := issueShowOut{Issue: i, Labels: labels, Depends: parents, Blocks: blocks, Comments: comments}
-		_ = json.NewEncoder(r.stdout).Encode(out)
+		_ = r.emitJSON(out)
 		return
 	}
 	w := r.stdout

@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -29,7 +28,7 @@ func (c *CommentAddCmd) Run(r *runCtx) error {
 			return err
 		}
 		if r.json {
-			return json.NewEncoder(r.stdout).Encode(cm)
+			return r.emitJSON(cm)
 		}
 		r.notice("commented on %s as %s (#%d)\n", cm.IssueID, cm.Author, cm.ID)
 		return nil
@@ -47,7 +46,7 @@ func (c *CommentLsCmd) Run(r *runCtx) error {
 			return err
 		}
 		if r.json {
-			return json.NewEncoder(r.stdout).Encode(cs)
+			return r.emitJSON(cs)
 		}
 		printComments(r, cs)
 		return nil

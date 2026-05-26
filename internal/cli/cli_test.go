@@ -1058,6 +1058,86 @@ func TestCLICompletionBash(t *testing.T) {
 	}
 }
 
+func TestCLIJSONWriteCommandsEmitObject(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+
+	parseObj := func(t *testing.T, src string) map[string]any {
+		t.Helper()
+		var row map[string]any
+		if err := json.Unmarshal([]byte(src), &row); err != nil {
+			t.Fatalf("invalid JSON: %v\n%s", err, src)
+		}
+		return row
+	}
+
+	// create
+	out := c.run("--json", "create", "first")
+	created := parseObj(t, out)
+	id, _ := created["id"].(string)
+	if !strings.HasPrefix(id, "bd-") {
+		t.Fatalf("create --json missing id: %+v", created)
+	}
+
+	// update
+	out = c.run("--json", "update", id, "-p", "1")
+	upd := parseObj(t, out)
+	if upd["priority"].(float64) != 1 {
+		t.Fatalf("update --json priority wrong: %+v", upd)
+	}
+
+	// dep add
+	other := strings.TrimSpace(c.run("create", "other"))
+	out = c.run("--json", "dep", "add", id, other)
+	parseObj(t, out) // just must be valid JSON object
+
+	// label add
+	out = c.run("--json", "label", "add", id, "x")
+	la := parseObj(t, out)
+	labels, _ := la["labels"].([]any)
+	if len(labels) != 1 {
+		t.Fatalf("label add --json missing labels: %+v", la)
+	}
+
+	// defer
+	out = c.run("--json", "defer", id, "+1h")
+	d := parseObj(t, out)
+	if d["defer_until"] == nil {
+		t.Fatalf("defer --json missing defer_until: %+v", d)
+	}
+
+	// note set
+	out = c.run("--json", "note", "set", id, "hi")
+	n := parseObj(t, out)
+	if n["notes"] != "hi" {
+		t.Fatalf("note set --json missing notes: %+v", n)
+	}
+
+	// kv set
+	out = c.run("--json", "kv", "set", "k", "v")
+	kv := parseObj(t, out)
+	if kv["key"] != "k" || kv["value"] != "v" {
+		t.Fatalf("kv set --json wrong: %+v", kv)
+	}
+}
+
+func TestCLIStatsJSONNoHTMLEscape(t *testing.T) {
+	// `<none>` is the agent grouping for nil; HTML-escaping turns it
+	// into `<none>` which is valid but ugly. The fix is
+	// SetEscapeHTML(false) across the JSON emitters.
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "x")
+	out := c.run("--json", "stats")
+	// Without SetEscapeHTML(false) this would be "<none>".
+	if !strings.Contains(out, "<none>") {
+		t.Fatalf("expected raw <none> in JSON: %s", out)
+	}
+	if strings.Contains(out, "\\u003c") {
+		t.Fatalf("expected SetEscapeHTML(false), got escaped output: %s", out)
+	}
+}
+
 func TestCLIListBadDate(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
