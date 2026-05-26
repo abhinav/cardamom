@@ -20,7 +20,7 @@ import (
 
 // CLI is the kong-defined command structure.
 type CLI struct {
-	Dir   string `name:"dir" env:"CLU_DIR" default:".clu" help:"Project directory (database, config, templates)."`
+	Dir   string `name:"dir" env:"CLU_DIR" default:".clu" help:"Project directory (database, config, templates). When unset, falls back to the main worktree's .clu/ so secondary worktrees share state automatically."`
 	JSON  bool   `name:"json" help:"Emit machine-readable JSON instead of human output."`
 	Quiet bool   `short:"q" name:"quiet" help:"Suppress non-essential output (errors still go to stderr)."`
 
@@ -85,6 +85,9 @@ type CLI struct {
 	Cron   CronCmd   `cmd:"" group:"data" help:"Schedule recurring clu invocations (drive from OS cron / launchd)."`
 	HTTP   HTTPCmd   `cmd:"" group:"data" name:"http" help:"Start a REST API server backed by the project's store."`
 	Web    WebCmd    `cmd:"" group:"data" name:"web" help:"Launch the web UI (REST API in-process + TanStack Start server)."`
+
+	// --- environments: git worktrees and their bootstrap ---
+	Worktree WorktreeCmd `cmd:"" group:"coord" help:"Manage git worktrees with project-defined bootstrap (copy files, run setup commands)."`
 
 	// --- meta ---
 	Version    VersionCmd    `cmd:"" group:"meta" help:"Print version information."`
@@ -370,6 +373,7 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 		fmt.Fprintln(stderr, "error:", err)
 		return 2
 	}
+	cli.Dir = resolveCluDir(cli.Dir)
 	rctx := &runCtx{ctx: ctx, dir: cli.Dir, stdout: stdout, stderr: stderr, json: cli.JSON, quiet: cli.Quiet}
 	if err := kctx.Run(rctx); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {

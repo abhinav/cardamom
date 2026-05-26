@@ -582,6 +582,35 @@ cascades through that step's specific descendants only.
 → checkpoint → approve, plus failure paths and the parallel fan-out
 shape. Read or run it when you need a concrete reference.
 
+## Running in a worktree
+
+Multi-agent workflows often want isolated checkouts so two agents can
+work on different branches without stomping each other. `clu worktree`
+wraps `git worktree add` with a project-defined bootstrap (the
+`worktree:` block in `.clu/config.yaml`) so a fresh worktree gets its
+gitignored files (.env, secrets) and per-checkout setup (pnpm install,
+db migrate) automatically.
+
+```bash
+# Create a worktree + bootstrap in one step.
+clu worktree add ../wt-feat -b feat/foo --bootstrap
+
+# Or bootstrap an existing worktree (re-runnable after editing the recipe).
+clu worktree bootstrap ../wt-feat
+```
+
+Order is **copy → commands**, fail-fast. Both run from the *main*
+worktree (auto-detected via git).
+
+**Shared state.** All clu state (the SQLite DB, config.yaml, templates)
+lives in the main worktree's `.clu/`. From inside any secondary
+worktree, clu auto-resolves to the main worktree's `.clu/` — so `clu
+list`, `clu create`, `clu claim` etc. all see the same data regardless
+of which checkout you ran them from. No symlinks, no env vars, no
+duplicate DBs. If you `clu init` inside a worktree by accident, you'll
+get a second DB; delete the worktree's `.clu/` to fall back to the
+shared one.
+
 ## Where to dig deeper
 
 - `clu <command> --help` — every subcommand has its own help.

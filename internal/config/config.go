@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
@@ -24,6 +25,21 @@ import (
 type Config struct {
 	IDPrefix string           `yaml:"id_prefix"`
 	Agents   map[string]Agent `yaml:"agents,omitempty"`
+	Worktree Worktree         `yaml:"worktree,omitempty"`
+}
+
+// Worktree drives `clu worktree add --bootstrap` and `clu worktree
+// bootstrap`. Each new git worktree starts as a fresh filesystem tree —
+// gitignored files (.env, secrets, install caches) and per-checkout
+// scripts (pnpm install, db migrate) don't come along.
+//
+// Paths in Copy are relative to the *main* worktree (auto-detected via
+// git) and land at the same relative path inside the new worktree.
+// Commands run from inside the new worktree with the user's $PATH +
+// $HOME and inherit stdin, so prompts work.
+type Worktree struct {
+	Copy     []string `yaml:"copy,omitempty"`     // files to copy from main worktree → new worktree
+	Commands []string `yaml:"commands,omitempty"` // shell snippets run inside the new worktree
 }
 
 // Agent is the declarative side of an agent: who they are and what they
@@ -80,6 +96,22 @@ func (c Config) Validate() error {
 			if !agentNameRe.MatchString(cap) {
 				return fmt.Errorf("agent %q: capability %q: same rules as agent names", name, cap)
 			}
+		}
+	}
+	for _, p := range c.Worktree.Copy {
+		if p == "" {
+			return errors.New("worktree.copy: empty entry")
+		}
+		if filepath.IsAbs(p) {
+			return fmt.Errorf("worktree.copy %q: must be relative to the worktree root, not absolute", p)
+		}
+		if strings.Contains(p, "..") {
+			return fmt.Errorf("worktree.copy %q: must not contain '..'", p)
+		}
+	}
+	for _, cmd := range c.Worktree.Commands {
+		if cmd == "" {
+			return errors.New("worktree.commands: empty entry")
 		}
 	}
 	return nil
@@ -179,6 +211,24 @@ id_prefix: %s
 #   doc-writer:
 #     description: "Writes README + docs/ updates"
 #     capabilities: [docs]
+
+# Bootstrap recipe for new git worktrees. Run via
+#   clu worktree add <path> [<ref>] --bootstrap
+#   clu worktree bootstrap <path>
+#
+# Files in `+"`copy`"+` are pulled from the main worktree (auto-detected via
+# git) into the same relative path inside the new worktree — for
+# gitignored secrets / .env / install state that fresh checkouts lack.
+# Commands run inside the new worktree, fail-fast on the first non-zero
+# exit.
+#
+# worktree:
+#   copy:
+#     - .env
+#     - apps/api/.env
+#   commands:
+#     - pnpm install
+#     - pnpm db:migrate
 `, c.IDPrefix)
 	return os.WriteFile(path, []byte(body), 0o644)
 }

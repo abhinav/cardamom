@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -2323,4 +2324,162 @@ func TestCLISqlCSVAndJSONExclusive(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	c.runFail("--json", "sql", "--csv", "SELECT 1")
+}
+
+// initGitRepo creates a fresh git repo with a tiny initial commit at
+// the given path. Used by worktree tests to set up a realistic source.
+func initGitRepo(t *testing.T, path string) {
+	t.Helper()
+	for _, args := range [][]string{
+		{"init", "-q"},
+		{"config", "user.email", "t@t.t"},
+		{"config", "user.name", "t"},
+		{"config", "commit.gpgsign", "false"},
+	} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = path
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+	if err := os.WriteFile(filepath.Join(path, "README.md"), []byte("hi\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(path, ".gitignore"), []byte(".env\n.clu/\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	for _, args := range [][]string{{"add", "-A"}, {"commit", "-q", "-m", "init"}} {
+		cmd := exec.Command("git", args...)
+		cmd.Dir = path
+		if out, err := cmd.CombinedOutput(); err != nil {
+			t.Fatalf("git %v: %v\n%s", args, err, out)
+		}
+	}
+}
+
+// runInDir executes one clu invocation with cwd set, since worktree
+// behavior depends on cwd-relative git discovery.
+func runInDir(t *testing.T, dir string, args ...string) string {
+	t.Helper()
+	prev, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = os.Chdir(prev) }()
+	out := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	code := Run(context.Background(), out, errBuf, args)
+	if code != 0 {
+		t.Fatalf("clu %v in %s: exit %d\nstdout:%s\nstderr:%s", args, dir, code, out.String(), errBuf.String())
+	}
+	return out.String() + errBuf.String()
+}
+
+func TestCLIWorktreeAddBootstrap(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	main := t.TempDir()
+	initGitRepo(t, main)
+
+	// Set up gitignored files + a recipe that copies them and runs a
+	// command that writes a sentinel file in the new worktree.
+	if err := os.WriteFile(filepath.Join(main, ".env"), []byte("LOCAL=1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runInDir(t, main, "init")
+	if err := os.WriteFile(filepath.Join(main, ".clu", "config.yaml"), []byte(`id_prefix: clu-
+worktree:
+  copy:
+    - .env
+  commands:
+    - 'touch BOOTSTRAPPED'
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	wt := filepath.Join(filepath.Dir(main), "wt-"+filepath.Base(main))
+	defer os.RemoveAll(wt)
+	runInDir(t, main, "worktree", "add", wt, "-b", "feat/x", "--bootstrap")
+
+	// Copied file lands at the right path.
+	if data, err := os.ReadFile(filepath.Join(wt, ".env")); err != nil {
+		t.Fatalf("expected .env in worktree: %v", err)
+	} else if string(data) != "LOCAL=1\n" {
+		t.Fatalf("bad .env contents: %q", data)
+	}
+	// Command ran (sentinel created in the worktree dir).
+	if _, err := os.Stat(filepath.Join(wt, "BOOTSTRAPPED")); err != nil {
+		t.Fatalf("expected BOOTSTRAPPED sentinel: %v", err)
+	}
+}
+
+func TestCLIWorktreeAddNoBootstrap(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	main := t.TempDir()
+	initGitRepo(t, main)
+	runInDir(t, main, "init")
+	if err := os.WriteFile(filepath.Join(main, ".clu", "config.yaml"), []byte(`id_prefix: clu-
+worktree:
+  commands:
+    - 'touch BOOTSTRAPPED'
+`), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	wt := filepath.Join(filepath.Dir(main), "no-bootstrap-"+filepath.Base(main))
+	defer os.RemoveAll(wt)
+	runInDir(t, main, "worktree", "add", wt, "-b", "feat/y")
+	// Without --bootstrap, the recipe should NOT have run.
+	if _, err := os.Stat(filepath.Join(wt, "BOOTSTRAPPED")); err == nil {
+		t.Fatalf("BOOTSTRAPPED sentinel exists; bootstrap ran without flag")
+	}
+}
+
+func TestCLIWorktreeSharedDB(t *testing.T) {
+	// Issues created from a secondary worktree must land in the main
+	// worktree's DB — that's the auto-resolveCluDir contract.
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	main := t.TempDir()
+	initGitRepo(t, main)
+	runInDir(t, main, "init")
+	idMain := strings.TrimSpace(runInDir(t, main, "create", "from main"))
+
+	wt := filepath.Join(filepath.Dir(main), "shared-"+filepath.Base(main))
+	defer os.RemoveAll(wt)
+	runInDir(t, main, "worktree", "add", wt, "-b", "feat/share")
+
+	// From the worktree (no .clu/ locally), creating an issue must
+	// write to main's DB.
+	idWt := strings.TrimSpace(runInDir(t, wt, "create", "from worktree"))
+	if idWt == "" || idWt == idMain {
+		t.Fatalf("expected a new id from worktree, got %q (main was %q)", idWt, idMain)
+	}
+	// And listing from main sees both.
+	out := runInDir(t, main, "list")
+	if !strings.Contains(out, idMain) || !strings.Contains(out, idWt) {
+		t.Fatalf("main should see both ids %s, %s:\n%s", idMain, idWt, out)
+	}
+}
+
+func TestCLIWorktreeBootstrapNoConfig(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	main := t.TempDir()
+	initGitRepo(t, main)
+	runInDir(t, main, "init") // default config — no worktree section
+	wt := filepath.Join(filepath.Dir(main), "empty-"+filepath.Base(main))
+	defer os.RemoveAll(wt)
+	runInDir(t, main, "worktree", "add", wt, "-b", "feat/z")
+	out := runInDir(t, main, "worktree", "bootstrap", wt)
+	if !strings.Contains(out, "nothing to do") {
+		t.Fatalf("expected 'nothing to do' notice, got:\n%s", out)
+	}
 }
