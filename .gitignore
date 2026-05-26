@@ -5,6 +5,7 @@
 /.beads/
 /.db/
 /.clu/
+/.claude/
 *.db
 *.db-shm
 *.db-wal

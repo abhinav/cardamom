@@ -10,7 +10,7 @@ BIN      := clu
 PKG      := ./cmd/clu
 GOBIN    := $(shell $(GO) env GOPATH)/bin
 
-.PHONY: all build install install-bin install-web test test-race vet tidy clean demo demo-workflow help
+.PHONY: all build install install-bin install-web test test-race vet lint tidy clean demo demo-workflow help
 
 all: build
 
@@ -53,6 +53,11 @@ test-race:
 ## vet           Static analysis.
 vet:
 	$(GO) vet ./...
+
+## lint          Run golangci-lint (install via brew or
+##               https://golangci-lint.run/welcome/install).
+lint:
+	golangci-lint run ./...
 
 ## tidy          Tidy go.mod / go.sum.
 tidy:
