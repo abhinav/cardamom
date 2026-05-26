@@ -609,8 +609,10 @@ clu worktree remove feat-foo
 Path resolution:
 - Bare name → `<main>/<worktree.dir>/<name>` (default `<worktree.dir>` =
   `.worktrees`). The first such add appends `.worktrees/` to
-  `.gitignore` so the directory doesn't pollute `git status`. Override
-  the location with `worktree.dir:` in config.yaml.
+  `.git/info/exclude` (per-clone, not committed) so the directory
+  doesn't pollute `git status`. Override the location with
+  `worktree.dir:` in config.yaml; the exclude entry tracks whatever
+  name you choose.
 - `./foo` / `../foo` / `/abs/foo` → honored verbatim against cwd.
 
 Order inside the bootstrap is **copy → commands**, fail-fast. Both run

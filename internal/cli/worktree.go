@@ -50,17 +50,16 @@ func (c *WorktreeAddCmd) Run(r *runCtx) error {
 		return err
 	}
 	// When the default `<worktreeDir>/<name>` location is used, make
-	// sure `<worktreeDir>/` is gitignored so the new tree doesn't show
-	// up as untracked in the main worktree's `git status`.
+	// sure `<worktreeDir>/` is excluded so the new tree doesn't show
+	// up as untracked in `git status`. Writing to `.git/info/exclude`
+	// (rather than `.gitignore`) keeps this per-clone — no tracked-file
+	// diff to surprise the team, but the entry still survives across
+	// secondary worktrees since info/exclude lives in the common .git.
 	if usedDefault {
-		main, mErr := mainWorktreePath()
-		if mErr == nil {
-			added, err := ensureGitignoreEntry(main, worktreeDir+"/")
-			if err != nil {
-				r.notice("warning: could not update .gitignore: %v (add `%s/` manually)\n", err, worktreeDir)
-			} else if added {
-				r.notice("added `%s/` to .gitignore — commit this so the entry survives across worktrees\n", worktreeDir)
-			}
+		if added, err := ensureGitExclude(worktreeDir + "/"); err != nil {
+			r.notice("warning: could not update .git/info/exclude: %v (add `%s/` manually)\n", err, worktreeDir)
+		} else if added {
+			r.notice("added `%s/` to .git/info/exclude (per-clone; not committed)\n", worktreeDir)
 		}
 	}
 	args := []string{"worktree", "add"}
@@ -157,12 +156,22 @@ func resolveExistingWorktreePath(r *runCtx, raw string) (string, error) {
 	return filepath.Abs(raw)
 }
 
-// ensureGitignoreEntry appends `entry` to <dir>/.gitignore if it's
-// not already present (literal-line match — globs and comments are
-// treated as opaque). Creates the file if it doesn't exist. Returns
-// true when the file was actually written to.
-func ensureGitignoreEntry(dir, entry string) (bool, error) {
-	path := filepath.Join(dir, ".gitignore")
+// ensureGitExclude appends `entry` to the repo's `.git/info/exclude`
+// if not already present (literal-line match — globs and comments are
+// treated as opaque). The file is per-clone, untracked, and shared
+// across secondary worktrees (it lives in the common .git directory,
+// found via `git rev-parse --git-common-dir`). Creates the file if it
+// doesn't exist. Returns true when the file was actually written to.
+func ensureGitExclude(entry string) (bool, error) {
+	out, err := exec.Command("git", "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
+	if err != nil {
+		return false, fmt.Errorf("git rev-parse: %w", err)
+	}
+	gitDir := strings.TrimSpace(string(out))
+	if gitDir == "" {
+		return false, errors.New("git did not return a common-dir path")
+	}
+	path := filepath.Join(gitDir, "info", "exclude")
 	existing, err := os.ReadFile(path)
 	if err != nil && !os.IsNotExist(err) {
 		return false, err
@@ -172,12 +181,15 @@ func ensureGitignoreEntry(dir, entry string) (bool, error) {
 			return false, nil
 		}
 	}
-	out := string(existing)
-	if len(out) > 0 && !strings.HasSuffix(out, "\n") {
-		out += "\n"
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return false, err
 	}
-	out += entry + "\n"
-	if err := os.WriteFile(path, []byte(out), 0o644); err != nil {
+	body := string(existing)
+	if len(body) > 0 && !strings.HasSuffix(body, "\n") {
+		body += "\n"
+	}
+	body += entry + "\n"
+	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
 		return false, err
 	}
 	return true, nil
