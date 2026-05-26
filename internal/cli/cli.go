@@ -24,51 +24,68 @@ type CLI struct {
 	JSON  bool   `name:"json" help:"Emit machine-readable JSON instead of human output."`
 	Quiet bool   `short:"q" name:"quiet" help:"Suppress non-essential output (errors still go to stderr)."`
 
-	Init       InitCmd       `cmd:"" help:"Initialize the database in the current directory."`
-	Create     CreateCmd     `cmd:"" help:"Create a new issue."`
-	List       ListCmd       `cmd:"" aliases:"ls" help:"List issues."`
-	Ready      ReadyCmd      `cmd:"" help:"List issues that are ready to work on."`
-	Show       ShowCmd       `cmd:"" help:"Show details for one issue."`
-	Claim      ClaimCmd      `cmd:"" help:"Claim the next ready issue (or a specific one)."`
-	Close      CloseCmd      `cmd:"" help:"Close an issue."`
-	Cancel     CancelCmd     `cmd:"" help:"Cancel an issue and all its transitive dependents."`
-	Update     UpdateCmd     `cmd:"" help:"Update fields on an issue."`
-	Dep        DepCmd        `cmd:"" help:"Manage dependency edges."`
-	Label      LabelCmd      `cmd:"" help:"Manage labels on an issue."`
-	Defer      DeferCmd      `cmd:"" help:"Defer an issue until a later time."`
-	Undefer    UndeferCmd    `cmd:"" help:"Clear an issue's deferral."`
-	Blocked    BlockedCmd    `cmd:"" help:"List issues that have at least one open dependency."`
-	Count      CountCmd      `cmd:"" help:"Count issues matching the same filters as 'list'."`
-	Stats      StatsCmd      `cmd:"" help:"Show issue counts grouped by status, agent, and type."`
-	Reopen     ReopenCmd     `cmd:"" help:"Reopen a closed issue."`
-	Assign     AssignCmd     `cmd:"" help:"Assign an issue (sugar for 'update --assignee')."`
-	Priority   PriorityCmd   `cmd:"" help:"Set an issue's priority (sugar for 'update -p N')."`
-	Tag        TagCmd        `cmd:"" help:"Add labels to an issue (alias for 'label add')."`
-	Link       LinkCmd       `cmd:"" help:"Add a dependency edge (alias for 'dep add')."`
-	Describe   DescribeCmd   `cmd:"" help:"Set or clear an issue's description (sugar for 'update --description')."`
-	Note       NoteCmd       `cmd:"" help:"Manage an issue's freeform notes."`
-	Comment    CommentCmd    `cmd:"" help:"Manage threaded comments on an issue."`
-	KV         KVCmd         `cmd:"" help:"Manage a generic key-value store (feature flags, env, scratch data)."`
-	Cron       CronCmd       `cmd:"" help:"Schedule recurring clu invocations (drive from OS cron / launchd)."`
-	Agent      AgentCmd      `cmd:"" help:"Manage agents — list declared (config.yaml) and live (heartbeat) state."`
-	Brief      BriefCmd      `cmd:"" help:"Print agent workflow context: AGENTS.md, declared agents, who's live, persisted memories."`
-	Lock       LockCmd       `cmd:"" help:"Acquire a named lock for ad-hoc coordination (deploy slots, build dirs, shared resources)."`
-	Unlock     UnlockCmd     `cmd:"" help:"Release a named lock."`
-	Locks      LocksCmd      `cmd:"" help:"List current locks (live and stale)."`
-	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
-	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'clu export'."`
-	Info       InfoCmd       `cmd:"" help:"Show database path, schema version, and a summary of issues."`
-	Statuses   StatusesCmd   `cmd:"" help:"List valid issue statuses."`
-	Types      TypesCmd      `cmd:"" help:"List valid issue types."`
-	Doctor     DoctorCmd     `cmd:"" help:"Run integrity and health checks against the database."`
-	HTTP       HTTPCmd       `cmd:"" name:"http" help:"Start a REST API server backed by the project's store."`
-	Web        WebCmd        `cmd:"" name:"web" help:"Launch the web UI (REST API in-process + TanStack Start server)."`
-	Run        RunCmd        `cmd:"" help:"Instantiate a workflow template into issues + deps."`
-	Template   TemplateCmd   `cmd:"" help:"Inspect and validate workflow templates."`
-	Checkpoint CheckpointCmd `cmd:"" help:"Pass or fail a checkpoint step."`
-	Approve    ApproveCmd    `cmd:"" help:"Approve a checkpoint (sugar for 'checkpoint pass')."`
-	Version    VersionCmd    `cmd:"" help:"Print version information."`
-	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
+	// Group keys must match those declared in kong.ExplicitGroups
+	// below; mismatches surface as kong.New errors at construct time.
+	// Order of fields here drives order of commands within each group.
+
+	// --- issues: the core CRUD + state loop ---
+	Init    InitCmd    `cmd:"" group:"issues" help:"Initialize the database in the current directory."`
+	Create  CreateCmd  `cmd:"" group:"issues" help:"Create a new issue."`
+	List    ListCmd    `cmd:"" group:"issues" aliases:"ls" help:"List issues."`
+	Ready   ReadyCmd   `cmd:"" group:"issues" help:"List issues that are ready to work on."`
+	Blocked BlockedCmd `cmd:"" group:"issues" help:"List issues that have at least one open dependency."`
+	Show    ShowCmd    `cmd:"" group:"issues" help:"Show details for one issue."`
+	Claim   ClaimCmd   `cmd:"" group:"issues" help:"Claim the next ready issue (or a specific one)."`
+	Close   CloseCmd   `cmd:"" group:"issues" help:"Close an issue."`
+	Cancel  CancelCmd  `cmd:"" group:"issues" help:"Cancel an issue and all its transitive dependents."`
+	Reopen  ReopenCmd  `cmd:"" group:"issues" help:"Reopen a closed issue."`
+	Update  UpdateCmd  `cmd:"" group:"issues" help:"Update fields on an issue."`
+
+	// --- edits: sugar + relations ---
+	Assign   AssignCmd   `cmd:"" group:"edits" help:"Assign an issue (sugar for 'update --assignee')."`
+	Priority PriorityCmd `cmd:"" group:"edits" help:"Set an issue's priority (sugar for 'update -p N')."`
+	Describe DescribeCmd `cmd:"" group:"edits" help:"Set or clear an issue's description (sugar for 'update --description')."`
+	Note     NoteCmd     `cmd:"" group:"edits" help:"Manage an issue's freeform notes."`
+	Comment  CommentCmd  `cmd:"" group:"edits" help:"Manage threaded comments on an issue."`
+	Label    LabelCmd    `cmd:"" group:"edits" help:"Manage labels on an issue."`
+	Tag      TagCmd      `cmd:"" group:"edits" help:"Add labels to an issue (alias for 'label add')."`
+	Dep      DepCmd      `cmd:"" group:"edits" help:"Manage dependency edges."`
+	Link     LinkCmd     `cmd:"" group:"edits" help:"Add a dependency edge (alias for 'dep add')."`
+	Defer    DeferCmd    `cmd:"" group:"edits" help:"Defer an issue until a later time."`
+	Undefer  UndeferCmd  `cmd:"" group:"edits" help:"Clear an issue's deferral."`
+
+	// --- coordination: agents, brief, locks ---
+	Agent  AgentCmd  `cmd:"" group:"coord" help:"Manage agents — list declared (config.yaml) and live (heartbeat) state."`
+	Brief  BriefCmd  `cmd:"" group:"coord" help:"Print agent workflow context: AGENTS.md, declared agents, who's live, persisted memories."`
+	Lock   LockCmd   `cmd:"" group:"coord" help:"Acquire a named lock for ad-hoc coordination (deploy slots, build dirs, shared resources)."`
+	Unlock UnlockCmd `cmd:"" group:"coord" help:"Release a named lock."`
+	Locks  LocksCmd  `cmd:"" group:"coord" help:"List current locks (live and stale)."`
+
+	// --- workflows ---
+	Run        RunCmd        `cmd:"" group:"workflow" help:"Instantiate a workflow template into issues + deps."`
+	Template   TemplateCmd   `cmd:"" group:"workflow" help:"Inspect and validate workflow templates."`
+	Checkpoint CheckpointCmd `cmd:"" group:"workflow" help:"Pass or fail a checkpoint step."`
+	Approve    ApproveCmd    `cmd:"" group:"workflow" help:"Approve a checkpoint (sugar for 'checkpoint pass')."`
+
+	// --- inspection: read-only diagnostics ---
+	Count    CountCmd    `cmd:"" group:"inspect" help:"Count issues matching the same filters as 'list'."`
+	Stats    StatsCmd    `cmd:"" group:"inspect" help:"Show issue counts grouped by status, agent, and type."`
+	Info     InfoCmd     `cmd:"" group:"inspect" help:"Show database path, schema version, and a summary of issues."`
+	Doctor   DoctorCmd   `cmd:"" group:"inspect" help:"Run integrity and health checks against the database."`
+	Statuses StatusesCmd `cmd:"" group:"inspect" help:"List valid issue statuses."`
+	Types    TypesCmd    `cmd:"" group:"inspect" help:"List valid issue types."`
+
+	// --- data + servers ---
+	KV     KVCmd     `cmd:"" group:"data" help:"Manage a generic key-value store (feature flags, env, scratch data)."`
+	Export ExportCmd `cmd:"" group:"data" help:"Export all issues + deps + labels as JSONL."`
+	Import ImportCmd `cmd:"" group:"data" help:"Import JSONL produced by 'clu export'."`
+	Cron   CronCmd   `cmd:"" group:"data" help:"Schedule recurring clu invocations (drive from OS cron / launchd)."`
+	HTTP   HTTPCmd   `cmd:"" group:"data" name:"http" help:"Start a REST API server backed by the project's store."`
+	Web    WebCmd    `cmd:"" group:"data" name:"web" help:"Launch the web UI (REST API in-process + TanStack Start server)."`
+
+	// --- meta ---
+	Version    VersionCmd    `cmd:"" group:"meta" help:"Print version information."`
+	Completion CompletionCmd `cmd:"" group:"meta" help:"Generate a shell completion script."`
 }
 
 // runCtx is passed to each command's Run method.
@@ -288,6 +305,19 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact:             true,
 			NoExpandSubcommands: true,
+		}),
+		// Group headings for `clu --help`. The order here is the order
+		// they appear in the help output. Group keys must match the
+		// `group:"..."` tags on each command field in the CLI struct
+		// above; an unknown key fails at parser construction.
+		kong.ExplicitGroups([]kong.Group{
+			{Key: "issues", Title: "Working with issues"},
+			{Key: "edits", Title: "Edits & relations"},
+			{Key: "coord", Title: "Multi-agent coordination"},
+			{Key: "workflow", Title: "Workflows"},
+			{Key: "inspect", Title: "Inspection"},
+			{Key: "data", Title: "Data & servers"},
+			{Key: "meta", Title: "Meta"},
 		}),
 		kong.Vars{"user": currentUser()},
 	)

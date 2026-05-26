@@ -72,7 +72,10 @@ func TestCLINoArgsShowsHelp(t *testing.T) {
 		t.Fatalf("expected exit 0, got %d (stderr: %s)", code, stderr.String())
 	}
 	body := out.String() + stderr.String()
-	if !strings.Contains(body, "Usage:") || !strings.Contains(body, "Commands:") {
+	// Grouped help replaces the literal "Commands:" heading with the
+	// group titles; assert on the usage line and a stable group title
+	// instead.
+	if !strings.Contains(body, "Usage:") || !strings.Contains(body, "Working with issues") {
 		t.Fatalf("expected help output:\nstdout:%s\nstderr:%s", out.String(), stderr.String())
 	}
 }
