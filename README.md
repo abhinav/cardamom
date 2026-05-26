@@ -1,58 +1,61 @@
-# clu
+<h1 align="center">clu</h1>
 
 <p align="center">
   <img src="docs/header.jpg" alt="clu — agent-coordination issue tracker" width="100%">
 </p>
 
 <p align="center">
-  <a href="https://github.com/Rovak/agents-clu/actions"><img src="https://img.shields.io/github/actions/workflow/status/Rovak/agents-clu/ci.yml?branch=main&label=build" alt="Build status"></a>
-  <a href="https://goreportcard.com/report/github.com/rovak/clu"><img src="https://goreportcard.com/badge/github.com/rovak/clu" alt="Go report card"></a>
-  <a href="https://pkg.go.dev/github.com/rovak/clu"><img src="https://pkg.go.dev/badge/github.com/rovak/clu.svg" alt="Go reference"></a>
-  <img src="https://img.shields.io/badge/go-1.22%2B-00ADD8?logo=go&logoColor=white" alt="Go 1.22+">
-  <img src="https://img.shields.io/badge/sqlite-pure%20go-003B57?logo=sqlite&logoColor=white" alt="SQLite (pure Go)">
-  <img src="https://img.shields.io/badge/license-MIT-green" alt="MIT licensed">
+  <em>🤖 SQLite-backed issue tracker for coordinating AI coding agents on a single machine.</em><br>
+  <em>Named after Tron's <strong>C</strong>odified <strong>L</strong>ikeness <strong>U</strong>tility.</em>
 </p>
 
-> **clu** — a SQLite-backed issue tracker for coordinating work between
-> humans and AI coding agents (Claude Code, Cursor, Aider, …) on a
-> single machine. Named after Tron's *Codified Likeness Utility*.
+<p align="center">
+  <a href="https://github.com/Rovak/agents-clu/actions"><img src="https://img.shields.io/github/actions/workflow/status/Rovak/agents-clu/ci.yml?branch=main&label=build&style=flat-square&logo=github" alt="Build status"></a>
+  <a href="https://goreportcard.com/report/github.com/rovak/clu"><img src="https://goreportcard.com/badge/github.com/rovak/clu?style=flat-square" alt="Go report card"></a>
+  <a href="https://pkg.go.dev/github.com/rovak/clu"><img src="https://img.shields.io/badge/pkg.go.dev-reference-007d9c?style=flat-square&logo=go&logoColor=white" alt="Go reference"></a>
+  <img src="https://img.shields.io/badge/go-1.22%2B-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.22+">
+  <img src="https://img.shields.io/badge/sqlite-pure_go-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite (pure Go)">
+  <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT licensed">
+  <img src="https://img.shields.io/badge/CGo-free-success?style=flat-square" alt="No CGo">
+  <img src="https://img.shields.io/badge/network-none-lightgrey?style=flat-square" alt="No network">
+</p>
 
-## Why?
+<p align="center">
+  <a href="#-quickstart"><strong>Quickstart</strong></a> ·
+  <a href="#-multi-agent-setup"><strong>Multi-agent</strong></a> ·
+  <a href="#-workflows"><strong>Workflows</strong></a> ·
+  <a href="AGENTS.md"><strong>Agent guide</strong></a> ·
+  <a href="#-design-notes"><strong>Design</strong></a>
+</p>
 
-When you run more than one AI coding session against the same project,
-they need a shared, durable place to:
+---
 
-- pick up work without stepping on each other (atomic claim),
-- record what they tried, what worked, what didn't,
-- gate risky steps behind human approval,
-- and surface what's unblocked vs. waiting on something else.
+## 🤔 Why?
 
-`clu` is that place. It's a small, fast, single-binary CLI backed by a
-local SQLite database. No daemon, no server, no account, no network.
+When you run more than one AI coding session against the same project, they need a shared, durable place to:
 
-## Highlights
+- 🤝 pick up work without stepping on each other (atomic claim),
+- 📝 record what they tried, what worked, what didn't,
+- 🚦 gate risky steps behind human approval,
+- 🔓 surface what's unblocked vs. waiting on something else.
 
-- **Single binary, pure Go.** SQLite via `modernc.org/sqlite` — no CGo,
-  no system libraries.
-- **Local-first.** One file: `.clu/data.sqlite`. Commit `config.yaml`,
-  ignore the DB.
-- **Atomic claim.** `UPDATE … RETURNING` with a subquery — two agents
-  racing each other get different issues.
-- **Capability routing.** Agents declare capabilities in
-  `config.yaml`; issues tagged `cap:foo` flow to agents that can
-  handle them.
-- **Cascading cancel.** `clu cancel <id>` walks the dep graph forward
-  and marks everything downstream as `cancelled` (distinct from
-  `closed` — see below).
-- **Workflow templates.** Declarative YAML graphs of issues + deps
-  with optional human-approval checkpoints.
-- **JSON everywhere.** Every command takes `--json` and emits exactly
-  one JSON value to stdout — clean for scripting.
-- **No reach into the network.** No telemetry, no sync, no cloud
-  features. If you want to share a tracker between machines, copy the
-  file.
+`clu` is that place. A small, fast, single-binary CLI backed by a local SQLite database. **No daemon, no server, no account, no network.**
 
-## Install
+## ✨ Highlights
+
+| | |
+|---|---|
+| 📦 **Single binary, pure Go** | SQLite via `modernc.org/sqlite` — no CGo, no system libs. |
+| 💾 **Local-first** | One file: `.clu/data.sqlite`. Commit `config.yaml`, gitignore the DB. |
+| ⚡ **Atomic claim** | `UPDATE … RETURNING` with subquery — racing agents get different issues. |
+| 🎯 **Capability routing** | Agents declare capabilities in `config.yaml`; `cap:foo` labels flow to matching agents. |
+| 🌊 **Cascading cancel** | `clu cancel <id>` walks the dep graph forward and cancels the whole tail. |
+| 📋 **Workflow templates** | YAML graphs of issues + deps with optional human-approval checkpoints. |
+| 🧾 **JSON everywhere** | Every command takes `--json` and emits exactly one JSON value to stdout. |
+| 👀 **Watch-driven** | `clu ready --watch` + Claude Code's Monitor tool = push-style task delivery. |
+| 🔒 **No network** | No telemetry, no sync, no cloud. Share a tracker? Copy the file. |
+
+## 📦 Install
 
 ```bash
 go install github.com/rovak/clu/cmd/clu@latest
@@ -60,42 +63,43 @@ go install github.com/rovak/clu/cmd/clu@latest
 make install
 ```
 
-Add `$HOME/go/bin` to your `PATH`. `clu --help` should now work.
+Add `$HOME/go/bin` to your `PATH`. Verify with `clu --help`.
 
-## Quickstart
+## 🚀 Quickstart
 
 ```bash
 mkdir my-project && cd my-project
-clu init                                    # creates .clu/ with DB + config
+clu init                                    # 📂 creates .clu/ with DB + config
 clu create -p 1 "fix the login redirect"    # → clu-a3f8
-clu create "add tests for the redirect"
-clu link clu-XXXX clu-a3f8                  # tests depend on the fix
+clu create "add tests for the redirect"     # → clu-7c11
+clu link clu-7c11 clu-a3f8                  # 🔗 tests depend on the fix
 
-clu ready                                   # what's unblocked?
-clu claim                                   # atomically take the next one
-clu close clu-a3f8                          # done → unblocks the tests
-clu ready                                   # tests are now ready
+clu ready                                   # 🟢 what's unblocked?
+clu claim                                   # 🎯 atomically take the next one
+clu close clu-a3f8                          # ✅ done → unblocks the tests
+clu ready                                   # 🟢 tests are now ready
 ```
 
-That's the whole core loop. See `demo.sh` for a runnable end-to-end
-exercise, or [`AGENTS.md`](AGENTS.md) for the agent-facing operational
-guide. From inside a session, `clu brief` prints the same guide plus
-the project's declared agents and who's currently live — pipe it into
-your agent at session start.
+That's the whole core loop. See [`demo.sh`](demo.sh) for an end-to-end exercise, or [`AGENTS.md`](AGENTS.md) for the agent-facing operational guide. From inside an agent session:
 
-## Status semantics
+```bash
+clu brief
+```
+
+prints the agent guide plus the project's declared agents and who's currently live — pipe it into your agent at session start. 🧠
+
+## 🚦 Status semantics
 
 | status | meaning | downstream effect |
 |---|---|---|
-| `open` | not yet started | normal |
-| `in_progress` | claimed; an agent is working | normal |
-| `closed` | done successfully | **unblocks** dependents |
-| `cancelled` | abandoned | dependents stay blocked (or cascade-cancel) |
+| 🟢 `open` | not yet started | normal |
+| 🟡 `in_progress` | claimed; an agent is working | normal |
+| ✅ `closed` | done successfully | **unblocks** dependents |
+| ❌ `cancelled` | abandoned | dependents stay blocked (or cascade-cancel) |
 
-`clu cancel <id>` marks the target *and all transitive descendants* as
-cancelled. `clu reopen <id>` reverses either terminal state.
+`clu cancel <id>` marks the target **and all transitive descendants** as cancelled — the cascade is the whole point of having a status distinct from `closed`. `clu reopen <id>` reverses either terminal state.
 
-## Multi-agent setup
+## 🤖 Multi-agent setup
 
 Declare your agents in `.clu/config.yaml`:
 
@@ -116,16 +120,21 @@ Then each agent claims from its own lane:
 clu claim --agent code-reviewer --wait --heartbeat
 ```
 
-`--heartbeat` is opt-in; without it the claim loop doesn't advertise
-liveness. With it, `clu agent ls` shows who's currently online and
-what they were last seen doing.
+`--heartbeat` is opt-in; without it the claim loop doesn't advertise liveness. With it, `clu agent ls` shows who's online and when they were last seen.
 
-Coordinators route work by either assigning directly
-(`clu create -a doc-writer ...`) or by tagging capability
-(`clu create --capability docs ...`). Capability-tagged issues in the
-default lane flow to whichever agent advertises that capability.
+Coordinators route work by either **assigning directly** (`clu create -a doc-writer ...`) or **tagging capability** (`clu create --capability docs ...`). Capability-tagged issues in the default lane flow to whichever agent advertises that capability.
 
-## Workflows
+### 👁️ Watching for work (the killer combo)
+
+In Claude Code, point the Monitor tool at `clu ready --watch -a <your-name>` and you've got a push-style task feed: clu suppresses unchanged ticks, Monitor turns each new state into one notification. **No polling loops, no `while true`, no `diff` against `seen`.**
+
+```
+Monitor: clu ready --watch -a code-reviewer
+```
+
+See [AGENTS.md](AGENTS.md) for the full pattern.
+
+## 📋 Workflows
 
 Drop a YAML template into `.clu/templates/`:
 
@@ -140,7 +149,7 @@ steps:
     title: "Test {{version}}"
     needs: [build]
   - id: approve
-    type: checkpoint
+    type: checkpoint                          # 🚦 human gate
     title: "Approve {{version}} for prod"
     wait: { approval: [alice, bob] }
     needs: [test]
@@ -150,56 +159,47 @@ steps:
 ```
 
 ```bash
-clu run release -v version=1.2.3      # instantiates parent + 4 children + deps
+clu run release -v version=1.2.3   # → parent + 4 children + deps in one shot
 ```
 
-Agents drive it by claiming `ready` issues as each step closes;
-humans clear `checkpoint` steps via `clu approve <id>`. See
-`demo-workflow.sh` for the full demo.
+Agents drive it by claiming `ready` issues as each step closes; humans clear checkpoint gates via `clu approve <id>`. Failing a checkpoint cascade-cancels the rest of the run. See [`demo-workflow.sh`](demo-workflow.sh) for the full demo.
 
-## Layout
+## 📁 Layout
 
 ```
-cmd/clu/                 entrypoint
-internal/cli/            one file per kong subcommand
-internal/store/          SQLite layer, split by domain
+cmd/clu/                 ⌨️  entrypoint
+internal/cli/            🧩 one file per kong subcommand
+internal/store/          💾 SQLite layer, split by domain
   ├── models.go            bun model types
-  ├── migrations.go        manual schema migrations (PRAGMA user_version)
+  ├── migrations.go        manual migrations (PRAGMA user_version)
   ├── issues.go            create/get/close/reopen/cancel/update
   ├── claim.go             ready/claim atomic queries
   ├── deps.go              dependency edges + cycle detection
-  ├── …                    labels, comments, kv, cron, agents, doctor
-internal/workflow/       YAML template loader + planner
-internal/config/         config.yaml parsing
-.clu/                    per-project storage (DB, config, templates)
+  └── …                    labels, comments, kv, cron, agents, doctor
+internal/workflow/       📋 YAML template loader + planner
+internal/config/         ⚙️  config.yaml parsing
+.clu/                    📂 per-project storage (DB, config, templates)
 ```
 
-## Design notes
+## 🧠 Design notes
 
-- **One identity flag.** `-a` / `--agent` is both the lane filter and
-  the actor identity. There is no `--as`. Local single-user tool —
-  the user/agent distinction was deliberately collapsed.
-- **Hand-rolled migrations** via `PRAGMA user_version`. Append-only,
-  never edit an applied migration.
-- **Bun + sqlitedialect** for queries. Raw SQL escape hatches in
-  exactly two places: the atomic claim and the cancel-cascade CTE.
-- **Kong** for the CLI struct, with struct-tag commands and
-  intermixed flags.
+- 🪪 **One identity flag.** `-a` / `--agent` is both the lane filter and the actor identity. No `--as` — single-user local tool, the user/agent distinction was deliberately collapsed.
+- 🗄️ **Hand-rolled migrations** via `PRAGMA user_version`. Append-only, never edit an applied migration.
+- 🛠️ **Bun + sqlitedialect** for queries. Raw SQL escape hatches in exactly two places: the atomic claim, and the cancel-cascade CTE.
+- 🎀 **Kong** for the CLI struct, with struct-tag commands and intermixed flags.
 
-The rationale for each sticky decision lives in `CLAUDE.md`.
+The rationale for each sticky decision lives in [`CLAUDE.md`](CLAUDE.md).
 
-## Not in scope
+## 🙅 Not in scope
 
-`clu` is deliberately small. It does not try to be:
+`clu` is deliberately small. It does **not** try to be:
 
-- a cross-machine sync layer (if you need that, copy the file or
-  layer something on top),
-- a generic project-management tool (no sprints, milestones, OKRs),
-- a bridge to GitHub/Linear/Jira (issue trackers integrate with each
-  other badly; pick one),
-- an agent runtime (the agent is whoever runs `clu claim`).
+- 🔄 a cross-machine sync layer — copy the file or layer something on top
+- 📊 a generic project-management tool — no sprints, milestones, OKRs
+- 🔗 a bridge to GitHub / Linear / Jira — trackers integrate with each other badly; pick one
+- 🤖 an agent runtime — *you* are the agent; `clu` just gives you somewhere to put the work
 
-## Contributing
+## 🤝 Contributing
 
 PRs welcome. Before sending:
 
@@ -208,9 +208,12 @@ go build ./... && go test ./...
 ./demo.sh && ./demo-workflow.sh
 ```
 
-See `CLAUDE.md` for code conventions (one file per Kong command,
-sentinel errors per entity, JSON-clean output, etc.).
+See [`CLAUDE.md`](CLAUDE.md) for code conventions (one file per kong command, sentinel errors per entity, JSON-clean output, etc.).
 
-## License
+## 📜 License
 
 MIT — see [LICENSE](LICENSE).
+
+<p align="center">
+  <sub>Built for the era of many small agents working together. ⚡</sub>
+</p>
