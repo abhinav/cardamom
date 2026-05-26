@@ -54,10 +54,18 @@ type LabelRmCmd struct {
 
 func (c *LabelRmCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		if err := s.RemoveLabels(r.ctx, c.ID, c.Labels); err != nil {
+		removed, err := s.RemoveLabels(r.ctx, c.ID, c.Labels)
+		if err != nil {
 			return err
 		}
-		r.notice("removed %d label(s) from %s\n", len(c.Labels), c.ID)
+		// Honest count: report actual removals, surface absent ones
+		// so a script can tell whether the call changed anything.
+		absent := len(c.Labels) - removed
+		if absent > 0 {
+			r.notice("removed %d label(s) from %s (%d not present)\n", removed, c.ID, absent)
+		} else {
+			r.notice("removed %d label(s) from %s\n", removed, c.ID)
+		}
 		return nil
 	})
 }

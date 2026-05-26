@@ -192,17 +192,19 @@ func expandStatuses(in []string) []string {
 	return out
 }
 
-// parseDate accepts "YYYY-MM-DD" or RFC3339 and returns a Unix-epoch pointer.
-// An empty string returns nil, nil (no filter on that dimension).
+// parseDate accepts the same forms as `clu defer`: YYYY-MM-DD,
+// RFC3339, "+Nh/Nd/Nw" relative durations, and "tomorrow". Empty
+// string → (nil, nil) — no filter on that dimension. Shared with
+// parseWhen so an operator using --created-after sees the same
+// parser they get on `clu defer`.
 func parseDate(s string) (*int64, error) {
 	if s == "" {
 		return nil, nil
 	}
-	for _, layout := range []string{time.RFC3339, "2006-01-02"} {
-		if t, err := time.Parse(layout, s); err == nil {
-			u := t.Unix()
-			return &u, nil
-		}
+	t, err := parseWhen(s, time.Now())
+	if err != nil {
+		return nil, err
 	}
-	return nil, fmt.Errorf("invalid date %q (use YYYY-MM-DD or RFC3339)", s)
+	u := t.Unix()
+	return &u, nil
 }

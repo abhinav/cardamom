@@ -423,7 +423,7 @@ func TestLabelsAddListRemove(t *testing.T) {
 	if len(got) != 2 || got[0] != "p0" || got[1] != "security" {
 		t.Fatalf("expected [p0 security], got %v", got)
 	}
-	if err := s.RemoveLabels(ctx, a.ID, []string{"security"}); err != nil {
+	if _, err := s.RemoveLabels(ctx, a.ID, []string{"security"}); err != nil {
 		t.Fatal(err)
 	}
 	got, _ = s.LabelsForIssue(ctx, a.ID)

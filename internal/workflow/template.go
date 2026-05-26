@@ -182,8 +182,16 @@ func (t Template) Validate() error {
 			return fmt.Errorf("invalid var name %q", name)
 		}
 		if v.Pattern != "" {
-			if _, err := regexp.Compile(v.Pattern); err != nil {
+			re, err := regexp.Compile(v.Pattern)
+			if err != nil {
 				return fmt.Errorf("var %s: invalid pattern: %w", name, err)
+			}
+			// A default that violates its own pattern is dead on
+			// arrival — `clu run` would reject it at use time, but
+			// catching it during validate keeps the template author
+			// from shipping a template that errors only at run.
+			if v.Default != "" && !re.MatchString(v.Default) {
+				return fmt.Errorf("var %s: default %q does not match pattern %s", name, v.Default, v.Pattern)
 			}
 		}
 	}

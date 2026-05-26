@@ -3,13 +3,13 @@ package cli
 import "github.com/rovak/clu/internal/store"
 
 type BlockedCmd struct {
-	N     int    `short:"n" default:"20" help:"Maximum number of issues."`
+	Limit int    `short:"n" name:"limit" default:"20" help:"Limit results (0 = unlimited)."`
 	Agent string `short:"a" help:"Lane to query (default: unassigned)."`
 }
 
 func (c *BlockedCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		issues, err := s.Blocked(r.ctx, c.N, agentPtr(c.Agent))
+		issues, err := s.Blocked(r.ctx, c.Limit, agentPtr(c.Agent))
 		if err != nil {
 			return err
 		}

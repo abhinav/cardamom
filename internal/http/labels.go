@@ -43,8 +43,16 @@ func (s *Server) handleAddLabels(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 func (s *Server) handleRemoveLabel(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	id := r.PathValue("id")
 	label := r.PathValue("label")
-	if err := s.store.RemoveLabels(ctxOf(r), id, []string{label}); err != nil {
+	removed, err := s.store.RemoveLabels(ctxOf(r), id, []string{label})
+	if err != nil {
 		respondErr(w, err)
+		return
+	}
+	// 404 when the label isn't on the issue (mirrors the CLI's honest
+	// no-op count for `label rm`). Otherwise a scripted DELETE has no
+	// way to tell whether the call changed anything.
+	if removed == 0 {
+		writeError(w, stdhttp.StatusNotFound, "label "+label+" is not on issue "+id)
 		return
 	}
 	labels, err := s.store.LabelsForIssue(ctxOf(r), id)

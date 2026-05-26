@@ -2,7 +2,7 @@ package store
 
 import (
 	"context"
-	"errors"
+	"fmt"
 
 	"github.com/uptrace/bun"
 )
@@ -19,7 +19,7 @@ func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) 
 	}
 	for _, l := range labels {
 		if l == "" {
-			return 0, errors.New("label cannot be empty")
+			return 0, fmt.Errorf("%w: label cannot be empty", ErrInvalid)
 		}
 	}
 	if err := s.exists(ctx, issueID); err != nil {
@@ -37,22 +37,27 @@ func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) 
 	return int(n), nil
 }
 
-// RemoveLabels detaches labels from an issue. No-op for empty list or for
-// labels that are not present. Returns ErrNotFound if the issue itself
-// doesn't exist (rather than silently no-op'ing on a typo'd ID).
-func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []string) error {
+// RemoveLabels detaches labels from an issue. Returns the number
+// actually removed (0 when the caller named labels that weren't on
+// the issue). Empty list → (0, nil). Returns ErrNotFound if the issue
+// itself doesn't exist (vs. silently no-op'ing on a typo'd ID).
+func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []string) (int, error) {
 	if err := s.exists(ctx, issueID); err != nil {
-		return err
+		return 0, err
 	}
 	if len(labels) == 0 {
-		return nil
+		return 0, nil
 	}
-	_, err := s.db.NewDelete().
+	res, err := s.db.NewDelete().
 		Model((*IssueLabel)(nil)).
 		Where("issue_id = ?", issueID).
 		Where("label IN (?)", bun.In(labels)).
 		Exec(ctx)
-	return err
+	if err != nil {
+		return 0, err
+	}
+	n, _ := res.RowsAffected()
+	return int(n), nil
 }
 
 // LabelsForIssue returns the labels on a single issue, alphabetically.

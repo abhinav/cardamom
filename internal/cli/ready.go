@@ -10,7 +10,7 @@ import (
 )
 
 type ReadyCmd struct {
-	N         int           `short:"n" default:"20" help:"Maximum number of issues."`
+	Limit     int           `short:"n" name:"limit" default:"20" help:"Limit results (0 = unlimited)."`
 	Agent     string        `short:"a" help:"Lane to query (default: unassigned)."`
 	Wait      bool          `help:"Block until at least one issue is ready, then print and exit."`
 	Watch     bool          `short:"w" name:"watch" help:"Keep emitting the ready list as it changes. Ctrl+C to exit."`
@@ -56,7 +56,7 @@ func (c *ReadyCmd) Run(r *runCtx) error {
 			}
 			return watchLoop(r.ctx, r.stdout, interval, func() (string, error) {
 				heartbeatTick(s, hbName, hbCaps)
-				issues, err := s.Ready(r.ctx, c.N, agentPtr(c.Agent), caps)
+				issues, err := s.Ready(r.ctx, c.Limit, agentPtr(c.Agent), caps)
 				if err != nil {
 					return "", err
 				}
@@ -83,9 +83,9 @@ func (c *ReadyCmd) Run(r *runCtx) error {
 			err    error
 		)
 		if c.Wait {
-			issues, err = s.WaitReady(r.ctx, c.N, agentPtr(c.Agent), caps, c.Interval)
+			issues, err = s.WaitReady(r.ctx, c.Limit, agentPtr(c.Agent), caps, c.Interval)
 		} else {
-			issues, err = s.Ready(r.ctx, c.N, agentPtr(c.Agent), caps)
+			issues, err = s.Ready(r.ctx, c.Limit, agentPtr(c.Agent), caps)
 		}
 		if err != nil {
 			return err
