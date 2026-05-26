@@ -2,7 +2,7 @@ package cli
 
 import "github.com/rovak/beadsv2/internal/store"
 
-// LinkCmd is sugar for `cli dep add <child> <parent>`.
+// LinkCmd is sugar for `clu dep add <child> <parent>`.
 type LinkCmd struct {
 	Child  string `arg:"" help:"Child issue (the one that depends)."`
 	Parent string `arg:"" help:"Parent issue (the blocker)."`

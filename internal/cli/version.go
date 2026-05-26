@@ -43,7 +43,7 @@ func (c *VersionCmd) Run(r *runCtx) error {
 	if r.json {
 		return r.emitJSON(v)
 	}
-	fmt.Fprintf(r.stdout, "cli %s", v.Version)
+	fmt.Fprintf(r.stdout, "clu %s", v.Version)
 	if v.Revision != "" {
 		fmt.Fprintf(r.stdout, " (%s", v.Revision)
 		if v.Dirty {

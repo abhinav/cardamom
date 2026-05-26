@@ -1,22 +1,22 @@
 #!/usr/bin/env bash
-# demo.sh — exercise bd through a realistic workflow so you can eyeball
+# demo.sh — exercise clu through a realistic workflow so you can eyeball
 # speed and output.
 #
 # Usage:
-#   ./demo.sh                 # uses ./bd (local build)
-#   BD=/path/to/bd ./demo.sh  # override binary path
+#   ./demo.sh                 # uses ./clu (local build)
+#   BD=/path/to/clu ./demo.sh # override binary path
 #
 # Runs entirely inside a temp directory; cleans up on exit.
 
 set -euo pipefail
 
-BD="${BD:-$(cd "$(dirname "$0")" && pwd)/cli}"
+BD="${BD:-$(cd "$(dirname "$0")" && pwd)/clu}"
 if [[ ! -x "$BD" ]]; then
-    echo "error: cli binary not found at $BD — run 'go build -o cli ./cmd/cli' first" >&2
+    echo "error: clu binary not found at $BD — run 'go build -o clu ./cmd/clu' first" >&2
     exit 1
 fi
 
-WORK=$(mktemp -d -t cli-demo-XXXXXX)
+WORK=$(mktemp -d -t clu-demo-XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 cd "$WORK"
 
@@ -147,7 +147,7 @@ cd "$WORK/clone"
 "$BD" init >/dev/null
 timed "$BD" import "$WORK/dump.jsonl"
 
-ORIG=$("$BD" --dir "$WORK/.db" count --status all)
+ORIG=$("$BD" --dir "$WORK/.clu" count --status all)
 COPY=$("$BD" count --status all)
 note "original: $ORIG issues   clone: $COPY issues"
 

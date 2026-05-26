@@ -1,4 +1,4 @@
-// Package cli wires the bd command-line interface on top of internal/store.
+// Package cli wires the `clu` command-line interface on top of internal/store.
 package cli
 
 import (
@@ -19,7 +19,7 @@ import (
 
 // CLI is the kong-defined command structure.
 type CLI struct {
-	Dir   string `name:"dir" env:"DB_DIR" default:".db" help:"Database directory."`
+	Dir   string `name:"dir" env:"CLU_DIR" default:".clu" help:"Project directory (database, config, templates)."`
 	JSON  bool   `name:"json" help:"Emit machine-readable JSON instead of human output."`
 	Quiet bool   `short:"q" name:"quiet" help:"Suppress non-essential output (errors still go to stderr)."`
 
@@ -47,9 +47,9 @@ type CLI struct {
 	Note       NoteCmd       `cmd:"" help:"Manage an issue's freeform notes."`
 	Comment    CommentCmd    `cmd:"" help:"Manage threaded comments on an issue."`
 	KV         KVCmd         `cmd:"" help:"Manage a generic key-value store (feature flags, env, scratch data)."`
-	Cron       CronCmd       `cmd:"" help:"Schedule recurring cli invocations (drive from OS cron / launchd)."`
+	Cron       CronCmd       `cmd:"" help:"Schedule recurring clu invocations (drive from OS cron / launchd)."`
 	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
-	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'cli export'."`
+	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'clu export'."`
 	Info       InfoCmd       `cmd:"" help:"Show database path, schema version, and a summary of issues."`
 	Statuses   StatusesCmd   `cmd:"" help:"List valid issue statuses."`
 	Types      TypesCmd      `cmd:"" help:"List valid issue types."`
@@ -100,7 +100,7 @@ func eachID(r *runCtx, ids []string, fn func(string) (any, error)) error {
 // watchLoop calls render() once per `interval`, emitting output only when
 // it changes from the previous render. Returns when ctx is cancelled,
 // returning ctx.Err() so the caller maps it to exit 130 (same convention
-// as `cli ready --wait`).
+// as `clu ready --wait`).
 //
 // Two output styles, picked based on whether w is a TTY:
 //
@@ -199,7 +199,7 @@ func (c *runCtx) dbPath() string { return filepath.Join(c.dir, "data.sqlite") }
 
 func (c *runCtx) openStore() (*store.Store, error) {
 	if _, err := os.Stat(c.dbPath()); errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("no database at %s — run `cli init`", c.dbPath())
+		return nil, fmt.Errorf("no database at %s — run `clu init`", c.dbPath())
 	}
 	return store.Open(c.dbPath())
 }
@@ -257,8 +257,8 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 	}
 	var cli CLI
 	parser, err := kong.New(&cli,
-		kong.Name("cli"),
-		kong.Description("Minimal SQLite-backed issue tracker. Use -V or 'cli version' to print version."),
+		kong.Name("clu"),
+		kong.Description("clu — SQLite-backed issue tracker for AI agents. Use -V or 'clu version' to print version."),
 		kong.Writers(stdout, stderr),
 		kong.Exit(func(int) {}), // we manage exit codes ourselves
 		kong.UsageOnError(),

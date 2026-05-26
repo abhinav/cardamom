@@ -10,5 +10,5 @@ func newID() string {
 	if _, err := rand.Read(b); err != nil {
 		panic(err)
 	}
-	return "bd-" + hex.EncodeToString(b)
+	return "clu-" + hex.EncodeToString(b)
 }

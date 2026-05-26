@@ -8,7 +8,7 @@ import (
 	"github.com/rovak/beadsv2/internal/workflow"
 )
 
-// TemplateCmd is the parent for `cli template ls|show|validate`.
+// TemplateCmd is the parent for `clu template ls|show|validate`.
 type TemplateCmd struct {
 	Ls       TemplateLsCmd       `cmd:"" aliases:"list" help:"List available templates."`
 	Show     TemplateShowCmd     `cmd:"" help:"Print one template as parsed YAML."`
@@ -56,7 +56,7 @@ func (c *TemplateLsCmd) Run(r *runCtx) error {
 }
 
 type TemplateShowCmd struct {
-	Name string `arg:"" help:"Template name (in .db/templates/) or path to a .yaml file."`
+	Name string `arg:"" help:"Template name (in .clu/templates/) or path to a .yaml file."`
 }
 
 func (c *TemplateShowCmd) Run(r *runCtx) error {
@@ -73,7 +73,7 @@ func (c *TemplateShowCmd) Run(r *runCtx) error {
 }
 
 type TemplateValidateCmd struct {
-	Name string `arg:"" help:"Template name (in .db/templates/) or path to a .yaml file."`
+	Name string `arg:"" help:"Template name (in .clu/templates/) or path to a .yaml file."`
 }
 
 func (c *TemplateValidateCmd) Run(r *runCtx) error {

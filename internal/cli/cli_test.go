@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// testCLI bundles the args base ("--dir <tmp>/.db") with stdio buffers.
+// testCLI bundles the args base ("--dir <tmp>/.clu") with stdio buffers.
 type testCLI struct {
 	t   *testing.T
 	dir string
@@ -24,7 +24,7 @@ type testCLI struct {
 
 func newTestCLI(t *testing.T) *testCLI {
 	t.Helper()
-	return &testCLI{t: t, dir: filepath.Join(t.TempDir(), ".db"), ctx: context.Background()}
+	return &testCLI{t: t, dir: filepath.Join(t.TempDir(), ".clu"), ctx: context.Background()}
 }
 
 func (c *testCLI) run(args ...string) string {
@@ -53,7 +53,7 @@ func TestCLIInitAndCreate(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	id := strings.TrimSpace(c.run("create", "-p", "1", "first", "task"))
-	if !strings.HasPrefix(id, "bd-") {
+	if !strings.HasPrefix(id, "clu-") {
 		t.Fatalf("expected id, got %q", id)
 	}
 	show := c.run("show", id)
@@ -385,7 +385,7 @@ func TestCLIListFilterByPriorityRange(t *testing.T) {
 	mid := strings.TrimSpace(c.run("create", "-p", "2", "mid"))
 	c.run("create", "-p", "4", "lo")
 	out := c.run("list", "--priority-min", "1", "--priority-max", "3")
-	if !strings.Contains(out, mid) || strings.Count(out, "bd-") != 1 {
+	if !strings.Contains(out, mid) || strings.Count(out, "clu-") != 1 {
 		t.Fatalf("expected only mid:\n%s", out)
 	}
 }
@@ -396,7 +396,7 @@ func TestCLIListFilterByTitle(t *testing.T) {
 	hit := strings.TrimSpace(c.run("create", "Fix the BUG today"))
 	c.run("create", "unrelated")
 	out := c.run("list", "--title-contains", "bug")
-	if !strings.Contains(out, hit) || strings.Count(out, "bd-") != 1 {
+	if !strings.Contains(out, hit) || strings.Count(out, "clu-") != 1 {
 		t.Fatalf("expected only the bug issue:\n%s", out)
 	}
 }
@@ -686,7 +686,7 @@ func TestCLINoteSetAppendClearShow(t *testing.T) {
 func TestCLIVersionShort(t *testing.T) {
 	c := newTestCLI(t)
 	out := c.run("-V")
-	if !strings.HasPrefix(out, "cli ") {
+	if !strings.HasPrefix(out, "clu ") {
 		t.Fatalf("expected -V to print version: %q", out)
 	}
 }
@@ -1164,7 +1164,7 @@ func TestCLIClaimJSONIsCleanJSON(t *testing.T) {
 func TestCLIVersion(t *testing.T) {
 	c := newTestCLI(t)
 	out := c.run("version")
-	if !strings.HasPrefix(out, "cli ") {
+	if !strings.HasPrefix(out, "clu ") {
 		t.Fatalf("expected 'bd <ver>': %q", out)
 	}
 }
@@ -1192,7 +1192,7 @@ func TestCLIQuietKeepsDataOutput(t *testing.T) {
 	c.run("init")
 	// create's data output (the new ID) must still print under --quiet.
 	id := strings.TrimSpace(c.run("--quiet", "create", "task"))
-	if !strings.HasPrefix(id, "bd-") {
+	if !strings.HasPrefix(id, "clu-") {
 		t.Fatalf("expected ID even under --quiet, got %q", id)
 	}
 }
@@ -1234,7 +1234,7 @@ func TestCLIJSONShowIncludesLabels(t *testing.T) {
 func TestCLICompletionBash(t *testing.T) {
 	c := newTestCLI(t)
 	out := c.run("completion", "bash")
-	if !strings.Contains(out, "complete -F _cli_completions cli") {
+	if !strings.Contains(out, "complete -F _clu_completions clu") {
 		t.Fatalf("bash completion missing complete line:\n%s", out)
 	}
 }
@@ -1299,7 +1299,7 @@ func TestCLIJSONWriteCommandsEmitObject(t *testing.T) {
 	out := c.run("--json", "create", "first")
 	created := parseObj(t, out)
 	id, _ := created["id"].(string)
-	if !strings.HasPrefix(id, "bd-") {
+	if !strings.HasPrefix(id, "clu-") {
 		t.Fatalf("create --json missing id: %+v", created)
 	}
 

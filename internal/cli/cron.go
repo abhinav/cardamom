@@ -13,7 +13,7 @@ import (
 	"github.com/rovak/beadsv2/internal/store"
 )
 
-// CronCmd dispatches the `cli cron …` subtree.
+// CronCmd dispatches the `clu cron …` subtree.
 type CronCmd struct {
 	Add     CronAddCmd     `cmd:"" help:"Add a scheduled job."`
 	List    CronListCmd    `cmd:"" aliases:"ls" help:"List all scheduled jobs."`
@@ -42,7 +42,7 @@ type cronJob struct {
 //
 // @monthly is approximate (30 * 24h) — we deliberately don't try to honour
 // calendar months. If a user needs "first of every month" they can drive
-// `cli cron run` from a more capable OS cron line.
+// `clu cron run` from a more capable OS cron line.
 func parseSchedule(s string) (time.Duration, error) {
 	s = strings.TrimSpace(s)
 	switch strings.ToLower(s) {
@@ -91,7 +91,7 @@ func (c *CronAddCmd) Run(r *runCtx) error {
 		args = args[1:]
 	}
 	if len(args) == 0 {
-		return errors.New("missing job args; use `--` to separate them, e.g. `cli cron add foo --schedule @hourly -- create -a x \"y\"`")
+		return errors.New("missing job args; use `--` to separate them, e.g. `clu cron add foo --schedule @hourly -- create -a x \"y\"`")
 	}
 	interval, err := parseSchedule(c.Schedule)
 	if err != nil {

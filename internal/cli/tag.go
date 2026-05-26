@@ -2,7 +2,7 @@ package cli
 
 import "github.com/rovak/beadsv2/internal/store"
 
-// TagCmd is sugar for `cli label add <id> <labels...>`.
+// TagCmd is sugar for `clu label add <id> <labels...>`.
 type TagCmd struct {
 	ID     string   `arg:"" help:"Issue ID."`
 	Labels []string `arg:"" required:"" help:"Label(s) to add."`

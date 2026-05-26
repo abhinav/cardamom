@@ -2,7 +2,7 @@ package cli
 
 import "github.com/rovak/beadsv2/internal/store"
 
-// PriorityCmd is sugar for `cli update <id> -p <N>`.
+// PriorityCmd is sugar for `clu update <id> -p <N>`.
 type PriorityCmd struct {
 	ID    string `arg:"" help:"Issue ID."`
 	Level int    `arg:"" help:"New priority (0=highest)."`

@@ -12,7 +12,7 @@ import (
 
 // RunCmd instantiates a workflow template into issues + deps.
 type RunCmd struct {
-	Template string   `arg:"" help:"Template name (in .db/templates/) or path to a .yaml file."`
+	Template string   `arg:"" help:"Template name (in .clu/templates/) or path to a .yaml file."`
 	Var      []string `short:"v" name:"var" placeholder:"KEY=VALUE" help:"Variable bindings (repeatable)."`
 	DryRun   bool     `name:"dry-run" help:"Validate and print the plan without writing to the DB."`
 }
@@ -100,7 +100,7 @@ func newCheckpointPayload(w *workflow.Wait) checkpointPayload {
 // If `ref` contains a path separator or ends in .yaml/.yml, it is loaded
 // directly as a file (relative paths are resolved against the process
 // cwd, not the DB dir). Otherwise it's treated as a name and looked up
-// in .db/templates/.
+// in .clu/templates/.
 func loadTemplate(r *runCtx, ref string) (workflow.Template, error) {
 	if looksLikePath(ref) {
 		return workflow.Load(ref)

@@ -2,20 +2,20 @@
 # demo-workflow.sh — exercise the workflow-template feature end-to-end.
 #
 # Usage:
-#   ./demo-workflow.sh                 # uses ./cli (local build)
-#   BD=/path/to/cli ./demo-workflow.sh # override binary path
+#   ./demo-workflow.sh                 # uses ./clu (local build)
+#   BD=/path/to/clu ./demo-workflow.sh # override binary path
 #
 # Runs entirely inside a temp directory; cleans up on exit.
 
 set -euo pipefail
 
-BD="${BD:-$(cd "$(dirname "$0")" && pwd)/cli}"
+BD="${BD:-$(cd "$(dirname "$0")" && pwd)/clu}"
 if [[ ! -x "$BD" ]]; then
-    echo "error: cli binary not found at $BD — run 'go build -o cli ./cmd/cli' first" >&2
+    echo "error: clu binary not found at $BD — run 'go build -o clu ./cmd/clu' first" >&2
     exit 1
 fi
 
-WORK=$(mktemp -d -t cli-workflow-demo-XXXXXX)
+WORK=$(mktemp -d -t clu-workflow-demo-XXXXXX)
 trap 'rm -rf "$WORK"' EXIT
 cd "$WORK"
 
@@ -28,9 +28,9 @@ hr "init a fresh database in $WORK"
 run "$BD" init
 
 # -----------------------------------------------------------------
-hr "drop a release template into .db/templates/"
-mkdir -p .db/templates
-cat >.db/templates/release.yaml <<'YAML'
+hr "drop a release template into .clu/templates/"
+mkdir -p .clu/templates
+cat >.clu/templates/release.yaml <<'YAML'
 name: release
 description: Standard build → test → deploy release
 vars:
@@ -50,10 +50,10 @@ steps:
     title: "Deploy {{version}}"
     needs: [test]
 YAML
-note "wrote .db/templates/release.yaml"
+note "wrote .clu/templates/release.yaml"
 
 # A second template — fan-out + fan-in shape.
-cat >.db/templates/parallel.yaml <<'YAML'
+cat >.clu/templates/parallel.yaml <<'YAML'
 name: parallel
 description: Two parallel builds, then a join
 steps:
@@ -69,7 +69,7 @@ steps:
     title: "Publish artefacts"
     needs: [build-linux, build-darwin]
 YAML
-note "wrote .db/templates/parallel.yaml"
+note "wrote .clu/templates/parallel.yaml"
 
 # -----------------------------------------------------------------
 hr "template ls / show / validate"
@@ -79,7 +79,7 @@ run "$BD" template show release | sed 's/^/  /'
 
 # -----------------------------------------------------------------
 hr "validation rejects a broken template"
-cat >.db/templates/broken.yaml <<'YAML'
+cat >.clu/templates/broken.yaml <<'YAML'
 name: broken
 steps:
   - id: a
@@ -90,7 +90,7 @@ note "'broken' references a missing step — expect a non-zero exit:"
 if "$BD" template validate broken; then
     echo "FAIL: broken template passed validation" >&2; exit 1
 fi
-rm .db/templates/broken.yaml
+rm .clu/templates/broken.yaml
 
 # -----------------------------------------------------------------
 hr "dry-run instantiates nothing"
@@ -148,7 +148,7 @@ timed "$BD" ready
 
 # -----------------------------------------------------------------
 hr "checkpoints — explicit approval gates"
-cat >.db/templates/staged.yaml <<YAML
+cat >.clu/templates/staged.yaml <<YAML
 name: staged
 description: Release with a manual checkpoint and an approval checkpoint
 vars:
@@ -202,7 +202,7 @@ note "manual checkpoint is now ready; clear it with approve:"
 run "$BD" approve "$CONFIRM_ID"
 
 note "wrong-user approval fails: (simulating another user via fake approver)"
-cat >.db/templates/wrong.yaml <<'YAML'
+cat >.clu/templates/wrong.yaml <<'YAML'
 name: wrong
 steps:
   - id: gate
@@ -229,7 +229,7 @@ note "deploy is now ready:"
 "$BD" ready
 
 note "fail also closes the checkpoint, with a different label:"
-cat >.db/templates/cancel.yaml <<'YAML'
+cat >.clu/templates/cancel.yaml <<'YAML'
 name: cancel
 steps:
   - id: review

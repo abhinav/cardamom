@@ -1,8 +1,10 @@
+/clu
 /cli
 /bd
 /beadsv2
 /.beads/
 /.db/
+/.clu/
 *.db
 *.db-shm
 *.db-wal

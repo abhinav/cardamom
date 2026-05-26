@@ -28,31 +28,31 @@ func (c *CompletionCmd) Run(r *runCtx) error {
 	cmds := strings.Join(completionCmds, " ")
 	switch c.Shell {
 	case "bash":
-		fmt.Fprintf(r.stdout, `# bash completion for cli. Source this file or add to ~/.bashrc:
-#   source <(cli completion bash)
-_cli_completions() {
+		fmt.Fprintf(r.stdout, `# bash completion for clu. Source this file or add to ~/.bashrc:
+#   source <(clu completion bash)
+_clu_completions() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
     if [ "$COMP_CWORD" -eq 1 ]; then
         COMPREPLY=( $(compgen -W "%s" -- "$cur") )
     fi
 }
-complete -F _cli_completions cli
+complete -F _clu_completions clu
 `, cmds)
 	case "zsh":
-		fmt.Fprintf(r.stdout, `# zsh completion for cli. Source this file or add to ~/.zshrc:
-#   source <(cli completion zsh)
-#compdef cli
-_cli() {
+		fmt.Fprintf(r.stdout, `# zsh completion for clu. Source this file or add to ~/.zshrc:
+#   source <(clu completion zsh)
+#compdef clu
+_clu() {
     local commands=( %s )
     _arguments "1: :($commands)" "*::arg:->args"
 }
-compdef _cli cli
+compdef _clu clu
 `, cmds)
 	case "fish":
-		fmt.Fprintln(r.stdout, "# fish completion for cli. Save to ~/.config/fish/completions/cli.fish:")
-		fmt.Fprintln(r.stdout, "#   cli completion fish > ~/.config/fish/completions/cli.fish")
+		fmt.Fprintln(r.stdout, "# fish completion for clu. Save to ~/.config/fish/completions/clu.fish:")
+		fmt.Fprintln(r.stdout, "#   clu completion fish > ~/.config/fish/completions/clu.fish")
 		for _, cmd := range completionCmds {
-			fmt.Fprintf(r.stdout, "complete -c cli -n '__fish_use_subcommand' -a %s\n", cmd)
+			fmt.Fprintf(r.stdout, "complete -c clu -n '__fish_use_subcommand' -a %s\n", cmd)
 		}
 	}
 	return nil
