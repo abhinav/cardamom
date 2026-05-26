@@ -1,6 +1,10 @@
 package cli
 
-import "github.com/rovak/clu/internal/store"
+import (
+	"errors"
+
+	"github.com/rovak/clu/internal/store"
+)
 
 type UpdateCmd struct {
 	ID            string  `arg:"" help:"Issue ID."`
@@ -42,6 +46,9 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 		case c.Description != nil:
 			f.Description = &c.Description
 		}
+		if !c.hasAnyField() {
+			return errors.New("nothing to update — pass at least one of --title/--status/--priority/--assignee/--unassign/--agent/--no-agent/--description/--no-description")
+		}
 		i, err := s.Update(r.ctx, c.ID, f)
 		if err != nil {
 			return err
@@ -52,4 +59,16 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 		r.notice("updated %s\n", i.ID)
 		return nil
 	})
+}
+
+// hasAnyField reports whether the caller actually passed something to
+// update. Without this guard, `clu update <id>` lies — it reports
+// success without changing anything.
+func (c *UpdateCmd) hasAnyField() bool {
+	return c.Priority != nil ||
+		c.Status != nil ||
+		c.Title != nil ||
+		c.Assignee != nil || c.Unassign ||
+		c.Agent != nil || c.NoAgent ||
+		c.Description != nil || c.NoDescription
 }

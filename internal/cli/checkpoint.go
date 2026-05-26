@@ -78,18 +78,33 @@ func resolveCheckpoint(r *runCtx, id, as string, pass bool, reason string) error
 				return err
 			}
 		}
-		closed, err := s.MarkClosed(r.ctx, id)
+		if pass {
+			closed, err := s.MarkClosed(r.ctx, id)
+			if err != nil {
+				return err
+			}
+			r.notice("passed %s\n", id)
+			if r.json {
+				labels, _ := s.LabelsForIssue(r.ctx, id)
+				return r.emitJSON(issueOut{Issue: closed, Labels: labels})
+			}
+			return nil
+		}
+		// Fail: cancel-cascade. Closing the gate would satisfy the
+		// `link` edge from the downstream step and unblock it — which
+		// is exactly the opposite of what "fail" should do. Cancelling
+		// is the terminal-but-not-unblocking transition, and it
+		// naturally cascades to descendants (so the whole stuck-tail
+		// is marked clearly instead of left dangling).
+		cancelled, err := s.Cancel(r.ctx, []string{id})
 		if err != nil {
 			return err
 		}
-		if pass {
-			r.notice("passed %s\n", id)
-		} else {
-			r.notice("failed %s\n", id)
+		for _, i := range cancelled {
+			r.notice("failed %s — %s\n", i.ID, i.Title)
 		}
 		if r.json {
-			labels, _ := s.LabelsForIssue(r.ctx, id)
-			return r.emitJSON(issueOut{Issue: closed, Labels: labels})
+			return r.emitJSON(cancelled)
 		}
 		return nil
 	})

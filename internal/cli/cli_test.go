@@ -1467,6 +1467,31 @@ func TestCLIRejectsInvalidStatus(t *testing.T) {
 	}
 }
 
+func TestCLIUpdateStatusOutOfClosedClearsTimestamp(t *testing.T) {
+	// Regression: `update --status open` on a closed issue left the
+	// `closed` timestamp populated, so `show` reported an open issue
+	// with a Closed: timestamp.
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.run("close", id)
+	out := c.run("--json", "show", id)
+	if !strings.Contains(out, `"status":"closed"`) || strings.Contains(out, `"closed":null`) {
+		t.Fatalf("setup: expected closed status with non-null timestamp:\n%s", out)
+	}
+
+	c.run("update", id, "--status", "open")
+	out = c.run("--json", "show", id)
+	if !strings.Contains(out, `"status":"open"`) {
+		t.Fatalf("expected status=open after update:\n%s", out)
+	}
+	// `closed` must be cleared — the omitempty JSON tag drops null,
+	// so we look for absence of the "closed" key.
+	if strings.Contains(out, `"closed":`) {
+		t.Fatalf("closed timestamp should be cleared, but JSON still has the key:\n%s", out)
+	}
+}
+
 func TestCLIRejectsInvalidType(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
@@ -1689,6 +1714,96 @@ func TestCLIBriefWorksWithoutInit(t *testing.T) {
 	}
 	if !strings.Contains(out, "No agents declared") {
 		t.Fatalf("expected 'No agents declared' notice:\n%s", out)
+	}
+}
+
+func TestCLINoteSetRejectsEmpty(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.runFail("note", "set", id, "")
+	c.runFail("note", "set", id, "   ") // whitespace-only also rejected
+	// `note clear` is the explicit way to wipe notes.
+	c.run("note", "set", id, "real content")
+	c.run("note", "clear", id)
+	out := c.run("note", "show", id)
+	if !strings.Contains(out, "(no notes)") {
+		t.Fatalf("clear should wipe notes:\n%s", out)
+	}
+}
+
+func TestCLIUpdateRejectsNoFlags(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.runFail("update", id) // no flags
+}
+
+func TestCLIReopenWarnsOnStuckParent(t *testing.T) {
+	// Cancel-cascade then reopen a child: the parent is still
+	// cancelled, so the reopened child will stay blocked forever
+	// unless the user takes action. Reopen must warn (not block).
+	c := newTestCLI(t)
+	c.run("init")
+	parent := strings.TrimSpace(c.run("create", "parent"))
+	child := strings.TrimSpace(c.run("create", "child"))
+	c.run("link", child, parent)
+	c.run("cancel", parent) // cascades to child
+	c.out.Reset()
+	c.err.Reset()
+	c.run("reopen", child)
+	if !strings.Contains(c.err.String(), "unresolved parents") {
+		t.Fatalf("expected stuck-parent warning on stderr:\n%s", c.err.String())
+	}
+	if !strings.Contains(c.err.String(), "cancelled") {
+		t.Fatalf("warning should name the parent status:\n%s", c.err.String())
+	}
+	// Reopen of a child with a closed parent → no warning.
+	p2 := strings.TrimSpace(c.run("create", "p2"))
+	c2 := strings.TrimSpace(c.run("create", "c2"))
+	c.run("link", c2, p2)
+	c.run("close", p2)
+	c.run("close", c2)
+	c.out.Reset()
+	c.err.Reset()
+	c.run("reopen", c2)
+	if strings.Contains(c.err.String(), "unresolved parents") {
+		t.Fatalf("closed parent shouldn't trigger a warning:\n%s", c.err.String())
+	}
+}
+
+func TestCLICreateWarnsOnUndeclaredAgent(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  code-reviewer:
+    description: "reviews"
+`)
+	// Declared agent → no warning.
+	c.out.Reset()
+	c.err.Reset()
+	c.run("create", "-a", "code-reviewer", "ok")
+	if strings.Contains(c.err.String(), "warning") {
+		t.Fatalf("declared agent should not warn:\n%s", c.err.String())
+	}
+	// Undeclared agent → stderr warning, but command still succeeds.
+	c.out.Reset()
+	c.err.Reset()
+	id := strings.TrimSpace(c.run("create", "-a", "ghost", "spook"))
+	if !strings.HasPrefix(id, "clu-") {
+		t.Fatalf("create should still succeed:\n%s", id)
+	}
+	if !strings.Contains(c.err.String(), "ghost") || !strings.Contains(c.err.String(), "not declared") {
+		t.Fatalf("expected warning on stderr:\n%s", c.err.String())
+	}
+	// --quiet suppresses the warning.
+	c.out.Reset()
+	c.err.Reset()
+	c.run("--quiet", "create", "-a", "ghost", "quiet spook")
+	if strings.Contains(c.err.String(), "warning") {
+		t.Fatalf("--quiet should suppress warning:\n%s", c.err.String())
 	}
 }
 

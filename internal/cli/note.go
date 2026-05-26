@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -20,8 +21,14 @@ type NoteSetCmd struct {
 }
 
 func (c *NoteSetCmd) Run(r *runCtx) error {
+	text := strings.TrimSpace(strings.Join(c.Text, " "))
+	if text == "" {
+		// Symmetric with `comment add` (which rejects empty bodies).
+		// Use `clu note clear <id>` if you actually meant to wipe notes;
+		// silently storing "" was confusing in scripts.
+		return errors.New("note text required (use `clu note clear <id>` to clear)")
+	}
 	return withStore(r, func(s *store.Store) error {
-		text := strings.Join(c.Text, " ")
 		i, err := s.SetNotes(r.ctx, c.ID, text)
 		if err != nil {
 			return err

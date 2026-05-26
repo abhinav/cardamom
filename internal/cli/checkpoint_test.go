@@ -137,11 +137,21 @@ func TestCheckpointFail(t *testing.T) {
 	if !strings.Contains(show, "scope creep") {
 		t.Errorf("expected reason note:\n%s", show)
 	}
-
-	// Note: fail closes the issue, so downstream deps are satisfied
-	// just like a pass. The `checkpoint:failed` label is the signal
-	// for operators to decide what to do next (e.g. close downstream
-	// manually). Hard-blocking on fail would need ready-side logic.
+	// Fail cancels the gate (not closes) so downstream stays blocked.
+	// Cancel cascades, so the gate-approval step (which depends on
+	// gate-manual) also goes to cancelled, and the deploy step below
+	// it too.
+	if !strings.Contains(show, "Status:   cancelled") {
+		t.Errorf("expected gate to be cancelled after fail:\n%s", show)
+	}
+	for _, name := range []string{"gate-approval", "deploy"} {
+		if id := ids[name]; id != "" {
+			s := c.run("show", id)
+			if !strings.Contains(s, "Status:   cancelled") {
+				t.Errorf("expected %s to cascade-cancel after gate fail:\n%s", name, s)
+			}
+		}
+	}
 }
 
 func TestApproveOnNonCheckpoint(t *testing.T) {

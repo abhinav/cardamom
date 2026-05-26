@@ -216,8 +216,16 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 	}
 	if f.Status != nil {
 		q = q.Set("status = ?", *f.Status)
-		if *f.Status == "closed" {
+		// Keep `closed` (the timestamp) in lock-step with the status.
+		// MarkClosed/Cancel set it on the way in; the inverse — clearing
+		// when status transitions out of closed/cancelled — has to be
+		// explicit here too, otherwise `show` displays a stale Closed:
+		// timestamp on an issue whose status is open/in_progress.
+		switch *f.Status {
+		case "closed", "cancelled":
 			q = q.Set("closed = ?", now())
+		default:
+			q = q.Set("closed = NULL")
 		}
 	}
 	if f.Priority != nil {
