@@ -35,6 +35,7 @@ import { Card, CardContent, CardHeader } from '../components/ui/card'
 import { Separator } from '../components/ui/separator'
 import { ScrollArea } from '../components/ui/scroll-area'
 import LiveIndicator from '../components/LiveIndicator'
+import { Markdown } from '../components/Markdown'
 import {
   Select,
   SelectContent,
@@ -528,7 +529,7 @@ function EditableDescription({
       >
         <CardContent className="px-4 py-3">
           {value ? (
-            <pre className="text-sm whitespace-pre-wrap font-sans">{value}</pre>
+            <Markdown source={value} />
           ) : (
             <span className="text-muted-foreground text-sm">
               click to add a description…
@@ -707,9 +708,9 @@ function CommentsSection({
                   {formatRelative(c.created)}
                 </span>
               </div>
-              <pre className="mt-1 text-sm whitespace-pre-wrap font-sans">
-                {c.body}
-              </pre>
+              <div className="mt-1">
+                <Markdown source={c.body} />
+              </div>
             </div>
           </li>
         ))}
