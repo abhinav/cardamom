@@ -1,16 +1,20 @@
 # Project notes for Claude
 
-A SQLite-backed issue-tracker CLI. Module: `github.com/rovak/beadsv2`. Binary:
-`cli` (produced by `go build -o cli ./cmd/cli`).
+A SQLite-backed issue-tracker CLI for AI agents. Module:
+`github.com/rovak/clu`. Binary: `clu` (produced by `go build -o clu
+./cmd/clu` or `go install ./cmd/clu`).
 
 ## Sticky decisions — don't re-debate
 
-- **Binary is `cli`, not `bd`.** The user has the upstream `bd` on PATH; renaming
-  was deliberate to avoid the conflict.
-- **Don't reintroduce "beads" branding** in user-facing strings (help, errors,
-  descriptions). Storage paths were renamed to `.db/` / `DB_DIR` / `data.sqlite`.
-  Module path `beadsv2` and issue IDs `bd-XXXX` stay — they're internal/storage,
-  not branding.
+- **The tool's name is `clu`.** Inspired by Tron's "Codified Likeness
+  Utility" — short, on-theme, no conflict with the upstream `bd`. The
+  old `cli` and `bd` names are gone from user-facing surfaces.
+- **Don't reintroduce "beads" branding** in user-facing strings (help,
+  errors, descriptions). Storage paths use `.clu/` / `CLU_DIR` /
+  `data.sqlite`. Default ID prefix is `clu-` but is per-project
+  configurable via `.clu/config.yaml` (`id_prefix`).
+- The workspace dir is still `beadsv2` on disk — that's just a folder
+  name, no cascading effect on imports.
 - **Stack is settled:**
   - SQLite via `modernc.org/sqlite` (pure Go — no CGo).
   - **Bun** + sqlitedialect for queries. Raw SQL only for `Claim` (UPDATE …
@@ -81,7 +85,7 @@ Templates live in `internal/workflow/` and instantiate to plain issues
   get `checkpoint:pending` and a `cp:<issue-id>` KV entry holding
   `{kind, approvers}` JSON.
 
-Templates are loaded from `.db/templates/*.yaml`. The format and
+Templates are loaded from `.clu/templates/*.yaml`. The format and
 shape live in `internal/workflow/template.go`. See `demo-workflow.sh`
 for an end-to-end run.
 
