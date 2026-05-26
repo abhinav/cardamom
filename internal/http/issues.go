@@ -117,12 +117,14 @@ func (s *Server) handleGetIssue(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 
 // createIssueReq is the POST /api/issues body.
 type createIssueReq struct {
-	Title    string   `json:"title"`
-	Type     string   `json:"type,omitempty"`    // default "task"
-	Priority int      `json:"priority"`          // 0 = highest
-	Agent    *string  `json:"agent,omitempty"`   // lane; nil = unassigned
-	Labels   []string `json:"labels,omitempty"`  // attached after create
-	Parents  []string `json:"parents,omitempty"` // dep edges to add
+	Title       string   `json:"title"`
+	Type        string   `json:"type,omitempty"`    // default "task"
+	Priority    int      `json:"priority"`          // 0 = highest
+	Agent       *string  `json:"agent,omitempty"`   // lane; nil = unassigned
+	Labels      []string `json:"labels,omitempty"`  // attached after create
+	Parents     []string `json:"parents,omitempty"` // dep edges to add
+	Description string   `json:"description,omitempty"`
+	Notes       string   `json:"notes,omitempty"`
 }
 
 // handleCreateIssue — POST /api/issues
@@ -135,7 +137,11 @@ func (s *Server) handleCreateIssue(w stdhttp.ResponseWriter, r *stdhttp.Request)
 		writeError(w, stdhttp.StatusBadRequest, err.Error())
 		return
 	}
-	issue, err := s.store.CreateWithLinks(ctxOf(r), body.Title, body.Type, body.Priority, body.Agent, nil, body.Parents)
+	issue, err := s.store.CreateWithLinks(ctxOf(r), body.Title, body.Type, body.Priority, body.Agent, store.CreateOpts{
+		Parents:     body.Parents,
+		Description: body.Description,
+		Notes:       body.Notes,
+	})
 	if err != nil {
 		respondErr(w, err)
 		return

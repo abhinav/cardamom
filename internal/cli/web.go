@@ -25,7 +25,7 @@ import (
 // manage one external child (Node) and don't need a port-discovery dance.
 type WebCmd struct {
 	APIPort   int    `name:"api-port" default:"7777" help:"Port for the REST API. 0 picks a free port."`
-	WebPort   int    `name:"web-port" default:"3000" help:"Port for the web server."`
+	WebPort   int    `name:"web-port" default:"5757" help:"Port for the web server (0 picks a free port). Default 5757 avoids colliding with common dev servers (3000/5173/8080)."`
 	Bind      string `name:"bind" default:"127.0.0.1" help:"Interface to bind both servers."`
 	Dev       bool   `name:"dev" help:"Use 'pnpm dev' (HMR) instead of the built output. Default tries built output first, falls back to dev."`
 	NoBrowser bool   `name:"no-browser" help:"Don't try to open a browser window."`

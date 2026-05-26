@@ -1805,6 +1805,24 @@ func TestCLICreateWithDepRejectsMissingParent(t *testing.T) {
 	}
 }
 
+func TestCLICreateWithDescriptionAndNotes(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create",
+		"--description", "Long-form context goes here.",
+		"--notes", "Working theory: X.",
+		"do the thing"))
+	out := c.run("show", id)
+	for _, want := range []string{
+		"Long-form context goes here.",
+		"Working theory: X.",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("show missing %q:\n%s", want, out)
+		}
+	}
+}
+
 func TestCLICreateWithDepIsAtomicVsClaimWatch(t *testing.T) {
 	// The race the --dep flag is meant to close: a watching claim
 	// loop must NOT see a parent-less version of the new issue. After

@@ -11,19 +11,29 @@ import (
 
 // Create inserts a new issue. agent may be nil for an unassigned-lane issue.
 func (s *Store) Create(ctx context.Context, title, typ string, priority int, agent *string) (Issue, error) {
-	return s.CreateWithLinks(ctx, title, typ, priority, agent, nil, nil)
+	return s.CreateWithLinks(ctx, title, typ, priority, agent, CreateOpts{})
 }
 
-// CreateWithLinks inserts an issue and atomically attaches `caps`
-// labels (as cap:<name>) and `parents` dep edges in one transaction.
-// Closes the race where bare `Create` + follow-up `AddDep` leaves the
-// new issue briefly ready-with-no-deps and a watching claim could
-// grab it before the edges land.
+// CreateOpts holds the optional extras CreateWithLinks can wire up
+// atomically alongside the new issue: capability labels, parent dep
+// edges, description, and notes. All are optional; the zero value
+// produces a plain `create "<title>"` equivalent.
+type CreateOpts struct {
+	Caps        []string // cap:<name> labels for capability routing
+	Parents     []string // parent IDs to add child→parent dep edges to
+	Description string   // sets the description column
+	Notes       string   // sets the notes column
+}
+
+// CreateWithLinks inserts an issue and atomically attaches the extras
+// in `opts` (cap labels, dep edges, description, notes) in a single
+// transaction. Closes the race where bare `Create` + follow-up
+// `AddDep` / `SetDescription` leaves the new issue briefly visible
+// without its edges or context and a watching claim could grab it.
 //
-// Both caps and parents may be nil/empty for the plain create path.
 // Parents must already exist; a no-such-parent aborts the whole
 // transaction so we never leave a half-linked issue behind.
-func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority int, agent *string, caps []string, parents []string) (Issue, error) {
+func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority int, agent *string, opts CreateOpts) (Issue, error) {
 	if title == "" {
 		return Issue{}, errors.New("title required")
 	}
@@ -36,7 +46,7 @@ func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority
 	if err := ValidatePriority(priority); err != nil {
 		return Issue{}, err
 	}
-	for _, c := range caps {
+	for _, c := range opts.Caps {
 		if c == "" {
 			return Issue{}, errors.New("capability cannot be empty")
 		}
@@ -47,12 +57,23 @@ func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority
 		// INSERT issue with PK-collision retry inside the tx. SQLite's
 		// constraint failures don't abort the tx; we can retry the
 		// statement with a fresh ID.
+		var descPtr, notesPtr *string
+		if opts.Description != "" {
+			d := opts.Description
+			descPtr = &d
+		}
+		if opts.Notes != "" {
+			n := opts.Notes
+			notesPtr = &n
+		}
 		for tries := 0; tries < 8; tries++ {
 			t := now()
 			i := Issue{
 				ID: newID(s.idPrefix), Title: title, Type: typ, Status: "open",
 				Priority: priority, Agent: agent,
 				Created: t, Updated: t,
+				Description: descPtr,
+				Notes:       notesPtr,
 			}
 			_, err := tx.NewInsert().Model(&i).Exec(ctx)
 			if err == nil {
@@ -67,9 +88,9 @@ func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority
 			return errors.New("failed to allocate unique id after 8 tries")
 		}
 		// Cap labels.
-		if len(caps) > 0 {
-			rows := make([]IssueLabel, len(caps))
-			for j, cap := range caps {
+		if len(opts.Caps) > 0 {
+			rows := make([]IssueLabel, len(opts.Caps))
+			for j, cap := range opts.Caps {
 				rows[j] = IssueLabel{IssueID: created.ID, Label: "cap:" + cap}
 			}
 			if _, err := tx.NewInsert().Model(&rows).On("CONFLICT DO NOTHING").Exec(ctx); err != nil {
@@ -80,7 +101,7 @@ func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority
 		// since the new issue can't yet have descendants. The whole tx
 		// rolls back if any parent is missing, so we never publish a
 		// half-linked issue.
-		for _, parent := range parents {
+		for _, parent := range opts.Parents {
 			if parent == created.ID {
 				return ErrSelfDep // defensive; shouldn't be reachable
 			}

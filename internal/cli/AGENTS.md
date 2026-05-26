@@ -203,21 +203,38 @@ clu create -a code-reviewer "title"             # route to a specific lane
 clu create --capability go-review "title"       # add cap:go-review for routing
 clu create -d clu-a3f8 "title"                  # new issue depends on clu-a3f8
 clu create -d clu-a3f8,clu-7c11 "title"         # multiple parents
-clu describe <id> "longer description"          # set description
-clu note set <id> "freeform working notes"
+clu create --description "long-form context" --notes "working theory: X" "title"
+clu link <child> <parent>                       # add a dep after the fact
+clu describe <id> "longer description"          # set/replace description after the fact
+clu note set <id> "freeform working notes"      # ditto for notes
 clu note append <id> "addendum"
-clu link <child> <parent>                       # child needs parent to close first
 ```
 
 Returned ID goes to stdout (one per call). In `--json` mode, the whole
 issue is returned.
 
-> **Prefer `clu create --dep`** over `clu create` followed by
-> `clu link` when you know the parents upfront. The two-step form
-> leaves a brief window where the new issue exists with no
-> dependencies and a watching `claim` could grab it. `--dep` wires
-> everything in one transaction so the issue is never visible
-> without its edges.
+> **One-shot create is the right pattern.** Don't `create` then
+> `describe`, `link`, or `note set` as separate commands. Pass
+> everything you have to `create` in one call:
+>
+> ```bash
+> clu create \
+>   -a notion-manager \
+>   -p 2 \
+>   -d clu-a3f8 \
+>   --description "$(cat <<'EOF'
+> Test scenario page: https://...
+> Walk every step in the scenario, capture drift, …
+> EOF
+> )" \
+>   "Review test scenario: First-Time Buyer (No Saved Card)"
+> ```
+>
+> Why it matters: the two-step pattern leaves a window where the
+> new issue exists open + parent-less + empty, and a watching
+> `claim --watch` could grab it before the second command lands.
+> One-shot create wraps everything in a single transaction — the
+> issue is never visible without its edges and body.
 
 ## Dependencies + cascade
 
