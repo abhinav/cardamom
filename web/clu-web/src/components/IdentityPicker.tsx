@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import { ChevronsUpDown, User } from 'lucide-react'
 import { api, type ActiveAgent } from '../lib/api'
 import { useIdentity } from '../lib/use-identity'
-import { Input } from './ui/input'
 import { Button } from './ui/button'
+import { Input } from './ui/input'
+import { Popover, PopoverContent, PopoverTrigger } from './ui/popover'
 
-// IdentityPicker is the "who am I" control. Bare input that writes
-// to localStorage on change; an inline list of currently-live agents
-// (from /api/agents) shows below so users can click to pick.
-//
-// Localhost-only tool — no auth — but every mutation (claim, comment,
-// checkpoint approve) needs an identity, so this is required UI.
+// IdentityPicker — sidebar control for "who am I". Sets a localStorage
+// key that the API client attaches as X-Clu-Agent on every mutation.
+// Every claim/comment/checkpoint needs an identity, so a missing
+// value is hinted with a muted "set identity".
 export default function IdentityPicker() {
   const [agent, setAgent] = useIdentity()
   const [open, setOpen] = useState(false)
@@ -29,67 +29,78 @@ export default function IdentityPicker() {
   }
 
   return (
-    <div className="relative">
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => {
-          setDraft(agent)
-          setOpen((o) => !o)
-        }}
+    <Popover
+      open={open}
+      onOpenChange={(o) => {
+        setOpen(o)
+        if (o) setDraft(agent)
+      }}
+    >
+      <PopoverTrigger asChild>
+        <Button
+          variant="outline"
+          size="sm"
+          className="w-full justify-between font-normal"
+        >
+          <span className="flex items-center gap-2 truncate">
+            <User className="size-3.5" />
+            <span className="truncate">
+              {agent || (
+                <span className="text-muted-foreground">set identity</span>
+              )}
+            </span>
+          </span>
+          <ChevronsUpDown className="size-3.5 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent
+        side="right"
+        align="end"
+        sideOffset={8}
+        className="w-64 p-2"
       >
-        <span className="opacity-60">as</span>
-        <span className="font-semibold">
-          {agent || '(unset)'}
-        </span>
-      </Button>
-      {open && (
-        <div className="absolute right-0 top-full mt-1 z-50 w-64 rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 shadow-lg backdrop-blur-md">
-          <label className="text-xs font-semibold uppercase tracking-wide opacity-60">
-            Agent identity
-          </label>
-          <form
-            className="mt-1 flex gap-1"
-            onSubmit={(e) => {
-              e.preventDefault()
-              save(draft)
-            }}
-          >
-            <Input
-              autoFocus
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="your-name"
-              className="text-sm"
-            />
-            <Button size="sm" type="submit">
-              Save
-            </Button>
-          </form>
-          {agents.length > 0 && (
-            <div className="mt-3">
-              <div className="text-xs font-semibold uppercase tracking-wide opacity-60">
-                Live agents
-              </div>
-              <ul className="mt-1 space-y-0.5">
-                {agents.map((a) => (
-                  <li key={a.name}>
-                    <button
-                      className="w-full rounded px-2 py-1 text-left text-sm hover:bg-[var(--link-bg-hover)]"
-                      onClick={() => save(a.name)}
-                    >
-                      {a.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+        <form
+          className="flex gap-1"
+          onSubmit={(e) => {
+            e.preventDefault()
+            save(draft)
+          }}
+        >
+          <Input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            placeholder="your-name"
+            className="h-8"
+          />
+          <Button size="sm" type="submit">
+            Save
+          </Button>
+        </form>
+        {agents.length > 0 && (
+          <>
+            <div className="text-muted-foreground mt-3 px-1 text-[10px] font-medium uppercase tracking-wide">
+              Live agents
             </div>
-          )}
-          <p className="mt-3 text-xs opacity-60">
-            Stored locally; sent as <code>X-Clu-Agent</code> on writes.
-          </p>
-        </div>
-      )}
-    </div>
+            <ul className="mt-1 space-y-0.5">
+              {agents.map((a) => (
+                <li key={a.name}>
+                  <button
+                    type="button"
+                    className="hover:bg-accent w-full rounded-sm px-2 py-1 text-left text-sm"
+                    onClick={() => save(a.name)}
+                  >
+                    {a.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        <p className="text-muted-foreground mt-3 px-1 text-[11px]">
+          Sent as <code className="font-mono">X-Clu-Agent</code> on writes.
+        </p>
+      </PopoverContent>
+    </Popover>
   )
 }

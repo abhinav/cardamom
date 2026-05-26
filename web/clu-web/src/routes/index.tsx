@@ -1,16 +1,20 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useState } from 'react'
+import { Plus, RefreshCw } from 'lucide-react'
 import { api, type Issue, type PatchIssueBody } from '../lib/api'
 import IssueCard from '../components/IssueCard'
+import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
+import { ScrollArea } from '../components/ui/scroll-area'
 
 export const Route = createFileRoute('/')({
   component: BoardPage,
 })
 
-// Columns to render. "blocked" is derived (status=open AND blocked=true)
-// and pulls from the open column at render time. cancelled is hidden by
-// default — surface via the list view if needed.
+// Column definitions for the kanban. Order matters — left-to-right is
+// the natural flow of work. Cancelled is hidden by default; use the
+// list view to find it.
 const COLUMNS: Array<{ key: string; label: string; status?: string }> = [
   { key: 'open', label: 'Open', status: 'open' },
   { key: 'in_progress', label: 'In progress', status: 'in_progress' },
@@ -20,57 +24,78 @@ const COLUMNS: Array<{ key: string; label: string; status?: string }> = [
 
 function BoardPage() {
   const qc = useQueryClient()
-  const { data: issues = [], isLoading, error } = useQuery<Issue[]>({
-    queryKey: ['issues', { board: true }],
+  const { data: issues = [], isLoading, error, refetch, isFetching } = useQuery<
+    Issue[]
+  >({
+    queryKey: ['issues', 'board'],
     queryFn: () =>
       api.get(
-        // Pull every non-cancelled status; we partition client-side
-        // (blocked is derived from blocked=true on open issues).
         '/api/issues?status=open&status=in_progress&status=closed&limit=500',
       ),
   })
 
-  // Status mutation is the drag-drop write path: PATCH status on the
-  // target issue. Optimistic update so the card moves before the
-  // network round-trip; rollback on failure.
+  // Drag-drop write: PATCH status, optimistic + rollback. We invalidate
+  // on settle so any server-side derived fields (blocked, updated)
+  // refresh from authoritative state.
   const move = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => {
       const body: PatchIssueBody = { status }
       return api.patch<Issue>(`/api/issues/${id}`, body)
     },
     onMutate: async ({ id, status }) => {
-      await qc.cancelQueries({ queryKey: ['issues'] })
-      const prev = qc.getQueryData<Issue[]>(['issues', { board: true }])
+      await qc.cancelQueries({ queryKey: ['issues', 'board'] })
+      const prev = qc.getQueryData<Issue[]>(['issues', 'board'])
       if (prev) {
         qc.setQueryData<Issue[]>(
-          ['issues', { board: true }],
-          prev.map((i) => (i.id === id ? { ...i, status: status as Issue['status'] } : i)),
+          ['issues', 'board'],
+          prev.map((i) =>
+            i.id === id ? { ...i, status: status as Issue['status'] } : i,
+          ),
         )
       }
       return { prev }
     },
     onError: (_e, _v, ctx) => {
-      if (ctx?.prev) {
-        qc.setQueryData(['issues', { board: true }], ctx.prev)
-      }
+      if (ctx?.prev) qc.setQueryData(['issues', 'board'], ctx.prev)
     },
     onSettled: () => qc.invalidateQueries({ queryKey: ['issues'] }),
   })
 
   const byColumn = partitionByColumn(issues)
 
-  if (error) {
-    return (
-      <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm">
-        Failed to load issues: {(error as Error).message}
-      </div>
-    )
-  }
-
   return (
-    <div>
-      <h1 className="mb-4 text-xl font-semibold">Board</h1>
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-4">
+    <div className="flex h-full flex-col">
+      <PageHeader
+        title="Board"
+        subtitle={`${issues.length} issue${issues.length === 1 ? '' : 's'}`}
+        actions={
+          <>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => refetch()}
+              disabled={isFetching}
+              aria-label="refresh"
+            >
+              <RefreshCw
+                className={isFetching ? 'animate-spin' : ''}
+              />
+            </Button>
+            <Button size="sm" disabled title="Coming soon">
+              <Plus />
+              New
+            </Button>
+          </>
+        }
+      />
+
+      {error && (
+        <div className="border-destructive/40 bg-destructive/10 text-destructive m-6 rounded-md border p-3 text-sm">
+          {(error as Error).message}
+        </div>
+      )}
+
+      <div className="grid min-h-0 flex-1 grid-cols-4 gap-3 px-4 pb-4">
         {COLUMNS.map((col) => (
           <Column
             key={col.key}
@@ -117,6 +142,8 @@ function Column({ label, issues, loading, droppable, onDrop }: ColumnProps) {
   const [isOver, setIsOver] = useState(false)
   return (
     <section
+      data-droppable={droppable || undefined}
+      data-over={isOver || undefined}
       onDragOver={
         droppable
           ? (e) => {
@@ -137,31 +164,77 @@ function Column({ label, issues, loading, droppable, onDrop }: ColumnProps) {
             }
           : undefined
       }
-      className={`rounded-xl border bg-[var(--surface)] p-3 transition ${
-        isOver
-          ? 'border-[var(--lagoon-deep)] bg-[var(--surface-strong)]'
-          : 'border-[var(--line)]'
-      }`}
+      className="bg-muted/30 data-[over=true]:bg-accent data-[over=true]:ring-ring/30 flex min-h-0 flex-col rounded-lg border transition-colors data-[over=true]:ring-2"
     >
-      <header className="mb-2 flex items-baseline justify-between px-1">
-        <h2 className="text-sm font-semibold text-[var(--sea-ink)]">{label}</h2>
-        <span className="text-xs opacity-60">{issues.length}</span>
+      <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
+        <div className="flex items-center gap-2">
+          <h2 className="text-[11px] font-semibold uppercase tracking-wider">
+            {label}
+          </h2>
+          <Badge variant="muted" className="tabular font-mono">
+            {issues.length}
+          </Badge>
+        </div>
+        {droppable && (
+          <Button
+            variant="ghost"
+            size="icon-xs"
+            className="opacity-50 hover:opacity-100"
+            disabled
+            title="Coming soon"
+          >
+            <Plus />
+          </Button>
+        )}
       </header>
-      <div className="flex flex-col gap-2">
-        {loading && issues.length === 0 && (
-          <div className="rounded-lg border border-dashed border-[var(--line)] p-3 text-center text-xs opacity-50">
-            loading…
-          </div>
-        )}
-        {!loading && issues.length === 0 && (
-          <div className="rounded-lg border border-dashed border-[var(--line)] p-3 text-center text-xs opacity-50">
-            empty
-          </div>
-        )}
-        {issues.map((issue) => (
-          <IssueCard key={issue.id} issue={issue} draggable={droppable} />
-        ))}
-      </div>
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-2 p-2">
+          {loading && issues.length === 0 && (
+            <div className="text-muted-foreground rounded-md border border-dashed py-6 text-center text-xs">
+              loading…
+            </div>
+          )}
+          {!loading && issues.length === 0 && (
+            <div className="text-muted-foreground rounded-md border border-dashed py-6 text-center text-xs">
+              empty
+            </div>
+          )}
+          {issues.map((issue) => (
+            <IssueCard
+              key={issue.id}
+              issue={issue}
+              draggable={droppable}
+              hideStatus
+            />
+          ))}
+        </div>
+      </ScrollArea>
     </section>
+  )
+}
+
+// PageHeader — re-usable bar that lives at the top of every route.
+// Subtitle is the lightweight metadata (counts, last updated).
+function PageHeader({
+  title,
+  subtitle,
+  actions,
+}: {
+  title: string
+  subtitle?: string
+  actions?: React.ReactNode
+}) {
+  return (
+    <header className="flex items-center justify-between gap-4 border-b px-6 py-3">
+      <div>
+        <h1 className="text-lg font-semibold leading-none tracking-tight">
+          {title}
+        </h1>
+        {subtitle && (
+          <p className="text-muted-foreground mt-1 text-xs">{subtitle}</p>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5">{actions}</div>
+    </header>
   )
 }

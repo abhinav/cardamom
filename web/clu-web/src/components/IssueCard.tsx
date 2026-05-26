@@ -1,23 +1,29 @@
 import { Link } from '@tanstack/react-router'
 import type { Issue } from '../lib/api'
-import {
-  displayStatusClass,
-  displayStatusLabel,
-  priorityClass,
-  type Status,
-} from '../lib/issue-display'
+import { type Status } from '../lib/issue-display'
+import { PriorityBadge, StatusBadge } from './StatusBadge'
+import { Badge } from './ui/badge'
 
 interface Props {
   issue: Issue
   draggable?: boolean
-  // Workflow-internal labels are hidden by default on cards — they're
-  // noise in the kanban view. Set to true on detail pages.
+  // Workflow-internal labels are hidden on cards by default — visual
+  // noise on the board. Detail pages override and show them all.
   showAllLabels?: boolean
+  // Hide the status pill on cards already grouped by status (kanban).
+  hideStatus?: boolean
 }
 
-// IssueCard renders a single issue as a compact card. Used by both
-// the kanban board (with draggable=true) and as a list-view detail.
-export default function IssueCard({ issue, draggable, showAllLabels }: Props) {
+// IssueCard — compact preview of an issue. Lives on the kanban board
+// and could be reused in list-as-cards layouts. Drag uses native
+// HTML5; the dataTransfer carries the issue ID so column drop zones
+// can wire to the same API regardless of dnd library choice.
+export default function IssueCard({
+  issue,
+  draggable,
+  showAllLabels,
+  hideStatus,
+}: Props) {
   const labels = showAllLabels
     ? issue.labels
     : issue.labels.filter((l) => !isManaged(l))
@@ -34,41 +40,40 @@ export default function IssueCard({ issue, draggable, showAllLabels }: Props) {
             }
           : undefined
       }
-      className="block rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 text-left no-underline shadow-sm transition hover:border-[var(--lagoon-deep)]/40 hover:shadow-md"
+      className="bg-card hover:bg-accent/40 group relative flex flex-col gap-2 rounded-md border p-2.5 text-card-foreground no-underline shadow-xs transition-colors"
     >
       <div className="flex items-start gap-2">
-        <span
-          className={`shrink-0 rounded px-1.5 py-0.5 text-xs font-mono font-semibold ${priorityClass(issue.priority)}`}
-          title={`priority ${issue.priority}`}
-        >
-          p{issue.priority}
-        </span>
-        <span className="flex-1 text-sm font-medium leading-snug text-[var(--sea-ink)]">
+        <PriorityBadge priority={issue.priority} className="shrink-0" />
+        <span className="flex-1 text-[13px] leading-snug font-medium">
           {issue.title}
         </span>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs">
-        <code className="rounded bg-[var(--chip-bg)] px-1.5 py-0.5 text-[var(--sea-ink-soft)]">
+      <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+        <code className="text-muted-foreground bg-muted/50 rounded px-1.5 py-0.5 font-mono tabular">
           {issue.id}
         </code>
-        <span
-          className={`rounded px-1.5 py-0.5 font-medium ${displayStatusClass(issue.status as Status, issue.blocked)}`}
-        >
-          {displayStatusLabel(issue.status as Status, issue.blocked)}
-        </span>
+        {!hideStatus && (
+          <StatusBadge
+            status={issue.status as Status}
+            blocked={issue.blocked}
+          />
+        )}
         {issue.assignee && (
-          <span className="rounded bg-[var(--chip-bg)] px-1.5 py-0.5 text-[var(--sea-ink-soft)]">
-            @{issue.assignee}
+          <span className="text-muted-foreground inline-flex items-center gap-1">
+            <span className="bg-accent text-accent-foreground inline-flex size-4 items-center justify-center rounded-full text-[9px] font-semibold uppercase">
+              {issue.assignee.charAt(0)}
+            </span>
+            <span>{issue.assignee}</span>
           </span>
         )}
-        {labels.map((l) => (
-          <span
-            key={l}
-            className="rounded bg-zinc-500/10 px-1.5 py-0.5 text-[var(--sea-ink-soft)]"
-          >
+        {labels.slice(0, 3).map((l) => (
+          <Badge key={l} variant="muted">
             {l}
-          </span>
+          </Badge>
         ))}
+        {labels.length > 3 && (
+          <span className="text-muted-foreground">+{labels.length - 3}</span>
+        )}
       </div>
     </Link>
   )

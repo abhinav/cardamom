@@ -1,6 +1,15 @@
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import {
+  ArrowLeft,
+  CheckCircle2,
+  MessageSquare,
+  RotateCcw,
+  ShieldCheck,
+  UserPlus,
+  X,
+} from 'lucide-react'
 import {
   api,
   type Comment,
@@ -10,15 +19,18 @@ import {
   type PatchIssueBody,
 } from '../lib/api'
 import {
-  displayStatusClass,
-  displayStatusLabel,
   formatDate,
   formatRelative,
-  priorityClass,
   type Status,
 } from '../lib/issue-display'
 import { useIdentity } from '../lib/use-identity'
+import { PriorityBadge, StatusBadge } from '../components/StatusBadge'
 import { Button } from '../components/ui/button'
+import { Badge } from '../components/ui/badge'
+import { Input } from '../components/ui/input'
+import { Card, CardContent, CardHeader } from '../components/ui/card'
+import { Separator } from '../components/ui/separator'
+import { ScrollArea } from '../components/ui/scroll-area'
 
 export const Route = createFileRoute('/issues/$id')({
   component: IssueDetailPage,
@@ -58,250 +70,305 @@ function IssueDetailPage() {
 
   if (error) {
     return (
-      <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-4 text-sm">
-        Failed to load: {(error as Error).message}
-        <div className="mt-2">
-          <Link to="/" className="text-xs underline">
-            ← back
-          </Link>
+      <div className="p-6">
+        <Link
+          to="/"
+          className="text-muted-foreground inline-flex items-center gap-1 text-sm no-underline"
+        >
+          <ArrowLeft className="size-4" />
+          back to board
+        </Link>
+        <div className="border-destructive/40 bg-destructive/10 text-destructive mt-4 rounded-md border p-3 text-sm">
+          Failed to load: {(error as Error).message}
         </div>
       </div>
     )
   }
   if (isLoading || !issue) {
-    return <div className="opacity-50">loading…</div>
+    return <div className="text-muted-foreground p-6 text-sm">loading…</div>
   }
 
   const isCheckpoint = issue.type === 'checkpoint'
   const isOpen = issue.status === 'open' || issue.status === 'in_progress'
 
   return (
-    <article className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_320px]">
-      <div className="space-y-6">
-        <header>
-          <div className="flex items-baseline gap-3">
-            <code className="text-sm opacity-60">{issue.id}</code>
-            <span
-              className={`rounded px-1.5 py-0.5 text-xs font-medium ${displayStatusClass(issue.status as Status, issue.blocked)}`}
-            >
-              {displayStatusLabel(issue.status as Status, issue.blocked)}
-            </span>
-            <span
-              className={`rounded px-1.5 py-0.5 text-xs font-mono font-semibold ${priorityClass(issue.priority)}`}
-            >
-              p{issue.priority}
-            </span>
-          </div>
-          <EditableTitle
-            value={issue.title}
-            onSave={(title) => patch.mutate({ title })}
+    <div className="flex h-full flex-col">
+      {/* Page header with breadcrumb */}
+      <header className="flex items-center justify-between gap-4 border-b px-6 py-3">
+        <div className="flex items-center gap-3">
+          <Button asChild variant="ghost" size="icon-sm">
+            <Link to="/" aria-label="back">
+              <ArrowLeft />
+            </Link>
+          </Button>
+          <code className="text-muted-foreground bg-muted/50 rounded px-2 py-0.5 font-mono text-xs tabular">
+            {issue.id}
+          </code>
+          <StatusBadge
+            status={issue.status as Status}
+            blocked={issue.blocked}
           />
-        </header>
+          <PriorityBadge priority={issue.priority} />
+        </div>
+        <div className="flex items-center gap-1.5">
+          {!issue.assignee && isOpen && (
+            <Button size="sm" variant="outline" onClick={() => claim.mutate()}>
+              <UserPlus />
+              Claim
+            </Button>
+          )}
+          {issue.status !== 'closed' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => closeOrReopen.mutate('close')}
+            >
+              <CheckCircle2 />
+              Close
+            </Button>
+          )}
+          {issue.status === 'closed' && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => closeOrReopen.mutate('reopen')}
+            >
+              <RotateCcw />
+              Reopen
+            </Button>
+          )}
+        </div>
+      </header>
 
-        <EditableDescription
-          value={issue.description ?? ''}
-          onSave={(description) =>
-            patch.mutate({ description: description || null })
-          }
-        />
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-6 px-6 py-6">
+          {/* Main column */}
+          <div className="flex min-w-0 flex-col gap-5">
+            <EditableTitle
+              value={issue.title}
+              onSave={(title) => patch.mutate({ title })}
+            />
 
-        {issue.notes && (
-          <section>
-            <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide opacity-60">
-              Notes
-            </h3>
-            <pre className="whitespace-pre-wrap rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3 font-sans text-sm">
-              {issue.notes}
-            </pre>
-          </section>
-        )}
-
-        <CommentsSection
-          issueId={issue.id}
-          comments={issue.comments}
-          onChange={() => qc.invalidateQueries({ queryKey: ['issue', id] })}
-        />
-
-        {isCheckpoint && isOpen && (
-          <CheckpointActions
-            id={issue.id}
-            onDone={(passed) => {
-              qc.invalidateQueries({ queryKey: ['issue', id] })
-              if (passed) {
-                // After a pass the gate is closed — board moves it.
-              } else {
-                // Fail cascades; bounce to the board.
-                navigate({ to: '/' })
+            <EditableDescription
+              value={issue.description ?? ''}
+              onSave={(description) =>
+                patch.mutate({ description: description || null })
               }
-            }}
-          />
-        )}
-      </div>
+            />
 
-      <aside className="space-y-4 text-sm">
-        <Section title="Status">
-          <select
-            value={issue.status}
-            onChange={(e) => patch.mutate({ status: e.target.value })}
-            className="w-full rounded border border-[var(--line)] bg-transparent px-2 py-1 text-sm"
-          >
-            {meta?.statuses.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </Section>
-
-        <Section title="Priority">
-          <input
-            type="number"
-            min={0}
-            value={issue.priority}
-            onChange={(e) =>
-              patch.mutate({ priority: Number(e.target.value) })
-            }
-            className="w-full rounded border border-[var(--line)] bg-transparent px-2 py-1 text-sm"
-          />
-        </Section>
-
-        <Section title="Type">
-          <select
-            value={issue.type}
-            onChange={(e) => patch.mutate({ type: e.target.value })}
-            className="w-full rounded border border-[var(--line)] bg-transparent px-2 py-1 text-sm"
-          >
-            {meta?.types.map((t) => (
-              <option key={t} value={t}>
-                {t}
-              </option>
-            ))}
-          </select>
-        </Section>
-
-        <Section title="Assignee">
-          <NullableTextInput
-            value={issue.assignee ?? ''}
-            onSave={(v) => patch.mutate({ assignee: v || null })}
-            placeholder="unassigned"
-          />
-        </Section>
-
-        <Section title="Agent (lane)">
-          <NullableTextInput
-            value={issue.agent ?? ''}
-            onSave={(v) => patch.mutate({ agent: v || null })}
-            placeholder="—"
-          />
-        </Section>
-
-        <Section title="Tags">
-          <TagEditor
-            tags={issue.labels.filter((l) => !isManaged(l))}
-            onSave={(tags) => {
-              // Send the full new set; server diffs and preserves managed labels.
-              const managed = issue.labels.filter(isManaged)
-              patch.mutate({ tags: [...tags, ...managed] })
-            }}
-          />
-        </Section>
-
-        {(issue.depends_on.length > 0 || issue.blocks.length > 0) && (
-          <Section title="Deps">
-            {issue.depends_on.length > 0 && (
-              <div>
-                <div className="text-xs opacity-60">depends on</div>
-                <ul className="space-y-0.5 text-xs">
-                  {issue.depends_on.map((d) => (
-                    <li key={d}>
-                      <Link to="/issues/$id" params={{ id: d }}>
-                        {d}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            {issue.notes && (
+              <SectionCard title="Notes">
+                <pre className="text-sm whitespace-pre-wrap font-sans">
+                  {issue.notes}
+                </pre>
+              </SectionCard>
             )}
-            {issue.blocks.length > 0 && (
-              <div className="mt-2">
-                <div className="text-xs opacity-60">blocks</div>
-                <ul className="space-y-0.5 text-xs">
-                  {issue.blocks.map((b) => (
-                    <li key={b}>
-                      <Link to="/issues/$id" params={{ id: b }}>
-                        {b}
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </Section>
-        )}
 
-        <Section title="Actions">
-          <div className="flex flex-col gap-1.5">
-            {!issue.assignee && isOpen && (
-              <Button size="sm" onClick={() => claim.mutate()}>
-                Claim
-              </Button>
+            {isCheckpoint && isOpen && (
+              <CheckpointActions
+                id={issue.id}
+                onDone={(passed) => {
+                  qc.invalidateQueries({ queryKey: ['issue', id] })
+                  if (!passed) navigate({ to: '/' })
+                }}
+              />
             )}
-            {issue.status !== 'closed' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => closeOrReopen.mutate('close')}
-              >
-                Close
-              </Button>
-            )}
-            {issue.status === 'closed' && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => closeOrReopen.mutate('reopen')}
-              >
-                Reopen
-              </Button>
-            )}
+
+            <CommentsSection
+              issueId={issue.id}
+              comments={issue.comments}
+              onChange={() =>
+                qc.invalidateQueries({ queryKey: ['issue', id] })
+              }
+            />
           </div>
-        </Section>
 
-        <Section title="Timestamps">
-          <dl className="space-y-1 text-xs opacity-70">
-            <div>
-              <dt className="inline opacity-60">created </dt>
-              <dd className="inline">{formatDate(issue.created)}</dd>
-            </div>
-            <div>
-              <dt className="inline opacity-60">updated </dt>
-              <dd className="inline">{formatDate(issue.updated)}</dd>
-            </div>
-            {issue.closed && (
-              <div>
-                <dt className="inline opacity-60">closed </dt>
-                <dd className="inline">{formatDate(issue.closed)}</dd>
-              </div>
+          {/* Sidebar */}
+          <aside className="flex flex-col gap-4 text-sm">
+            <Field label="Status">
+              <select
+                value={issue.status}
+                onChange={(e) => patch.mutate({ status: e.target.value })}
+                className="border-input bg-background ring-offset-background placeholder:text-muted-foreground focus-visible:ring-ring h-8 w-full rounded-md border px-2 py-1 text-sm focus-visible:outline-none focus-visible:ring-2"
+              >
+                {meta?.statuses.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Priority">
+              <Input
+                type="number"
+                min={0}
+                value={issue.priority}
+                onChange={(e) =>
+                  patch.mutate({ priority: Number(e.target.value) })
+                }
+                className="h-8"
+              />
+            </Field>
+
+            <Field label="Type">
+              <select
+                value={issue.type}
+                onChange={(e) => patch.mutate({ type: e.target.value })}
+                className="border-input bg-background h-8 w-full rounded-md border px-2 text-sm"
+              >
+                {meta?.types.map((t) => (
+                  <option key={t} value={t}>
+                    {t}
+                  </option>
+                ))}
+              </select>
+            </Field>
+
+            <Field label="Assignee">
+              <NullableTextInput
+                value={issue.assignee ?? ''}
+                onSave={(v) => patch.mutate({ assignee: v || null })}
+                placeholder="unassigned"
+              />
+            </Field>
+
+            <Field label="Agent (lane)">
+              <NullableTextInput
+                value={issue.agent ?? ''}
+                onSave={(v) => patch.mutate({ agent: v || null })}
+                placeholder="—"
+              />
+            </Field>
+
+            <Field label="Tags">
+              <TagEditor
+                tags={issue.labels.filter((l) => !isManaged(l))}
+                onSave={(tags) => {
+                  // Diff-preserving: server keeps run:/step:/etc.
+                  const managed = issue.labels.filter(isManaged)
+                  patch.mutate({ tags: [...tags, ...managed] })
+                }}
+              />
+            </Field>
+
+            {(issue.depends_on.length > 0 || issue.blocks.length > 0) && (
+              <Field label="Dependencies">
+                {issue.depends_on.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-muted-foreground mb-1 text-[11px] uppercase tracking-wide">
+                      depends on
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {issue.depends_on.map((d) => (
+                        <Badge key={d} variant="outline" asChild>
+                          <Link
+                            to="/issues/$id"
+                            params={{ id: d }}
+                            className="font-mono no-underline"
+                          >
+                            {d}
+                          </Link>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {issue.blocks.length > 0 && (
+                  <div>
+                    <div className="text-muted-foreground mb-1 text-[11px] uppercase tracking-wide">
+                      blocks
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {issue.blocks.map((b) => (
+                        <Badge key={b} variant="outline" asChild>
+                          <Link
+                            to="/issues/$id"
+                            params={{ id: b }}
+                            className="font-mono no-underline"
+                          >
+                            {b}
+                          </Link>
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </Field>
             )}
-          </dl>
-        </Section>
-      </aside>
-    </article>
+
+            <Separator />
+
+            <dl className="text-muted-foreground space-y-1 text-xs">
+              <Meta label="Created" value={formatDate(issue.created)} />
+              <Meta label="Updated" value={formatDate(issue.updated)} />
+              {issue.closed && (
+                <Meta label="Closed" value={formatDate(issue.closed)} />
+              )}
+            </dl>
+          </aside>
+        </div>
+      </ScrollArea>
+    </div>
+  )
+}
+
+// ---- shared bits ----
+
+function Field({
+  label,
+  children,
+}: {
+  label: string
+  children: React.ReactNode
+}) {
+  return (
+    <div>
+      <div className="text-muted-foreground mb-1 text-[11px] font-medium uppercase tracking-wide">
+        {label}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex items-center justify-between">
+      <dt>{label}</dt>
+      <dd className="font-mono tabular text-[11px]">{value}</dd>
+    </div>
+  )
+}
+
+function SectionCard({
+  title,
+  children,
+  icon,
+  action,
+}: {
+  title: string
+  children: React.ReactNode
+  icon?: React.ReactNode
+  action?: React.ReactNode
+}) {
+  return (
+    <Card>
+      <CardHeader className="border-b pb-3">
+        <div className="flex items-center justify-between">
+          <div className="text-muted-foreground flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide">
+            {icon}
+            {title}
+          </div>
+          {action}
+        </div>
+      </CardHeader>
+      <CardContent>{children}</CardContent>
+    </Card>
   )
 }
 
 // ---- inline editors ----
-
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <section>
-      <h3 className="mb-1 text-xs font-semibold uppercase tracking-wide opacity-60">
-        {title}
-      </h3>
-      {children}
-    </section>
-  )
-}
 
 function EditableTitle({
   value,
@@ -317,7 +384,7 @@ function EditableTitle({
   if (!editing) {
     return (
       <h1
-        className="mt-1 cursor-text text-2xl font-semibold leading-tight"
+        className="hover:bg-accent/40 -mx-2 cursor-text rounded-md px-2 py-1 text-2xl font-semibold leading-tight tracking-tight"
         onClick={() => setEditing(true)}
       >
         {value}
@@ -326,14 +393,13 @@ function EditableTitle({
   }
   return (
     <form
-      className="mt-1"
       onSubmit={(e) => {
         e.preventDefault()
         if (draft.trim() && draft !== value) onSave(draft.trim())
         setEditing(false)
       }}
     >
-      <input
+      <Input
         autoFocus
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
@@ -344,7 +410,7 @@ function EditableTitle({
             setEditing(false)
           }
         }}
-        className="w-full rounded border border-[var(--line)] bg-transparent px-2 py-1 text-2xl font-semibold"
+        className="h-auto px-2 py-1 text-2xl font-semibold"
       />
     </form>
   )
@@ -359,46 +425,56 @@ function EditableDescription({
 }) {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState(value)
+  const textareaRef = useRef<HTMLTextAreaElement>(null)
   useEffect(() => setDraft(value), [value])
+  useEffect(() => {
+    if (editing) textareaRef.current?.focus()
+  }, [editing])
 
   if (!editing) {
     return (
-      <section
-        className="cursor-text rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3 text-sm"
+      <Card
+        className="hover:bg-accent/30 cursor-text gap-0 py-0"
         onClick={() => setEditing(true)}
       >
-        {value ? (
-          <pre className="whitespace-pre-wrap font-sans">{value}</pre>
-        ) : (
-          <span className="opacity-40">click to add a description…</span>
-        )}
-      </section>
+        <CardContent className="px-4 py-3">
+          {value ? (
+            <pre className="text-sm whitespace-pre-wrap font-sans">{value}</pre>
+          ) : (
+            <span className="text-muted-foreground text-sm">
+              click to add a description…
+            </span>
+          )}
+        </CardContent>
+      </Card>
     )
   }
   return (
-    <section>
-      <textarea
-        autoFocus
-        value={draft}
-        onChange={(e) => setDraft(e.target.value)}
-        rows={Math.max(4, draft.split('\n').length + 1)}
-        className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-3 font-sans text-sm"
-      />
-      <div className="mt-1 flex justify-end gap-1">
-        <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
-          Cancel
-        </Button>
-        <Button
-          size="sm"
-          onClick={() => {
-            if (draft !== value) onSave(draft)
-            setEditing(false)
-          }}
-        >
-          Save
-        </Button>
-      </div>
-    </section>
+    <Card className="gap-0 py-0">
+      <CardContent className="px-0 py-0">
+        <textarea
+          ref={textareaRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          rows={Math.max(4, draft.split('\n').length + 1)}
+          className="placeholder:text-muted-foreground w-full resize-y rounded-t-xl bg-transparent p-4 text-sm outline-none"
+        />
+        <div className="flex justify-end gap-1 border-t p-2">
+          <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
+            Cancel
+          </Button>
+          <Button
+            size="sm"
+            onClick={() => {
+              if (draft !== value) onSave(draft)
+              setEditing(false)
+            }}
+          >
+            Save
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -414,7 +490,7 @@ function NullableTextInput({
   const [draft, setDraft] = useState(value)
   useEffect(() => setDraft(value), [value])
   return (
-    <input
+    <Input
       value={draft}
       onChange={(e) => setDraft(e.target.value)}
       onBlur={() => {
@@ -428,7 +504,7 @@ function NullableTextInput({
         }
       }}
       placeholder={placeholder}
-      className="w-full rounded border border-[var(--line)] bg-transparent px-2 py-1 text-sm"
+      className="h-8"
     />
   )
 }
@@ -453,22 +529,19 @@ function TagEditor({
   return (
     <div className="flex flex-wrap items-center gap-1">
       {tags.map((t) => (
-        <span
-          key={t}
-          className="inline-flex items-center gap-1 rounded bg-zinc-500/10 px-1.5 py-0.5 text-xs"
-        >
+        <Badge key={t} variant="secondary" className="gap-1 pl-1.5 pr-1">
           {t}
           <button
-            className="opacity-50 hover:opacity-100"
             onClick={() => onSave(tags.filter((x) => x !== t))}
             aria-label={`remove ${t}`}
+            className="hover:bg-foreground/10 inline-flex size-3.5 items-center justify-center rounded-sm"
           >
-            ×
+            <X className="size-2.5" />
           </button>
-        </span>
+        </Badge>
       ))}
       {adding ? (
-        <input
+        <Input
           autoFocus
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
@@ -483,15 +556,17 @@ function TagEditor({
               setAdding(false)
             }
           }}
-          className="w-24 rounded border border-[var(--line)] bg-transparent px-1.5 py-0.5 text-xs"
+          className="h-6 w-24 text-xs"
         />
       ) : (
-        <button
-          className="rounded border border-dashed border-[var(--line)] px-1.5 py-0.5 text-xs opacity-60 hover:opacity-100"
+        <Button
+          variant="outline"
+          size="xs"
           onClick={() => setAdding(true)}
+          className="border-dashed"
         >
           + tag
-        </button>
+        </Button>
       )}
     </div>
   )
@@ -519,29 +594,38 @@ function CommentsSection({
   })
 
   return (
-    <section>
-      <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide opacity-60">
-        Comments ({comments.length})
-      </h3>
-      <ul className="space-y-2">
+    <SectionCard
+      title={`Comments (${comments.length})`}
+      icon={<MessageSquare className="size-3.5" />}
+    >
+      <ul className="space-y-3">
+        {comments.length === 0 && (
+          <li className="text-muted-foreground py-2 text-xs">
+            no comments yet
+          </li>
+        )}
         {comments.map((c) => (
-          <li
-            key={c.id}
-            className="rounded-lg border border-[var(--line)] bg-[var(--surface)] p-3"
-          >
-            <div className="mb-1 flex items-baseline gap-2 text-xs opacity-60">
-              <span className="font-semibold">{c.author}</span>
-              <span>{formatRelative(c.created)}</span>
+          <li key={c.id} className="flex gap-3">
+            <div className="bg-accent text-accent-foreground flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold uppercase">
+              {c.author.charAt(0)}
             </div>
-            <pre className="whitespace-pre-wrap font-sans text-sm">
-              {c.body}
-            </pre>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-baseline gap-2 text-xs">
+                <span className="font-medium">{c.author}</span>
+                <span className="text-muted-foreground">
+                  {formatRelative(c.created)}
+                </span>
+              </div>
+              <pre className="mt-1 text-sm whitespace-pre-wrap font-sans">
+                {c.body}
+              </pre>
+            </div>
           </li>
         ))}
       </ul>
 
       <form
-        className="mt-3"
+        className="mt-4 border-t pt-4"
         onSubmit={(e) => {
           e.preventDefault()
           if (!draft.trim()) return
@@ -553,16 +637,14 @@ function CommentsSection({
           onChange={(e) => setDraft(e.target.value)}
           rows={3}
           placeholder={
-            agent
-              ? `comment as ${agent}…`
-              : 'set your identity in the header to comment'
+            agent ? `comment as ${agent}…` : 'set identity in sidebar to comment'
           }
           disabled={!agent}
-          className="w-full rounded-lg border border-[var(--line)] bg-[var(--surface-strong)] p-2 text-sm disabled:opacity-40"
+          className="border-input bg-background placeholder:text-muted-foreground focus-visible:ring-ring w-full rounded-md border p-2 text-sm focus-visible:outline-none focus-visible:ring-2 disabled:opacity-50"
         />
-        <div className="mt-1 flex items-center justify-between">
+        <div className="mt-2 flex items-center justify-between">
           {add.error && (
-            <span className="text-xs text-rose-500">
+            <span className="text-destructive text-xs">
               {(add.error as Error).message}
             </span>
           )}
@@ -576,7 +658,7 @@ function CommentsSection({
           </Button>
         </div>
       </form>
-    </section>
+    </SectionCard>
   )
 }
 
@@ -599,46 +681,53 @@ function CheckpointActions({
   })
 
   return (
-    <section className="rounded-lg border border-amber-500/30 bg-amber-500/5 p-4">
-      <h3 className="text-sm font-semibold">Checkpoint</h3>
-      <p className="mt-1 text-xs opacity-70">
-        Approve to close this gate and unblock downstream work. Fail to
-        cancel-cascade.
-      </p>
-      <input
-        value={reason}
-        onChange={(e) => setReason(e.target.value)}
-        placeholder="optional reason…"
-        className="mt-2 w-full rounded border border-[var(--line)] bg-transparent px-2 py-1 text-sm"
-      />
-      <div className="mt-2 flex gap-2">
-        <Button
-          size="sm"
-          disabled={!agent || resolve.isPending}
-          onClick={() => resolve.mutate({ pass: true })}
-        >
-          Approve
-        </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          disabled={!agent || resolve.isPending}
-          onClick={() => resolve.mutate({ pass: false })}
-        >
-          Fail
-        </Button>
-        {!agent && (
-          <span className="self-center text-xs opacity-60">
-            set identity first
-          </span>
-        )}
-      </div>
-      {resolve.error && (
-        <p className="mt-2 text-xs text-rose-500">
-          {(resolve.error as Error).message}
+    <Card className="border-amber-500/30 bg-amber-500/5">
+      <CardHeader>
+        <div className="text-muted-foreground flex items-center gap-2 text-[11px] font-medium uppercase tracking-wide">
+          <ShieldCheck className="size-3.5" />
+          Checkpoint
+        </div>
+      </CardHeader>
+      <CardContent>
+        <p className="text-muted-foreground text-xs">
+          Approve to close the gate and unblock downstream work. Fail to
+          cancel-cascade.
         </p>
-      )}
-    </section>
+        <Input
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+          placeholder="optional reason…"
+          className="mt-3"
+        />
+        <div className="mt-3 flex gap-2">
+          <Button
+            size="sm"
+            disabled={!agent || resolve.isPending}
+            onClick={() => resolve.mutate({ pass: true })}
+          >
+            Approve
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            disabled={!agent || resolve.isPending}
+            onClick={() => resolve.mutate({ pass: false })}
+          >
+            Fail
+          </Button>
+          {!agent && (
+            <span className="text-muted-foreground self-center text-xs">
+              set identity first
+            </span>
+          )}
+        </div>
+        {resolve.error && (
+          <p className="text-destructive mt-2 text-xs">
+            {(resolve.error as Error).message}
+          </p>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
