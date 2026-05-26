@@ -95,6 +95,17 @@ func applyImportLine(ctx context.Context, tx bun.Tx, hdr *exportLine, ln int, le
 			}
 			return fmt.Errorf("line %d (issue): %w", ln, err)
 		}
+		// Backwards-compat: pre-v13 exports carry an `agent` field that
+		// no longer maps to a column. If the record has no assignee but
+		// did have an agent, coalesce so the lane survives the import.
+		if rec.Assignee == nil {
+			var legacy struct {
+				Agent *string `json:"agent"`
+			}
+			if err := json.Unmarshal(hdr.Data, &legacy); err == nil && legacy.Agent != nil {
+				rec.Assignee = legacy.Agent
+			}
+		}
 		if err := store.UpsertIssueTx(ctx, tx, rec.Issue); err != nil {
 			return fmt.Errorf("line %d: upsert issue %s: %w", ln, rec.ID, err)
 		}

@@ -305,14 +305,6 @@ function IssueDetailPage() {
               />
             </Field>
 
-            <Field label="Agent (lane)">
-              <NullableTextInput
-                value={issue.agent ?? ''}
-                onSave={(v) => patch.mutate({ agent: v || null })}
-                placeholder="—"
-              />
-            </Field>
-
             <Field label="Tags">
               <TagEditor
                 tags={issue.labels.filter((l) => !isManaged(l))}

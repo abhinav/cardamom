@@ -62,7 +62,6 @@ export interface Issue {
   type: string
   status: 'open' | 'in_progress' | 'closed' | 'cancelled'
   priority: number
-  agent?: string | null
   assignee?: string | null
   created: number
   updated: number
@@ -196,7 +195,6 @@ export interface PatchIssueBody {
   status?: string
   priority?: number
   assignee?: string | null
-  agent?: string | null
   description?: string | null
   tags?: string[]
 }

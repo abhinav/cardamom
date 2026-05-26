@@ -12,7 +12,7 @@ import (
 // "no filter on this dimension".
 type ListFilter struct {
 	Statuses      []string // any-of match (e.g. {"open","in_progress"}). nil/empty = no filter.
-	Agent         *string  // exact match on agent lane (nil = no filter)
+	Assignee      *string  // exact match on assignee (nil = no filter)
 	Type          string   // exact match (e.g. "bug")
 	Labels        []string // AND: issue must have ALL of these labels
 	LabelsAny     []string // OR: issue must have AT LEAST ONE
@@ -73,14 +73,8 @@ func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
 	if len(f.Statuses) > 0 {
 		q = q.Where("i.status IN (?)", bun.List(f.Statuses))
 	}
-	if f.Agent != nil {
-		// `-a X` means "X's work" from a user POV. clu tracks two
-		// columns (agent = lane / routing; assignee = currently
-		// working on it), and matching only `agent` hides issues
-		// that were assigned to X without changing the lane (e.g.
-		// `clu assign <id> X`). Until the columns are unified, the
-		// filter unions them so the user-facing model is one name.
-		q = q.Where("i.agent = ? OR i.assignee = ?", *f.Agent, *f.Agent)
+	if f.Assignee != nil {
+		q = q.Where("i.assignee = ?", *f.Assignee)
 	}
 	if f.Type != "" {
 		q = q.Where("i.type = ?", f.Type)
@@ -180,14 +174,14 @@ func (s *Store) Count(ctx context.Context, f ListFilter) (int, error) {
 
 // Stats is a snapshot of issue counts grouped by various dimensions.
 type Stats struct {
-	Status map[string]int `json:"status"`
-	Agents map[string]int `json:"agents"` // nil agent rendered as "<none>"
-	Types  map[string]int `json:"types"`
+	Status    map[string]int `json:"status"`
+	Assignees map[string]int `json:"assignees"` // nil assignee rendered as "<none>"
+	Types     map[string]int `json:"types"`
 }
 
-// Stats returns counts grouped by status, agent (NULL → "<none>"), and type.
+// Stats returns counts grouped by status, assignee (NULL → "<none>"), and type.
 func (s *Store) Stats(ctx context.Context) (Stats, error) {
-	out := Stats{Status: map[string]int{}, Agents: map[string]int{}, Types: map[string]int{}}
+	out := Stats{Status: map[string]int{}, Assignees: map[string]int{}, Types: map[string]int{}}
 
 	type row struct {
 		Key   *string `bun:"key"`
@@ -217,7 +211,7 @@ func (s *Store) Stats(ctx context.Context) (Stats, error) {
 	if err := scan("i.status", out.Status); err != nil {
 		return Stats{}, err
 	}
-	if err := scan("i.agent", out.Agents); err != nil {
+	if err := scan("i.assignee", out.Assignees); err != nil {
 		return Stats{}, err
 	}
 	if err := scan("i.type", out.Types); err != nil {
@@ -244,7 +238,8 @@ func (s *Store) MaxUpdated(ctx context.Context) (int64, error) {
 }
 
 // Blocked returns open issues that have at least one non-closed dependency.
-// Inverse of Ready. Same agent-lane semantics.
+// Inverse of Ready. Same lane semantics: nil agent = unassigned pool;
+// "X" = issues assigned to X.
 func (s *Store) Blocked(ctx context.Context, limit int, agent *string) ([]Issue, error) {
 	if limit <= 0 {
 		limit = 50
@@ -256,10 +251,9 @@ func (s *Store) Blocked(ctx context.Context, limit int, agent *string) ([]Issue,
 		OrderExpr("i.priority ASC, i.created ASC").
 		Limit(limit)
 	if agent == nil {
-		q = q.Where("i.agent IS NULL AND i.assignee IS NULL")
+		q = q.Where("i.assignee IS NULL")
 	} else {
-		// Mirror the unified `-a` filter from List: match either column.
-		q = q.Where("i.agent = ? OR i.assignee = ?", *agent, *agent)
+		q = q.Where("i.assignee = ?", *agent)
 	}
 	if err := q.Scan(ctx); err != nil {
 		return nil, err

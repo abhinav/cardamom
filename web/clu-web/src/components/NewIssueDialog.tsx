@@ -182,7 +182,7 @@ export default function NewIssueDialog({ open, onOpenChange, presetAgent }: Prop
               </Select>
             </LabelledField>
 
-            <LabelledField label="Agent (lane)">
+            <LabelledField label="Assignee">
               <Input
                 value={agent}
                 onChange={(e) => setAgent(e.target.value)}

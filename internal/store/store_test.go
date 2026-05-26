@@ -302,22 +302,23 @@ func TestAgentLanes(t *testing.T) {
 	reviewer, _ := s.Create(ctx, "review PR", "task", 1, &cr)
 	writer, _ := s.Create(ctx, "write docs", "task", 1, &wr)
 
-	// bd ready (no agent): only unassigned-lane issues.
+	// `ready` (no agent): only the unassigned pool.
 	r, _ := s.Ready(ctx, 10, nil, nil)
 	if len(r) != 1 || r[0].ID != unassigned.ID {
 		t.Fatalf("expected only unassigned issue ready, got %+v", r)
 	}
-	// bd ready -a code-reviewer: only that lane.
+	// `ready -a code-reviewer`: cr's pre-assigned + the shared pool.
+	// Pre-assigned sorts ahead of the pool.
 	r, _ = s.Ready(ctx, 10, &cr, nil)
-	if len(r) != 1 || r[0].ID != reviewer.ID {
-		t.Fatalf("expected reviewer issue ready, got %+v", r)
+	if len(r) != 2 || r[0].ID != reviewer.ID || r[1].ID != unassigned.ID {
+		t.Fatalf("expected [reviewer, unassigned], got %+v", r)
 	}
 	r, _ = s.Ready(ctx, 10, &wr, nil)
-	if len(r) != 1 || r[0].ID != writer.ID {
-		t.Fatalf("expected writer issue ready, got %+v", r)
+	if len(r) != 2 || r[0].ID != writer.ID || r[1].ID != unassigned.ID {
+		t.Fatalf("expected [writer, unassigned], got %+v", r)
 	}
 
-	// Claim respects lane.
+	// Claim prefers pre-assigned over the shared pool.
 	got, err := s.Claim(ctx, "alice", &cr, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -325,15 +326,19 @@ func TestAgentLanes(t *testing.T) {
 	if got.ID != reviewer.ID {
 		t.Fatalf("expected reviewer claim, got %s", got.ID)
 	}
-	if got.Agent == nil || *got.Agent != cr {
-		t.Fatalf("agent lost on claim: %+v", got)
+	// Assignee is overwritten to the claimer — that's who holds it now.
+	if got.Assignee == nil || *got.Assignee != "alice" {
+		t.Fatalf("assignee not set to claimer: %+v", got)
 	}
 }
 
 func TestClaimNoneInLane(t *testing.T) {
 	s := newTestStore(t)
 	cr := "code-reviewer"
-	_, _ = s.Create(ctx, "only unassigned", "task", 1, nil)
+	wr := "writer"
+	// Only writer-routed work exists; cr's lane is empty (cr has no
+	// pre-assigned and the only unassigned-pool work isn't here).
+	_, _ = s.Create(ctx, "for writer", "task", 1, &wr)
 	if _, err := s.Claim(ctx, "alice", &cr, nil); err != ErrNotFound {
 		t.Fatalf("expected ErrNotFound when nothing in lane, got %v", err)
 	}
@@ -388,24 +393,24 @@ func TestWaitReadyCancellation(t *testing.T) {
 	}
 }
 
-func TestUpdateAgent(t *testing.T) {
+func TestUpdateAssigneeSetAndClear(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "task", "task", 1, nil)
 	cr := ptr("code-reviewer")
-	got, err := s.Update(ctx, a.ID, UpdateFields{Agent: &cr})
+	got, err := s.Update(ctx, a.ID, UpdateFields{Assignee: &cr})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Agent == nil || *got.Agent != "code-reviewer" {
-		t.Fatalf("agent not set: %+v", got)
+	if got.Assignee == nil || *got.Assignee != "code-reviewer" {
+		t.Fatalf("assignee not set: %+v", got)
 	}
 	var none *string
-	got, err = s.Update(ctx, a.ID, UpdateFields{Agent: &none})
+	got, err = s.Update(ctx, a.ID, UpdateFields{Assignee: &none})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Agent != nil {
-		t.Fatalf("agent not cleared: %+v", got)
+	if got.Assignee != nil {
+		t.Fatalf("assignee not cleared: %+v", got)
 	}
 }
 
@@ -632,7 +637,7 @@ func TestCountWithFilter(t *testing.T) {
 	_, _ = s.Create(ctx, "1", "task", 1, &cr)
 	_, _ = s.Create(ctx, "2", "task", 1, &cr)
 	_, _ = s.Create(ctx, "3", "task", 1, nil)
-	n, _ := s.Count(ctx, ListFilter{Agent: &cr})
+	n, _ := s.Count(ctx, ListFilter{Assignee: &cr})
 	if n != 2 {
 		t.Fatalf("expected 2 for code-reviewer, got %d", n)
 	}
@@ -653,8 +658,8 @@ func TestStats(t *testing.T) {
 	if st.Status["closed"] != 1 || st.Status["open"] != 2 {
 		t.Fatalf("status counts wrong: %+v", st.Status)
 	}
-	if st.Agents["<none>"] != 2 || st.Agents["code-reviewer"] != 1 {
-		t.Fatalf("agent counts wrong: %+v", st.Agents)
+	if st.Assignees["<none>"] != 2 || st.Assignees["code-reviewer"] != 1 {
+		t.Fatalf("assignee counts wrong: %+v", st.Assignees)
 	}
 	if st.Types["task"] != 2 || st.Types["bug"] != 1 {
 		t.Fatalf("type counts wrong: %+v", st.Types)

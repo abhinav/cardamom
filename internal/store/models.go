@@ -10,7 +10,6 @@ type Issue struct {
 	Type        string  `bun:"type,notnull" json:"type"`
 	Status      string  `bun:"status,notnull" json:"status"`
 	Priority    int     `bun:"priority,notnull" json:"priority"`
-	Agent       *string `bun:"agent" json:"agent,omitempty"`
 	Assignee    *string `bun:"assignee" json:"assignee,omitempty"`
 	Created     int64   `bun:"created,notnull" json:"created"`
 	Updated     int64   `bun:"updated,notnull" json:"updated"`

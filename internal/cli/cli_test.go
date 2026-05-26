@@ -220,17 +220,21 @@ func TestCLIAgentLanes(t *testing.T) {
 	idShared := strings.TrimSpace(c.run("create", "shared task"))
 	idCR := strings.TrimSpace(c.run("create", "-a", "code-reviewer", "review PR"))
 
-	// bd ready (default lane) — only the shared task.
+	// `clu ready` with no agent — only the shared (unassigned) task.
 	out := c.run("ready")
 	if !strings.Contains(out, idShared) || strings.Contains(out, idCR) {
 		t.Fatalf("default-lane ready wrong:\n%s", out)
 	}
-	// bd ready -a code-reviewer — only the reviewer task.
+	// `clu ready -a code-reviewer` — cr's pre-assigned + the shared
+	// pool (post-v13 collapse: lane = assignee=me OR assignee IS NULL).
 	out = c.run("ready", "-a", "code-reviewer")
-	if !strings.Contains(out, idCR) || strings.Contains(out, idShared) {
-		t.Fatalf("code-reviewer-lane ready wrong:\n%s", out)
+	if !strings.Contains(out, idCR) || !strings.Contains(out, idShared) {
+		t.Fatalf("code-reviewer-lane ready should show both pre-assigned and shared pool:\n%s", out)
 	}
-	// bd list -a code-reviewer — only the reviewer task.
+	// `clu list -a code-reviewer` — only the exact-assignee match.
+	// List is a directory view, not a claim preview; matching the
+	// shared pool here would make `-a X` useless for "show me X's
+	// work".
 	out = c.run("list", "-a", "code-reviewer")
 	if !strings.Contains(out, idCR) || strings.Contains(out, idShared) {
 		t.Fatalf("code-reviewer-lane list wrong:\n%s", out)
@@ -588,11 +592,11 @@ func TestCLIStats(t *testing.T) {
 	c.run("create", "a")
 	c.run("create", "-a", "code-reviewer", "b")
 	out := c.run("stats")
-	if !strings.Contains(out, "Status:") || !strings.Contains(out, "Agents:") || !strings.Contains(out, "Types:") {
+	if !strings.Contains(out, "Status:") || !strings.Contains(out, "Assignees:") || !strings.Contains(out, "Types:") {
 		t.Fatalf("stats missing sections:\n%s", out)
 	}
 	if !strings.Contains(out, "<none>") || !strings.Contains(out, "code-reviewer") {
-		t.Fatalf("stats missing agent grouping:\n%s", out)
+		t.Fatalf("stats missing assignee grouping:\n%s", out)
 	}
 }
 

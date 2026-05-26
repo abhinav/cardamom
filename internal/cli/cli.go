@@ -452,10 +452,6 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string, bl
 		if i.Assignee != nil {
 			assignee = *i.Assignee
 		}
-		agent := "-"
-		if i.Agent != nil {
-			agent = *i.Agent
-		}
 		status := displayStatus(i, blocked[i.ID])
 		// Surface a deferred row's wait state inline. `ready` already
 		// excludes deferred issues; `list` previously showed them as
@@ -469,7 +465,7 @@ func printIssues(r *runCtx, issues []store.Issue, labels map[string][]string, bl
 				status = "overdue"
 			}
 		}
-		fmt.Fprintf(r.stdout, "%s  p%d  %-12s  %-12s  %-10s  %s", i.ID, i.Priority, status, agent, assignee, i.Title)
+		fmt.Fprintf(r.stdout, "%s  p%d  %-12s  %-12s  %s", i.ID, i.Priority, status, assignee, i.Title)
 		if ls := labels[i.ID]; len(ls) > 0 {
 			fmt.Fprintf(r.stdout, "  [%s]", strings.Join(ls, ", "))
 		}
@@ -504,9 +500,6 @@ func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comm
 	fmt.Fprintf(w, "Type:     %s\n", i.Type)
 	fmt.Fprintf(w, "Status:   %s\n", displayStatus(i, blocked))
 	fmt.Fprintf(w, "Priority: %d\n", i.Priority)
-	if i.Agent != nil {
-		fmt.Fprintf(w, "Agent:    %s\n", *i.Agent)
-	}
 	if i.Assignee != nil {
 		fmt.Fprintf(w, "Assignee: %s\n", *i.Assignee)
 	}

@@ -43,7 +43,6 @@ func UpsertIssueTx(ctx context.Context, q queryRunner, i Issue) error {
 		Set("type = EXCLUDED.type").
 		Set("status = EXCLUDED.status").
 		Set("priority = EXCLUDED.priority").
-		Set("agent = EXCLUDED.agent").
 		Set("assignee = EXCLUDED.assignee").
 		Set("created = EXCLUDED.created").
 		Set("updated = EXCLUDED.updated").

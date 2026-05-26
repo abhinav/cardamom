@@ -10,9 +10,11 @@ import (
 	"github.com/uptrace/bun"
 )
 
-// Create inserts a new issue. agent may be nil for an unassigned-lane issue.
-func (s *Store) Create(ctx context.Context, title, typ string, priority int, agent *string) (Issue, error) {
-	return s.CreateWithLinks(ctx, title, typ, priority, agent, CreateOpts{})
+// Create inserts a new issue. assignee may be nil for an unassigned issue
+// (the shared pool). Setting it pre-routes the work without claiming it —
+// the issue stays status=open until someone `clu claim`s it.
+func (s *Store) Create(ctx context.Context, title, typ string, priority int, assignee *string) (Issue, error) {
+	return s.CreateWithLinks(ctx, title, typ, priority, assignee, CreateOpts{})
 }
 
 // CreateOpts holds the optional extras CreateWithLinks can wire up
@@ -34,7 +36,7 @@ type CreateOpts struct {
 //
 // Parents must already exist; a no-such-parent aborts the whole
 // transaction so we never leave a half-linked issue behind.
-func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority int, agent *string, opts CreateOpts) (Issue, error) {
+func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority int, assignee *string, opts CreateOpts) (Issue, error) {
 	// Trim before the empty check so `clu create "   "` is rejected the
 	// same way as `clu create ""`. Bare whitespace stored as a title
 	// previously surfaced as a blank line in `list`.
@@ -75,7 +77,7 @@ func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority
 			t := now()
 			i := Issue{
 				ID: newID(s.idPrefix), Title: title, Type: typ, Status: "open",
-				Priority: priority, Agent: agent,
+				Priority: priority, Assignee: assignee,
 				Created: t, Updated: t,
 				Description: descPtr,
 				Notes:       notesPtr,
@@ -271,7 +273,6 @@ type UpdateFields struct {
 	Status      *string
 	Priority    *int
 	Assignee    **string // outer nil = unchanged; inner nil = clear; else set
-	Agent       **string // same semantics as Assignee
 	Description **string // same semantics as Assignee
 }
 
@@ -343,9 +344,6 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 	}
 	if f.Assignee != nil {
 		q = q.Set("assignee = ?", *f.Assignee)
-	}
-	if f.Agent != nil {
-		q = q.Set("agent = ?", *f.Agent)
 	}
 	if f.Description != nil {
 		q = q.Set("description = ?", *f.Description)

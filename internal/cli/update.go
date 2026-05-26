@@ -10,10 +10,8 @@ type UpdateCmd struct {
 	ID            string  `arg:"" help:"Issue ID."`
 	Priority      *int    `short:"p" help:"New priority (0=highest)."`
 	Status        *string `help:"New status."`
-	Assignee      *string `help:"Set assignee."`
+	Assignee      *string `short:"a" name:"assignee" help:"Set assignee. The 'agent lane' is just the assignee on an open issue."`
 	Unassign      bool    `help:"Clear assignee."`
-	Agent         *string `short:"a" help:"Set agent lane."`
-	NoAgent       bool    `help:"Clear agent lane."`
 	Title         *string `help:"New title."`
 	Description   *string `help:"Set description."`
 	NoDescription bool    `name:"no-description" help:"Clear description."`
@@ -25,9 +23,6 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 	// different from what they typed, with no warning. Fail fast.
 	if c.Unassign && c.Assignee != nil {
 		return errors.New("--unassign and --assignee are mutually exclusive")
-	}
-	if c.NoAgent && c.Agent != nil {
-		return errors.New("--no-agent and --agent are mutually exclusive")
 	}
 	if c.NoDescription && c.Description != nil {
 		return errors.New("--no-description and --description are mutually exclusive")
@@ -45,13 +40,6 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 			f.Assignee = &c.Assignee
 		}
 		switch {
-		case c.NoAgent:
-			var none *string
-			f.Agent = &none
-		case c.Agent != nil:
-			f.Agent = &c.Agent
-		}
-		switch {
 		case c.NoDescription:
 			var none *string
 			f.Description = &none
@@ -59,7 +47,7 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 			f.Description = &c.Description
 		}
 		if !c.hasAnyField() {
-			return errors.New("nothing to update — pass at least one of --title/--status/--priority/--assignee/--unassign/--agent/--no-agent/--description/--no-description")
+			return errors.New("nothing to update — pass at least one of --title/--status/--priority/--assignee/--unassign/--description/--no-description")
 		}
 		i, err := s.Update(r.ctx, c.ID, f)
 		if err != nil {
@@ -81,6 +69,5 @@ func (c *UpdateCmd) hasAnyField() bool {
 		c.Status != nil ||
 		c.Title != nil ||
 		c.Assignee != nil || c.Unassign ||
-		c.Agent != nil || c.NoAgent ||
 		c.Description != nil || c.NoDescription
 }

@@ -15,7 +15,7 @@ import (
 // list cares about it, count does not.
 type listFilterFlags struct {
 	Status []string `default:"open,in_progress" sep:"," enum:"open,in_progress,closed,cancelled,active,all" help:"Filter by status. Comma-separated; 'active' = open+in_progress; 'all' disables the filter."`
-	Agent  string   `short:"a" help:"Filter by agent lane."`
+	Agent  string   `short:"a" help:"Filter by assignee."`
 	Type   string   `short:"t" help:"Filter by type."`
 
 	Label      []string `short:"l" sep:"," help:"Filter by labels (AND: must have ALL). Comma-separated or repeatable."`
@@ -52,7 +52,7 @@ type listFilterFlags struct {
 func (f listFilterFlags) toFilter() (store.ListFilter, error) {
 	out := store.ListFilter{
 		Statuses:         expandStatuses(f.Status),
-		Agent:            agentPtr(f.Agent),
+		Assignee:         agentPtr(f.Agent),
 		Type:             f.Type,
 		Labels:           f.Label,
 		LabelsAny:        f.LabelAny,

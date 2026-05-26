@@ -26,7 +26,7 @@ func (c *StatsCmd) Run(r *runCtx) error {
 			"open": "open (incl. blocked)",
 		})
 		fmt.Fprintln(r.stdout)
-		printGroup(r, "Agents", st.Agents)
+		printGroup(r, "Assignees", st.Assignees)
 		fmt.Fprintln(r.stdout)
 		printGroup(r, "Types", st.Types)
 		return nil

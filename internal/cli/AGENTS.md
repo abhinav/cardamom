@@ -36,26 +36,27 @@ one who already has it.
 
 What the flag does on each command:
 
-- `create -a X` — route the new issue into X's lane.
+- `create -a X` — pre-assign the new issue to X (status stays `open`
+  until someone claims it).
 - `list -a X` / `count -a X` / `blocked -a X` — **show me X's work**:
-  anything in X's lane *or* currently assigned to X.
-- `ready -a X` — show **unassigned, unblocked** work that X could
-  claim next (X's lane only, by definition).
+  exact match on `assignee = X`.
+- `ready -a X` — what X could pick up next: X's pre-assigned work
+  *plus* the shared unassigned pool (open + deps closed + not
+  deferred). Pre-assigned sorts ahead of the pool.
 - `claim -a X` — atomically take the next ready issue in X's lane and
-  record X as the assignee.
+  record X as the assignee. Pre-assigned wins over the shared pool.
 - `comment add -a X` / `approve -a X` / `checkpoint pass -a X` —
   record X as the author/approver.
 
-Bare `clu claim` (no `-a`) means "I am `$USER`, looking at the default
-unassigned lane." Use that if you're operating ad-hoc; use
+Bare `clu claim` (no `-a`) means "I am `$USER`, pulling from the shared
+unassigned pool." Use that if you're operating ad-hoc; use
 `-a <agent-name>` if you're a declared agent in `.clu/config.yaml`.
 
-> **Note on the two columns.** Internally clu still tracks an
-> `agent` column (the lane) and an `assignee` column (who's currently
-> holding the issue). They're being collapsed; for now, `list -a X`
-> matches *either* column so the user-facing model stays "one
-> identity." `ready -a X` stays lane-only — pulling assigned work into
-> "ready" would defeat the point of ready.
+> **One column.** As of schema v13 there's a single `assignee` column;
+> the historical `agent` lane was collapsed in. "Lane" is now just a
+> synonym for "issues whose assignee matches you, plus the unassigned
+> pool." `create -a X` sets assignee directly — same as
+> `clu assign <id> X` on an existing issue.
 
 To see who's declared:
 
@@ -67,8 +68,8 @@ clu agent show <name>      # one agent's capabilities + pending work
 ## Finding work
 
 ```bash
-clu ready                        # unblocked, unassigned, in default lane
-clu ready -a <your-name>         # unblocked, in your lane
+clu ready                        # unblocked, from the unassigned pool
+clu ready -a <your-name>         # unblocked, in your lane (pre-assigned + pool)
 clu ready --json                 # machine-parseable; one JSON value
 clu list --status all -n 50      # broader view
 clu blocked                      # what's waiting on something else
@@ -82,13 +83,13 @@ Lane matching (the matrix that trips people up):
 
 | your `-a` | result |
 |---|---|
-| (none) | default lane: `agent IS NULL` AND no `cap:*` label |
-| `foo` | exact: `agent = 'foo'`, plus default-lane issues whose `cap:*` you advertise |
+| (none) | shared pool: `assignee IS NULL` AND no `cap:*` label |
+| `foo` | `assignee = 'foo'` OR (`assignee IS NULL` AND optional `cap:` match) |
 
 Capabilities are declared in `config.yaml` and surface as `cap:<name>`
 labels on issues. A code-reviewer with `capabilities: [go-review]` will
-see default-lane issues tagged `cap:go-review` in addition to its own
-lane.
+see shared-pool issues tagged `cap:go-review` in addition to its
+pre-assigned work.
 
 ## Claiming, atomically
 
@@ -138,8 +139,8 @@ block into one push notification — silent ticks don't wake you up.
 
 | command | shows |
 |---|---|
-| `clu ready --watch -a X` | only **unblocked, unassigned** issues in X's lane — i.e. what X can actually start on right now |
-| `clu list --watch -a X` | every open issue in X's lane (claimed, blocked, deferred, all of it) — useful for situational awareness |
+| `clu ready --watch -a X` | only **unblocked** work in X's lane (pre-assigned + shared pool) — what X can actually start on right now |
+| `clu list --watch -a X` | every open issue assigned to X (claimed, blocked, deferred, all of it) — useful for situational awareness |
 
 For "wake me up when there's something I can pick up," use **`ready
 --watch`**. For "show me everything happening in my area," use **`list

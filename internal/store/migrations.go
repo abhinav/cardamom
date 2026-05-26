@@ -138,6 +138,21 @@ var migrations = []string{
     CREATE INDEX IF NOT EXISTS idx_mailbox_recipient_read ON mailbox(recipient, read_at);
     CREATE INDEX IF NOT EXISTS idx_mailbox_expires ON mailbox(expires);
     `,
+	// v13: collapse `agent` (lane) into `assignee`. Pre-routing and
+	// claiming were two columns serving one concept in our single-user
+	// model; the split caused user-visible drift (`clu assign <id> X`
+	// set assignee but not agent, so `clu list -a X` returned empty).
+	// Coalesce existing data, drop the agent column.
+	//
+	// SQLite ≥ 3.35 supports DROP COLUMN; modernc.org/sqlite is recent
+	// enough. The index drop comes first so dropping the column doesn't
+	// fail on a dependent index.
+	`
+    UPDATE issues SET assignee = agent WHERE assignee IS NULL AND agent IS NOT NULL;
+    DROP INDEX IF EXISTS idx_issues_agent;
+    ALTER TABLE issues DROP COLUMN agent;
+    CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee);
+    `,
 }
 
 func migrate(db *sql.DB) error {

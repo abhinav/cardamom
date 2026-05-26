@@ -37,7 +37,7 @@ type issueDetailOut struct {
 //	priority_min   int
 //	priority_max   int
 //	type           exact match
-//	agent          exact match (also matches assignee, mirroring CLI -a)
+//	agent          exact match on assignee (mirrors CLI -a)
 //	label          AND of multiple — issue must have all
 //	label_any      OR of multiple
 //	tag            UI-friendly alias for label_any
@@ -122,12 +122,14 @@ func (s *Server) handleGetIssue(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 // to 2; the HTTP surface used to decode missing priority as the zero
 // value, silently routing every API-created issue to P0.
 type createIssueReq struct {
-	Title       string   `json:"title"`
-	Type        string   `json:"type,omitempty"`     // default "task"
-	Priority    *int     `json:"priority,omitempty"` // default 2 (matches CLI)
-	Agent       *string  `json:"agent,omitempty"`    // lane; nil = unassigned
-	Labels      []string `json:"labels,omitempty"`   // attached after create
-	Parents     []string `json:"parents,omitempty"`  // dep edges to add
+	Title    string `json:"title"`
+	Type     string `json:"type,omitempty"`     // default "task"
+	Priority *int   `json:"priority,omitempty"` // default 2 (matches CLI)
+	// "agent" mirrors the CLI flag; the value lands in the assignee
+	// column. nil = the shared unassigned pool.
+	Agent       *string  `json:"agent,omitempty"`
+	Labels      []string `json:"labels,omitempty"`  // attached after create
+	Parents     []string `json:"parents,omitempty"` // dep edges to add
 	Description string   `json:"description,omitempty"`
 	Notes       string   `json:"notes,omitempty"`
 }
@@ -175,7 +177,6 @@ type patchIssueReq struct {
 	Status      *string   `json:"status,omitempty"`
 	Priority    *int      `json:"priority,omitempty"`
 	Assignee    jsonOpt   `json:"assignee,omitempty"`
-	Agent       jsonOpt   `json:"agent,omitempty"`
 	Description jsonOpt   `json:"description,omitempty"`
 	Tags        *[]string `json:"tags,omitempty"`
 }
@@ -194,7 +195,6 @@ func (s *Server) handlePatchIssue(w stdhttp.ResponseWriter, r *stdhttp.Request) 
 		Status:      body.Status,
 		Priority:    body.Priority,
 		Assignee:    body.Assignee.toDoublePtr(),
-		Agent:       body.Agent.toDoublePtr(),
 		Description: body.Description.toDoublePtr(),
 	})
 	if err != nil {
@@ -298,8 +298,10 @@ func parseListFilter(r *stdhttp.Request) (store.ListFilter, error) {
 	if v := q["status"]; len(v) > 0 {
 		f.Statuses = v
 	}
+	// "agent" is the user-facing flag name (per the sticky decision in
+	// CLAUDE.md); under the hood it maps to the assignee column.
 	if v := q.Get("agent"); v != "" {
-		f.Agent = &v
+		f.Assignee = &v
 	}
 	if v := q.Get("type"); v != "" {
 		f.Type = v
