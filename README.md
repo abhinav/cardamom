@@ -59,10 +59,18 @@ When you run more than one AI coding session against the same project, they need
 ## 📦 Install
 
 ```bash
-go install github.com/rovak/clu/cmd/clu@latest
-# or, from a clone:
+# From a clone (installs the CLI + the web UI bundle):
 make install
+
+# Or, just the CLI:
+go install github.com/rovak/clu/cmd/clu@latest
 ```
+
+`make install` runs `go install` and then `clu web --install`, which
+builds the web UI (`pnpm install` + `pnpm build`) and copies the
+output to `~/.local/share/clu/web` so `clu web` works from any
+directory. Skipped silently if pnpm isn't on PATH — the CLI works
+without the UI.
 
 Add `$HOME/go/bin` to your `PATH`. Verify with `clu --help`.
 

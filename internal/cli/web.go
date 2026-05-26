@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	stdhttp "net/http"
 	"os"
@@ -11,6 +12,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -30,13 +32,20 @@ type WebCmd struct {
 	Bind      string `name:"bind" default:"127.0.0.1" help:"Interface to bind both servers."`
 	Dev       bool   `name:"dev" help:"Use 'pnpm dev' (HMR) instead of the built output. Default tries built output first, falls back to dev."`
 	NoBrowser bool   `name:"no-browser" help:"Don't try to open a browser window."`
-	WebDir    string `name:"web-dir" env:"CLU_WEB_DIR" help:"Path to the web app (the TanStack Start project). Defaults to ./web/clu-web."`
+	WebDir    string `name:"web-dir" env:"CLU_WEB_DIR" help:"Path to the web app. Default search: $CLU_WEB_DIR → ~/.local/share/clu/web → ./web/clu-web."`
+	Install   bool   `name:"install" help:"Build the web app (pnpm install + pnpm build) and copy .output/ to ~/.local/share/clu/web. Run once after 'go install'; afterwards bare 'clu web' works from any directory."`
 }
 
 func (c *WebCmd) Run(r *runCtx) error {
+	if c.Install {
+		return installWebApp(r, c.WebDir)
+	}
 	webDir, err := resolveWebDir(c.WebDir)
 	if err != nil {
 		return err
+	}
+	if c.Dev && !hasPackageJSON(webDir) {
+		return fmt.Errorf("--dev requires the web source (with package.json); %s is a built-only install. Pass --web-dir to the source tree or omit --dev", webDir)
 	}
 
 	// 1. Bring up the API in-process. Listen on the requested port; if
@@ -226,30 +235,227 @@ func webCommand(ctx context.Context, c *WebCmd, webDir, apiURL string) (*exec.Cm
 	return cmd, nil
 }
 
-// resolveWebDir picks the web project directory. Order: explicit flag /
-// env (passed in via `chosen`), then ./web/clu-web relative to cwd.
-// Errors clearly when nothing's found so users know what to set.
+// resolveWebDir picks the web project directory. Search order:
+//
+//  1. Explicit flag (--web-dir) or env (CLU_WEB_DIR), passed in as `chosen`.
+//     Must contain either package.json (source) or .output/server/index.mjs
+//     (installed build).
+//  2. The installed location (~/.local/share/clu/web or $XDG_DATA_HOME/clu/web).
+//     This is what `clu web --install` populates, so a one-time install
+//     makes `clu web` work from any directory.
+//  3. ./web/clu-web relative to cwd (the dev convenience for running
+//     out of a repo checkout).
+//
+// Errors clearly when nothing's found, pointing the user at --install.
 func resolveWebDir(chosen string) (string, error) {
 	if chosen != "" {
 		abs, err := filepath.Abs(chosen)
 		if err != nil {
 			return "", err
 		}
-		if _, err := os.Stat(filepath.Join(abs, "package.json")); err != nil {
-			return "", fmt.Errorf("web dir %s has no package.json", abs)
+		if !looksLikeWebDir(abs) {
+			return "", fmt.Errorf("web dir %s has neither package.json nor .output/server/index.mjs", abs)
 		}
 		return abs, nil
 	}
-	// Default: ./web/clu-web relative to cwd (this repo's layout).
+	if installed := installedWebDir(); looksLikeWebDir(installed) {
+		return installed, nil
+	}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return "", err
 	}
 	candidate := filepath.Join(cwd, "web", "clu-web")
-	if _, err := os.Stat(filepath.Join(candidate, "package.json")); err == nil {
+	if looksLikeWebDir(candidate) {
 		return candidate, nil
 	}
-	return "", fmt.Errorf("could not locate the web project; pass --web-dir or set CLU_WEB_DIR (looked in %s)", candidate)
+	return "", fmt.Errorf(
+		"could not locate the web project. Tried:\n"+
+			"  - %s (installed)\n"+
+			"  - %s (repo checkout)\n"+
+			"Fix: run `clu web --install` inside the agents-clu repo, "+
+			"or pass --web-dir / set CLU_WEB_DIR.",
+		installedWebDir(), candidate,
+	)
+}
+
+// installedWebDir returns the path where `clu web --install` stages the
+// built web bundle. Honors $XDG_DATA_HOME if set; falls back to
+// ~/.local/share/clu/web on every platform (Windows users with this
+// directory missing will get a clear error from the install step).
+func installedWebDir() string {
+	if d := os.Getenv("XDG_DATA_HOME"); d != "" {
+		return filepath.Join(d, "clu", "web")
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	return filepath.Join(home, ".local", "share", "clu", "web")
+}
+
+// looksLikeWebDir reports whether path holds either a source tree
+// (package.json) or a built install (.output/server/index.mjs).
+func looksLikeWebDir(path string) bool {
+	if path == "" {
+		return false
+	}
+	if _, err := os.Stat(filepath.Join(path, "package.json")); err == nil {
+		return true
+	}
+	if _, err := os.Stat(filepath.Join(path, ".output", "server", "index.mjs")); err == nil {
+		return true
+	}
+	return false
+}
+
+// hasPackageJSON reports whether path is a web source tree (vs. a
+// built-only install dir). Used to gate --dev on having pnpm-able sources.
+func hasPackageJSON(path string) bool {
+	_, err := os.Stat(filepath.Join(path, "package.json"))
+	return err == nil
+}
+
+// installWebApp builds the web app (pnpm install + pnpm build) in the
+// source tree and copies .output/ to the installed location so that
+// future `clu web` invocations work from any directory.
+//
+// Source tree resolution: --web-dir / CLU_WEB_DIR if set, else
+// ./web/clu-web. Requires pnpm on PATH.
+func installWebApp(r *runCtx, chosen string) error {
+	// Resolve source: must be a source tree (package.json), not an
+	// installed bundle. We can't install from a built-only dir.
+	src, err := resolveWebSource(chosen)
+	if err != nil {
+		return err
+	}
+	if _, err := exec.LookPath("pnpm"); err != nil {
+		return fmt.Errorf("pnpm not found on PATH; install pnpm first (https://pnpm.io/installation)")
+	}
+
+	dest := installedWebDir()
+	if dest == "" {
+		return errors.New("could not determine install destination: $HOME unset and $XDG_DATA_HOME unset")
+	}
+
+	r.notice("source: %s\n", src)
+	r.notice("dest:   %s\n", dest)
+
+	// Build steps run in the source tree, inheriting stdio so the user
+	// sees pnpm's progress directly.
+	for _, step := range [][]string{
+		{"pnpm", "install", "--frozen-lockfile"},
+		{"pnpm", "build"},
+	} {
+		r.notice("\n› %s\n", strings.Join(step, " "))
+		cmd := exec.CommandContext(r.ctx, step[0], step[1:]...)
+		cmd.Dir = src
+		cmd.Stdout = r.stdout
+		cmd.Stderr = r.stderr
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("%s: %w", strings.Join(step, " "), err)
+		}
+	}
+
+	output := filepath.Join(src, ".output")
+	if _, err := os.Stat(output); err != nil {
+		return fmt.Errorf("expected build artefact %s missing after `pnpm build`: %w", output, err)
+	}
+
+	// Replace the destination atomically-enough: build under a sibling
+	// tmp dir, then rename over. Avoids leaving a half-copied bundle
+	// in place if the copy fails partway through.
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+		return fmt.Errorf("mkdir parent: %w", err)
+	}
+	staging, err := os.MkdirTemp(filepath.Dir(dest), ".clu-web-install-")
+	if err != nil {
+		return fmt.Errorf("mkdir staging: %w", err)
+	}
+	defer os.RemoveAll(staging) // no-op if the rename below succeeds
+	if err := copyTree(output, filepath.Join(staging, ".output")); err != nil {
+		return fmt.Errorf("copy .output: %w", err)
+	}
+	_ = os.RemoveAll(dest)
+	if err := os.Rename(staging, dest); err != nil {
+		return fmt.Errorf("install rename: %w", err)
+	}
+
+	r.notice("\n✓ installed clu web at %s\n", dest)
+	r.notice("you can now run `clu web` from any directory.\n")
+	return nil
+}
+
+// resolveWebSource finds the web app source tree (must have
+// package.json — a built-only install dir is rejected). Used by
+// --install to know where to invoke pnpm.
+func resolveWebSource(chosen string) (string, error) {
+	if chosen != "" {
+		abs, err := filepath.Abs(chosen)
+		if err != nil {
+			return "", err
+		}
+		if !hasPackageJSON(abs) {
+			return "", fmt.Errorf("--install needs the web source (package.json), got %s", abs)
+		}
+		return abs, nil
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	candidate := filepath.Join(cwd, "web", "clu-web")
+	if hasPackageJSON(candidate) {
+		return candidate, nil
+	}
+	return "", fmt.Errorf("could not find web source; pass --web-dir or run from inside the agents-clu repo (looked in %s)", candidate)
+}
+
+// copyTree recursively copies src → dst, preserving file modes. Both
+// must be absolute. Used by --install to stage the built bundle into
+// ~/.local/share/clu/web.
+func copyTree(src, dst string) error {
+	return filepath.WalkDir(src, func(path string, d os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		rel, err := filepath.Rel(src, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(dst, rel)
+		info, err := d.Info()
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return os.MkdirAll(target, info.Mode().Perm())
+		}
+		if info.Mode()&os.ModeSymlink != 0 {
+			link, err := os.Readlink(path)
+			if err != nil {
+				return err
+			}
+			return os.Symlink(link, target)
+		}
+		in, err := os.Open(path)
+		if err != nil {
+			return err
+		}
+		defer in.Close()
+		if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+			return err
+		}
+		out, err := os.OpenFile(target, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode().Perm())
+		if err != nil {
+			return err
+		}
+		if _, err := io.Copy(out, in); err != nil {
+			out.Close()
+			return err
+		}
+		return out.Close()
+	})
 }
 
 // waitForHTTP polls url every 200ms until it returns any HTTP response
