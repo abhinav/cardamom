@@ -20,6 +20,7 @@ import (
 type WorktreeCmd struct {
 	Add       WorktreeAddCmd       `cmd:"" help:"Create a new git worktree (and optionally run the bootstrap recipe)."`
 	Bootstrap WorktreeBootstrapCmd `cmd:"" help:"Run the worktree.copy + worktree.commands recipe against an existing worktree."`
+	Remove    WorktreeRemoveCmd    `cmd:"" aliases:"rm" help:"Remove a git worktree after checking for uncommitted/unpushed work."`
 }
 
 // WorktreeAddCmd wraps `git worktree add`. With --bootstrap it then
@@ -86,6 +87,116 @@ func (c *WorktreeBootstrapCmd) Run(r *runCtx) error {
 		return fmt.Errorf("%s: not a git worktree (run `git worktree add` first, or `clu worktree add --bootstrap` to do both)", dest)
 	}
 	return runBootstrap(r, dest)
+}
+
+// WorktreeRemoveCmd wraps `git worktree remove` with safety checks
+// git itself doesn't perform: unpushed commits (the load-bearing one)
+// plus a stash warning. Git already refuses to remove a worktree with
+// uncommitted changes, but we run that check explicitly so the error
+// message is uniform with the others.
+type WorktreeRemoveCmd struct {
+	Path  string `arg:"" help:"Path of the worktree to remove."`
+	Force bool   `name:"force" short:"f" help:"Skip the safety checks and pass --force to git worktree remove."`
+}
+
+func (c *WorktreeRemoveCmd) Run(r *runCtx) error {
+	if r.json {
+		return errors.New("worktree remove streams subprocess output; --json is not supported")
+	}
+	dest, err := filepath.Abs(c.Path)
+	if err != nil {
+		return err
+	}
+	if !isGitWorktree(dest) {
+		return fmt.Errorf("%s: not a git worktree", dest)
+	}
+	// Refuse to remove the main worktree — git refuses too, but we
+	// surface it earlier with a clearer message.
+	if main, err := mainWorktreePath(); err == nil && absEqual(main, dest) {
+		return fmt.Errorf("%s is the main worktree; can't remove it with `clu worktree remove`", dest)
+	}
+
+	if !c.Force {
+		if err := worktreeSafetyChecks(r, dest); err != nil {
+			return err
+		}
+	}
+
+	args := []string{"worktree", "remove"}
+	if c.Force {
+		args = append(args, "--force")
+	}
+	args = append(args, dest)
+	r.notice("$ git %s\n", strings.Join(args, " "))
+	cmd := exec.CommandContext(r.ctx, "git", args...)
+	cmd.Stdout = r.stdout
+	cmd.Stderr = r.stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("git worktree remove: %w", err)
+	}
+	r.notice("removed %s\n", dest)
+	return nil
+}
+
+// worktreeSafetyChecks runs the pre-remove safety net. Returns the
+// first blocking failure as an error; emits notices for warnings (like
+// stashes, which are shared across worktrees and may not belong to
+// this one).
+func worktreeSafetyChecks(r *runCtx, dest string) error {
+	// Uncommitted changes.
+	out, err := exec.Command("git", "-C", dest, "status", "--porcelain").Output()
+	if err != nil {
+		return fmt.Errorf("git status in %s: %w", dest, err)
+	}
+	if len(bytesTrimSpace(out)) > 0 {
+		return fmt.Errorf("%s has uncommitted changes:\n%s\ncommit or stash them, or pass --force", dest, indentLines(string(out), "  "))
+	}
+
+	// Unpushed commits. `git rev-parse @{u}` fails if there's no
+	// upstream; that's its own kind of unsafe ("never pushed
+	// anywhere"), so we surface it too.
+	upOut, upErr := exec.Command("git", "-C", dest, "rev-parse", "--symbolic-full-name", "@{u}").Output()
+	if upErr != nil {
+		// No upstream — surface the branch name so the user knows
+		// what they'd be losing.
+		branch, _ := exec.Command("git", "-C", dest, "rev-parse", "--abbrev-ref", "HEAD").Output()
+		return fmt.Errorf("%s has no upstream (branch %q never pushed); push it, or pass --force", dest, strings.TrimSpace(string(branch)))
+	}
+	_ = upOut
+	logOut, err := exec.Command("git", "-C", dest, "log", "@{u}..HEAD", "--oneline").Output()
+	if err != nil {
+		return fmt.Errorf("git log @{u}..HEAD: %w", err)
+	}
+	if len(bytesTrimSpace(logOut)) > 0 {
+		return fmt.Errorf("%s has unpushed commits:\n%s\npush them, or pass --force", dest, indentLines(string(logOut), "  "))
+	}
+
+	// Stashes are repo-global (stored in the main .git/), so we can't
+	// say "your stash" vs "someone else's stash" reliably. Warn only.
+	stashOut, _ := exec.Command("git", "-C", dest, "stash", "list").Output()
+	if len(bytesTrimSpace(stashOut)) > 0 {
+		r.notice("warning: repo has stashes (shared across worktrees; this may or may not be yours):\n%s", indentLines(string(stashOut), "  "))
+	}
+	return nil
+}
+
+// bytesTrimSpace is strings.TrimSpace for []byte without an alloc-y
+// conversion when checking for "is this empty?"
+func bytesTrimSpace(b []byte) []byte {
+	return []byte(strings.TrimSpace(string(b)))
+}
+
+// indentLines prefixes every non-empty line in s with pad. Used for
+// error messages that embed git output.
+func indentLines(s, pad string) string {
+	lines := strings.Split(strings.TrimRight(s, "\n"), "\n")
+	for i, ln := range lines {
+		if ln == "" {
+			continue
+		}
+		lines[i] = pad + ln
+	}
+	return strings.Join(lines, "\n") + "\n"
 }
 
 // runBootstrap is the body shared by `add --bootstrap` and `bootstrap`.

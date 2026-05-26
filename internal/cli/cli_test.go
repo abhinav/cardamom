@@ -2483,3 +2483,101 @@ func TestCLIWorktreeBootstrapNoConfig(t *testing.T) {
 		t.Fatalf("expected 'nothing to do' notice, got:\n%s", out)
 	}
 }
+
+func TestCLIWorktreeRemoveBlocksUncommitted(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	main := t.TempDir()
+	initGitRepo(t, main)
+	runInDir(t, main, "init")
+	wt := filepath.Join(filepath.Dir(main), "rm-dirty-"+filepath.Base(main))
+	defer os.RemoveAll(wt)
+	runInDir(t, main, "worktree", "add", wt, "-b", "feat/dirty")
+	if err := os.WriteFile(filepath.Join(wt, "dirty.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	prev, _ := os.Getwd()
+	defer func() { _ = os.Chdir(prev) }()
+	_ = os.Chdir(main)
+	out := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	code := Run(context.Background(), out, errBuf, []string{"worktree", "remove", wt})
+	if code == 0 {
+		t.Fatalf("expected failure with uncommitted changes; got 0")
+	}
+	if !strings.Contains(errBuf.String(), "uncommitted changes") {
+		t.Fatalf("expected uncommitted-changes error; got:\n%s", errBuf.String())
+	}
+	// Worktree still exists.
+	if _, err := os.Stat(wt); err != nil {
+		t.Fatalf("worktree should still exist after refused remove: %v", err)
+	}
+}
+
+func TestCLIWorktreeRemoveBlocksNoUpstream(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	main := t.TempDir()
+	initGitRepo(t, main)
+	runInDir(t, main, "init")
+	wt := filepath.Join(filepath.Dir(main), "rm-noup-"+filepath.Base(main))
+	defer os.RemoveAll(wt)
+	runInDir(t, main, "worktree", "add", wt, "-b", "feat/noup")
+
+	prev, _ := os.Getwd()
+	defer func() { _ = os.Chdir(prev) }()
+	_ = os.Chdir(main)
+	out := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	code := Run(context.Background(), out, errBuf, []string{"worktree", "remove", wt})
+	if code == 0 {
+		t.Fatalf("expected failure with no upstream; got 0")
+	}
+	if !strings.Contains(errBuf.String(), "no upstream") {
+		t.Fatalf("expected no-upstream error; got:\n%s", errBuf.String())
+	}
+}
+
+func TestCLIWorktreeRemoveForce(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	main := t.TempDir()
+	initGitRepo(t, main)
+	runInDir(t, main, "init")
+	wt := filepath.Join(filepath.Dir(main), "rm-force-"+filepath.Base(main))
+	defer os.RemoveAll(wt)
+	runInDir(t, main, "worktree", "add", wt, "-b", "feat/force")
+	// Make it dirty so the regular path would refuse.
+	if err := os.WriteFile(filepath.Join(wt, "dirty.txt"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	runInDir(t, main, "worktree", "remove", "--force", wt)
+	if _, err := os.Stat(wt); !os.IsNotExist(err) {
+		t.Fatalf("worktree should be gone after --force; stat: %v", err)
+	}
+}
+
+func TestCLIWorktreeRemoveRefusesMain(t *testing.T) {
+	if _, err := exec.LookPath("git"); err != nil {
+		t.Skip("git not available")
+	}
+	main := t.TempDir()
+	initGitRepo(t, main)
+	runInDir(t, main, "init")
+	prev, _ := os.Getwd()
+	defer func() { _ = os.Chdir(prev) }()
+	_ = os.Chdir(main)
+	out := &bytes.Buffer{}
+	errBuf := &bytes.Buffer{}
+	code := Run(context.Background(), out, errBuf, []string{"worktree", "remove", main})
+	if code == 0 {
+		t.Fatalf("expected failure removing main worktree; got 0")
+	}
+	if !strings.Contains(errBuf.String(), "main worktree") {
+		t.Fatalf("expected main-worktree error; got:\n%s", errBuf.String())
+	}
+}
