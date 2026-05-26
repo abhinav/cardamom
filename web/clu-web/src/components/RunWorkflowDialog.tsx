@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from '@tanstack/react-router'
-import { GitBranch, Play, ShieldCheck } from 'lucide-react'
+import { GitBranch, Play } from 'lucide-react'
 import {
   api,
   ApiError,
@@ -12,7 +12,7 @@ import {
 import { notifyError, notifyOk } from '../lib/toast-helpers'
 import { Button } from './ui/button'
 import { Input } from './ui/input'
-import { Badge } from './ui/badge'
+import { WorkflowGraph } from './WorkflowGraph'
 import {
   Dialog,
   DialogContent,
@@ -116,7 +116,10 @@ export default function RunWorkflowDialog({ template, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onOpenChange(false)}>
       <DialogContent
-        className="sm:max-w-4xl"
+        // Wider than the default dialog — large workflows (17+ steps)
+        // need horizontal room for the L→R graph, and the 3-col var
+        // grid above looks anaemic in a narrower frame.
+        className="sm:max-w-[min(96vw,1100px)]"
         onKeyDown={(e) => {
           if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
             e.preventDefault()
@@ -136,75 +139,90 @@ export default function RunWorkflowDialog({ template, onOpenChange }: Props) {
           )}
         </DialogHeader>
 
-        <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-6">
-          {/* Form */}
-          <div className="space-y-3">
-            <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
-              Variables
-            </div>
-            {template?.vars.length === 0 && (
-              <p className="text-muted-foreground text-sm">
-                This template has no variables. Just hit Run.
-              </p>
-            )}
-            {template?.vars.map((v) => (
-              <div key={v.name}>
-                <label className="mb-1 flex items-center gap-1.5 text-xs font-medium">
-                  {v.label || v.name}
-                  {v.required && (
-                    <span className="text-amber-400" title="required">
-                      *
-                    </span>
-                  )}
-                  {v.pattern && (
-                    <code className="text-muted-foreground bg-muted/50 rounded px-1 font-mono text-[10px]">
+        {/* Variables — 3-column grid stacked above the graph so wide
+            graphs aren't fighting a sidebar for horizontal room. */}
+        <section className="space-y-2">
+          <div className="text-muted-foreground text-[11px] font-medium uppercase tracking-wide">
+            Variables
+          </div>
+          {template?.vars.length === 0 && (
+            <p className="text-muted-foreground text-sm">
+              This template has no variables. Just hit Run.
+            </p>
+          )}
+          {template && template.vars.length > 0 && (
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {template.vars.map((v) => (
+                <div key={v.name}>
+                  <label className="mb-1 flex items-baseline gap-1.5 text-xs font-medium">
+                    <span className="truncate">{v.label || v.name}</span>
+                    {v.required && (
+                      <span className="text-amber-400" title="required">
+                        *
+                      </span>
+                    )}
+                  </label>
+                  <Input
+                    value={vars[v.name] ?? ''}
+                    onChange={(e) =>
+                      setVars((prev) => ({ ...prev, [v.name]: e.target.value }))
+                    }
+                    placeholder={v.default ? `default: ${v.default}` : v.name}
+                    aria-invalid={fieldErrors[v.name] ? 'true' : undefined}
+                    title={
+                      v.pattern
+                        ? `must match /${v.pattern}/`
+                        : v.default
+                          ? `default: ${v.default}`
+                          : undefined
+                    }
+                    className="h-8"
+                  />
+                  {/* Pattern hint moved under the input so it doesn't
+                      compete with the label for the same line; muted
+                      and easy to ignore once you've seen it. */}
+                  {v.pattern && !fieldErrors[v.name] && (
+                    <p className="text-muted-foreground mt-1 font-mono text-[10px]">
                       /{v.pattern}/
-                    </code>
+                    </p>
                   )}
-                </label>
-                <Input
-                  value={vars[v.name] ?? ''}
-                  onChange={(e) =>
-                    setVars((prev) => ({ ...prev, [v.name]: e.target.value }))
-                  }
-                  placeholder={v.default ? `default: ${v.default}` : v.name}
-                  aria-invalid={fieldErrors[v.name] ? 'true' : undefined}
-                  className="h-8"
-                />
-                {fieldErrors[v.name] && (
-                  <p className="text-destructive mt-1 text-[11px]">
-                    {fieldErrors[v.name]}
-                  </p>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Plan preview */}
-          <div className="space-y-3">
-            <div className="text-muted-foreground flex items-center justify-between text-[11px] font-medium uppercase tracking-wide">
-              <span>Preview</span>
-              {planQuery.isFetching && (
-                <span className="text-muted-foreground/70 normal-case font-normal">
-                  refreshing…
-                </span>
-              )}
+                  {fieldErrors[v.name] && (
+                    <p className="text-destructive mt-1 text-[11px]">
+                      {fieldErrors[v.name]}
+                    </p>
+                  )}
+                </div>
+              ))}
             </div>
-            {planQuery.error && !planQuery.data && (
-              <div className="border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-2 text-xs">
-                {planQuery.error.message}
-              </div>
-            )}
-            {planQuery.data && (
-              <PlanPreview plan={planQuery.data} />
-            )}
-            {!planQuery.data && !planQuery.error && (
-              <div className="text-muted-foreground rounded-md border border-dashed p-3 text-xs">
-                fill required vars to preview
-              </div>
+          )}
+        </section>
+
+        {/* Plan preview — full width, left-to-right graph. Step
+            count grows horizontally rather than fighting the dialog's
+            vertical space. */}
+        <section className="space-y-2">
+          <div className="text-muted-foreground flex items-center justify-between text-[11px] font-medium uppercase tracking-wide">
+            <span>Preview</span>
+            {planQuery.isFetching && (
+              <span className="text-muted-foreground/70 normal-case font-normal">
+                refreshing…
+              </span>
             )}
           </div>
-        </div>
+          {planQuery.error && !planQuery.data && (
+            <div className="border-destructive/40 bg-destructive/10 text-destructive rounded-md border p-2 text-xs">
+              {planQuery.error.message}
+            </div>
+          )}
+          {planQuery.data && (
+            <WorkflowGraph plan={planQuery.data} className="h-[400px] w-full" />
+          )}
+          {!planQuery.data && !planQuery.error && (
+            <div className="text-muted-foreground rounded-md border border-dashed p-3 text-xs">
+              fill required vars to preview
+            </div>
+          )}
+        </section>
 
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -224,62 +242,3 @@ export default function RunWorkflowDialog({ template, onOpenChange }: Props) {
   )
 }
 
-// PlanPreview — compact step list with type/agent/checkpoint badges
-// and a "needs:" line so the dep chain is visible without a graph.
-// Renders the parent title as a header.
-function PlanPreview({ plan }: { plan: Plan }) {
-  return (
-    <div className="space-y-2">
-      <div className="bg-muted/30 rounded-md border p-2.5">
-        <div className="text-muted-foreground text-[10px] uppercase tracking-wider">
-          parent
-        </div>
-        <div className="text-sm font-medium">{plan.title}</div>
-      </div>
-      <ol className="space-y-1.5">
-        {plan.steps.map((s) => (
-          <li
-            key={s.id}
-            className="bg-muted/20 hover:bg-muted/30 rounded-md border p-2 text-xs"
-          >
-            <div className="flex items-center gap-1.5">
-              <span className="text-muted-foreground font-mono text-[10px]">
-                {s.id}
-              </span>
-              {s.type === 'checkpoint' && (
-                <Badge variant="warning" className="gap-1">
-                  <ShieldCheck className="size-3" />
-                  checkpoint
-                </Badge>
-              )}
-              {s.agent && (
-                <Badge variant="muted">@{s.agent}</Badge>
-              )}
-              {s.is_leaf && (
-                <span
-                  className="text-muted-foreground ml-auto text-[10px]"
-                  title="leaf — parent will depend on this"
-                >
-                  leaf
-                </span>
-              )}
-            </div>
-            <div className="mt-1 leading-snug">{s.title}</div>
-            {s.needs && s.needs.length > 0 && (
-              <div className="text-muted-foreground mt-1 text-[10px]">
-                needs: {s.needs.join(', ')}
-              </div>
-            )}
-            {s.type === 'checkpoint' && s.wait && (
-              <div className="text-muted-foreground mt-1 text-[10px]">
-                {s.wait.manual
-                  ? 'manual gate'
-                  : `approvers: ${(s.wait.approval ?? []).join(', ') || '(none)'}`}
-              </div>
-            )}
-          </li>
-        ))}
-      </ol>
-    </div>
-  )
-}

@@ -122,7 +122,13 @@ func TestCheckpointPassRejectsBlockedGate(t *testing.T) {
 	c.run("approve", ids["gate-manual"])
 }
 
-func TestCheckpointApprovalRejectsWrongUser(t *testing.T) {
+// TestCheckpointApprovalNoLongerRejectsWrongUser locks in the post-
+// gate-removal behavior. Approver-list enforcement was dropped (this
+// is a single-user local tool; the declared list is informational).
+// Anyone can approve, regardless of whether they're on the list.
+// Kept the test under its history-friendly name shape so the
+// behavioral change is grep-able from the test name alone.
+func TestCheckpointApprovalNoLongerRejectsWrongUser(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	c.writeTemplate("deploy.yaml", strings.Replace(checkpointYAML, "%s", "not-the-current-user", 1))
@@ -131,11 +137,10 @@ func TestCheckpointApprovalRejectsWrongUser(t *testing.T) {
 	c.run("close", ids["build"])
 	c.run("approve", ids["gate-manual"])
 
-	// approval gate has approver "not-the-current-user" — must reject
-	c.runFail("approve", ids["gate-approval"])
-
-	// --agent override lets you act as the named approver.
-	c.run("approve", ids["gate-approval"], "--agent", "not-the-current-user")
+	// approval gate's declared approver is "not-the-current-user".
+	// Pre-change this would fail; now it succeeds — the list is
+	// advisory, not a gate.
+	c.run("approve", ids["gate-approval"])
 }
 
 func TestCheckpointFail(t *testing.T) {

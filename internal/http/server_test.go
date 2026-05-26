@@ -290,18 +290,22 @@ func TestCheckpointApprove(t *testing.T) {
 	_, _ = s.AddLabels(ctx, cp.ID, []string{"checkpoint:pending"})
 	_ = s.KVSet(ctx, "cp:"+cp.ID, `{"kind":"approval","approvers":["alice"]}`)
 
-	// Wrong approver → 400 (ErrNotApprover).
-	resp, _ := do(t, ts, "POST", "/api/checkpoints/"+cp.ID+"/approve", "bob", map[string]any{})
+	// Approver-list enforcement was dropped (single-user local tool;
+	// the list is informational, not a gate). Any agent on the
+	// X-Clu-Agent header can approve, regardless of membership.
+	// Identity itself is still required — confirm the missing-header
+	// case still 400s.
+	resp, _ := do(t, ts, "POST", "/api/checkpoints/"+cp.ID+"/approve", "", map[string]any{})
 	if resp.StatusCode != 400 {
-		t.Fatalf("wrong approver should be 400, got %d", resp.StatusCode)
+		t.Fatalf("missing X-Clu-Agent should be 400, got %d", resp.StatusCode)
 	}
 
-	// Right approver → 200; res.pass = true.
-	resp, data := do(t, ts, "POST", "/api/checkpoints/"+cp.ID+"/approve", "alice", map[string]any{
+	// Off-list approver → 200. This is the case that used to 400.
+	resp, data := do(t, ts, "POST", "/api/checkpoints/"+cp.ID+"/approve", "bob", map[string]any{
 		"reason": "lgtm",
 	})
 	if resp.StatusCode != 200 {
-		t.Fatalf("approve status = %d, body = %s", resp.StatusCode, data)
+		t.Fatalf("off-list approver should now pass; status = %d, body = %s", resp.StatusCode, data)
 	}
 	var out store.CheckpointResult
 	mustJSON(t, data, &out)
