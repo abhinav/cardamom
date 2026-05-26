@@ -9,9 +9,9 @@ import ThemeToggle from './ThemeToggle'
 export default function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-background text-foreground">
-      <aside className="bg-sidebar text-sidebar-foreground flex w-56 shrink-0 flex-col border-r border-sidebar-border">
-        <div className="flex items-center gap-2 px-4 pt-5 pb-4">
-          <div className="bg-primary text-primary-foreground flex size-7 items-center justify-center rounded-md">
+      <aside className="bg-sidebar text-sidebar-foreground flex w-60 shrink-0 flex-col border-r border-sidebar-border">
+        <div className="flex items-center gap-2.5 px-4 py-4">
+          <div className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-md shadow-sm">
             <Sparkles className="size-4" />
           </div>
           <div className="leading-tight">
@@ -22,7 +22,7 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
 
-        <nav className="flex flex-col gap-0.5 px-2">
+        <nav className="flex flex-col gap-0.5 px-3 pt-2">
           <NavLink to="/" icon={<Columns3 className="size-4" />} exact>
             Board
           </NavLink>
@@ -31,11 +31,11 @@ export default function AppShell({ children }: { children: React.ReactNode }) {
           </NavLink>
         </nav>
 
-        <div className="mt-auto flex flex-col gap-2 border-t border-sidebar-border p-3">
-          <IdentityPicker />
-          <div className="flex justify-end">
-            <ThemeToggle />
+        <div className="mt-auto flex items-center gap-2 border-t border-sidebar-border p-3">
+          <div className="flex-1 min-w-0">
+            <IdentityPicker />
           </div>
+          <ThemeToggle />
         </div>
       </aside>
 

@@ -94,7 +94,7 @@ function IssueDetailPage() {
   return (
     <div className="flex h-full flex-col">
       {/* Page header with breadcrumb */}
-      <header className="flex items-center justify-between gap-4 border-b px-6 py-3">
+      <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
         <div className="flex items-center gap-3">
           <Button asChild variant="ghost" size="icon-sm">
             <Link to="/" aria-label="back">
@@ -141,7 +141,7 @@ function IssueDetailPage() {
       </header>
 
       <ScrollArea className="min-h-0 flex-1">
-        <div className="grid grid-cols-[minmax(0,1fr)_320px] gap-6 px-6 py-6">
+        <div className="mx-auto grid max-w-6xl grid-cols-[minmax(0,1fr)_320px] gap-8 px-6 py-8">
           {/* Main column */}
           <div className="flex min-w-0 flex-col gap-5">
             <EditableTitle

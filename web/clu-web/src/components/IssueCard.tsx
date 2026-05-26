@@ -40,7 +40,7 @@ export default function IssueCard({
             }
           : undefined
       }
-      className="bg-card hover:bg-accent/40 group relative flex flex-col gap-2 rounded-md border p-2.5 text-card-foreground no-underline shadow-xs transition-colors"
+      className="bg-card hover:bg-accent/60 hover:border-foreground/20 group relative flex cursor-grab flex-col gap-2 rounded-md border p-3 text-card-foreground no-underline shadow-sm transition-colors active:cursor-grabbing"
     >
       <div className="flex items-start gap-2">
         <PriorityBadge priority={issue.priority} className="shrink-0" />

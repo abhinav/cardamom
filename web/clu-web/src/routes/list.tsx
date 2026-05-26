@@ -63,12 +63,12 @@ function ListPage() {
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between gap-4 border-b px-6 py-3">
+      <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
         <div>
           <h1 className="text-lg font-semibold leading-none tracking-tight">
             Issues
           </h1>
-          <p className="text-muted-foreground mt-1 text-xs">
+          <p className="text-muted-foreground mt-1.5 text-xs">
             {issues.length} result{issues.length === 1 ? '' : 's'}
             {activeFilters > 0 ? ` · ${activeFilters} filter applied` : ''}
           </p>
@@ -84,7 +84,7 @@ function ListPage() {
         </Button>
       </header>
 
-      <div className="border-b px-6 py-2">
+      <div className="border-b px-6 py-3">
         <FilterBar
           q={q}
           setQ={setQ}

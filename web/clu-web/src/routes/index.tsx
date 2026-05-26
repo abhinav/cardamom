@@ -95,7 +95,7 @@ function BoardPage() {
         </div>
       )}
 
-      <div className="grid min-h-0 flex-1 grid-cols-4 gap-3 px-4 pb-4">
+      <div className="grid min-h-0 flex-1 grid-cols-4 gap-4 px-6 pb-6 pt-4">
         {COLUMNS.map((col) => (
           <Column
             key={col.key}
@@ -225,13 +225,13 @@ function PageHeader({
   actions?: React.ReactNode
 }) {
   return (
-    <header className="flex items-center justify-between gap-4 border-b px-6 py-3">
+    <header className="flex items-center justify-between gap-4 border-b px-6 py-4">
       <div>
         <h1 className="text-lg font-semibold leading-none tracking-tight">
           {title}
         </h1>
         {subtitle && (
-          <p className="text-muted-foreground mt-1 text-xs">{subtitle}</p>
+          <p className="text-muted-foreground mt-1.5 text-xs">{subtitle}</p>
         )}
       </div>
       <div className="flex items-center gap-1.5">{actions}</div>
