@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
 	"time"
 
@@ -88,7 +90,9 @@ func (f listFilterFlags) toFilter() (store.ListFilter, error) {
 
 type ListCmd struct {
 	listFilterFlags
-	Limit int `short:"n" default:"50" help:"Limit results (0 = unlimited)."`
+	Limit         int           `short:"n" default:"50" help:"Limit results (0 = unlimited)."`
+	Watch         bool          `short:"w" name:"watch" help:"Keep updating the list when matching issues change. Ctrl+C to exit."`
+	WatchInterval time.Duration `name:"interval" default:"1s" help:"Poll interval when --watch is set."`
 }
 
 func (c *ListCmd) Run(r *runCtx) error {
@@ -97,20 +101,42 @@ func (c *ListCmd) Run(r *runCtx) error {
 		return err
 	}
 	f.Limit = c.Limit
-	return withStore(r, func(s *store.Store) error {
+
+	render := func(s *store.Store) (string, error) {
 		issues, err := s.List(r.ctx, f)
 		if err != nil {
-			return err
+			return "", err
 		}
 		labels, err := loadLabelsFor(r.ctx, s, issues)
 		if err != nil {
-			return err
+			return "", err
 		}
 		blocked, err := loadBlockedFor(r.ctx, s, issues)
 		if err != nil {
+			return "", err
+		}
+		// Capture the human/JSON output by swapping stdout to a buffer.
+		var buf bytes.Buffer
+		sub := *r
+		sub.stdout = &buf
+		printIssues(&sub, issues, labels, blocked)
+		return buf.String(), nil
+	}
+
+	return withStore(r, func(s *store.Store) error {
+		if c.Watch {
+			if r.json {
+				return errors.New("--watch is not supported with --json (JSON output is a single document)")
+			}
+			return watchLoop(r.ctx, r.stdout, c.WatchInterval, func() (string, error) {
+				return render(s)
+			})
+		}
+		out, err := render(s)
+		if err != nil {
 			return err
 		}
-		printIssues(r, issues, labels, blocked)
+		fmt.Fprint(r.stdout, out)
 		return nil
 	})
 }

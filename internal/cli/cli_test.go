@@ -231,6 +231,103 @@ func TestCLIWaitCancellation(t *testing.T) {
 	}
 }
 
+func TestCLIListWatchRendersAndExitsOnCancel(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "first"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Millisecond)
+	defer cancel()
+	c.ctx = ctx
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	var code int
+	go func() {
+		defer wg.Done()
+		full := []string{"--dir", c.dir, "list", "--watch", "--interval", "20ms"}
+		code = Run(c.ctx, &c.out, &c.err, full)
+	}()
+	wg.Wait()
+	if code != 130 {
+		t.Fatalf("expected exit 130 on cancellation, got %d (stderr: %s)", code, c.err.String())
+	}
+	if !strings.Contains(c.out.String(), a) {
+		t.Fatalf("expected initial render to include %s:\n%s", a, c.out.String())
+	}
+}
+
+func TestCLIListWatchRedrawsOnChange(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "first"))
+
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+	c.ctx = ctx
+
+	// Create a second issue partway through the watch window — the
+	// running --watch should pick it up on its next tick.
+	go func() {
+		time.Sleep(60 * time.Millisecond)
+		c2 := &testCLI{t: t, dir: c.dir, ctx: context.Background()}
+		c2.run("create", "second")
+	}()
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		full := []string{"--dir", c.dir, "list", "--watch", "--interval", "20ms"}
+		_ = Run(c.ctx, &c.out, &c.err, full)
+	}()
+	wg.Wait()
+
+	out := c.out.String()
+	if !strings.Contains(out, a) {
+		t.Fatalf("first issue should appear:\n%s", out)
+	}
+	if !strings.Contains(out, "second") {
+		t.Fatalf("second issue should appear after redraw:\n%s", out)
+	}
+}
+
+func TestCLIListWatchOnlyEmitsOnChange(t *testing.T) {
+	// Key invariant for downstream consumers: a pipe sees output ONLY
+	// when matched issues actually change. Polling ticks without state
+	// changes must be silent.
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "stable")
+
+	ctx, cancel := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	defer cancel()
+	c.ctx = ctx
+
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		// 10ms interval × 200ms window = ~20 ticks; with one initial
+		// render and no changes, output must contain exactly one block.
+		full := []string{"--dir", c.dir, "list", "--watch", "--interval", "10ms"}
+		_ = Run(c.ctx, &c.out, &c.err, full)
+	}()
+	wg.Wait()
+
+	out := c.out.String()
+	// Count occurrences of the issue title — must be 1, not 20.
+	if got := strings.Count(out, "stable"); got != 1 {
+		t.Fatalf("unchanged ticks should not re-emit; saw %d copies in:\n%s", got, out)
+	}
+}
+
+func TestCLIListWatchRejectsJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("--json", "list", "--watch", "--interval", "10ms")
+}
+
 func TestCLILabelAddListRemove(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")

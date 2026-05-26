@@ -97,6 +97,81 @@ func eachID(r *runCtx, ids []string, fn func(string) (any, error)) error {
 	return nil
 }
 
+// watchLoop calls render() once per `interval`, emitting output only when
+// it changes from the previous render. Returns when ctx is cancelled,
+// returning ctx.Err() so the caller maps it to exit 130 (same convention
+// as `cli ready --wait`).
+//
+// Two output styles, picked based on whether w is a TTY:
+//
+//   - TTY: in-place ANSI redraw. ESC[<n>A moves the cursor up n lines,
+//     ESC[J clears to end of screen. Clean for human viewing.
+//
+//   - Non-TTY (pipes, files, tests): emit each new state as a clean
+//     block separated by a blank line. No ANSI cursor codes, which a
+//     downstream process can parse cleanly. Crucially, downstream
+//     consumers are NOT woken on every tick — only on actual change.
+//
+// In both cases, an unchanged tick is silent — no bytes written.
+func watchLoop(ctx context.Context, w io.Writer, interval time.Duration, render func() (string, error)) error {
+	if interval <= 0 {
+		interval = time.Second
+	}
+	tty := isTerminal(w)
+	var prev string
+	var prevLines int
+	first := true
+	tick := time.NewTicker(interval)
+	defer tick.Stop()
+	for {
+		out, err := render()
+		if err != nil {
+			return err
+		}
+		if first || out != prev {
+			if tty {
+				if prevLines > 0 {
+					fmt.Fprintf(w, "\033[%dA\033[J", prevLines)
+				}
+				fmt.Fprint(w, out)
+				prevLines = strings.Count(out, "\n")
+			} else {
+				if !first {
+					fmt.Fprintln(w) // blank-line separator between blocks
+				}
+				fmt.Fprint(w, out)
+			}
+			prev = out
+			first = false
+		}
+		select {
+		case <-ctx.Done():
+			if tty {
+				// Newline so the shell prompt doesn't land mid-line
+				// after the final redraw.
+				fmt.Fprintln(w)
+			}
+			return ctx.Err()
+		case <-tick.C:
+		}
+	}
+}
+
+// isTerminal reports whether w refers to a character device (interactive
+// terminal). Returns false for pipes, files, and any non-*os.File writer
+// (e.g. bytes.Buffer in tests).
+func isTerminal(w io.Writer) bool {
+	f, ok := w.(*os.File)
+	if !ok {
+		return false
+	}
+	fi, err := f.Stat()
+	if err != nil {
+		return false
+	}
+	return fi.Mode()&os.ModeCharDevice != 0
+}
+
 // notice writes a friendly status message to stdout. Suppressed by
 // --quiet, and also suppressed in --json mode so it doesn't pollute
 // the JSON document on stdout. Use for narrative output ("closed
