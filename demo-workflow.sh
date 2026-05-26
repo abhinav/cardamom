@@ -147,6 +147,108 @@ run "$BD" close "$SETUP_ID"
 timed "$BD" ready
 
 # -----------------------------------------------------------------
+hr "checkpoints — explicit approval gates"
+cat >.db/templates/staged.yaml <<YAML
+name: staged
+description: Release with a manual checkpoint and an approval checkpoint
+vars:
+  version:
+    required: true
+steps:
+  - id: build
+    title: "Build {{version}}"
+  - id: confirm
+    type: checkpoint
+    title: "Confirm staging looks good"
+    wait: { manual: true }
+    needs: [build]
+  - id: prod-approve
+    type: checkpoint
+    title: "Prod approval"
+    wait: { approval: [$(id -un)] }
+    needs: [confirm]
+  - id: deploy
+    title: "Deploy {{version}}"
+    needs: [prod-approve]
+YAML
+note "approval gate uses the current user ($(id -un))"
+
+run "$BD" run staged --var version=3.0.0
+
+note "checkpoints show up with checkpoint:pending label:"
+"$BD" list | grep checkpoint || true
+
+CONFIRM_ID=$("$BD" --json list | python3 -c '
+import sys,json
+for i in json.load(sys.stdin):
+  if "step:confirm" in i.get("labels",[]):
+    print(i["id"]); break
+')
+APPROVE_ID=$("$BD" --json list | python3 -c '
+import sys,json
+for i in json.load(sys.stdin):
+  if "step:prod-approve" in i.get("labels",[]):
+    print(i["id"]); break
+')
+BUILD_ID2=$("$BD" --json list | python3 -c '
+import sys,json
+for i in json.load(sys.stdin):
+  if "step:build" in i.get("labels",[]) and "step:build" in i.get("labels",[]) and "Build 3.0.0" in i.get("title",""):
+    print(i["id"]); break
+')
+
+run "$BD" close "$BUILD_ID2"
+note "manual checkpoint is now ready; clear it with approve:"
+run "$BD" approve "$CONFIRM_ID"
+
+note "wrong-user approval fails: (simulating another user via fake approver)"
+cat >.db/templates/wrong.yaml <<'YAML'
+name: wrong
+steps:
+  - id: gate
+    type: checkpoint
+    title: "Locked"
+    wait: { approval: [somebody-else] }
+YAML
+run "$BD" run wrong
+GATE_ID=$("$BD" --json list | python3 -c '
+import sys,json
+for i in json.load(sys.stdin):
+  if "step:gate" in i.get("labels",[]):
+    print(i["id"]); break
+')
+if "$BD" approve "$GATE_ID" 2>/dev/null; then
+    echo "FAIL: approval should have been rejected" >&2; exit 1
+fi
+note "rejected (good)"
+
+note "approving the real prod gate (current user is the approver):"
+run "$BD" checkpoint pass "$APPROVE_ID" --reason "ship it"
+
+note "deploy is now ready:"
+"$BD" ready
+
+note "fail also closes the checkpoint, with a different label:"
+cat >.db/templates/cancel.yaml <<'YAML'
+name: cancel
+steps:
+  - id: review
+    type: checkpoint
+    title: "Final review"
+    wait: { manual: true }
+YAML
+run "$BD" run cancel
+REVIEW_ID=$("$BD" --json list | python3 -c '
+import sys,json
+for i in json.load(sys.stdin):
+  if "step:review" in i.get("labels",[]):
+    print(i["id"]); break
+')
+run "$BD" checkpoint fail "$REVIEW_ID" --reason "scope creep"
+note "show the failed checkpoint:"
+"$BD" show "$REVIEW_ID" | sed 's/^/  /'
+
+# -----------------------------------------------------------------
 hr "json output for run"
 "$BD" --json run release --var version=2.0.0 --dry-run | sed 's/^/  /'
 

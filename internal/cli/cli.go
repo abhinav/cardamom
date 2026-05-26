@@ -55,6 +55,8 @@ type CLI struct {
 	Doctor     DoctorCmd     `cmd:"" help:"Run integrity and health checks against the database."`
 	Run        RunCmd        `cmd:"" help:"Instantiate a workflow template into issues + deps."`
 	Template   TemplateCmd   `cmd:"" help:"Inspect and validate workflow templates."`
+	Checkpoint CheckpointCmd `cmd:"" help:"Pass or fail a checkpoint step."`
+	Approve    ApproveCmd    `cmd:"" help:"Approve a checkpoint (sugar for 'checkpoint pass')."`
 	Version    VersionCmd    `cmd:"" help:"Print version information."`
 	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
 }

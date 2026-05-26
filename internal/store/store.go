@@ -198,7 +198,7 @@ var ValidStatuses = []string{"open", "in_progress", "closed"}
 // `cli types`. The schema does not enforce these — any string is
 // allowed at the DB level — but the CLI uses this list for help text
 // and discoverability.
-var ValidTypes = []string{"task", "bug", "feature", "epic", "chore", "decision"}
+var ValidTypes = []string{"task", "bug", "feature", "epic", "chore", "decision", "checkpoint"}
 
 // Valid priority range, inclusive. 0 = highest, 4 = lowest. Five
 // buckets keeps the urgency hierarchy meaningful without explicit
