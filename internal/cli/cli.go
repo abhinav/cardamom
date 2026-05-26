@@ -255,7 +255,11 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 	// short-circuiting here we'd then run the selected command anyway.
 	// Asking for help should be exit 0, not 2, and must never run a side
 	// effect (e.g. `cli init --help` creating the database).
-	wantHelp := false
+	// Bare `clu` (no args) is treated the same as `clu --help` — print
+	// usage and exit 0. Matches git/gh/kubectl conventions; avoids
+	// kong's default "error: expected one of …" which is hostile to
+	// someone just trying to remember the tool's shape.
+	wantHelp := len(args) == 0
 	for _, a := range args {
 		if a == "--help" || a == "-h" {
 			wantHelp = true
@@ -276,6 +280,12 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 		return 2
 	}
 	if wantHelp {
+		// Inject --help when the user gave no args at all, so kong's
+		// helpFlag hook fires. Without this, Parse([]) silently exits
+		// without printing anything.
+		if len(args) == 0 {
+			args = []string{"--help"}
+		}
 		// Parse for the side effect of printing help. Any parse error is
 		// secondary to the help request — it would've been raised because
 		// the user didn't specify a subcommand (or a required arg), which

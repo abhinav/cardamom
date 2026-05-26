@@ -62,6 +62,21 @@ func TestCLIInitAndCreate(t *testing.T) {
 	}
 }
 
+func TestCLINoArgsShowsHelp(t *testing.T) {
+	// Bare `clu` with no args should print usage (exit 0), not an
+	// "expected one of …" error.
+	out := &bytes.Buffer{}
+	stderr := &bytes.Buffer{}
+	code := Run(context.Background(), out, stderr, []string{})
+	if code != 0 {
+		t.Fatalf("expected exit 0, got %d (stderr: %s)", code, stderr.String())
+	}
+	body := out.String() + stderr.String()
+	if !strings.Contains(body, "Usage:") || !strings.Contains(body, "Commands:") {
+		t.Fatalf("expected help output:\nstdout:%s\nstderr:%s", out.String(), stderr.String())
+	}
+}
+
 func TestCLIInitScaffoldsConfigAndExample(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
