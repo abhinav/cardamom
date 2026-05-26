@@ -24,10 +24,10 @@ var agentsManual string
 type BriefCmd struct{}
 
 type briefJSON struct {
-	Manual   string             `json:"manual"`
-	Agents   []briefAgentJSON   `json:"agents"`
-	Active   []briefActiveJSON  `json:"active"`
-	Memories []briefMemoryJSON  `json:"memories"`
+	Manual   string            `json:"manual"`
+	Agents   []briefAgentJSON  `json:"agents"`
+	Active   []briefActiveJSON `json:"active"`
+	Memories []briefMemoryJSON `json:"memories"`
 }
 
 type briefAgentJSON struct {

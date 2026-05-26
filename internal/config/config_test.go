@@ -15,19 +15,19 @@ func TestDefaultIsValid(t *testing.T) {
 
 func TestValidatePrefix(t *testing.T) {
 	cases := map[string]bool{ // input -> wantValid
-		"clu-":       true,
-		"acme-":      true,
-		"a-":         true,
-		"my-team-":   true,
-		"a1-":        true,
-		"123-":       true,
-		"":           false,
-		"clu":        false, // no trailing dash
-		"-":          false, // starts with dash
-		"--":         false, // empty segments
-		"clu--":      false, // empty segment
-		"clu_":       false, // underscore not allowed
-		"CLU-":       false, // uppercase
+		"clu-":                  true,
+		"acme-":                 true,
+		"a-":                    true,
+		"my-team-":              true,
+		"a1-":                   true,
+		"123-":                  true,
+		"":                      false,
+		"clu":                   false, // no trailing dash
+		"-":                     false, // starts with dash
+		"--":                    false, // empty segments
+		"clu--":                 false, // empty segment
+		"clu_":                  false, // underscore not allowed
+		"CLU-":                  false, // uppercase
 		"too-very-long-prefix-": false, // > 16 chars
 	}
 	for in, wantValid := range cases {

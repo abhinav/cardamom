@@ -156,10 +156,10 @@ func Write(dir string, c Config) error {
 id_prefix: %s
 
 # Declared agents (Claude Code sessions or other clu-aware processes).
-# Each name is the value to pass to ` + "`clu claim --agent <name>`" + `; capabilities
+# Each name is the value to pass to `+"`clu claim --agent <name>`"+`; capabilities
 # are the cap:* labels they'll match for unassigned-lane work.
 #
-# Coordinators run ` + "`clu agent ls`" + ` to see who exists and who's currently
+# Coordinators run `+"`clu agent ls`"+` to see who exists and who's currently
 # live (heartbeating from a --wait/--watch loop).
 #
 # Uncomment + edit to define your team:
@@ -174,4 +174,3 @@ id_prefix: %s
 `, c.IDPrefix)
 	return os.WriteFile(path, []byte(body), 0o644)
 }
-

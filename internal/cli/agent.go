@@ -181,11 +181,11 @@ type AgentShowCmd struct {
 }
 
 type agentShowOut struct {
-	Name         string          `json:"name"`
-	Description  string          `json:"description,omitempty"`
-	Capabilities []string        `json:"capabilities,omitempty"`
-	Active       *agentLiveInfo  `json:"active,omitempty"`
-	PendingWork  int             `json:"pending_work"`
+	Name         string         `json:"name"`
+	Description  string         `json:"description,omitempty"`
+	Capabilities []string       `json:"capabilities,omitempty"`
+	Active       *agentLiveInfo `json:"active,omitempty"`
+	PendingWork  int            `json:"pending_work"`
 }
 
 type agentLiveInfo struct {
@@ -284,4 +284,3 @@ func (c *AgentGcCmd) Run(r *runCtx) error {
 		return nil
 	})
 }
-

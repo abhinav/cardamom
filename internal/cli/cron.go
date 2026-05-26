@@ -219,11 +219,11 @@ type CronRunCmd struct {
 
 // cronRunResult is the per-job summary returned by `cron run`.
 type cronRunResult struct {
-	Name     string `json:"name"`
-	Status   string `json:"status"`              // "ok" or "error: …"
-	NextRun  int64  `json:"next_run"`            // unix epoch
-	Output   string `json:"output,omitempty"`    // captured stdout, possibly truncated
-	Truncated bool  `json:"truncated,omitempty"` // hint when output was clipped
+	Name      string `json:"name"`
+	Status    string `json:"status"`              // "ok" or "error: …"
+	NextRun   int64  `json:"next_run"`            // unix epoch
+	Output    string `json:"output,omitempty"`    // captured stdout, possibly truncated
+	Truncated bool   `json:"truncated,omitempty"` // hint when output was clipped
 }
 
 // maxCapturedOutput keeps last_output from bloating the table when a job's
@@ -353,4 +353,3 @@ func invokeCLIWithinCron(ctx context.Context, dir string, args []string) (string
 	}
 	return combined, nil
 }
-

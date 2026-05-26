@@ -15,8 +15,8 @@ import (
 // list cares about it, count does not.
 type listFilterFlags struct {
 	Status []string `default:"open,in_progress" sep:"," enum:"open,in_progress,closed,cancelled,active,all" help:"Filter by status. Comma-separated; 'active' = open+in_progress; 'all' disables the filter."`
-	Agent  string `short:"a" help:"Filter by agent lane."`
-	Type   string `short:"t" help:"Filter by type."`
+	Agent  string   `short:"a" help:"Filter by agent lane."`
+	Type   string   `short:"t" help:"Filter by type."`
 
 	Label      []string `short:"l" sep:"," help:"Filter by labels (AND: must have ALL). Comma-separated or repeatable."`
 	LabelAny   []string `name:"label-any" sep:"," help:"Filter by labels (OR: must have AT LEAST ONE)."`
@@ -38,9 +38,9 @@ type listFilterFlags struct {
 	Deferred bool `name:"deferred" help:"Only issues currently deferred (defer_until in the future)."`
 	Overdue  bool `name:"overdue" help:"Only non-closed issues whose defer_until has already passed."`
 
-	LabelPattern  string   `name:"label-pattern" help:"Filter by label glob (SQLite GLOB; e.g. 'tech-*')."`
-	ExcludeLabel  []string `name:"exclude-label" sep:"," help:"Exclude issues that have ANY of these labels."`
-	ExcludeType   []string `name:"exclude-type" sep:"," help:"Exclude these issue types."`
+	LabelPattern string   `name:"label-pattern" help:"Filter by label glob (SQLite GLOB; e.g. 'tech-*')."`
+	ExcludeLabel []string `name:"exclude-label" sep:"," help:"Exclude issues that have ANY of these labels."`
+	ExcludeType  []string `name:"exclude-type" sep:"," help:"Exclude these issue types."`
 
 	Sort    string `name:"sort" enum:"priority,created,updated,closed,id,title,type," default:"" help:"Sort by field (default: priority, created)."`
 	Reverse bool   `short:"r" name:"reverse" help:"Reverse sort order."`
@@ -51,19 +51,19 @@ type listFilterFlags struct {
 
 func (f listFilterFlags) toFilter() (store.ListFilter, error) {
 	out := store.ListFilter{
-		Statuses:      expandStatuses(f.Status),
-		Agent:         agentPtr(f.Agent),
-		Type:          f.Type,
-		Labels:        f.Label,
-		LabelsAny:     f.LabelAny,
-		NoLabels:      f.NoLabels,
-		NoAssignee:    f.NoAssignee,
-		TitleContains: f.TitleContains,
-		PriorityMin:   f.PriorityMin,
-		PriorityMax:   f.PriorityMax,
-		IDs:           f.ID,
-		Deferred:      f.Deferred,
-		Overdue:       f.Overdue,
+		Statuses:         expandStatuses(f.Status),
+		Agent:            agentPtr(f.Agent),
+		Type:             f.Type,
+		Labels:           f.Label,
+		LabelsAny:        f.LabelAny,
+		NoLabels:         f.NoLabels,
+		NoAssignee:       f.NoAssignee,
+		TitleContains:    f.TitleContains,
+		PriorityMin:      f.PriorityMin,
+		PriorityMax:      f.PriorityMax,
+		IDs:              f.ID,
+		Deferred:         f.Deferred,
+		Overdue:          f.Overdue,
 		LabelPattern:     f.LabelPattern,
 		ExcludeLabels:    f.ExcludeLabel,
 		ExcludeTypes:     f.ExcludeType,
@@ -93,7 +93,7 @@ type ListCmd struct {
 	Limit         int           `short:"n" default:"50" help:"Limit results (0 = unlimited)."`
 	Watch         bool          `short:"w" name:"watch" help:"Keep updating the list when matching issues change. Ctrl+C to exit."`
 	WatchInterval time.Duration `name:"interval" default:"1s" help:"Poll interval when --watch is set."`
-	Heartbeat bool `name:"heartbeat" help:"While watching, register -a <name> as a live agent in 'clu agent ls'. Requires -a. Off by default."`
+	Heartbeat     bool          `name:"heartbeat" help:"While watching, register -a <name> as a live agent in 'clu agent ls'. Requires -a. Off by default."`
 }
 
 func (c *ListCmd) Run(r *runCtx) error {
@@ -163,6 +163,7 @@ func (c *ListCmd) Run(r *runCtx) error {
 //   - "all" anywhere → nil (no filter)
 //   - "active" → "open" + "in_progress"
 //   - other tokens → themselves
+//
 // Duplicates are removed.
 func expandStatuses(in []string) []string {
 	for _, s := range in {
