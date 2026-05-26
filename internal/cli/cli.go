@@ -14,7 +14,8 @@ import (
 	"time"
 
 	"github.com/alecthomas/kong"
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/config"
+	"github.com/rovak/clu/internal/store"
 )
 
 // CLI is the kong-defined command structure.
@@ -197,11 +198,17 @@ func (r *runCtx) emitJSON(v any) error {
 
 func (c *runCtx) dbPath() string { return filepath.Join(c.dir, "data.sqlite") }
 
+// openStore loads the per-project config and opens the database with it.
+// Config absence is fine; defaults are applied silently.
 func (c *runCtx) openStore() (*store.Store, error) {
 	if _, err := os.Stat(c.dbPath()); errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("no database at %s — run `clu init`", c.dbPath())
 	}
-	return store.Open(c.dbPath())
+	cfg, err := config.Load(c.dir)
+	if err != nil {
+		return nil, err
+	}
+	return store.Open(c.dbPath(), store.WithIDPrefix(cfg.IDPrefix))
 }
 
 func withStore(c *runCtx, fn func(*store.Store) error) error {

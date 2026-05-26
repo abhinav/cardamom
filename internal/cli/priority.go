@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/beadsv2/internal/store"
+import "github.com/rovak/clu/internal/store"
 
 // PriorityCmd is sugar for `clu update <id> -p <N>`.
 type PriorityCmd struct {

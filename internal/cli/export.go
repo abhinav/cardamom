@@ -6,7 +6,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/store"
 )
 
 // exportLine is the wire format for JSONL. One per line. The "kind"

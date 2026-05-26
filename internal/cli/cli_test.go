@@ -62,6 +62,51 @@ func TestCLIInitAndCreate(t *testing.T) {
 	}
 }
 
+func TestCLIInitScaffoldsConfigAndExample(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	for _, sub := range []string{"config.yaml", "data.sqlite", "templates/example.yaml"} {
+		if _, err := os.Stat(filepath.Join(c.dir, sub)); err != nil {
+			t.Fatalf("init should create %s: %v", sub, err)
+		}
+	}
+}
+
+func TestCLIInitIdempotent(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	// Second run is a no-op summary; should not fail or duplicate files.
+	out := c.run("init")
+	if !strings.Contains(out, "already initialized") {
+		t.Fatalf("expected idempotent notice, got:\n%s", out)
+	}
+}
+
+func TestCLIInitWithPrefix(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init", "--prefix", "acme-")
+	id := strings.TrimSpace(c.run("create", "use the new prefix"))
+	if !strings.HasPrefix(id, "acme-") {
+		t.Fatalf("expected acme- prefix, got %q", id)
+	}
+	// info reflects the configured prefix.
+	out := c.run("info")
+	if !strings.Contains(out, "ID prefix:        acme-") {
+		t.Fatalf("info missing prefix:\n%s", out)
+	}
+}
+
+func TestCLIInitPrefixRejectedAfterFirstInit(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("init", "--prefix", "acme-")
+}
+
+func TestCLIInitRejectsBadPrefix(t *testing.T) {
+	c := newTestCLI(t)
+	c.runFail("init", "--prefix", "BadPrefix")
+}
+
 func TestCLIWithoutInitFails(t *testing.T) {
 	c := newTestCLI(t)
 	c.runFail("create", "untitled")

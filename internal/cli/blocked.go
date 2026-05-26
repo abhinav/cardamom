@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/beadsv2/internal/store"
+import "github.com/rovak/clu/internal/store"
 
 type BlockedCmd struct {
 	N     int    `short:"n" default:"20" help:"Maximum number of issues."`

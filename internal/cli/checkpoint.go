@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/store"
 )
 
 // CheckpointCmd is the parent for `clu checkpoint pass|fail`.

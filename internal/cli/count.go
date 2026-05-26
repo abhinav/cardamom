@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/store"
 )
 
 type CountCmd struct {

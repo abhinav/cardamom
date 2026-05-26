@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/store"
 )
 
 // listFilterFlags is the kong-tagged set of flags that build a

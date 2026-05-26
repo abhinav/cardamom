@@ -6,7 +6,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/rovak/beadsv2/internal/cli"
+	"github.com/rovak/clu/internal/cli"
 )
 
 func main() {

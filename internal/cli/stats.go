@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/store"
 )
 
 type StatsCmd struct{}

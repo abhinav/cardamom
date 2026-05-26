@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/beadsv2/internal/store"
+import "github.com/rovak/clu/internal/store"
 
 type UpdateCmd struct {
 	ID            string  `arg:"" help:"Issue ID."`

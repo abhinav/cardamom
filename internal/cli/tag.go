@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/beadsv2/internal/store"
+import "github.com/rovak/clu/internal/store"
 
 // TagCmd is sugar for `clu label add <id> <labels...>`.
 type TagCmd struct {

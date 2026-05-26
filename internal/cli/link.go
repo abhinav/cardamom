@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/beadsv2/internal/store"
+import "github.com/rovak/clu/internal/store"
 
 // LinkCmd is sugar for `clu dep add <child> <parent>`.
 type LinkCmd struct {

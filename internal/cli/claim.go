@@ -4,7 +4,7 @@ import (
 	"errors"
 	"time"
 
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/store"
 )
 
 type ClaimCmd struct {

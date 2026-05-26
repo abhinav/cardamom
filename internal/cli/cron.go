@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/store"
 )
 
 // CronCmd dispatches the `clu cron …` subtree.

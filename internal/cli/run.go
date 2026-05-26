@@ -6,8 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rovak/beadsv2/internal/store"
-	"github.com/rovak/beadsv2/internal/workflow"
+	"github.com/rovak/clu/internal/store"
+	"github.com/rovak/clu/internal/workflow"
 )
 
 // RunCmd instantiates a workflow template into issues + deps.

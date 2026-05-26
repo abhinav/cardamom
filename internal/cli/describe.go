@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/beadsv2/internal/store"
+import "github.com/rovak/clu/internal/store"
 
 // DescribeCmd is sugar for `clu update <id> --description <text>`.
 // Pass an empty <text> to clear the description.

@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/beadsv2/internal/store"
+import "github.com/rovak/clu/internal/store"
 
 type ReopenCmd struct {
 	IDs []string `arg:"" required:"" name:"id" help:"One or more issue IDs to reopen."`

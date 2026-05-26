@@ -204,10 +204,32 @@ func migrate(db *sql.DB) error {
 // ---- Store ----
 
 type Store struct {
-	db *bun.DB
+	db       *bun.DB
+	idPrefix string
 }
 
-func Open(path string) (*Store, error) {
+// Option configures Open. Use the With* helpers; the option struct
+// itself isn't exported.
+type Option func(*openOpts)
+
+type openOpts struct {
+	idPrefix string
+}
+
+// WithIDPrefix overrides the prefix newly-created issues get. Passing
+// "" or omitting the option uses DefaultIDPrefix.
+func WithIDPrefix(p string) Option {
+	return func(o *openOpts) { o.idPrefix = p }
+}
+
+func Open(path string, opts ...Option) (*Store, error) {
+	o := openOpts{idPrefix: DefaultIDPrefix}
+	for _, fn := range opts {
+		fn(&o)
+	}
+	if o.idPrefix == "" {
+		o.idPrefix = DefaultIDPrefix
+	}
 	sqldb, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
 	if err != nil {
 		return nil, err
@@ -217,8 +239,12 @@ func Open(path string) (*Store, error) {
 		return nil, err
 	}
 	db := bun.NewDB(sqldb, sqlitedialect.New())
-	return &Store{db: db}, nil
+	return &Store{db: db, idPrefix: o.idPrefix}, nil
 }
+
+// IDPrefix returns the prefix this Store uses for newly-created issues.
+// Surfaced by `clu info`.
+func (s *Store) IDPrefix() string { return s.idPrefix }
 
 func (s *Store) Close() error { return s.db.Close() }
 
@@ -319,7 +345,7 @@ func (s *Store) Create(ctx context.Context, title, typ string, priority int, age
 	for tries := 0; tries < 8; tries++ {
 		t := now()
 		i := Issue{
-			ID: newID(), Title: title, Type: typ, Status: "open",
+			ID: newID(s.idPrefix), Title: title, Type: typ, Status: "open",
 			Priority: priority, Agent: agent,
 			Created: t, Updated: t,
 		}

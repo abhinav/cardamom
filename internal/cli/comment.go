@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rovak/beadsv2/internal/store"
+	"github.com/rovak/clu/internal/store"
 )
 
 type CommentCmd struct {
