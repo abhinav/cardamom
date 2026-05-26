@@ -44,7 +44,7 @@ func (c *VersionCmd) Run(r *runCtx) error {
 	if r.json {
 		return json.NewEncoder(r.stdout).Encode(v)
 	}
-	fmt.Fprintf(r.stdout, "bd %s", v.Version)
+	fmt.Fprintf(r.stdout, "cli %s", v.Version)
 	if v.Revision != "" {
 		fmt.Fprintf(r.stdout, " (%s", v.Revision)
 		if v.Dirty {

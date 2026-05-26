@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-// testCLI bundles the args base ("--dir <tmp>/.beads") with stdio buffers.
+// testCLI bundles the args base ("--dir <tmp>/.db") with stdio buffers.
 type testCLI struct {
 	t   *testing.T
 	dir string
@@ -24,7 +24,7 @@ type testCLI struct {
 
 func newTestCLI(t *testing.T) *testCLI {
 	t.Helper()
-	return &testCLI{t: t, dir: filepath.Join(t.TempDir(), ".beads"), ctx: context.Background()}
+	return &testCLI{t: t, dir: filepath.Join(t.TempDir(), ".db"), ctx: context.Background()}
 }
 
 func (c *testCLI) run(args ...string) string {
@@ -505,7 +505,7 @@ func TestCLINoteSetAppendClearShow(t *testing.T) {
 func TestCLIVersionShort(t *testing.T) {
 	c := newTestCLI(t)
 	out := c.run("-V")
-	if !strings.HasPrefix(out, "bd ") {
+	if !strings.HasPrefix(out, "cli ") {
 		t.Fatalf("expected -V to print version: %q", out)
 	}
 }
@@ -727,7 +727,7 @@ func TestCLIDeferBadDuration(t *testing.T) {
 func TestCLIVersion(t *testing.T) {
 	c := newTestCLI(t)
 	out := c.run("version")
-	if !strings.HasPrefix(out, "bd ") {
+	if !strings.HasPrefix(out, "cli ") {
 		t.Fatalf("expected 'bd <ver>': %q", out)
 	}
 }
@@ -797,7 +797,7 @@ func TestCLIJSONShowIncludesLabels(t *testing.T) {
 func TestCLICompletionBash(t *testing.T) {
 	c := newTestCLI(t)
 	out := c.run("completion", "bash")
-	if !strings.Contains(out, "complete -F _bd_completions bd") {
+	if !strings.Contains(out, "complete -F _cli_completions cli") {
 		t.Fatalf("bash completion missing complete line:\n%s", out)
 	}
 }

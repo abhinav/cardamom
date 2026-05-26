@@ -175,11 +175,11 @@ func (s *Store) Close() error { return s.db.Close() }
 func now() int64 { return time.Now().Unix() }
 
 // ValidStatuses are the statuses an issue may take. Source of truth for
-// CLI enum validation and `bd statuses`.
+// CLI enum validation and `cli statuses`.
 var ValidStatuses = []string{"open", "in_progress", "closed"}
 
 // ValidTypes are the canonical issue types. Source of truth for
-// `bd types`. The schema does not enforce these — any string is
+// `cli types`. The schema does not enforce these — any string is
 // allowed at the DB level — but the CLI uses this list for help text
 // and discoverability.
 var ValidTypes = []string{"task", "bug", "feature", "epic", "chore", "decision"}

@@ -2,7 +2,7 @@ package cli
 
 import "github.com/rovak/beadsv2/internal/store"
 
-// AssignCmd is sugar for `bd update <id> --assignee <who>`.
+// AssignCmd is sugar for `cli update <id> --assignee <who>`.
 // Pass an empty <who> to clear the assignee.
 type AssignCmd struct {
 	ID string `arg:"" help:"Issue ID."`

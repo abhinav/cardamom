@@ -19,11 +19,11 @@ import (
 
 // CLI is the kong-defined command structure.
 type CLI struct {
-	Dir   string `name:"dir" env:"BEADS_DIR" default:".beads" help:"Beads directory."`
+	Dir   string `name:"dir" env:"DB_DIR" default:".db" help:"Database directory."`
 	JSON  bool   `name:"json" help:"Emit machine-readable JSON instead of human output."`
 	Quiet bool   `short:"q" name:"quiet" help:"Suppress non-essential output (errors still go to stderr)."`
 
-	Init       InitCmd       `cmd:"" help:"Initialize the beads database in the current directory."`
+	Init       InitCmd       `cmd:"" help:"Initialize the database in the current directory."`
 	Create     CreateCmd     `cmd:"" help:"Create a new issue."`
 	List       ListCmd       `cmd:"" help:"List issues."`
 	Ready      ReadyCmd      `cmd:"" help:"List issues that are ready to work on."`
@@ -76,11 +76,11 @@ func (r *runCtx) notice(format string, args ...any) {
 	fmt.Fprintf(r.stdout, format, args...)
 }
 
-func (c *runCtx) dbPath() string { return filepath.Join(c.dir, "beads.db") }
+func (c *runCtx) dbPath() string { return filepath.Join(c.dir, "data.sqlite") }
 
 func (c *runCtx) openStore() (*store.Store, error) {
 	if _, err := os.Stat(c.dbPath()); errors.Is(err, os.ErrNotExist) {
-		return nil, fmt.Errorf("no beads database at %s — run `bd init`", c.dbPath())
+		return nil, fmt.Errorf("no database at %s — run `cli init`", c.dbPath())
 	}
 	return store.Open(c.dbPath())
 }
@@ -125,8 +125,8 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 	}
 	var cli CLI
 	parser, err := kong.New(&cli,
-		kong.Name("bd"),
-		kong.Description("Minimal SQLite-backed issue tracker. Use -V or 'bd version' to print version."),
+		kong.Name("cli"),
+		kong.Description("Minimal SQLite-backed issue tracker. Use -V or 'cli version' to print version."),
 		kong.Writers(stdout, stderr),
 		kong.Exit(func(int) {}), // we manage exit codes ourselves
 		kong.UsageOnError(),

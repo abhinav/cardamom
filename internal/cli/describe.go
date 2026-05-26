@@ -2,7 +2,7 @@ package cli
 
 import "github.com/rovak/beadsv2/internal/store"
 
-// DescribeCmd is sugar for `bd update <id> --description <text>`.
+// DescribeCmd is sugar for `cli update <id> --description <text>`.
 // Pass an empty <text> to clear the description.
 type DescribeCmd struct {
 	ID   string `arg:"" help:"Issue ID."`
