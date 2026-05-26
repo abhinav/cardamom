@@ -15,14 +15,23 @@ type ReadyCmd struct {
 
 func (c *ReadyCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
+		caps := resolveAgent(r.dir, c.Agent)
+		// Heartbeat while waiting — same convention as `claim --wait`.
+		if c.Wait && c.Agent != "" {
+			cleanup, err := startHeartbeat(s, c.Agent, caps)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+		}
 		var (
 			issues []store.Issue
 			err    error
 		)
 		if c.Wait {
-			issues, err = s.WaitReady(r.ctx, c.N, agentPtr(c.Agent), c.Interval)
+			issues, err = s.WaitReady(r.ctx, c.N, agentPtr(c.Agent), caps, c.Interval)
 		} else {
-			issues, err = s.Ready(r.ctx, c.N, agentPtr(c.Agent))
+			issues, err = s.Ready(r.ctx, c.N, agentPtr(c.Agent), caps)
 		}
 		if err != nil {
 			return err

@@ -93,6 +93,7 @@ type ListCmd struct {
 	Limit         int           `short:"n" default:"50" help:"Limit results (0 = unlimited)."`
 	Watch         bool          `short:"w" name:"watch" help:"Keep updating the list when matching issues change. Ctrl+C to exit."`
 	WatchInterval time.Duration `name:"interval" default:"1s" help:"Poll interval when --watch is set."`
+	As            string        `name:"as" help:"Declare this watcher as a named agent (config.yaml); heartbeats while watching so 'clu agent ls' shows it active."`
 }
 
 func (c *ListCmd) Run(r *runCtx) error {
@@ -128,7 +129,18 @@ func (c *ListCmd) Run(r *runCtx) error {
 			if r.json {
 				return errors.New("--watch is not supported with --json (JSON output is a single document)")
 			}
+			// Optional heartbeat: if the watcher declared an identity,
+			// surface them in `clu agent ls` for the duration of the loop.
+			if c.As != "" {
+				caps := resolveAgent(r.dir, c.As)
+				cleanup, err := startHeartbeat(s, c.As, caps)
+				if err != nil {
+					return err
+				}
+				defer cleanup()
+			}
 			return watchLoop(r.ctx, r.stdout, c.WatchInterval, func() (string, error) {
+				heartbeatTick(s, c.As, resolveAgent(r.dir, c.As))
 				return render(s)
 			})
 		}

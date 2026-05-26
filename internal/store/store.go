@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"strings"
@@ -66,6 +67,22 @@ type KV struct {
 
 	Key   string `bun:"key,pk" json:"key"`
 	Value string `bun:"value,notnull" json:"value"`
+}
+
+// ActiveAgent is the heartbeat row for one currently-running agent —
+// some Claude Code session (or other process) sitting in a `claim --wait`
+// or `list --watch` poll loop. The loop upserts last_seen each tick;
+// queries filter out rows older than a freshness threshold so crashed
+// processes drop off without explicit cleanup.
+type ActiveAgent struct {
+	bun.BaseModel `bun:"table:active_agents" json:"-"`
+
+	Name         string `bun:"name,pk" json:"name"`
+	PID          int    `bun:"pid,notnull" json:"pid"`
+	Host         string `bun:"host,notnull" json:"host"`
+	Capabilities string `bun:"capabilities,notnull" json:"capabilities"` // JSON array
+	StartedAt    int64  `bun:"started_at,notnull" json:"started_at"`
+	LastSeen     int64  `bun:"last_seen,notnull" json:"last_seen"`
 }
 
 // CronJob is one scheduled invocation. The `Job` field carries a
@@ -173,6 +190,18 @@ var migrations = []string{
         last_output TEXT
     );
     CREATE INDEX IF NOT EXISTS idx_cron_jobs_due ON cron_jobs(enabled, next_run);
+    `,
+	// v10: active agents (heartbeat from --wait/--watch loops).
+	`
+    CREATE TABLE IF NOT EXISTS active_agents (
+        name         TEXT PRIMARY KEY,
+        pid          INTEGER NOT NULL,
+        host         TEXT NOT NULL,
+        capabilities TEXT NOT NULL,
+        started_at   INTEGER NOT NULL,
+        last_seen    INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_active_agents_last_seen ON active_agents(last_seen);
     `,
 }
 
@@ -1052,30 +1081,77 @@ func (s *Store) exists(ctx context.Context, id string) error {
 	return nil
 }
 
+// laneMatchSQL builds the WHERE-clause fragment that selects issues for a
+// given agent identity. Returns the fragment (suitable as one Where()
+// argument; uses ? placeholders) plus the args to pass.
+//
+// Matching matrix:
+//
+//	agent  caps    matches
+//	nil    []      i.agent IS NULL AND NOT EXISTS(label LIKE 'cap:%')
+//	nil    [...]   i.agent IS NULL AND EXISTS(label IN (...))
+//	"X"    []      i.agent = "X"
+//	"X"    [...]   i.agent = "X" OR (i.agent IS NULL AND EXISTS(label IN (...)))
+//
+// Capability-labeled issues are excluded from the plain default claim
+// so they don't get grabbed by an agent that doesn't advertise the
+// required capability.
+func laneMatchSQL(agent *string, caps []string) (string, []any) {
+	capList := make([]any, 0, len(caps))
+	for _, c := range caps {
+		capList = append(capList, "cap:"+c)
+	}
+	hasCaps := len(caps) > 0
+	if agent == nil {
+		if !hasCaps {
+			return "i.agent IS NULL AND NOT EXISTS (SELECT 1 FROM issue_labels WHERE issue_id = i.id AND label LIKE 'cap:%')", nil
+		}
+		// Build IN-placeholder list manually since we're sharing the
+		// fragment with raw-SQL paths that don't get bun.In expansion.
+		ph := placeholders(len(caps))
+		return "i.agent IS NULL AND EXISTS (SELECT 1 FROM issue_labels WHERE issue_id = i.id AND label IN (" + ph + "))", capList
+	}
+	if !hasCaps {
+		return "i.agent = ?", []any{*agent}
+	}
+	ph := placeholders(len(caps))
+	args := []any{*agent}
+	args = append(args, capList...)
+	return "(i.agent = ? OR (i.agent IS NULL AND EXISTS (SELECT 1 FROM issue_labels WHERE issue_id = i.id AND label IN (" + ph + "))))", args
+}
+
+// placeholders returns "?, ?, ?, ..." with n placeholders.
+func placeholders(n int) string {
+	if n <= 0 {
+		return ""
+	}
+	return strings.Repeat("?, ", n-1) + "?"
+}
+
 // readyQuery applies the shared WHERE/ORDER for ready-issue selection.
-// Excludes issues whose defer_until is still in the future.
-func (s *Store) readyQuery(agent *string) *bun.SelectQuery {
+// Excludes issues whose defer_until is still in the future. caps may be
+// nil — see laneMatchSQL for the matching matrix.
+func (s *Store) readyQuery(agent *string, caps []string) *bun.SelectQuery {
 	q := s.db.NewSelect().Model((*Issue)(nil)).
 		Where("i.status = 'open' AND i.assignee IS NULL").
 		Where("(i.defer_until IS NULL OR i.defer_until <= ?)", now()).
 		Where("NOT EXISTS (SELECT 1 FROM deps d JOIN issues p ON p.id = d.parent_id WHERE d.child_id = i.id AND p.status != 'closed')").
 		OrderExpr("i.priority ASC, i.created ASC")
-	if agent == nil {
-		q = q.Where("i.agent IS NULL")
-	} else {
-		q = q.Where("i.agent = ?", *agent)
-	}
+	frag, args := laneMatchSQL(agent, caps)
+	q = q.Where(frag, args...)
 	return q
 }
 
 // Ready returns open, unclaimed issues with all dependencies closed.
 //   agent: nil = unassigned lane (agent IS NULL); else exact match.
-func (s *Store) Ready(ctx context.Context, limit int, agent *string) ([]Issue, error) {
+//   caps:  optional capability advertisement; cap:X-labeled issues
+//          in the unassigned lane match when X is in caps.
+func (s *Store) Ready(ctx context.Context, limit int, agent *string, caps []string) ([]Issue, error) {
 	if limit <= 0 {
 		limit = 50
 	}
 	var issues []Issue
-	err := s.readyQuery(agent).
+	err := s.readyQuery(agent, caps).
 		ColumnExpr("i.*").
 		Limit(limit).
 		Scan(ctx, &issues)
@@ -1087,30 +1163,30 @@ func (s *Store) Ready(ctx context.Context, limit int, agent *string) ([]Issue, e
 
 // Claim atomically assigns the next ready issue in the given lane.
 //   agent: nil = unassigned lane (agent IS NULL); else exact match.
-// Returns ErrNotFound when nothing is ready in that lane.
+//   caps:  optional capabilities the caller advertises; cap:X-labeled
+//          issues in the unassigned lane are reachable when X is in caps.
+// Returns ErrNotFound when nothing is ready in that identity's reach.
 //
 // SQLite UPDATE…RETURNING with a subquery WHERE is awkward to express via
-// the Bun query builder; raw SQL is clearer here.
-func (s *Store) Claim(ctx context.Context, assignee string, agent *string) (Issue, error) {
+// the Bun query builder; raw SQL is clearer here. The lane+capability
+// fragment is shared with readyQuery via laneMatchSQL — keep them in sync.
+func (s *Store) Claim(ctx context.Context, assignee string, agent *string, caps []string) (Issue, error) {
 	if assignee == "" {
 		return Issue{}, errors.New("assignee required")
 	}
-	var (
-		laneClause string
-		laneArgs   []any
-	)
-	if agent == nil {
-		laneClause = "agent IS NULL"
-	} else {
-		laneClause = "agent = ?"
-		laneArgs = []any{*agent}
-	}
+	// laneMatchSQL returns SQL using "i.agent"; the raw-SQL subquery
+	// here references unqualified "agent" / "issue_id". Rewrite the
+	// table-qualified references.
+	frag, laneArgs := laneMatchSQL(agent, caps)
+	frag = strings.ReplaceAll(frag, "i.agent", "agent")
+	frag = strings.ReplaceAll(frag, "i.id", "issues.id")
+
 	q := `
         UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?
         WHERE id = (
             SELECT id FROM issues
             WHERE status = 'open' AND assignee IS NULL
-              AND ` + laneClause + `
+              AND ` + frag + `
               AND (defer_until IS NULL OR defer_until <= ?)
               AND NOT EXISTS (
                   SELECT 1 FROM deps d
@@ -1370,12 +1446,12 @@ func (s *Store) IDsBlocked(ctx context.Context, ids []string) (map[string]bool, 
 
 // WaitReady polls Ready until at least one issue is returned, the context is
 // cancelled, or an error occurs. Caller controls the poll interval.
-func (s *Store) WaitReady(ctx context.Context, limit int, agent *string, interval time.Duration) ([]Issue, error) {
+func (s *Store) WaitReady(ctx context.Context, limit int, agent *string, caps []string, interval time.Duration) ([]Issue, error) {
 	if interval <= 0 {
 		interval = 250 * time.Millisecond
 	}
 	for {
-		issues, err := s.Ready(ctx, limit, agent)
+		issues, err := s.Ready(ctx, limit, agent, caps)
 		if err != nil {
 			return nil, err
 		}
@@ -1521,4 +1597,92 @@ func (s *Store) CronJobUpdateSchedule(ctx context.Context, name, schedule string
 		return ErrCronJobNotFound
 	}
 	return nil
+}
+
+// ---- Active agents (heartbeat) ----
+
+// AgentStaleThresholdSec is the default age (seconds) past which an
+// active_agents row is considered dead. Loops should heartbeat well
+// under this — typical poll interval is 250ms-1s.
+const AgentStaleThresholdSec = 30
+
+// AgentTouch upserts an active_agents row with the current timestamp.
+// capabilities is the agent's declared capability list (JSON-encoded
+// before storage). Called from every poll-loop tick in claim/ready/list.
+func (s *Store) AgentTouch(ctx context.Context, name string, pid int, host string, capabilities []string) error {
+	if name == "" {
+		return errors.New("name required")
+	}
+	if capabilities == nil {
+		capabilities = []string{} // marshal as `[]` rather than `null`
+	}
+	caps, err := json.Marshal(capabilities)
+	if err != nil {
+		return err
+	}
+	t := now()
+	a := ActiveAgent{
+		Name:         name,
+		PID:          pid,
+		Host:         host,
+		Capabilities: string(caps),
+		StartedAt:    t,
+		LastSeen:     t,
+	}
+	_, err = s.db.NewInsert().Model(&a).
+		On("CONFLICT (name) DO UPDATE").
+		Set("pid = EXCLUDED.pid").
+		Set("host = EXCLUDED.host").
+		Set("capabilities = EXCLUDED.capabilities").
+		// Keep the original started_at across heartbeats.
+		Set("last_seen = EXCLUDED.last_seen").
+		Exec(ctx)
+	return err
+}
+
+// AgentRemove drops an active_agents row. Called from a defer in the
+// poll-loop so a graceful exit clears the row immediately rather than
+// waiting for the freshness threshold.
+func (s *Store) AgentRemove(ctx context.Context, name string) error {
+	_, err := s.db.NewDelete().
+		Model((*ActiveAgent)(nil)).
+		Where("name = ?", name).
+		Exec(ctx)
+	return err
+}
+
+// AgentList returns active agents whose last_seen is within
+// `freshness` seconds of now. Pass 0 to skip the filter and return all
+// rows including stale.
+func (s *Store) AgentList(ctx context.Context, freshnessSec int64) ([]ActiveAgent, error) {
+	var agents []ActiveAgent
+	q := s.db.NewSelect().Model(&agents).OrderExpr("name ASC")
+	if freshnessSec > 0 {
+		q = q.Where("last_seen >= ?", now()-freshnessSec)
+	}
+	if err := q.Scan(ctx); err != nil {
+		return nil, err
+	}
+	return agents, nil
+}
+
+// AgentGet looks up a single active agent by name. Returns ErrNotFound
+// (overloaded — fine here, callers can distinguish via context) if absent.
+func (s *Store) AgentGet(ctx context.Context, name string) (ActiveAgent, error) {
+	var a ActiveAgent
+	err := s.db.NewSelect().Model(&a).Where("name = ?", name).Scan(ctx)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ActiveAgent{}, ErrNotFound
+	}
+	return a, err
+}
+
+// AgentDecodeCapabilities is a convenience for callers reading rows back.
+func (a ActiveAgent) DecodeCapabilities() []string {
+	if a.Capabilities == "" {
+		return nil
+	}
+	var caps []string
+	_ = json.Unmarshal([]byte(a.Capabilities), &caps)
+	return caps
 }

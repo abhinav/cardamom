@@ -64,7 +64,7 @@ func TestReadyExcludesBlocked(t *testing.T) {
 	if err := s.AddDep(ctx, b.ID, a.ID); err != nil {
 		t.Fatal(err)
 	}
-	ready, err := s.Ready(ctx, 10, nil)
+	ready, err := s.Ready(ctx, 10, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func TestReadyExcludesBlocked(t *testing.T) {
 	if _, err := s.MarkClosed(ctx, a.ID); err != nil {
 		t.Fatal(err)
 	}
-	ready, _ = s.Ready(ctx, 10, nil)
+	ready, _ = s.Ready(ctx, 10, nil, nil)
 	if len(ready) != 1 || ready[0].ID != b.ID {
 		t.Fatalf("expected b ready after closing a, got %+v", ready)
 	}
@@ -83,10 +83,10 @@ func TestReadyExcludesBlocked(t *testing.T) {
 func TestReadyExcludesAssigned(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 1, nil)
-	if _, err := s.Claim(ctx, "alice", nil); err != nil {
+	if _, err := s.Claim(ctx, "alice", nil, nil); err != nil {
 		t.Fatal(err)
 	}
-	ready, _ := s.Ready(ctx, 10, nil)
+	ready, _ := s.Ready(ctx, 10, nil, nil)
 	if len(ready) != 0 {
 		t.Fatalf("expected nothing ready after claim, got %+v", ready)
 	}
@@ -101,7 +101,7 @@ func TestReadyOrderedByPriority(t *testing.T) {
 	_, _ = s.Create(ctx, "low", "task", 4, nil)
 	hi, _ := s.Create(ctx, "hi", "task", 0, nil)
 	_, _ = s.Create(ctx, "mid", "task", 2, nil)
-	ready, _ := s.Ready(ctx, 10, nil)
+	ready, _ := s.Ready(ctx, 10, nil, nil)
 	if ready[0].ID != hi.ID {
 		t.Fatalf("expected hi first, got %s", ready[0].ID)
 	}
@@ -124,7 +124,7 @@ func TestClaimAtomicityRace(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for {
-				_, err := s.Claim(ctx, "w", nil)
+				_, err := s.Claim(ctx, "w", nil, nil)
 				if err == ErrNotFound {
 					return
 				}
@@ -247,6 +247,53 @@ func TestListFilter(t *testing.T) {
 	}
 }
 
+func TestCapabilityRouting(t *testing.T) {
+	s := newTestStore(t)
+	// Three issues:
+	//   plain:   no cap label, unassigned lane
+	//   gated:   cap:go-review, unassigned lane
+	//   bigot:   cap:security, unassigned lane (different capability)
+	plain, _ := s.Create(ctx, "plain", "task", 1, nil)
+	gated, _ := s.Create(ctx, "gated", "task", 1, nil)
+	other, _ := s.Create(ctx, "other", "task", 1, nil)
+	_ = s.AddLabels(ctx, gated.ID, []string{"cap:go-review"})
+	_ = s.AddLabels(ctx, other.ID, []string{"cap:security"})
+
+	// Default claim (no agent, no caps): plain only.
+	got, _ := s.Ready(ctx, 10, nil, nil)
+	if len(got) != 1 || got[0].ID != plain.ID {
+		t.Fatalf("default ready: expected only plain, got %+v", got)
+	}
+
+	// Capability-only claim (no agent, caps=[go-review]): gated only.
+	got, _ = s.Ready(ctx, 10, nil, []string{"go-review"})
+	if len(got) != 1 || got[0].ID != gated.ID {
+		t.Fatalf("cap=go-review ready: expected only gated, got %+v", got)
+	}
+
+	// Capability-only claim (caps=[security, go-review]): both cap'd issues.
+	got, _ = s.Ready(ctx, 10, nil, []string{"security", "go-review"})
+	if len(got) != 2 {
+		t.Fatalf("expected 2 cap-matching issues, got %d", len(got))
+	}
+
+	// Named agent + caps: matches agent lane OR cap-routed.
+	cr := "code-reviewer"
+	laned, _ := s.Create(ctx, "for code-reviewer lane", "task", 1, &cr)
+	got, _ = s.Ready(ctx, 10, &cr, []string{"go-review"})
+	// Should include: laned (explicit lane) + gated (cap match). NOT plain, NOT other.
+	if len(got) != 2 {
+		t.Fatalf("expected 2 (laned + gated), got %d: %+v", len(got), got)
+	}
+	gotIDs := map[string]bool{}
+	for _, i := range got {
+		gotIDs[i.ID] = true
+	}
+	if !gotIDs[laned.ID] || !gotIDs[gated.ID] {
+		t.Fatalf("missing expected ids: %+v", gotIDs)
+	}
+}
+
 func TestAgentLanes(t *testing.T) {
 	s := newTestStore(t)
 	cr := "code-reviewer"
@@ -256,22 +303,22 @@ func TestAgentLanes(t *testing.T) {
 	writer, _ := s.Create(ctx, "write docs", "task", 1, &wr)
 
 	// bd ready (no agent): only unassigned-lane issues.
-	r, _ := s.Ready(ctx, 10, nil)
+	r, _ := s.Ready(ctx, 10, nil, nil)
 	if len(r) != 1 || r[0].ID != unassigned.ID {
 		t.Fatalf("expected only unassigned issue ready, got %+v", r)
 	}
 	// bd ready -a code-reviewer: only that lane.
-	r, _ = s.Ready(ctx, 10, &cr)
+	r, _ = s.Ready(ctx, 10, &cr, nil)
 	if len(r) != 1 || r[0].ID != reviewer.ID {
 		t.Fatalf("expected reviewer issue ready, got %+v", r)
 	}
-	r, _ = s.Ready(ctx, 10, &wr)
+	r, _ = s.Ready(ctx, 10, &wr, nil)
 	if len(r) != 1 || r[0].ID != writer.ID {
 		t.Fatalf("expected writer issue ready, got %+v", r)
 	}
 
 	// Claim respects lane.
-	got, err := s.Claim(ctx, "alice", &cr)
+	got, err := s.Claim(ctx, "alice", &cr, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -287,7 +334,7 @@ func TestClaimNoneInLane(t *testing.T) {
 	s := newTestStore(t)
 	cr := "code-reviewer"
 	_, _ = s.Create(ctx, "only unassigned", "task", 1, nil)
-	if _, err := s.Claim(ctx, "alice", &cr); err != ErrNotFound {
+	if _, err := s.Claim(ctx, "alice", &cr, nil); err != ErrNotFound {
 		t.Fatalf("expected ErrNotFound when nothing in lane, got %v", err)
 	}
 }
@@ -297,7 +344,7 @@ func TestWaitReadyReturnsImmediately(t *testing.T) {
 	_, _ = s.Create(ctx, "ready now", "task", 1, nil)
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	issues, err := s.WaitReady(ctx, 10, nil, 10*time.Millisecond)
+	issues, err := s.WaitReady(ctx, 10, nil, nil, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -319,7 +366,7 @@ func TestWaitReadyBlocksThenWakes(t *testing.T) {
 	}()
 
 	start := time.Now()
-	issues, err := s.WaitReady(ctx, 10, &cr, 10*time.Millisecond)
+	issues, err := s.WaitReady(ctx, 10, &cr, nil, 10*time.Millisecond)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -335,7 +382,7 @@ func TestWaitReadyCancellation(t *testing.T) {
 	s := newTestStore(t)
 	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
 	defer cancel()
-	_, err := s.WaitReady(ctx, 10, nil, 10*time.Millisecond)
+	_, err := s.WaitReady(ctx, 10, nil, nil, 10*time.Millisecond)
 	if err != context.DeadlineExceeded {
 		t.Fatalf("expected DeadlineExceeded, got %v", err)
 	}
@@ -494,7 +541,7 @@ func TestDeferExcludesFromReady(t *testing.T) {
 	if _, err := s.SetDefer(ctx, a.ID, &future); err != nil {
 		t.Fatal(err)
 	}
-	ready, _ := s.Ready(ctx, 10, nil)
+	ready, _ := s.Ready(ctx, 10, nil, nil)
 	if len(ready) != 1 || ready[0].ID == a.ID {
 		t.Fatalf("expected the deferred one to be excluded, got %+v", ready)
 	}
@@ -505,7 +552,7 @@ func TestDeferPastDateIsReady(t *testing.T) {
 	a, _ := s.Create(ctx, "was deferred", "task", 1, nil)
 	past := time.Now().Add(-time.Hour).Unix()
 	_, _ = s.SetDefer(ctx, a.ID, &past)
-	ready, _ := s.Ready(ctx, 10, nil)
+	ready, _ := s.Ready(ctx, 10, nil, nil)
 	if len(ready) != 1 || ready[0].ID != a.ID {
 		t.Fatalf("expected past-deferred to be ready, got %+v", ready)
 	}
@@ -532,7 +579,7 @@ func TestUndeferRestoresReady(t *testing.T) {
 
 func mustReady(t *testing.T, s *Store) []Issue {
 	t.Helper()
-	r, err := s.Ready(ctx, 10, nil)
+	r, err := s.Ready(ctx, 10, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

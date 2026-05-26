@@ -25,8 +25,21 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			return reportClaimed(r, s, i)
 		}
 		agent := agentPtr(c.Agent)
+		// Capabilities + heartbeat key off `--as` (agent identity), not
+		// `-a` (lane filter). Often the two are the same name, but the
+		// distinction matters when one agent claims from a shared lane.
+		caps := resolveAgent(r.dir, c.As)
+		// Heartbeat for the duration of the --wait loop. Single-shot
+		// claims don't need it; they finish in milliseconds.
+		if c.Wait && c.As != "" {
+			cleanup, err := startHeartbeat(s, c.As, caps)
+			if err != nil {
+				return err
+			}
+			defer cleanup()
+		}
 		for {
-			i, err := s.Claim(r.ctx, c.As, agent)
+			i, err := s.Claim(r.ctx, c.As, agent, caps)
 			if err == nil {
 				return reportClaimed(r, s, i)
 			}
@@ -39,9 +52,12 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			// Wait for something to become ready, then retry the claim.
 			// Another agent may steal it between Wait and Claim — that's
 			// fine, we'll just block again.
-			if _, err := s.WaitReady(r.ctx, 1, agent, c.Interval); err != nil {
+			if _, err := s.WaitReady(r.ctx, 1, agent, caps, c.Interval); err != nil {
 				return err
 			}
+			// Heartbeat lives within the loop body so each WaitReady
+			// poll cycle bumps last_seen.
+			heartbeatTick(s, c.As, caps)
 		}
 	})
 }

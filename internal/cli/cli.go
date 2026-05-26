@@ -49,6 +49,7 @@ type CLI struct {
 	Comment    CommentCmd    `cmd:"" help:"Manage threaded comments on an issue."`
 	KV         KVCmd         `cmd:"" help:"Manage a generic key-value store (feature flags, env, scratch data)."`
 	Cron       CronCmd       `cmd:"" help:"Schedule recurring clu invocations (drive from OS cron / launchd)."`
+	Agent      AgentCmd      `cmd:"" help:"Manage agents — list declared (config.yaml) and live (heartbeat) state."`
 	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
 	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'clu export'."`
 	Info       InfoCmd       `cmd:"" help:"Show database path, schema version, and a summary of issues."`

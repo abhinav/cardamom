@@ -22,7 +22,16 @@ import (
 // MUST round-trip through yaml.v3 with strict unmarshalling (unknown
 // keys are an error — see Load) so typos surface immediately.
 type Config struct {
-	IDPrefix string `yaml:"id_prefix"`
+	IDPrefix string           `yaml:"id_prefix"`
+	Agents   map[string]Agent `yaml:"agents,omitempty"`
+}
+
+// Agent is the declarative side of an agent: who they are and what they
+// can do. Committed to git. The live side (heartbeat, pid, host) lives
+// in the active_agents table, populated by --wait/--watch loops.
+type Agent struct {
+	Description  string   `yaml:"description,omitempty"`
+	Capabilities []string `yaml:"capabilities,omitempty"`
 }
 
 // Default returns a Config with the safe defaults Load uses when a key
@@ -39,6 +48,10 @@ func Default() Config {
 // readable.
 var idPrefixRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*-$`)
 
+// agentNameRe restricts agent + capability names to safe shell tokens.
+// No spaces, no underscores, lowercase + digits + dashes only.
+var agentNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
+
 // Validate enforces the rules described on each field. Returned errors
 // are user-facing and meant to land directly in CLI stderr.
 func (c Config) Validate() error {
@@ -51,7 +64,32 @@ func (c Config) Validate() error {
 	if !idPrefixRe.MatchString(c.IDPrefix) {
 		return fmt.Errorf("id_prefix %q: must be lowercase a-z, 0-9, dashes; must end with `-`", c.IDPrefix)
 	}
+	for name, a := range c.Agents {
+		if !agentNameRe.MatchString(name) {
+			return fmt.Errorf("agent %q: name must be lowercase a-z, digits, dashes; start with a letter", name)
+		}
+		for _, cap := range a.Capabilities {
+			if !agentNameRe.MatchString(cap) {
+				return fmt.Errorf("agent %q: capability %q: same rules as agent names", name, cap)
+			}
+		}
+	}
 	return nil
+}
+
+// AgentsWithCapability returns every declared agent name that lists the
+// given capability. Useful for "who could pick this up?" queries.
+func (c Config) AgentsWithCapability(cap string) []string {
+	var out []string
+	for name, a := range c.Agents {
+		for _, ac := range a.Capabilities {
+			if ac == cap {
+				out = append(out, name)
+				break
+			}
+		}
+	}
+	return out
 }
 
 // Path returns the conventional config path inside a project directory.
@@ -108,14 +146,31 @@ func Write(dir string, c Config) error {
 	// is small enough that hand-rolling beats yaml.v3 Marshal+annotate.
 	body := fmt.Sprintf(`# clu project configuration.
 #
-# This file is committed to git alongside workflow templates. Local-only
-# state (the SQLite database, WAL files) lives in this same directory
-# but should be gitignored — see .gitignore guidance in the README.
+# Committed to git alongside workflow templates. Local-only state
+# (the SQLite database, WAL files) lives in this same directory but
+# is gitignored.
 
-# Prefix for newly-allocated issue IDs. Existing IDs are unaffected if
-# you change this. Must be lowercase a-z, digits, dashes, ending with
+# Prefix for newly-allocated issue IDs. Existing IDs are unaffected
+# if you change this. Lowercase a-z + digits + dashes, ending with
 # "-". Max 16 chars. Example: "acme-" → acme-a3f8.
 id_prefix: %s
+
+# Declared agents (Claude Code sessions or other clu-aware processes).
+# Each name is the value to pass to ` + "`clu claim --as <name>`" + `; capabilities
+# are the cap:* labels they'll match for unassigned-lane work.
+#
+# Coordinators run ` + "`clu agent ls`" + ` to see who exists and who's currently
+# live (heartbeating from a --wait/--watch loop).
+#
+# Uncomment + edit to define your team:
+#
+# agents:
+#   code-reviewer:
+#     description: "Reviews Go code for correctness and security"
+#     capabilities: [go-review, security-review]
+#   doc-writer:
+#     description: "Writes README + docs/ updates"
+#     capabilities: [docs]
 `, c.IDPrefix)
 	return os.WriteFile(path, []byte(body), 0o644)
 }
