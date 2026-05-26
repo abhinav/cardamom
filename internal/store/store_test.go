@@ -642,6 +642,146 @@ func TestReopenMissing(t *testing.T) {
 	}
 }
 
+func TestListFilterLabelPattern(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	b, _ := s.Create(ctx, "b", "task", 1, nil)
+	_, _ = s.Create(ctx, "c", "task", 1, nil)
+	_ = s.AddLabels(ctx, a.ID, []string{"tech-debt"})
+	_ = s.AddLabels(ctx, b.ID, []string{"tech-legacy"})
+	got, _ := s.List(ctx, ListFilter{LabelPattern: "tech-*"})
+	if len(got) != 2 {
+		t.Fatalf("expected 2 matching tech-*, got %d: %+v", len(got), got)
+	}
+}
+
+func TestListFilterExcludeLabels(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	b, _ := s.Create(ctx, "b", "task", 1, nil)
+	c, _ := s.Create(ctx, "c", "task", 1, nil)
+	_ = s.AddLabels(ctx, a.ID, []string{"x"})
+	_ = s.AddLabels(ctx, b.ID, []string{"y"})
+	got, _ := s.List(ctx, ListFilter{ExcludeLabels: []string{"x"}})
+	if len(got) != 2 {
+		t.Fatalf("expected 2 (b, c), got %d: %+v", len(got), got)
+	}
+	gotIDs := map[string]bool{}
+	for _, i := range got {
+		gotIDs[i.ID] = true
+	}
+	if !gotIDs[b.ID] || !gotIDs[c.ID] || gotIDs[a.ID] {
+		t.Fatalf("wrong set: %+v", gotIDs)
+	}
+}
+
+func TestListFilterExcludeTypes(t *testing.T) {
+	s := newTestStore(t)
+	_, _ = s.Create(ctx, "a", "bug", 1, nil)
+	t1, _ := s.Create(ctx, "b", "task", 1, nil)
+	got, _ := s.List(ctx, ListFilter{ExcludeTypes: []string{"bug"}})
+	if len(got) != 1 || got[0].ID != t1.ID {
+		t.Fatalf("expected only task, got %+v", got)
+	}
+}
+
+func TestListFilterSortByPriorityReverse(t *testing.T) {
+	s := newTestStore(t)
+	hi, _ := s.Create(ctx, "hi", "task", 0, nil)
+	_, _ = s.Create(ctx, "mid", "task", 2, nil)
+	lo, _ := s.Create(ctx, "lo", "task", 5, nil)
+	got, _ := s.List(ctx, ListFilter{Reverse: true})
+	if got[0].ID != lo.ID || got[len(got)-1].ID != hi.ID {
+		t.Fatalf("reverse-default sort wrong: %+v", got)
+	}
+}
+
+func TestListFilterSortByTitle(t *testing.T) {
+	s := newTestStore(t)
+	_, _ = s.Create(ctx, "banana", "task", 1, nil)
+	_, _ = s.Create(ctx, "apple", "task", 1, nil)
+	_, _ = s.Create(ctx, "cherry", "task", 1, nil)
+	got, _ := s.List(ctx, ListFilter{Sort: "title"})
+	if got[0].Title != "apple" || got[2].Title != "cherry" {
+		t.Fatalf("expected alphabetical, got %+v", got)
+	}
+}
+
+func TestUpdateDescription(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	desc := ptr("the long story of how this bug happens")
+	got, _ := s.Update(ctx, a.ID, UpdateFields{Description: &desc})
+	if got.Description == nil || *got.Description != *desc {
+		t.Fatalf("description not set: %+v", got)
+	}
+	var none *string
+	got, _ = s.Update(ctx, a.ID, UpdateFields{Description: &none})
+	if got.Description != nil {
+		t.Fatalf("description not cleared: %v", *got.Description)
+	}
+}
+
+func TestListFilterDescContains(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "with desc", "task", 1, nil)
+	_, _ = s.Create(ctx, "bare", "task", 1, nil)
+	desc := ptr("This explains the auth issue thoroughly.")
+	_, _ = s.Update(ctx, a.ID, UpdateFields{Description: &desc})
+	got, _ := s.List(ctx, ListFilter{DescContains: "AUTH"})
+	if len(got) != 1 || got[0].ID != a.ID {
+		t.Fatalf("expected only a, got %+v", got)
+	}
+}
+
+func TestListFilterEmptyDescription(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "with desc", "task", 1, nil)
+	b, _ := s.Create(ctx, "bare", "task", 1, nil)
+	desc := ptr("hi")
+	_, _ = s.Update(ctx, a.ID, UpdateFields{Description: &desc})
+	got, _ := s.List(ctx, ListFilter{EmptyDescription: true})
+	if len(got) != 1 || got[0].ID != b.ID {
+		t.Fatalf("expected only b, got %+v", got)
+	}
+}
+
+func TestNotesSetAppendClear(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 1, nil)
+	got, _ := s.SetNotes(ctx, a.ID, "first")
+	if got.Notes == nil || *got.Notes != "first" {
+		t.Fatalf("set notes failed: %+v", got)
+	}
+	got, _ = s.AppendNote(ctx, a.ID, "second")
+	if got.Notes == nil || *got.Notes != "first\n\nsecond" {
+		t.Fatalf("append notes failed: %q", deref(got.Notes))
+	}
+	got, _ = s.SetNotes(ctx, a.ID, "")
+	if got.Notes != nil {
+		t.Fatalf("clear notes failed: %q", deref(got.Notes))
+	}
+	// Append on empty falls back to set.
+	got, _ = s.AppendNote(ctx, a.ID, "again")
+	if got.Notes == nil || *got.Notes != "again" {
+		t.Fatalf("append-after-clear failed: %q", deref(got.Notes))
+	}
+}
+
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+func TestNotesMissingIssue(t *testing.T) {
+	s := newTestStore(t)
+	if _, err := s.SetNotes(ctx, "bd-zzzz", "x"); err != ErrNotFound {
+		t.Fatalf("expected ErrNotFound, got %v", err)
+	}
+}
+
 func TestDepsListing(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 1, nil)

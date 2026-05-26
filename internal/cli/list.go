@@ -35,6 +35,16 @@ type listFilterFlags struct {
 
 	Deferred bool `name:"deferred" help:"Only issues currently deferred (defer_until in the future)."`
 	Overdue  bool `name:"overdue" help:"Only non-closed issues whose defer_until has already passed."`
+
+	LabelPattern  string   `name:"label-pattern" help:"Filter by label glob (SQLite GLOB; e.g. 'tech-*')."`
+	ExcludeLabel  []string `name:"exclude-label" sep:"," help:"Exclude issues that have ANY of these labels."`
+	ExcludeType   []string `name:"exclude-type" sep:"," help:"Exclude these issue types."`
+
+	Sort    string `name:"sort" enum:"priority,created,updated,closed,id,title,type," default:"" help:"Sort by field (default: priority, created)."`
+	Reverse bool   `short:"r" name:"reverse" help:"Reverse sort order."`
+
+	DescContains     string `name:"desc-contains" help:"Filter by description substring (case-insensitive)."`
+	EmptyDescription bool   `name:"empty-description" help:"Only issues with empty or missing description."`
 }
 
 func (f listFilterFlags) toFilter() (store.ListFilter, error) {
@@ -52,6 +62,13 @@ func (f listFilterFlags) toFilter() (store.ListFilter, error) {
 		IDs:           f.ID,
 		Deferred:      f.Deferred,
 		Overdue:       f.Overdue,
+		LabelPattern:     f.LabelPattern,
+		ExcludeLabels:    f.ExcludeLabel,
+		ExcludeTypes:     f.ExcludeType,
+		Sort:             f.Sort,
+		Reverse:          f.Reverse,
+		DescContains:     f.DescContains,
+		EmptyDescription: f.EmptyDescription,
 	}
 	if out.Status == "all" {
 		out.Status = ""

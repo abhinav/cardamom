@@ -43,8 +43,14 @@ type CLI struct {
 	Priority   PriorityCmd   `cmd:"" help:"Set an issue's priority (sugar for 'update -p N')."`
 	Tag        TagCmd        `cmd:"" help:"Add labels to an issue (alias for 'label add')."`
 	Link       LinkCmd       `cmd:"" help:"Add a dependency edge (alias for 'dep add')."`
+	Describe   DescribeCmd   `cmd:"" help:"Set or clear an issue's description (sugar for 'update --description')."`
+	Note       NoteCmd       `cmd:"" help:"Manage an issue's freeform notes."`
 	Export     ExportCmd     `cmd:"" help:"Export all issues + deps + labels as JSONL."`
 	Import     ImportCmd     `cmd:"" help:"Import JSONL produced by 'bd export'."`
+	Info       InfoCmd       `cmd:"" help:"Show database path, schema version, and a summary of issues."`
+	Statuses   StatusesCmd   `cmd:"" help:"List valid issue statuses."`
+	Types      TypesCmd      `cmd:"" help:"List valid issue types."`
+	Doctor     DoctorCmd     `cmd:"" help:"Run integrity and health checks against the database."`
 	Version    VersionCmd    `cmd:"" help:"Print version information."`
 	Completion CompletionCmd `cmd:"" help:"Generate a shell completion script."`
 }
@@ -217,6 +223,12 @@ func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string) {
 	}
 	if i.DeferUntil != nil {
 		fmt.Fprintf(w, "Deferred: %s\n", time.Unix(*i.DeferUntil, 0).Format(time.RFC3339))
+	}
+	if i.Description != nil && *i.Description != "" {
+		fmt.Fprintf(w, "Description:\n  %s\n", strings.ReplaceAll(*i.Description, "\n", "\n  "))
+	}
+	if i.Notes != nil && *i.Notes != "" {
+		fmt.Fprintf(w, "Notes:\n  %s\n", strings.ReplaceAll(*i.Notes, "\n", "\n  "))
 	}
 	if len(labels) > 0 {
 		fmt.Fprintf(w, "Labels:   %s\n", strings.Join(labels, ", "))

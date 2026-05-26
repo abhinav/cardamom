@@ -27,10 +27,12 @@ type Issue struct {
 	Priority int     `bun:"priority,notnull" json:"priority"`
 	Agent    *string `bun:"agent" json:"agent,omitempty"`
 	Assignee *string `bun:"assignee" json:"assignee,omitempty"`
-	Created    int64  `bun:"created,notnull" json:"created"`
-	Updated    int64  `bun:"updated,notnull" json:"updated"`
-	Closed     *int64 `bun:"closed" json:"closed,omitempty"`
-	DeferUntil *int64 `bun:"defer_until" json:"defer_until,omitempty"`
+	Created     int64   `bun:"created,notnull" json:"created"`
+	Updated     int64   `bun:"updated,notnull" json:"updated"`
+	Closed      *int64  `bun:"closed" json:"closed,omitempty"`
+	DeferUntil  *int64  `bun:"defer_until" json:"defer_until,omitempty"`
+	Description *string `bun:"description" json:"description,omitempty"`
+	Notes       *string `bun:"notes" json:"notes,omitempty"`
 }
 
 type Dep struct {
@@ -93,6 +95,14 @@ var migrations = []string{
     ALTER TABLE issues ADD COLUMN defer_until INTEGER;
     CREATE INDEX IF NOT EXISTS idx_issues_defer_until ON issues(defer_until);
     `,
+	// v5: description.
+	`
+    ALTER TABLE issues ADD COLUMN description TEXT;
+    `,
+	// v6: notes.
+	`
+    ALTER TABLE issues ADD COLUMN notes TEXT;
+    `,
 }
 
 func migrate(db *sql.DB) error {
@@ -142,6 +152,20 @@ func Open(path string) (*Store, error) {
 func (s *Store) Close() error { return s.db.Close() }
 
 func now() int64 { return time.Now().Unix() }
+
+// ValidStatuses are the statuses an issue may take. Source of truth for
+// CLI enum validation and `bd statuses`.
+var ValidStatuses = []string{"open", "in_progress", "closed"}
+
+// ValidTypes are the canonical issue types. Source of truth for
+// `bd types`. The schema does not enforce these — any string is
+// allowed at the DB level — but the CLI uses this list for help text
+// and discoverability.
+var ValidTypes = []string{"task", "bug", "feature", "epic", "chore", "decision"}
+
+// SchemaVersion is the number of migrations applied to a fresh DB.
+// Equal to PRAGMA user_version after Open() completes.
+func SchemaVersion() int { return len(migrations) }
 
 var (
 	ErrNotFound      = errors.New("issue not found")
@@ -220,7 +244,45 @@ type ListFilter struct {
 	IDs           []string // exact match against any of these IDs
 	Deferred      bool     // only issues with defer_until > now (still waiting)
 	Overdue       bool     // only non-closed issues with defer_until <= now (ready to be picked up but still tagged)
-	Limit         int      // 0 = no limit
+
+	LabelPattern  string   // SQLite GLOB (e.g. "tech-*") — issue must have at least one matching label
+	ExcludeLabels []string // exclude issues that have ANY of these labels
+	ExcludeTypes  []string // exclude these issue types
+
+	DescContains     string // case-insensitive substring on description
+	EmptyDescription bool   // description IS NULL or empty
+
+	Sort    string // one of: priority, created, updated, closed, id, title, type (default = priority, created)
+	Reverse bool   // flip sort order
+
+	Limit int // 0 = no limit
+}
+
+// validSortKeys enumerates the columns Sort accepts. Used both for
+// ListFilter.toOrderExpr and for CLI enum validation.
+var validSortKeys = []string{"priority", "created", "updated", "closed", "id", "title", "type"}
+
+// orderExpr returns the SQL ORDER BY clause for the given Sort/Reverse.
+// Empty Sort uses the default ordering (priority asc, created asc).
+func (f ListFilter) orderExpr() string {
+	dir := "ASC"
+	if f.Reverse {
+		dir = "DESC"
+	}
+	if f.Sort == "" {
+		// Default: stable, useful ordering. Honor Reverse.
+		if f.Reverse {
+			return "i.priority DESC, i.created DESC"
+		}
+		return "i.priority ASC, i.created ASC"
+	}
+	for _, k := range validSortKeys {
+		if k == f.Sort {
+			return fmt.Sprintf("i.%s %s", f.Sort, dir)
+		}
+	}
+	// Caller is expected to validate before calling; fall back to default.
+	return "i.priority ASC, i.created ASC"
 }
 
 // applyListFilter mutates q with WHERE clauses derived from f. Shared by
@@ -283,12 +345,33 @@ func applyListFilter(q *bun.SelectQuery, f ListFilter) *bun.SelectQuery {
 	if f.Overdue {
 		q = q.Where("i.defer_until IS NOT NULL AND i.defer_until <= ? AND i.status != 'closed'", now())
 	}
+	if f.LabelPattern != "" {
+		q = q.Where(
+			"i.id IN (SELECT issue_id FROM issue_labels WHERE label GLOB ?)",
+			f.LabelPattern,
+		)
+	}
+	if len(f.ExcludeLabels) > 0 {
+		q = q.Where(
+			"i.id NOT IN (SELECT issue_id FROM issue_labels WHERE label IN (?))",
+			bun.In(f.ExcludeLabels),
+		)
+	}
+	if len(f.ExcludeTypes) > 0 {
+		q = q.Where("i.type NOT IN (?)", bun.In(f.ExcludeTypes))
+	}
+	if f.DescContains != "" {
+		q = q.Where("LOWER(i.description) LIKE ?", "%"+strings.ToLower(f.DescContains)+"%")
+	}
+	if f.EmptyDescription {
+		q = q.Where("i.description IS NULL OR i.description = ''")
+	}
 	return q
 }
 
 func (s *Store) List(ctx context.Context, f ListFilter) ([]Issue, error) {
 	var issues []Issue
-	q := s.db.NewSelect().Model(&issues).OrderExpr("i.priority ASC, i.created ASC")
+	q := s.db.NewSelect().Model(&issues).OrderExpr(f.orderExpr())
 	q = applyListFilter(q, f)
 	if f.Limit > 0 {
 		q = q.Limit(f.Limit)
@@ -502,6 +585,8 @@ func (s *Store) UpsertIssue(ctx context.Context, i Issue) error {
 		Set("updated = EXCLUDED.updated").
 		Set("closed = EXCLUDED.closed").
 		Set("defer_until = EXCLUDED.defer_until").
+		Set("description = EXCLUDED.description").
+		Set("notes = EXCLUDED.notes").
 		Exec(ctx)
 	return err
 }
@@ -514,6 +599,125 @@ func (s *Store) UpsertDep(ctx context.Context, child, parent string) error {
 		On("CONFLICT DO NOTHING").
 		Exec(ctx)
 	return err
+}
+
+// SetNotes replaces an issue's notes. Pass an empty string to clear.
+func (s *Store) SetNotes(ctx context.Context, id, text string) (Issue, error) {
+	var val *string
+	if text != "" {
+		v := text
+		val = &v
+	}
+	res, err := s.db.NewUpdate().
+		Model((*Issue)(nil)).
+		Set("notes = ?", val).
+		Set("updated = ?", now()).
+		Where("id = ?", id).
+		Exec(ctx)
+	if err != nil {
+		return Issue{}, err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return Issue{}, ErrNotFound
+	}
+	return s.Get(ctx, id)
+}
+
+// AppendNote appends text to an issue's notes, separated by a blank line.
+// If notes is currently empty, it just sets it.
+func (s *Store) AppendNote(ctx context.Context, id, text string) (Issue, error) {
+	if text == "" {
+		return s.Get(ctx, id)
+	}
+	cur, err := s.Get(ctx, id)
+	if err != nil {
+		return Issue{}, err
+	}
+	combined := text
+	if cur.Notes != nil && *cur.Notes != "" {
+		combined = *cur.Notes + "\n\n" + text
+	}
+	return s.SetNotes(ctx, id, combined)
+}
+
+// DBVersion returns the PRAGMA user_version of the underlying database.
+func (s *Store) DBVersion(ctx context.Context) (int, error) {
+	var v int
+	err := s.db.NewRaw("PRAGMA user_version").Scan(ctx, &v)
+	return v, err
+}
+
+// DoctorReport is the result of a health check.
+type DoctorReport struct {
+	DBSchemaVersion   int      `json:"db_schema_version"`
+	CodeSchemaVersion int      `json:"code_schema_version"`
+	ForeignKeyOK      bool     `json:"foreign_key_ok"`
+	ForeignKeyErrors  []string `json:"foreign_key_errors,omitempty"`
+	OrphanedLabels    int      `json:"orphaned_labels"`
+	OrphanedDeps      int      `json:"orphaned_deps"`
+	StuckInProgress   int      `json:"stuck_in_progress"`
+	StuckThresholdH   int      `json:"stuck_threshold_hours"`
+	ClosedButDeferred int      `json:"closed_but_deferred"`
+}
+
+// OK returns true when nothing is wrong.
+func (d DoctorReport) OK() bool {
+	return d.DBSchemaVersion == d.CodeSchemaVersion &&
+		d.ForeignKeyOK &&
+		d.OrphanedLabels == 0 &&
+		d.OrphanedDeps == 0 &&
+		d.StuckInProgress == 0 &&
+		d.ClosedButDeferred == 0
+}
+
+// Doctor runs integrity checks against the live database. Issues
+// "stuck" longer than stuckThresholdHours are flagged. Pass 0 to
+// disable the stuck check.
+func (s *Store) Doctor(ctx context.Context, stuckThresholdHours int) (DoctorReport, error) {
+	r := DoctorReport{
+		CodeSchemaVersion: SchemaVersion(),
+		StuckThresholdH:   stuckThresholdHours,
+	}
+	v, err := s.DBVersion(ctx)
+	if err != nil {
+		return r, err
+	}
+	r.DBSchemaVersion = v
+
+	// PRAGMA foreign_key_check returns one row per violation; empty = OK.
+	rows, err := s.db.QueryContext(ctx, "PRAGMA foreign_key_check")
+	if err != nil {
+		return r, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var table, rowid, parent, fkid sql.NullString
+		if err := rows.Scan(&table, &rowid, &parent, &fkid); err == nil {
+			r.ForeignKeyErrors = append(r.ForeignKeyErrors,
+				fmt.Sprintf("%s rowid=%s ref=%s fk=%s", table.String, rowid.String, parent.String, fkid.String))
+		}
+	}
+	r.ForeignKeyOK = len(r.ForeignKeyErrors) == 0
+
+	// FKs with CASCADE should prevent orphans, but check anyway as a belt-and-braces.
+	if err := s.db.NewRaw("SELECT COUNT(*) FROM issue_labels WHERE issue_id NOT IN (SELECT id FROM issues)").Scan(ctx, &r.OrphanedLabels); err != nil {
+		return r, err
+	}
+	if err := s.db.NewRaw("SELECT COUNT(*) FROM deps WHERE child_id NOT IN (SELECT id FROM issues) OR parent_id NOT IN (SELECT id FROM issues)").Scan(ctx, &r.OrphanedDeps); err != nil {
+		return r, err
+	}
+
+	if stuckThresholdHours > 0 {
+		cutoff := now() - int64(stuckThresholdHours)*3600
+		if err := s.db.NewRaw("SELECT COUNT(*) FROM issues WHERE status = 'in_progress' AND updated < ?", cutoff).Scan(ctx, &r.StuckInProgress); err != nil {
+			return r, err
+		}
+	}
+
+	if err := s.db.NewRaw("SELECT COUNT(*) FROM issues WHERE status = 'closed' AND defer_until IS NOT NULL").Scan(ctx, &r.ClosedButDeferred); err != nil {
+		return r, err
+	}
+	return r, nil
 }
 
 // AllDeps returns every dep edge, ordered for deterministic export.
@@ -606,7 +810,7 @@ func (s *Store) Claim(ctx context.Context, assignee string, agent *string) (Issu
             ORDER BY priority ASC, created ASC
             LIMIT 1
         )
-        RETURNING id, title, type, status, priority, agent, assignee, created, updated, closed, defer_until`
+        RETURNING id, title, type, status, priority, agent, assignee, created, updated, closed, defer_until, description, notes`
 	t := now()
 	args := []any{assignee, t}
 	args = append(args, laneArgs...)
@@ -614,7 +818,7 @@ func (s *Store) Claim(ctx context.Context, assignee string, agent *string) (Issu
 	var i Issue
 	err := s.db.QueryRowContext(ctx, q, args...).Scan(
 		&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority,
-		&i.Agent, &i.Assignee, &i.Created, &i.Updated, &i.Closed, &i.DeferUntil,
+		&i.Agent, &i.Assignee, &i.Created, &i.Updated, &i.Closed, &i.DeferUntil, &i.Description, &i.Notes,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound
@@ -668,12 +872,13 @@ func (s *Store) MarkClosed(ctx context.Context, id string) (Issue, error) {
 }
 
 type UpdateFields struct {
-	Title    *string
-	Type     *string
-	Status   *string
-	Priority *int
-	Assignee **string // outer nil = unchanged; inner nil = clear; else set
-	Agent    **string // same semantics as Assignee
+	Title       *string
+	Type        *string
+	Status      *string
+	Priority    *int
+	Assignee    **string // outer nil = unchanged; inner nil = clear; else set
+	Agent       **string // same semantics as Assignee
+	Description **string // same semantics as Assignee
 }
 
 func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, error) {
@@ -704,6 +909,9 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 	}
 	if f.Agent != nil {
 		q = q.Set("agent = ?", *f.Agent)
+	}
+	if f.Description != nil {
+		q = q.Set("description = ?", *f.Description)
 	}
 	if _, err := q.Exec(ctx); err != nil {
 		return Issue{}, err

@@ -3,14 +3,16 @@ package cli
 import "github.com/rovak/beadsv2/internal/store"
 
 type UpdateCmd struct {
-	ID       string  `arg:"" help:"Issue ID."`
-	Priority *int    `short:"p" help:"New priority (0=highest)."`
-	Status   *string `help:"New status."`
-	Assignee *string `help:"Set assignee."`
-	Unassign bool    `help:"Clear assignee."`
-	Agent    *string `short:"a" help:"Set agent lane."`
-	NoAgent  bool    `help:"Clear agent lane."`
-	Title    *string `help:"New title."`
+	ID            string  `arg:"" help:"Issue ID."`
+	Priority      *int    `short:"p" help:"New priority (0=highest)."`
+	Status        *string `help:"New status."`
+	Assignee      *string `help:"Set assignee."`
+	Unassign      bool    `help:"Clear assignee."`
+	Agent         *string `short:"a" help:"Set agent lane."`
+	NoAgent       bool    `help:"Clear agent lane."`
+	Title         *string `help:"New title."`
+	Description   *string `help:"Set description."`
+	NoDescription bool    `name:"no-description" help:"Clear description."`
 }
 
 func (c *UpdateCmd) Run(r *runCtx) error {
@@ -32,6 +34,13 @@ func (c *UpdateCmd) Run(r *runCtx) error {
 			f.Agent = &none
 		case c.Agent != nil:
 			f.Agent = &c.Agent
+		}
+		switch {
+		case c.NoDescription:
+			var none *string
+			f.Description = &none
+		case c.Description != nil:
+			f.Description = &c.Description
 		}
 		i, err := s.Update(r.ctx, c.ID, f)
 		if err != nil {

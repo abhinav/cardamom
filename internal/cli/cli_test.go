@@ -479,6 +479,144 @@ func TestCLIImportStrictRejectsBadLines(t *testing.T) {
 	c.runFail("import", path)
 }
 
+func TestCLINoteSetAppendClearShow(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.run("note", "set", id, "first", "thought")
+	if out := c.run("note", "show", id); !strings.Contains(out, "first thought") {
+		t.Fatalf("set/show wrong:\n%s", out)
+	}
+	c.run("note", "append", id, "later", "thought")
+	if out := c.run("note", "show", id); !strings.Contains(out, "first thought") || !strings.Contains(out, "later thought") {
+		t.Fatalf("append didn't accumulate:\n%s", out)
+	}
+	// bd show includes the notes block.
+	if out := c.run("show", id); !strings.Contains(out, "Notes:") {
+		t.Fatalf("show missing Notes section:\n%s", out)
+	}
+	c.run("note", "clear", id)
+	if out := c.run("note", "show", id); !strings.Contains(out, "(no notes)") {
+		t.Fatalf("clear didn't clear:\n%s", out)
+	}
+}
+
+func TestCLIDescribeRoundTrip(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "x"))
+	c.run("describe", id, "this is the long form")
+	out := c.run("show", id)
+	if !strings.Contains(out, "Description:") || !strings.Contains(out, "long form") {
+		t.Fatalf("description not shown:\n%s", out)
+	}
+	c.run("describe", id) // clear
+	out = c.run("show", id)
+	if strings.Contains(out, "Description:") {
+		t.Fatalf("clear didn't apply:\n%s", out)
+	}
+}
+
+func TestCLIListEmptyDescription(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "with desc"))
+	b := strings.TrimSpace(c.run("create", "bare"))
+	c.run("describe", a, "explained")
+	out := c.run("list", "--empty-description")
+	if !strings.Contains(out, b) || strings.Contains(out, a) {
+		t.Fatalf("empty-description filter wrong:\n%s", out)
+	}
+}
+
+func TestCLIListLabelPattern(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "a"))
+	b := strings.TrimSpace(c.run("create", "b"))
+	c.run("create", "c")
+	c.run("label", "add", a, "tech-debt")
+	c.run("label", "add", b, "tech-legacy")
+	out := c.run("list", "--label-pattern", "tech-*")
+	if !strings.Contains(out, a) || !strings.Contains(out, b) {
+		t.Fatalf("expected a and b in tech-* match:\n%s", out)
+	}
+}
+
+func TestCLIListExcludeLabel(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	a := strings.TrimSpace(c.run("create", "skip me"))
+	b := strings.TrimSpace(c.run("create", "keep me"))
+	c.run("label", "add", a, "wip")
+	out := c.run("list", "--exclude-label", "wip")
+	if strings.Contains(out, a) || !strings.Contains(out, b) {
+		t.Fatalf("exclude-label wrong:\n%s", out)
+	}
+}
+
+func TestCLIListSortReverse(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "-p", "0", "hi")
+	c.run("create", "-p", "5", "lo")
+	out := c.run("list", "-r")
+	// Reverse default puts lower priority first.
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if !strings.Contains(lines[0], "lo") {
+		t.Fatalf("reverse default sort wrong:\n%s", out)
+	}
+}
+
+func TestCLIInfo(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "a")
+	c.run("create", "b")
+	out := c.run("info")
+	if !strings.Contains(out, "Schema version:") || !strings.Contains(out, "Total issues:     2") {
+		t.Fatalf("info missing expected fields:\n%s", out)
+	}
+}
+
+func TestCLIStatusesAndTypes(t *testing.T) {
+	c := newTestCLI(t)
+	if !strings.Contains(c.run("statuses"), "open") {
+		t.Fatal("statuses missing 'open'")
+	}
+	if !strings.Contains(c.run("types"), "task") {
+		t.Fatal("types missing 'task'")
+	}
+}
+
+func TestCLIDoctorClean(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "a")
+	out := c.run("doctor")
+	for _, line := range []string{"Schema version", "Foreign keys", "Orphaned labels", "Orphaned deps"} {
+		if !strings.Contains(out, line) {
+			t.Fatalf("doctor missing %q:\n%s", line, out)
+		}
+	}
+	if !strings.Contains(out, "✓") {
+		t.Fatalf("doctor should mark clean DB with checkmarks:\n%s", out)
+	}
+}
+
+func TestCLIDoctorJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	out := c.run("--json", "doctor")
+	var r map[string]any
+	if err := json.Unmarshal([]byte(out), &r); err != nil {
+		t.Fatalf("invalid JSON: %v\n%s", err, out)
+	}
+	if v, ok := r["foreign_key_ok"]; !ok || v != true {
+		t.Fatalf("expected foreign_key_ok=true: %+v", r)
+	}
+}
+
 func TestCLIDeferUndefer(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
