@@ -18,6 +18,19 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+// TemplatesSubdir is the directory name under a clu project dir
+// where workflow YAML files live. The CLI and HTTP servers both
+// resolve their templates dir via TemplatesPath so a future move
+// (e.g. to .clu/workflows/) only changes one constant.
+const TemplatesSubdir = "templates"
+
+// TemplatesPath returns the templates directory for a project at
+// `projectDir`. Centralises the join so call sites stop hardcoding
+// the literal.
+func TemplatesPath(projectDir string) string {
+	return filepath.Join(projectDir, TemplatesSubdir)
+}
+
 // Template is a parsed workflow definition.
 type Template struct {
 	Name        string `yaml:"name"`
@@ -102,17 +115,38 @@ func Load(path string) (Template, error) {
 	return t, nil
 }
 
-// LoadDir loads all *.yaml/*.yml files from dir, keyed by template name.
-// Missing dir returns an empty map, not an error.
-func LoadDir(dir string) (map[string]Template, error) {
+// LoadError pairs a template file that failed to load with the
+// underlying error. LoadDir returns these alongside the healthy
+// templates so one bad file doesn't block listing or running the rest.
+type LoadError struct {
+	File string
+	Err  error
+}
+
+func (e LoadError) Error() string { return e.File + ": " + e.Err.Error() }
+func (e LoadError) Unwrap() error { return e.Err }
+
+// LoadDir loads all *.yaml/*.yml files from dir, keyed by template
+// name. Missing dir returns an empty map (no error). Per-file failures
+// (parse errors, missing @-referenced spec files, duplicate names)
+// are returned as a separate []LoadError — the caller decides whether
+// to surface them; the healthy templates are still usable for
+// `template ls`, `template show <other>`, `run <other>`.
+//
+// This shape exists because a single broken template used to abort
+// every template command. With a checked-in workflow dir shared
+// across a team that meant one person's bad commit broke the tool
+// for everyone.
+func LoadDir(dir string) (map[string]Template, []LoadError, error) {
 	entries, err := os.ReadDir(dir)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return map[string]Template{}, nil
+			return map[string]Template{}, nil, nil
 		}
-		return nil, err
+		return nil, nil, err
 	}
 	out := map[string]Template{}
+	var errs []LoadError
 	for _, e := range entries {
 		if e.IsDir() {
 			continue
@@ -123,14 +157,19 @@ func LoadDir(dir string) (map[string]Template, error) {
 		}
 		t, err := Load(filepath.Join(dir, e.Name()))
 		if err != nil {
-			return nil, err
+			errs = append(errs, LoadError{File: e.Name(), Err: err})
+			continue
 		}
-		if _, dup := out[t.Name]; dup {
-			return nil, fmt.Errorf("duplicate template name %q (in %s)", t.Name, e.Name())
+		if existing, dup := out[t.Name]; dup {
+			errs = append(errs, LoadError{
+				File: e.Name(),
+				Err:  fmt.Errorf("duplicate template name %q (also defined by another file with name %q)", t.Name, existing.Name),
+			})
+			continue
 		}
 		out[t.Name] = t
 	}
-	return out, nil
+	return out, errs, nil
 }
 
 // Validate runs structural checks.

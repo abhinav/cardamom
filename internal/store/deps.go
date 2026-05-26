@@ -58,11 +58,7 @@ func issueExistsTx(ctx context.Context, tx bun.Tx, id string) error {
 // UpsertDep inserts a dep edge, ignoring conflicts. Skips AddDep's
 // existence and cycle checks: callers (import) trust the input.
 func (s *Store) UpsertDep(ctx context.Context, child, parent string) error {
-	_, err := s.db.NewInsert().
-		Model(&Dep{ChildID: child, ParentID: parent}).
-		On("CONFLICT DO NOTHING").
-		Exec(ctx)
-	return err
+	return UpsertDepTx(ctx, s.db, child, parent)
 }
 
 // RemoveDep deletes a child->parent dependency edge. Returns

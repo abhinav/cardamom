@@ -20,6 +20,18 @@ type UpdateCmd struct {
 }
 
 func (c *UpdateCmd) Run(r *runCtx) error {
+	// Mutex check: each "clear" flag has a "set" flag it conflicts with.
+	// Silently letting one win was the bug — operators got an outcome
+	// different from what they typed, with no warning. Fail fast.
+	if c.Unassign && c.Assignee != nil {
+		return errors.New("--unassign and --assignee are mutually exclusive")
+	}
+	if c.NoAgent && c.Agent != nil {
+		return errors.New("--no-agent and --agent are mutually exclusive")
+	}
+	if c.NoDescription && c.Description != nil {
+		return errors.New("--no-description and --description are mutually exclusive")
+	}
 	return withStore(r, func(s *store.Store) error {
 		var f store.UpdateFields
 		f.Priority = c.Priority

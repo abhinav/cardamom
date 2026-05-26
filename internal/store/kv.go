@@ -11,12 +11,7 @@ func (s *Store) KVSet(ctx context.Context, key, value string) error {
 	if key == "" {
 		return errors.New("key required")
 	}
-	kv := KV{Key: key, Value: value}
-	_, err := s.db.NewInsert().Model(&kv).
-		On("CONFLICT (key) DO UPDATE").
-		Set("value = EXCLUDED.value").
-		Exec(ctx)
-	return err
+	return KVSetTx(ctx, s.db, key, value)
 }
 
 // KVGet returns the value for a key, or ErrKVNotFound if missing.

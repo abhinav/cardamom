@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/rovak/clu/internal/config"
@@ -21,6 +22,24 @@ type CreateCmd struct {
 
 func (c *CreateCmd) Run(r *runCtx) error {
 	title := strings.Join(c.Title, " ")
+	// Kong's sep="," drops bare empty values silently, so the user can
+	// pass `--capability ""` and never hit the loop check below. Catch
+	// that case by scanning os.Args directly for the literal empty
+	// form before validating the parsed slice.
+	if hasEmptyFlagValue(os.Args, "--capability") {
+		return fmt.Errorf("--capability: value cannot be empty")
+	}
+	// Enforce the same name rule that config.yaml validation uses.
+	// Without this, `clu create --capability foo:bar` silently produced
+	// a cap:foo:bar label that no declared agent could match.
+	for _, cap := range c.Capability {
+		if cap == "" {
+			return fmt.Errorf("--capability: value cannot be empty")
+		}
+		if !config.ValidAgentOrCapName(cap) {
+			return fmt.Errorf("--capability %q: must be lowercase letters/digits/dashes, starting with a letter (same rules as agent names in config.yaml)", cap)
+		}
+	}
 	return withStore(r, func(s *store.Store) error {
 		// Warn (don't reject) if -a names an agent not declared in
 		// config.yaml. The local-only nature of this tool makes a hard

@@ -417,22 +417,7 @@ func (s *Store) AppendNote(ctx context.Context, id, text string) (Issue, error) 
 // field if the ID already exists. Used by import; bypasses the random-ID
 // generation in Create.
 func (s *Store) UpsertIssue(ctx context.Context, i Issue) error {
-	_, err := s.db.NewInsert().Model(&i).
-		On("CONFLICT (id) DO UPDATE").
-		Set("title = EXCLUDED.title").
-		Set("type = EXCLUDED.type").
-		Set("status = EXCLUDED.status").
-		Set("priority = EXCLUDED.priority").
-		Set("agent = EXCLUDED.agent").
-		Set("assignee = EXCLUDED.assignee").
-		Set("created = EXCLUDED.created").
-		Set("updated = EXCLUDED.updated").
-		Set("closed = EXCLUDED.closed").
-		Set("defer_until = EXCLUDED.defer_until").
-		Set("description = EXCLUDED.description").
-		Set("notes = EXCLUDED.notes").
-		Exec(ctx)
-	return err
+	return UpsertIssueTx(ctx, s.db, i)
 }
 
 // exists reports ErrNotFound if no issue with id exists.

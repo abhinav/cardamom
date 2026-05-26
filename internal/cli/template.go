@@ -18,7 +18,7 @@ type TemplateCmd struct {
 type TemplateLsCmd struct{}
 
 func (c *TemplateLsCmd) Run(r *runCtx) error {
-	all, err := workflow.LoadDir(templatesDir(r))
+	all, loadErrs, err := workflow.LoadDir(templatesDir(r))
 	if err != nil {
 		return err
 	}
@@ -28,19 +28,31 @@ func (c *TemplateLsCmd) Run(r *runCtx) error {
 	}
 	sort.Strings(names)
 	if r.json {
+		type errOut struct {
+			File  string `json:"file"`
+			Error string `json:"error"`
+		}
 		type row struct {
 			Name        string `json:"name"`
 			Description string `json:"description,omitempty"`
 			Steps       int    `json:"steps"`
 		}
-		out := make([]row, 0, len(names))
+		type out struct {
+			Templates []row    `json:"templates"`
+			Errors    []errOut `json:"errors,omitempty"`
+		}
+		rows := make([]row, 0, len(names))
 		for _, n := range names {
 			t := all[n]
-			out = append(out, row{Name: t.Name, Description: t.Description, Steps: len(t.Steps)})
+			rows = append(rows, row{Name: t.Name, Description: t.Description, Steps: len(t.Steps)})
 		}
-		return r.emitJSON(out)
+		errs := make([]errOut, 0, len(loadErrs))
+		for _, e := range loadErrs {
+			errs = append(errs, errOut{File: e.File, Error: e.Err.Error()})
+		}
+		return r.emitJSON(out{Templates: rows, Errors: errs})
 	}
-	if len(names) == 0 {
+	if len(names) == 0 && len(loadErrs) == 0 {
 		fmt.Fprintln(r.stdout, "(none)")
 		return nil
 	}
@@ -51,6 +63,12 @@ func (c *TemplateLsCmd) Run(r *runCtx) error {
 		} else {
 			fmt.Fprintf(r.stdout, "%-20s  %d step(s)\n", t.Name, len(t.Steps))
 		}
+	}
+	// Surface broken templates after the healthy listing so the
+	// operator can see which file to fix without having to grep the
+	// dir manually. stderr-bound; doesn't pollute stdout's data.
+	for _, e := range loadErrs {
+		fmt.Fprintf(r.stderr, "warning: %s: %s\n", e.File, e.Err)
 	}
 	return nil
 }

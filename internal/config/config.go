@@ -52,6 +52,14 @@ var idPrefixRe = regexp.MustCompile(`^[a-z0-9]+(-[a-z0-9]+)*-$`)
 // No spaces, no underscores, lowercase + digits + dashes only.
 var agentNameRe = regexp.MustCompile(`^[a-z][a-z0-9-]*$`)
 
+// ValidAgentOrCapName reports whether s matches the agent / capability
+// naming rule. Exported so the CLI surface enforces the same rule that
+// config.yaml does — previously `clu create --capability foo:bar`
+// silently produced labels no declared agent could match.
+func ValidAgentOrCapName(s string) bool {
+	return agentNameRe.MatchString(s)
+}
+
 // Validate enforces the rules described on each field. Returned errors
 // are user-facing and meant to land directly in CLI stderr.
 func (c Config) Validate() error {

@@ -107,17 +107,7 @@ func (s *Store) CronJobRecordRun(ctx context.Context, name string, ranAt, nextRu
 // CronJobUpsert inserts or replaces a job, preserving the same name. Used by
 // import; bypasses the duplicate-name check in CronJobAdd.
 func (s *Store) CronJobUpsert(ctx context.Context, j CronJob) error {
-	_, err := s.db.NewInsert().Model(&j).
-		On("CONFLICT (name) DO UPDATE").
-		Set("schedule = EXCLUDED.schedule").
-		Set("job = EXCLUDED.job").
-		Set("enabled = EXCLUDED.enabled").
-		Set("next_run = EXCLUDED.next_run").
-		Set("last_run = EXCLUDED.last_run").
-		Set("last_status = EXCLUDED.last_status").
-		Set("last_output = EXCLUDED.last_output").
-		Exec(ctx)
-	return err
+	return CronJobUpsertTx(ctx, s.db, j)
 }
 
 // CronJobUpdateSchedule changes a job's schedule and recomputes next_run as

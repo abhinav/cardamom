@@ -264,6 +264,25 @@ func agentPtr(s string) *string {
 	return &s
 }
 
+// hasEmptyFlagValue reports whether argv contains a literal empty value
+// for `flag` — i.e. `--flag ""` or `--flag=""`. Kong's sep-list parser
+// silently drops a bare empty into an empty slice, which makes it
+// impossible to distinguish "user typed --flag with no content" from
+// "user didn't pass --flag at all" by looking at the parsed slice
+// alone. Used by flags where empty should be a hard error (capability).
+func hasEmptyFlagValue(argv []string, flag string) bool {
+	prefix := flag + "="
+	for i, a := range argv {
+		if a == flag && i+1 < len(argv) && argv[i+1] == "" {
+			return true
+		}
+		if a == prefix {
+			return true
+		}
+	}
+	return false
+}
+
 // Run is the entrypoint used by main and the tests.
 func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 	// Pre-flight: handle `-V` / `--version` / `--version-flag` before

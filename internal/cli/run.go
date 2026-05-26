@@ -245,15 +245,22 @@ func loadTemplate(r *runCtx, ref string) (workflow.Template, error) {
 		return workflow.Load(ref)
 	}
 	dir := templatesDir(r)
-	all, err := workflow.LoadDir(dir)
+	all, loadErrs, err := workflow.LoadDir(dir)
 	if err != nil {
 		return workflow.Template{}, err
 	}
-	t, ok := all[ref]
-	if !ok {
-		return workflow.Template{}, fmt.Errorf("template %q not found in %s (or pass a path ending in .yaml)", ref, dir)
+	if t, ok := all[ref]; ok {
+		return t, nil
 	}
-	return t, nil
+	// If the requested name matches a file that failed to load, surface
+	// the underlying error — otherwise the user just gets "not found".
+	for _, e := range loadErrs {
+		baseName := strings.TrimSuffix(strings.TrimSuffix(e.File, ".yaml"), ".yml")
+		if baseName == ref {
+			return workflow.Template{}, fmt.Errorf("template %q failed to load: %w", ref, e.Err)
+		}
+	}
+	return workflow.Template{}, fmt.Errorf("template %q not found in %s (or pass a path ending in .yaml)", ref, dir)
 }
 
 // looksLikePath returns true if ref is clearly a file path rather than
@@ -267,7 +274,7 @@ func looksLikePath(ref string) bool {
 }
 
 func templatesDir(r *runCtx) string {
-	return filepath.Join(r.dir, "templates")
+	return workflow.TemplatesPath(r.dir)
 }
 
 // parseVarPairs accepts ["k=v", "x=y"] and returns a map. Errors on

@@ -174,17 +174,44 @@ func TestLoadDir(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "ignore.txt"), []byte("nope"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	m, err := LoadDir(dir)
+	m, loadErrs, err := LoadDir(dir)
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(loadErrs) != 0 {
+		t.Errorf("unexpected load errors: %v", loadErrs)
 	}
 	if len(m) != 2 {
 		t.Errorf("got %d templates, want 2", len(m))
 	}
 
 	// Missing dir → empty map, no error.
-	m2, err := LoadDir(filepath.Join(dir, "does-not-exist"))
-	if err != nil || len(m2) != 0 {
-		t.Errorf("missing dir: m=%v err=%v", m2, err)
+	m2, loadErrs2, err := LoadDir(filepath.Join(dir, "does-not-exist"))
+	if err != nil || len(m2) != 0 || len(loadErrs2) != 0 {
+		t.Errorf("missing dir: m=%v err=%v loadErrs=%v", m2, err, loadErrs2)
+	}
+}
+
+func TestLoadDirIsolatesBrokenTemplates(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "good.yaml"), []byte("name: good\nsteps:\n  - id: x\n    title: t\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// A template with an @-referenced spec that doesn't exist.
+	if err := os.WriteFile(filepath.Join(dir, "bad.yaml"), []byte("name: bad\nspec: \"@nope.md\"\nsteps: [{id: x, title: t}]\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	m, loadErrs, err := LoadDir(dir)
+	if err != nil {
+		t.Fatalf("LoadDir should not return a fatal error when one file is bad: %v", err)
+	}
+	if _, ok := m["good"]; !ok {
+		t.Errorf("good template should still load: %v", m)
+	}
+	if _, ok := m["bad"]; ok {
+		t.Errorf("bad template should not be in the map: %v", m)
+	}
+	if len(loadErrs) != 1 || loadErrs[0].File != "bad.yaml" {
+		t.Errorf("expected one LoadError for bad.yaml, got %v", loadErrs)
 	}
 }

@@ -88,14 +88,7 @@ func (s *Store) EditComment(ctx context.Context, commentID int64, body string) (
 // UpsertComment inserts a comment with an explicit ID (used by import).
 // On conflict, updates every field.
 func (s *Store) UpsertComment(ctx context.Context, c Comment) error {
-	_, err := s.db.NewInsert().Model(&c).
-		On("CONFLICT (id) DO UPDATE").
-		Set("issue_id = EXCLUDED.issue_id").
-		Set("author = EXCLUDED.author").
-		Set("body = EXCLUDED.body").
-		Set("created = EXCLUDED.created").
-		Exec(ctx)
-	return err
+	return UpsertCommentTx(ctx, s.db, c)
 }
 
 // AllComments returns every comment, ordered deterministically for export.
