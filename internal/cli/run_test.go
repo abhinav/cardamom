@@ -185,9 +185,9 @@ func TestCLIRunThreadsSpecAndStepDescription(t *testing.T) {
 	id, _ := issues[0]["id"].(string)
 	show := c.run("show", id)
 	for _, want := range []string{
-		"Repo: acme/widget",                       // spec interpolated
-		"Acceptance: artefact in dist/",           // per-step description
-		"---",                                     // separator between spec and step body
+		"Repo: acme/widget",             // spec interpolated
+		"Acceptance: artefact in dist/", // per-step description
+		"---",                           // separator between spec and step body
 	} {
 		if !strings.Contains(show, want) {
 			t.Fatalf("show missing %q:\n%s", want, show)

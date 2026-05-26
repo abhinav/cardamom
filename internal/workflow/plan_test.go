@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func contains(s, sub string) bool   { return strings.Contains(s, sub) }
+func contains(s, sub string) bool { return strings.Contains(s, sub) }
 func writeFile(path, body string) error {
 	return os.WriteFile(path, []byte(body), 0o644)
 }
