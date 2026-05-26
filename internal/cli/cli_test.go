@@ -2236,3 +2236,91 @@ func TestCLILabelPropagateNoChildren(t *testing.T) {
 		t.Fatalf("expected no-children notice:\n%s", out)
 	}
 }
+
+func TestCLISqlReadDefault(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "-p", "1", "hello"))
+	out := c.run("sql", "SELECT id, priority FROM issues")
+	if !strings.Contains(out, id) || !strings.Contains(out, "1") {
+		t.Fatalf("expected id and priority in output:\n%s", out)
+	}
+	if !strings.Contains(out, "id") || !strings.Contains(out, "priority") {
+		t.Fatalf("expected header columns:\n%s", out)
+	}
+}
+
+func TestCLISqlReadOnlyRefusesWrite(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "hello")
+	c.runFail("sql", "UPDATE issues SET priority=5")
+	c.runFail("sql", "DROP TABLE issues")
+	// After failed writes, the row is still untouched.
+	out := c.run("sql", "SELECT COUNT(*) FROM issues")
+	if !strings.Contains(out, "1") {
+		t.Fatalf("expected count=1 after refused writes:\n%s", out)
+	}
+}
+
+func TestCLISqlWriteFlag(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "hello")
+	out := c.run("sql", "--write", "UPDATE issues SET priority=9")
+	if !strings.Contains(out, "1 row(s) affected") {
+		t.Fatalf("expected affected-rows summary:\n%s", out)
+	}
+	out = c.run("sql", "SELECT priority FROM issues")
+	if !strings.Contains(out, "9") {
+		t.Fatalf("expected priority=9 after --write:\n%s", out)
+	}
+}
+
+func TestCLISqlCSV(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "first")
+	c.run("create", "-a", "foo", "second")
+	out := c.run("sql", "--csv", "SELECT priority, assignee, title FROM issues ORDER BY title")
+	lines := strings.Split(strings.TrimSpace(out), "\n")
+	if len(lines) != 3 {
+		t.Fatalf("expected 3 CSV lines (header + 2 rows), got %d:\n%s", len(lines), out)
+	}
+	if lines[0] != "priority,assignee,title" {
+		t.Fatalf("expected CSV header, got %q", lines[0])
+	}
+	// NULL renders as empty in CSV.
+	if !strings.Contains(lines[1], ",,first") {
+		t.Fatalf("expected empty-string for NULL assignee:\n%s", out)
+	}
+}
+
+func TestCLISqlJSON(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "-p", "0", "a")
+	out := c.run("--json", "sql", "SELECT id, priority FROM issues")
+	// Top-level is a JSON array.
+	if !strings.HasPrefix(strings.TrimSpace(out), "[") {
+		t.Fatalf("expected JSON array:\n%s", out)
+	}
+	if !strings.Contains(out, `"priority":0`) {
+		t.Fatalf("expected priority field:\n%s", out)
+	}
+}
+
+func TestCLISqlPragmaAllowed(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	out := c.run("sql", "PRAGMA user_version")
+	if !strings.Contains(out, "user_version") {
+		t.Fatalf("expected PRAGMA result:\n%s", out)
+	}
+}
+
+func TestCLISqlCSVAndJSONExclusive(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	c.runFail("--json", "sql", "--csv", "SELECT 1")
+}

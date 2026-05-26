@@ -81,6 +81,7 @@ type CLI struct {
 	KV     KVCmd     `cmd:"" group:"data" help:"Manage a generic key-value store (feature flags, env, scratch data)."`
 	Export ExportCmd `cmd:"" group:"data" help:"Export all issues + deps + labels as JSONL."`
 	Import ImportCmd `cmd:"" group:"data" help:"Import JSONL produced by 'clu export'."`
+	SQL    SqlCmd    `cmd:"" group:"data" name:"sql" help:"Run an ad-hoc SQL query (read-only by default; pass --write for DML/DDL)."`
 	Cron   CronCmd   `cmd:"" group:"data" help:"Schedule recurring clu invocations (drive from OS cron / launchd)."`
 	HTTP   HTTPCmd   `cmd:"" group:"data" name:"http" help:"Start a REST API server backed by the project's store."`
 	Web    WebCmd    `cmd:"" group:"data" name:"web" help:"Launch the web UI (REST API in-process + TanStack Start server)."`

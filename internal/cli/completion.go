@@ -13,7 +13,7 @@ var completionCmds = []string{
 	"update", "dep", "label", "defer", "undefer",
 	"count", "stats", "reopen",
 	"assign", "priority", "tag", "link",
-	"export", "import",
+	"export", "import", "sql",
 	"info", "statuses", "types", "doctor",
 	"describe", "note", "comment", "kv",
 	"cron", "agent", "brief",
