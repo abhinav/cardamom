@@ -1089,6 +1089,26 @@ func TestCLITopLevelHelpExits0(t *testing.T) {
 	}
 }
 
+func TestCLIExportStdoutIsCleanJSONL(t *testing.T) {
+	// `cli export` to stdout must not interleave a summary line — the
+	// output has to be parseable JSONL.
+	c := newTestCLI(t)
+	c.run("init")
+	c.run("create", "first")
+	c.run("create", "second")
+	out := c.run("export")
+	for i, line := range strings.Split(strings.TrimRight(out, "\n"), "\n") {
+		var anyVal any
+		if err := json.Unmarshal([]byte(line), &anyVal); err != nil {
+			t.Fatalf("export line %d not valid JSON: %v\nline: %q\nfull:\n%s", i+1, err, line, out)
+		}
+	}
+	// Summary must show up on stderr (when not --quiet).
+	if !strings.Contains(c.err.String(), "exported ") {
+		t.Fatalf("expected 'exported …' summary on stderr, got: %q", c.err.String())
+	}
+}
+
 func TestCLISubcommandHelpExits0(t *testing.T) {
 	// `cli show --help` must exit 0 even without a required <id> arg.
 	c := newTestCLI(t)

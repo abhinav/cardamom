@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"os"
 
@@ -104,8 +105,14 @@ func (c *ExportCmd) Run(r *runCtx) error {
 				return err
 			}
 		}
-		r.notice("exported %d issues, %d deps, %d comments, %d kv\n",
-			len(issues), len(deps), len(comments), len(kvs))
+		// Summary goes to stderr — stdout may be the JSONL stream
+		// itself (`cli export > dump.jsonl`); mixing the two corrupts
+		// the output. When writing to a file (-o) the summary is fine
+		// either way, but stderr keeps the behaviour uniform.
+		if !r.quiet {
+			fmt.Fprintf(r.stderr, "exported %d issues, %d deps, %d comments, %d kv\n",
+				len(issues), len(deps), len(comments), len(kvs))
+		}
 		return nil
 	})
 }
