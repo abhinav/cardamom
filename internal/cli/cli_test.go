@@ -2516,7 +2516,9 @@ func TestCLIWorktreeRemoveBlocksUncommitted(t *testing.T) {
 	}
 }
 
-func TestCLIWorktreeRemoveBlocksNoUpstream(t *testing.T) {
+func TestCLIWorktreeRemoveNoUpstreamIsNotice(t *testing.T) {
+	// No-upstream is informational, not blocking — the branch ref
+	// survives the worktree removal, so there's nothing actually lost.
 	if _, err := exec.LookPath("git"); err != nil {
 		t.Skip("git not available")
 	}
@@ -2526,18 +2528,12 @@ func TestCLIWorktreeRemoveBlocksNoUpstream(t *testing.T) {
 	wt := filepath.Join(filepath.Dir(main), "rm-noup-"+filepath.Base(main))
 	defer os.RemoveAll(wt)
 	runInDir(t, main, "worktree", "add", wt, "-b", "feat/noup")
-
-	prev, _ := os.Getwd()
-	defer func() { _ = os.Chdir(prev) }()
-	_ = os.Chdir(main)
-	out := &bytes.Buffer{}
-	errBuf := &bytes.Buffer{}
-	code := Run(context.Background(), out, errBuf, []string{"worktree", "remove", wt})
-	if code == 0 {
-		t.Fatalf("expected failure with no upstream; got 0")
+	out := runInDir(t, main, "worktree", "remove", wt)
+	if !strings.Contains(out, "no upstream") {
+		t.Fatalf("expected no-upstream notice; got:\n%s", out)
 	}
-	if !strings.Contains(errBuf.String(), "no upstream") {
-		t.Fatalf("expected no-upstream error; got:\n%s", errBuf.String())
+	if _, err := os.Stat(wt); !os.IsNotExist(err) {
+		t.Fatalf("worktree should be gone; stat: %v", err)
 	}
 }
 

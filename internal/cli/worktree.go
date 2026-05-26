@@ -37,11 +37,37 @@ func (c *WorktreeAddCmd) Run(r *runCtx) error {
 	if r.json {
 		return errors.New("worktree add streams subprocess output; --json is not supported")
 	}
+	cfg, err := config.Load(r.dir)
+	if err != nil {
+		return err
+	}
+	worktreeDir := cfg.Worktree.Dir
+	if worktreeDir == "" {
+		worktreeDir = config.DefaultWorktreeDir
+	}
+	dest, usedDefault, err := resolveWorktreePath(c.Path, worktreeDir)
+	if err != nil {
+		return err
+	}
+	// When the default `<worktreeDir>/<name>` location is used, make
+	// sure `<worktreeDir>/` is gitignored so the new tree doesn't show
+	// up as untracked in the main worktree's `git status`.
+	if usedDefault {
+		main, mErr := mainWorktreePath()
+		if mErr == nil {
+			added, err := ensureGitignoreEntry(main, worktreeDir+"/")
+			if err != nil {
+				r.notice("warning: could not update .gitignore: %v (add `%s/` manually)\n", err, worktreeDir)
+			} else if added {
+				r.notice("added `%s/` to .gitignore — commit this so the entry survives across worktrees\n", worktreeDir)
+			}
+		}
+	}
 	args := []string{"worktree", "add"}
 	if c.Branch != "" {
 		args = append(args, "-b", c.Branch)
 	}
-	args = append(args, c.Path)
+	args = append(args, dest)
 	if c.Ref != "" {
 		args = append(args, c.Ref)
 	}
@@ -56,11 +82,105 @@ func (c *WorktreeAddCmd) Run(r *runCtx) error {
 	if !c.Bootstrap {
 		return nil
 	}
-	dest, err := filepath.Abs(c.Path)
-	if err != nil {
-		return err
-	}
 	return runBootstrap(r, dest)
+}
+
+// resolveWorktreePath turns the user's --path argument into an
+// absolute path, returning whether the default `<worktreeDir>/<name>`
+// location was used (so the caller knows to ensure .gitignore covers
+// it).
+//
+//   - Absolute path → used as-is. usedDefault=false.
+//   - Path starting with "./" / "../" or containing a separator →
+//     resolved against cwd. usedDefault=false. (User is being explicit.)
+//   - Bare name ("test1", "feat-foo") → placed at
+//     `<main-worktree>/<worktreeDir>/<name>`. usedDefault=true.
+//
+// The bare-name default keeps worktrees inside a single, gitignored
+// folder so they don't clutter sibling directories or accidentally
+// land inside the working tree as untracked files.
+func resolveWorktreePath(raw, worktreeDir string) (string, bool, error) {
+	if raw == "" {
+		return "", false, errors.New("path required")
+	}
+	if filepath.IsAbs(raw) {
+		return filepath.Clean(raw), false, nil
+	}
+	if strings.HasPrefix(raw, "./") || strings.HasPrefix(raw, "../") || strings.ContainsRune(raw, filepath.Separator) {
+		abs, err := filepath.Abs(raw)
+		if err != nil {
+			return "", false, err
+		}
+		return abs, false, nil
+	}
+	// Bare name: place under <main>/<worktreeDir>/<name>.
+	main, err := mainWorktreePath()
+	if err != nil {
+		// Not in a git repo; fall back to cwd-relative without the
+		// worktreeDir prefix — git worktree add will fail anyway.
+		abs, ferr := filepath.Abs(raw)
+		return abs, false, ferr
+	}
+	return filepath.Join(main, worktreeDir, raw), true, nil
+}
+
+// resolveExistingWorktreePath is the bootstrap/remove counterpart to
+// resolveWorktreePath. Bare names map to `<main>/<worktreeDir>/<name>`
+// — but only if that directory actually exists, so we don't surprise
+// users who passed a bare path expecting cwd-relative. If the bare
+// candidate is missing, fall back to cwd-relative so the resulting
+// error message names the path the user actually typed.
+func resolveExistingWorktreePath(r *runCtx, raw string) (string, error) {
+	if raw == "" {
+		return "", errors.New("path required")
+	}
+	if filepath.IsAbs(raw) {
+		return filepath.Clean(raw), nil
+	}
+	if strings.HasPrefix(raw, "./") || strings.HasPrefix(raw, "../") || strings.ContainsRune(raw, filepath.Separator) {
+		return filepath.Abs(raw)
+	}
+	cfg, err := config.Load(r.dir)
+	if err != nil {
+		return "", err
+	}
+	worktreeDir := cfg.Worktree.Dir
+	if worktreeDir == "" {
+		worktreeDir = config.DefaultWorktreeDir
+	}
+	if main, err := mainWorktreePath(); err == nil {
+		candidate := filepath.Join(main, worktreeDir, raw)
+		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
+			return candidate, nil
+		}
+	}
+	return filepath.Abs(raw)
+}
+
+// ensureGitignoreEntry appends `entry` to <dir>/.gitignore if it's
+// not already present (literal-line match — globs and comments are
+// treated as opaque). Creates the file if it doesn't exist. Returns
+// true when the file was actually written to.
+func ensureGitignoreEntry(dir, entry string) (bool, error) {
+	path := filepath.Join(dir, ".gitignore")
+	existing, err := os.ReadFile(path)
+	if err != nil && !os.IsNotExist(err) {
+		return false, err
+	}
+	for _, line := range strings.Split(string(existing), "\n") {
+		if strings.TrimSpace(line) == entry {
+			return false, nil
+		}
+	}
+	out := string(existing)
+	if len(out) > 0 && !strings.HasSuffix(out, "\n") {
+		out += "\n"
+	}
+	out += entry + "\n"
+	if err := os.WriteFile(path, []byte(out), 0o644); err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 // WorktreeBootstrapCmd applies the config.yaml `worktree:` recipe to an
@@ -74,7 +194,7 @@ func (c *WorktreeBootstrapCmd) Run(r *runCtx) error {
 	if r.json {
 		return errors.New("worktree bootstrap streams subprocess output; --json is not supported")
 	}
-	dest, err := filepath.Abs(c.Path)
+	dest, err := resolveExistingWorktreePath(r, c.Path)
 	if err != nil {
 		return err
 	}
@@ -103,7 +223,7 @@ func (c *WorktreeRemoveCmd) Run(r *runCtx) error {
 	if r.json {
 		return errors.New("worktree remove streams subprocess output; --json is not supported")
 	}
-	dest, err := filepath.Abs(c.Path)
+	dest, err := resolveExistingWorktreePath(r, c.Path)
 	if err != nil {
 		return err
 	}
@@ -138,12 +258,16 @@ func (c *WorktreeRemoveCmd) Run(r *runCtx) error {
 	return nil
 }
 
-// worktreeSafetyChecks runs the pre-remove safety net. Returns the
-// first blocking failure as an error; emits notices for warnings (like
-// stashes, which are shared across worktrees and may not belong to
-// this one).
+// worktreeSafetyChecks runs the pre-remove safety net.
+//
+// Only **uncommitted changes** block — those genuinely die with the
+// working tree. The branch ref, its commits, and stashes all live in
+// the shared .git/ and survive `git worktree remove`, so "no upstream"
+// and "unpushed commits" are notices, not errors. Users routinely
+// remove throwaway worktrees on never-pushed branches; blocking that
+// is friction without payoff.
 func worktreeSafetyChecks(r *runCtx, dest string) error {
-	// Uncommitted changes.
+	// Uncommitted changes (the one blocking check).
 	out, err := exec.Command("git", "-C", dest, "status", "--porcelain").Output()
 	if err != nil {
 		return fmt.Errorf("git status in %s: %w", dest, err)
@@ -152,30 +276,22 @@ func worktreeSafetyChecks(r *runCtx, dest string) error {
 		return fmt.Errorf("%s has uncommitted changes:\n%s\ncommit or stash them, or pass --force", dest, indentLines(string(out), "  "))
 	}
 
-	// Unpushed commits. `git rev-parse @{u}` fails if there's no
-	// upstream; that's its own kind of unsafe ("never pushed
-	// anywhere"), so we surface it too.
-	upOut, upErr := exec.Command("git", "-C", dest, "rev-parse", "--symbolic-full-name", "@{u}").Output()
-	if upErr != nil {
-		// No upstream — surface the branch name so the user knows
-		// what they'd be losing.
-		branch, _ := exec.Command("git", "-C", dest, "rev-parse", "--abbrev-ref", "HEAD").Output()
-		return fmt.Errorf("%s has no upstream (branch %q never pushed); push it, or pass --force", dest, strings.TrimSpace(string(branch)))
-	}
-	_ = upOut
-	logOut, err := exec.Command("git", "-C", dest, "log", "@{u}..HEAD", "--oneline").Output()
-	if err != nil {
-		return fmt.Errorf("git log @{u}..HEAD: %w", err)
-	}
-	if len(bytesTrimSpace(logOut)) > 0 {
-		return fmt.Errorf("%s has unpushed commits:\n%s\npush them, or pass --force", dest, indentLines(string(logOut), "  "))
+	// Upstream state — informational. The branch ref survives the
+	// worktree removal either way; we just tell the user what's on it
+	// so they don't accidentally forget a branch with unpushed work.
+	branchOut, _ := exec.Command("git", "-C", dest, "rev-parse", "--abbrev-ref", "HEAD").Output()
+	branch := strings.TrimSpace(string(branchOut))
+	if _, upErr := exec.Command("git", "-C", dest, "rev-parse", "--symbolic-full-name", "@{u}").Output(); upErr != nil {
+		r.notice("note: branch %q has no upstream — the branch ref survives, but it's only on this machine\n", branch)
+	} else if logOut, err := exec.Command("git", "-C", dest, "log", "@{u}..HEAD", "--oneline").Output(); err == nil && len(bytesTrimSpace(logOut)) > 0 {
+		r.notice("note: branch %q has unpushed commits (survive in .git/, but not yet on the remote):\n%s", branch, indentLines(string(logOut), "  "))
 	}
 
 	// Stashes are repo-global (stored in the main .git/), so we can't
-	// say "your stash" vs "someone else's stash" reliably. Warn only.
+	// say "your stash" vs "someone else's stash" reliably. Notice only.
 	stashOut, _ := exec.Command("git", "-C", dest, "stash", "list").Output()
 	if len(bytesTrimSpace(stashOut)) > 0 {
-		r.notice("warning: repo has stashes (shared across worktrees; this may or may not be yours):\n%s", indentLines(string(stashOut), "  "))
+		r.notice("note: repo has stashes (shared across worktrees; they survive worktree removal):\n%s", indentLines(string(stashOut), "  "))
 	}
 	return nil
 }

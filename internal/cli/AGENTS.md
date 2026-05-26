@@ -592,15 +592,29 @@ gitignored files (.env, secrets) and per-checkout setup (pnpm install,
 db migrate) automatically.
 
 ```bash
-# Create a worktree + bootstrap in one step.
+# Bare name → .worktrees/feat-foo inside the main worktree.
+clu worktree add feat-foo -b feat/foo --bootstrap
+
+# Explicit relative or absolute paths are honored as-is.
 clu worktree add ../wt-feat -b feat/foo --bootstrap
 
-# Or bootstrap an existing worktree (re-runnable after editing the recipe).
-clu worktree bootstrap ../wt-feat
+# Bootstrap an existing worktree (re-runnable after editing the recipe).
+clu worktree bootstrap feat-foo
+
+# Remove with safety checks (blocks on uncommitted changes; warns on
+# no-upstream / unpushed commits / stashes).
+clu worktree remove feat-foo
 ```
 
-Order is **copy → commands**, fail-fast. Both run from the *main*
-worktree (auto-detected via git).
+Path resolution:
+- Bare name → `<main>/<worktree.dir>/<name>` (default `<worktree.dir>` =
+  `.worktrees`). The first such add appends `.worktrees/` to
+  `.gitignore` so the directory doesn't pollute `git status`. Override
+  the location with `worktree.dir:` in config.yaml.
+- `./foo` / `../foo` / `/abs/foo` → honored verbatim against cwd.
+
+Order inside the bootstrap is **copy → commands**, fail-fast. Both run
+from the *main* worktree (auto-detected via git).
 
 **Shared state.** All clu state (the SQLite DB, config.yaml, templates)
 lives in the main worktree's `.clu/`. From inside any secondary

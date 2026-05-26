@@ -37,10 +37,19 @@ type Config struct {
 // git) and land at the same relative path inside the new worktree.
 // Commands run from inside the new worktree with the user's $PATH +
 // $HOME and inherit stdin, so prompts work.
+//
+// Dir is the folder inside the main worktree where bare-name worktrees
+// land — `clu worktree add foo` creates `<main>/<Dir>/foo`. Default
+// `.worktrees`. Auto-added to .gitignore on first use.
 type Worktree struct {
+	Dir      string   `yaml:"dir,omitempty"`      // default location for bare-name worktrees (default ".worktrees")
 	Copy     []string `yaml:"copy,omitempty"`     // files to copy from main worktree → new worktree
 	Commands []string `yaml:"commands,omitempty"` // shell snippets run inside the new worktree
 }
+
+// DefaultWorktreeDir is the fallback folder name used when
+// `worktree.dir` is unset.
+const DefaultWorktreeDir = ".worktrees"
 
 // Agent is the declarative side of an agent: who they are and what they
 // can do. Committed to git. The live side (heartbeat, pid, host) lives
@@ -96,6 +105,14 @@ func (c Config) Validate() error {
 			if !agentNameRe.MatchString(cap) {
 				return fmt.Errorf("agent %q: capability %q: same rules as agent names", name, cap)
 			}
+		}
+	}
+	if c.Worktree.Dir != "" {
+		if filepath.IsAbs(c.Worktree.Dir) {
+			return fmt.Errorf("worktree.dir %q: must be relative to the main worktree", c.Worktree.Dir)
+		}
+		if strings.Contains(c.Worktree.Dir, "..") {
+			return fmt.Errorf("worktree.dir %q: must not contain '..'", c.Worktree.Dir)
 		}
 	}
 	for _, p := range c.Worktree.Copy {
@@ -223,6 +240,7 @@ id_prefix: %s
 # exit.
 #
 # worktree:
+#   dir: .worktrees       # where bare-name worktrees land (default)
 #   copy:
 #     - .env
 #     - apps/api/.env
