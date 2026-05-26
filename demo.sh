@@ -63,8 +63,8 @@ run "$BD" link "${IDS[7]}" "${IDS[6]}"
 # -----------------------------------------------------------------
 hr "comment, describe, note (issue 1)"
 A="${IDS[0]}"
-run "$BD" comment add "$A" "Repro on staging this morning." --as alice
-run "$BD" comment add "$A" "Looking into it — bug is in session.go around the cache evictor." --as bob
+run "$BD" comment add "$A" "Repro on staging this morning." --agent alice
+run "$BD" comment add "$A" "Looking into it — bug is in session.go around the cache evictor." --agent bob
 run "$BD" describe "$A" "Cache eviction races with concurrent claim writes."
 run "$BD" note set "$A" "Working theory: hold the mutex around cache lookup."
 run "$BD" note append "$A" "After more digging: it's the WAL-mode interaction. Need to verify."
@@ -103,8 +103,8 @@ timed "$BD" show "$A"
 
 # -----------------------------------------------------------------
 hr "claim, close, defer, reopen, priority, assign"
-run "$BD" claim --as worker-1
-run "$BD" claim --as worker-2 -a code-reviewer
+run "$BD" claim --agent worker-1
+run "$BD" claim --agent worker-2 -a code-reviewer
 run "$BD" close "${IDS[2]}"
 run "$BD" close "${IDS[3]}"
 run "$BD" defer "${IDS[10]}" "+2h"
@@ -122,7 +122,7 @@ note "label rm, dep rm, comment rm = remove individual relations"
 run "$BD" label rm "${IDS[0]}" "security" 2>/dev/null || true
 
 # Add a throwaway comment, then remove it by parsing its (#N) header.
-NOTICE=$("$BD" comment add "$A" "ephemeral comment" --as ghost)
+NOTICE=$("$BD" comment add "$A" "ephemeral comment" --agent ghost)
 echo "$NOTICE"
 CID=$(echo "$NOTICE" | grep -oE '#[0-9]+' | tr -d '#' | head -1)
 if [[ -n "$CID" ]]; then

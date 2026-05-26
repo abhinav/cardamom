@@ -16,7 +16,7 @@ type CheckpointCmd struct {
 
 type CheckpointPassCmd struct {
 	ID     string `arg:"" help:"Checkpoint issue ID."`
-	As     string `name:"as" default:"${user}" help:"Approver name (defaults to current user). Must match an entry in the approvers list."`
+	As     string `short:"a" name:"agent" default:"${user}" help:"Approver identity (defaults to $USER). Must match an entry in the approvers list."`
 	Reason string `name:"reason" help:"Optional note appended to the issue when passing."`
 }
 
@@ -26,7 +26,7 @@ func (c *CheckpointPassCmd) Run(r *runCtx) error {
 
 type CheckpointFailCmd struct {
 	ID     string `arg:"" help:"Checkpoint issue ID."`
-	As     string `name:"as" default:"${user}" help:"Caller name (defaults to current user)."`
+	As     string `short:"a" name:"agent" default:"${user}" help:"Caller identity (defaults to $USER)."`
 	Reason string `name:"reason" help:"Optional note appended to the issue when failing."`
 }
 
@@ -61,7 +61,7 @@ func resolveCheckpoint(r *runCtx, id, as string, pass bool, reason string) error
 		}
 		if pass && payload.Kind == "approval" {
 			if !containsString(payload.Approvers, as) {
-				return fmt.Errorf("user %q is not in approvers (%v) — pass --as <approver> to override", as, payload.Approvers)
+				return fmt.Errorf("user %q is not in approvers (%v) — pass --agent <approver> to override", as, payload.Approvers)
 			}
 		}
 		// Swap label

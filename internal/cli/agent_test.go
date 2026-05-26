@@ -33,13 +33,13 @@ func TestCLICreateWithCapabilityAttachesLabel(t *testing.T) {
 }
 
 func TestCLIClaimDefaultIgnoresCapLabels(t *testing.T) {
-	// Plain `claim` (no --as) MUST NOT pick up cap:* labelled issues.
+	// Plain `claim` (no --agent) MUST NOT pick up cap:* labelled issues.
 	c := newTestCLI(t)
 	c.run("init")
 	plain := strings.TrimSpace(c.run("create", "plain task"))
 	gated := strings.TrimSpace(c.run("create", "--capability", "go-review", "gated task"))
 
-	out := c.run("claim", "--as", "user1")
+	out := c.run("claim")
 	if !strings.Contains(out, plain) {
 		t.Fatalf("expected default claim to take the plain task:\n%s", out)
 	}
@@ -59,20 +59,24 @@ agents:
     capabilities: [go-review]
 `)
 	gated := strings.TrimSpace(c.run("create", "--capability", "go-review", "gated task"))
-	out := c.run("claim", "--as", "code-reviewer")
+	out := c.run("claim", "--agent", "code-reviewer")
 	if !strings.Contains(out, gated) {
 		t.Fatalf("expected code-reviewer to claim cap:go-review task:\n%s", out)
 	}
 }
 
 func TestCLIClaimAgentLanePreservedWithoutCaps(t *testing.T) {
-	// An ad-hoc agent (not in config) still claims its named lane.
+	// An ad-hoc agent (not declared in config) still works — `-a infra`
+	// is both the lane filter AND the identity. The issue gets assignee=infra.
 	c := newTestCLI(t)
 	c.run("init")
 	id := strings.TrimSpace(c.run("create", "-a", "infra", "spot check"))
-	out := c.run("claim", "-a", "infra", "--as", "alice")
+	out := c.run("claim", "-a", "infra")
 	if !strings.Contains(out, id) {
 		t.Fatalf("ad-hoc lane claim broke:\n%s", out)
+	}
+	if !strings.Contains(out, "Assignee: infra") {
+		t.Fatalf("expected assignee=infra (the agent identity):\n%s", out)
 	}
 }
 
@@ -103,7 +107,7 @@ agents:
 }
 
 func TestCLIAgentLsShowsLiveHeartbeatFromClaim(t *testing.T) {
-	// Run `claim --wait --as code-reviewer --heartbeat` in a goroutine;
+	// Run `claim --wait --agent code-reviewer --heartbeat` in a goroutine;
 	// while it loops, `agent ls` should show it active.
 	c := newTestCLI(t)
 	c.run("init")
@@ -122,7 +126,7 @@ agents:
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		full := []string{"--dir", c.dir, "claim", "--wait", "--interval", "20ms", "--as", "code-reviewer", "--heartbeat"}
+		full := []string{"--dir", c.dir, "claim", "--wait", "--interval", "20ms", "--agent", "code-reviewer", "--heartbeat"}
 		_ = Run(ctx, &c.out, &c.err, full)
 	}()
 
@@ -160,7 +164,7 @@ agents:
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
-		full := []string{"--dir", c.dir, "claim", "--wait", "--interval", "20ms", "--as", "code-reviewer"}
+		full := []string{"--dir", c.dir, "claim", "--wait", "--interval", "20ms", "--agent", "code-reviewer"}
 		_ = Run(ctx, &c.out, &c.err, full)
 	}()
 
@@ -178,15 +182,15 @@ agents:
 }
 
 func TestCLIHeartbeatRequiresIdentity(t *testing.T) {
-	// `ready --heartbeat` without `-a` should error — ready has no --as
+	// `ready --heartbeat` without `-a` should error — ready has no --agent
 	// default; the lane name doubles as the agent identity.
 	c := newTestCLI(t)
 	c.run("init")
 	c.runFail("ready", "--wait", "--heartbeat", "--interval", "20ms")
 }
 
-func TestCLIListHeartbeatRequiresAs(t *testing.T) {
-	// `list --watch --heartbeat` without --as should error.
+func TestCLIListWatchHeartbeatRequiresAgent(t *testing.T) {
+	// `list --watch --heartbeat` without -a should error.
 	c := newTestCLI(t)
 	c.run("init")
 	c.runFail("list", "--watch", "--heartbeat", "--interval", "20ms")

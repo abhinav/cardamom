@@ -17,7 +17,7 @@ type CommentCmd struct {
 type CommentAddCmd struct {
 	ID     string   `arg:"" help:"Issue ID."`
 	Body   []string `arg:"" required:"" help:"Comment body."`
-	Author string   `name:"as" default:"${user}" help:"Author name (defaults to current user)."`
+	Author string   `short:"a" name:"agent" default:"${user}" help:"Agent identity used as the comment author. Defaults to $USER."`
 }
 
 func (c *CommentAddCmd) Run(r *runCtx) error {

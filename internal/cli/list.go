@@ -93,8 +93,7 @@ type ListCmd struct {
 	Limit         int           `short:"n" default:"50" help:"Limit results (0 = unlimited)."`
 	Watch         bool          `short:"w" name:"watch" help:"Keep updating the list when matching issues change. Ctrl+C to exit."`
 	WatchInterval time.Duration `name:"interval" default:"1s" help:"Poll interval when --watch is set."`
-	As            string        `name:"as" help:"Agent identity (must be paired with --heartbeat to register as live)."`
-	Heartbeat     bool          `name:"heartbeat" help:"While watching, register --as <name> as a live agent. Off by default — opt in when you want to show up in 'clu agent ls'."`
+	Heartbeat bool `name:"heartbeat" help:"While watching, register -a <name> as a live agent in 'clu agent ls'. Requires -a. Off by default."`
 }
 
 func (c *ListCmd) Run(r *runCtx) error {
@@ -130,15 +129,16 @@ func (c *ListCmd) Run(r *runCtx) error {
 			if r.json {
 				return errors.New("--watch is not supported with --json (JSON output is a single document)")
 			}
-			// Heartbeat is opt-in: --heartbeat requires --as.
+			// Heartbeat is opt-in. -a (lane filter) doubles as the
+			// agent identity used to populate active_agents.
 			hbName := ""
 			var hbCaps []string
 			if c.Heartbeat {
-				if c.As == "" {
-					return errors.New("--heartbeat requires --as <name>")
+				if c.Agent == "" {
+					return errors.New("--heartbeat requires -a <name>")
 				}
-				hbName = c.As
-				hbCaps = resolveAgent(r.dir, c.As)
+				hbName = c.Agent
+				hbCaps = resolveAgent(r.dir, c.Agent)
 				cleanup, err := startHeartbeat(s, hbName, hbCaps)
 				if err != nil {
 					return err

@@ -15,6 +15,17 @@ A SQLite-backed issue-tracker CLI for AI agents. Module:
   configurable via `.clu/config.yaml` (`id_prefix`).
 - The workspace dir is still `beadsv2` on disk — that's just a folder
   name, no cascading effect on imports.
+- **Identity is a single concept: agents.** There is no `--as` flag.
+  Every place that needs identity uses `-a` / `--agent <name>`:
+  - `clu claim -a foo` — foo is both the lane filter and the assignee.
+  - `clu comment add -a foo …` — foo is the author.
+  - `clu approve -a foo` / `clu checkpoint pass -a foo` — foo is the
+    approver checked against the approvers list.
+  - `clu ready -a foo` / `clu list -a foo` — foo is the lane filter.
+  Bare `clu claim` defaults assignee to `$USER` and pulls from the
+  unassigned lane (no `--agent` value means "no agent identity").
+  Don't reintroduce a separate `--as` flag — the user/agent distinction
+  was deliberately collapsed on this local-only tool.
 - **Stack is settled:**
   - SQLite via `modernc.org/sqlite` (pure Go — no CGo).
   - **Bun** + sqlitedialect for queries. Raw SQL only for `Claim` (UPDATE …

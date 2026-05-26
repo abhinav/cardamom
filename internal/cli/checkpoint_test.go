@@ -117,8 +117,8 @@ func TestCheckpointApprovalRejectsWrongUser(t *testing.T) {
 	// approval gate has approver "not-the-current-user" — must reject
 	c.runFail("approve", ids["gate-approval"])
 
-	// --as override lets you act as the named approver.
-	c.run("approve", ids["gate-approval"], "--as", "not-the-current-user")
+	// --agent override lets you act as the named approver.
+	c.run("approve", ids["gate-approval"], "--agent", "not-the-current-user")
 }
 
 func TestCheckpointFail(t *testing.T) {

@@ -7,37 +7,51 @@ import (
 	"github.com/rovak/clu/internal/store"
 )
 
+// ClaimCmd: one identity flag does everything.
+//
+//	clu claim                       → assignee = $USER, claims from the unassigned lane
+//	clu claim -a code-reviewer      → claims as code-reviewer; lane filter = code-reviewer's
+//	                                  (+ cap-routed unassigned work if declared in config)
+//	clu claim --wait --heartbeat    → register as live in 'agent ls' while waiting
 type ClaimCmd struct {
-	As        string        `default:"${user}" help:"Assignee name (defaults to current user)."`
-	Agent     string        `short:"a" help:"Lane to claim from (default: unassigned)."`
-	Wait      bool          `help:"Block until something is claimable in this lane."`
+	Agent     string        `short:"a" name:"agent" help:"Agent identity. Sets the assignee and picks the lane to claim from. Unset = unassigned lane, assignee = $USER."`
+	Wait      bool          `help:"Block until something is claimable."`
 	Interval  time.Duration `default:"250ms" help:"Poll interval when --wait is set."`
-	Heartbeat bool          `name:"heartbeat" help:"While waiting, register as a live agent so 'clu agent ls' shows this session active. Requires --as."`
+	Heartbeat bool          `name:"heartbeat" help:"While waiting, register --agent (or $USER) as a live agent so 'clu agent ls' shows this session active."`
 	ID        string        `arg:"" optional:"" help:"Specific issue to claim; omit for next ready."`
 }
 
 func (c *ClaimCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
+		// assignee: who shows up in issue.assignee. Defaults to $USER
+		// when no agent identity is given, so a human typing `clu claim`
+		// at the terminal works.
+		assignee := c.Agent
+		if assignee == "" {
+			assignee = currentUser()
+		}
 		if c.ID != "" {
-			i, err := s.ClaimByID(r.ctx, c.ID, c.As)
+			i, err := s.ClaimByID(r.ctx, c.ID, assignee)
 			if err != nil {
 				return err
 			}
 			return reportClaimed(r, s, i)
 		}
-		agent := agentPtr(c.Agent)
-		// Capabilities are looked up by `--as` (agent identity), not
-		// `-a` (lane filter). Often the two are the same name, but the
-		// distinction matters when one agent claims from a shared lane.
-		caps := resolveAgent(r.dir, c.As)
-		// Heartbeat is opt-in via --heartbeat. Without it, the claim
-		// loop is invisible to `agent ls` — useful for short scripts
-		// or sessions that don't want to register as a live agent.
-		// --as always has a value (defaults to $USER); the heartbeat
-		// row is keyed on that.
+		// Lane filter and capability lookup follow the explicit agent name
+		// only. The default ($USER) intentionally doesn't filter — bare
+		// `clu claim` should pull from the unassigned lane.
+		var laneAgent *string
+		var caps []string
+		if c.Agent != "" {
+			laneAgent = &c.Agent
+			caps = resolveAgent(r.dir, c.Agent)
+		}
+		// Heartbeat is opt-in. Keys on whatever identity ends up in
+		// assignee (so `clu claim --heartbeat` while logged in as rovak
+		// shows up as "rovak" in agent ls).
 		hbName := ""
 		if c.Heartbeat && c.Wait {
-			hbName = c.As
+			hbName = assignee
 			cleanup, err := startHeartbeat(s, hbName, caps)
 			if err != nil {
 				return err
@@ -45,7 +59,7 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			defer cleanup()
 		}
 		for {
-			i, err := s.Claim(r.ctx, c.As, agent, caps)
+			i, err := s.Claim(r.ctx, assignee, laneAgent, caps)
 			if err == nil {
 				return reportClaimed(r, s, i)
 			}
@@ -55,21 +69,15 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			if !c.Wait {
 				return errors.New("no ready issues")
 			}
-			// Wait for something to become ready, then retry the claim.
-			// Another agent may steal it between Wait and Claim — that's
-			// fine, we'll just block again.
-			if _, err := s.WaitReady(r.ctx, 1, agent, caps, c.Interval); err != nil {
+			if _, err := s.WaitReady(r.ctx, 1, laneAgent, caps, c.Interval); err != nil {
 				return err
 			}
-			// Heartbeat only fires when explicitly opted in.
 			heartbeatTick(s, hbName, caps)
 		}
 	})
 }
 
-// reportClaimed prints the just-claimed issue in full (matches `cli show`).
-// JSON mode emits the same structured payload as `show --json`. Human mode
-// prefixes a "claimed …" notice for narrative.
+// reportClaimed prints the just-claimed issue in full (matches `clu show`).
 func reportClaimed(r *runCtx, s *store.Store, i store.Issue) error {
 	r.notice("claimed %s (%s)\n", i.ID, i.Title)
 	parents, blocks, err := s.Deps(r.ctx, i.ID)

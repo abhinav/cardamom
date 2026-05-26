@@ -126,7 +126,7 @@ timed "$BD" blocked
 # -----------------------------------------------------------------
 hr "drive the workflow: claim & close build, then test"
 BUILD_ID=$("$BD" --json ready | grep -oE 'bd-[a-f0-9]+' | head -1)
-run "$BD" claim "$BUILD_ID" --as worker
+run "$BD" claim "$BUILD_ID" --agent worker
 run "$BD" close "$BUILD_ID"
 
 note "after closing build, test should become ready:"

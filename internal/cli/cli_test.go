@@ -142,7 +142,7 @@ func TestCLIReadyAndClaim(t *testing.T) {
 		t.Fatalf("b should NOT be ready: %s", ready)
 	}
 
-	claimed := c.run("claim", "--as", "alice")
+	claimed := c.run("claim")
 	if !strings.Contains(claimed, a) {
 		t.Fatalf("expected claim of %s, got %q", a, claimed)
 	}
@@ -158,7 +158,7 @@ func TestCLIClaimByID(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	id := strings.TrimSpace(c.run("create", "specific"))
-	claimed := c.run("claim", id, "--as", "bob")
+	claimed := c.run("claim", id, "--agent", "bob")
 	if !strings.Contains(claimed, id) {
 		t.Fatalf("expected claim of %s, got %q", id, claimed)
 	}
@@ -167,7 +167,7 @@ func TestCLIClaimByID(t *testing.T) {
 func TestCLIClaimNoneReady(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
-	c.runFail("claim", "--as", "alice")
+	c.runFail("claim", "--agent", "alice")
 }
 
 func TestCLIUpdate(t *testing.T) {
@@ -264,7 +264,7 @@ func TestCLIClaimWaitThenSucceeds(t *testing.T) {
 		c2 := &testCLI{t: t, dir: c.dir, ctx: context.Background()}
 		c2.run("create", "-a", "writer", "blog post")
 	}()
-	out := c.run("claim", "-a", "writer", "--wait", "--interval", "20ms", "--as", "agent-1")
+	out := c.run("claim", "-a", "writer", "--wait", "--interval", "20ms")
 	if !strings.Contains(out, "blog post") {
 		t.Fatalf("expected claim of waiting task:\n%s", out)
 	}
@@ -550,7 +550,7 @@ func TestCLIInProgressNotFlippedToBlocked(t *testing.T) {
 	c.run("dep", "add", b, a)
 	// ClaimByID lets us claim a blocked issue directly (intentional —
 	// we don't auto-prevent overrides).
-	c.run("claim", b, "--as", "alice")
+	c.run("claim", b, "--agent", "alice")
 	out := c.run("list")
 	if !strings.Contains(out, b+"  p2  in_progress") {
 		t.Fatalf("expected in_progress, not flipped to blocked:\n%s", out)
@@ -755,8 +755,8 @@ func TestCLICommentRoundTrip(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	id := strings.TrimSpace(c.run("create", "x"))
-	c.run("comment", "add", id, "first", "thought", "--as", "alice")
-	c.run("comment", "add", id, "second", "thought", "--as", "bob")
+	c.run("comment", "add", id, "first", "thought", "--agent", "alice")
+	c.run("comment", "add", id, "second", "thought", "--agent", "bob")
 	out := c.run("comment", "ls", id)
 	if !strings.Contains(out, "alice") || !strings.Contains(out, "bob") ||
 		!strings.Contains(out, "first thought") || !strings.Contains(out, "second thought") {
@@ -773,7 +773,7 @@ func TestCLICommentRm(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	id := strings.TrimSpace(c.run("create", "x"))
-	c.run("comment", "add", id, "delete me", "--as", "a")
+	c.run("comment", "add", id, "delete me", "--agent", "a")
 	// Pull the numeric ID via JSON.
 	out := c.run("--json", "comment", "ls", id)
 	var rows []map[string]any
@@ -796,8 +796,8 @@ func TestCLICommentExportImportRoundTrip(t *testing.T) {
 	src := newTestCLI(t)
 	src.run("init")
 	id := strings.TrimSpace(src.run("create", "issue"))
-	src.run("comment", "add", id, "first", "--as", "alice")
-	src.run("comment", "add", id, "second", "--as", "bob")
+	src.run("comment", "add", id, "first", "--agent", "alice")
+	src.run("comment", "add", id, "second", "--agent", "bob")
 
 	dump := filepath.Join(t.TempDir(), "dump.jsonl")
 	src.run("export", "-o", dump)
@@ -1151,7 +1151,7 @@ func TestCLIListDefaultIncludesInProgress(t *testing.T) {
 	wip := strings.TrimSpace(c.run("create", "in progress"))
 	closed := strings.TrimSpace(c.run("create", "done"))
 	c.run("close", closed)
-	c.run("claim", wip, "--as", "alice")
+	c.run("claim", wip, "--agent", "alice")
 
 	out := c.run("list") // default --status open,in_progress
 	if !strings.Contains(out, open) {
@@ -1194,7 +1194,7 @@ func TestCLIClaimEmitsFullIssue(t *testing.T) {
 	c.run("init")
 	id := strings.TrimSpace(c.run("create", "-p", "0", "claim me"))
 	c.run("describe", id, "the long form")
-	out := c.run("claim", "--as", "alice")
+	out := c.run("claim")
 	// Human mode includes the notice header and a full show-style block.
 	if !strings.Contains(out, "claimed "+id) {
 		t.Fatalf("expected notice header:\n%s", out)
@@ -1208,7 +1208,7 @@ func TestCLIClaimJSONIsCleanJSON(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
 	c.run("create", "claim me")
-	out := c.run("--json", "claim", "--as", "alice")
+	out := c.run("--json", "claim")
 	if strings.HasPrefix(out, "claimed ") {
 		t.Fatalf("notice leaked into --json output: %q", out)
 	}
@@ -1216,7 +1216,9 @@ func TestCLIClaimJSONIsCleanJSON(t *testing.T) {
 	if err := json.Unmarshal([]byte(out), &row); err != nil {
 		t.Fatalf("invalid JSON: %v\n%s", err, out)
 	}
-	if row["status"] != "in_progress" || row["assignee"] != "alice" {
+	// Without --agent, assignee defaults to $USER. The point of this
+	// test is that status flips and *some* assignee is recorded.
+	if row["status"] != "in_progress" || row["assignee"] == nil || row["assignee"] == "" {
 		t.Fatalf("missing claim mutations in JSON: %+v", row)
 	}
 }
@@ -1302,7 +1304,7 @@ func TestCLICompletionBash(t *testing.T) {
 func TestCLIClaimMissingSaysNotFound(t *testing.T) {
 	c := newTestCLI(t)
 	c.run("init")
-	c.runFail("claim", "bd-zzzz", "--as", "alice")
+	c.runFail("claim", "bd-zzzz", "--agent", "alice")
 	if !strings.Contains(c.err.String(), "not found") {
 		t.Fatalf("expected 'not found' for missing issue, got: %s", c.err.String())
 	}
