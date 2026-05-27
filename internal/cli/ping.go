@@ -2,39 +2,37 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"errors"
 	"fmt"
-	"path/filepath"
-	"sort"
+	"os"
 	"strings"
 	"time"
 
-	"github.com/rovak/clu/internal/config"
 	"github.com/rovak/clu/internal/store"
 )
 
-// PingCmd writes a fire-and-forget mailbox row to one or more agents.
-// Distinct from `clu comment add`: doesn't attach to an issue,
-// auto-expires, doesn't pollute the work log. The body can come from
+var (
+	osGetpid   = os.Getpid
+	osHostname = os.Hostname
+)
+
+// PingCmd writes a fire-and-forget mailbox row to `Recipient`. Direct
+// delivery always lands in `Recipient`'s mailbox; the store also fans
+// out to every active subscription whose pattern matches the
+// recipient name (see `clu inbox --topic`). The body can come from
 // positional args, '-', or piped stdin (same convention as comment add).
 //
-// The recipient slot is the targeting selector:
+// Topic-style names are conventional: `release.urgent`, `frontend.build-broken`.
+// They're just strings — a listener subscribed to `release.*` picks
+// them up, otherwise the row sits in the literal-name inbox until TTL.
 //
-//	clu ping alice "msg"             - one recipient (literal name)
-//	clu ping '*' "msg"               - broadcast to every declared+live agent
-//	clu ping 'bug-*' "msg"           - glob across declared+live agents
-//	clu ping cap:go "msg"            - everyone advertising the "go" capability
-//
-// Quote selectors that contain shell-significant characters (`*`,
-// `?`, `[`). Sender is always excluded from multi-recipient targets
-// — you don't ping yourself. A selector with zero matches exits
-// nonzero so callers can detect "nobody was reachable."
+// Distinct from `clu comment add`: doesn't attach to an issue,
+// auto-expires, doesn't pollute the work log.
 type PingCmd struct {
-	Recipient string        `arg:"" name:"recipient" help:"Agent name, '*' for broadcast, 'cap:<name>' for capability filter, or a glob like 'bug-*'."`
+	Recipient string        `arg:"" name:"recipient" help:"Agent name or topic. Direct delivery + fan-out to matching --topic subscribers."`
 	Body      []string      `arg:"" optional:"" help:"Message body. Use '-' or omit (with piped stdin) to read from stdin."`
 	Agent     string        `short:"a" name:"agent" default:"${user}" help:"Sender identity (defaults to $USER)."`
-	TTL       time.Duration `name:"ttl" default:"168h" help:"How long each ping lives in the recipient's mailbox before auto-purge. Capped at 720h (30 days)."`
+	TTL       time.Duration `name:"ttl" default:"168h" help:"How long each delivered row lives in the recipient's mailbox before auto-purge. Capped at 720h (30 days)."`
 }
 
 func (c *PingCmd) Run(r *runCtx) error {
@@ -46,27 +44,15 @@ func (c *PingCmd) Run(r *runCtx) error {
 		return errors.New("ping body required (positional args, '-', or pipe via stdin)")
 	}
 	return withStore(r, func(s *store.Store) error {
-		recipients, err := c.resolveRecipients(r, s)
+		sent, err := s.PingSend(r.ctx, c.Agent, c.Recipient, body, c.TTL)
 		if err != nil {
 			return err
-		}
-		recipients = excludeOne(recipients, c.Agent)
-		if len(recipients) == 0 {
-			return errors.New("no matching agents")
-		}
-		sent := make([]store.Mailbox, 0, len(recipients))
-		for _, recip := range recipients {
-			m, err := s.PingSend(r.ctx, c.Agent, recip, body, c.TTL)
-			if err != nil {
-				return fmt.Errorf("ping %s: %w", recip, err)
-			}
-			sent = append(sent, m)
 		}
 		if r.json {
 			return r.emitJSON(sent)
 		}
-		// Single-recipient: keep the original tighter format. Broadcast:
-		// summary first, then per-row IDs so a script can pick them up.
+		// Single delivery (no subscription fan-out): keep the original
+		// tight one-liner. Otherwise summarize.
 		if len(sent) == 1 {
 			m := sent[0]
 			r.notice("pinged %s as %s (#%d, expires %s)\n",
@@ -78,124 +64,18 @@ func (c *PingCmd) Run(r *runCtx) error {
 		for i, m := range sent {
 			names[i] = m.Recipient
 		}
-		r.notice("pinged %d agent(s) as %s: %s\n", len(sent), c.Agent, strings.Join(names, ", "))
+		r.notice("pinged %s + %d subscriber(s): %s\n",
+			c.Recipient, len(sent)-1, strings.Join(names, ", "))
 		return nil
 	})
 }
 
-// resolveRecipients interprets the recipient slot as a selector:
-//
-//	"*"            → every declared + currently-live agent
-//	"cap:<name>"   → every agent (declared OR live) with that capability
-//	"bug-*" etc.   → glob match against declared+live agent names
-//	"alice"        → literal name (one recipient)
-//
-// Globs match the union of declared (config.yaml) and currently-live
-// (heartbeat) agents, so an ad-hoc claude session running --watch is
-// reachable even without a config entry.
-func (c *PingCmd) resolveRecipients(r *runCtx, s *store.Store) ([]string, error) {
-	cfg, err := config.Load(r.dir)
-	if err != nil {
-		return nil, err
-	}
-	switch {
-	case c.Recipient == "*":
-		return knownAgents(r.ctx, s, cfg)
-	case strings.HasPrefix(c.Recipient, "cap:"):
-		capName := strings.TrimPrefix(c.Recipient, "cap:")
-		if capName == "" {
-			return nil, errors.New("cap: selector requires a capability name (e.g. cap:go)")
-		}
-		return agentsWithCapability(r.ctx, s, cfg, capName)
-	case strings.ContainsAny(c.Recipient, "*?["):
-		universe, err := knownAgents(r.ctx, s, cfg)
-		if err != nil {
-			return nil, err
-		}
-		var matches []string
-		for _, name := range universe {
-			if ok, _ := filepath.Match(c.Recipient, name); ok {
-				matches = append(matches, name)
-			}
-		}
-		return matches, nil
-	default:
-		return []string{c.Recipient}, nil
-	}
-}
-
-// knownAgents returns the union of declared agents (config.yaml) and
-// currently-live agents (active_agents heartbeats), sorted, deduped.
-// Used by targeting that needs to know "every agent that might
-// reasonably receive a ping."
-func knownAgents(ctx context.Context, s *store.Store, cfg config.Config) ([]string, error) {
-	set := make(map[string]bool, len(cfg.Agents))
-	for name := range cfg.Agents {
-		set[name] = true
-	}
-	live, err := s.AgentList(ctx, store.AgentStaleThresholdSec)
-	if err != nil {
-		return nil, err
-	}
-	for _, a := range live {
-		set[a.Name] = true
-	}
-	out := make([]string, 0, len(set))
-	for n := range set {
-		out = append(out, n)
-	}
-	sort.Strings(out)
-	return out, nil
-}
-
-// agentsWithCapability returns every agent (declared OR live) whose
-// capability list contains `cap`. Live agents publish their caps in
-// active_agents.capabilities; declared ones come from config.
-func agentsWithCapability(ctx context.Context, s *store.Store, cfg config.Config, cap string) ([]string, error) {
-	set := make(map[string]bool)
-	for _, name := range cfg.AgentsWithCapability(cap) {
-		set[name] = true
-	}
-	live, err := s.AgentList(ctx, store.AgentStaleThresholdSec)
-	if err != nil {
-		return nil, err
-	}
-	for _, a := range live {
-		for _, c := range a.DecodeCapabilities() {
-			if c == cap {
-				set[a.Name] = true
-				break
-			}
-		}
-	}
-	out := make([]string, 0, len(set))
-	for n := range set {
-		out = append(out, n)
-	}
-	sort.Strings(out)
-	return out, nil
-}
-
-// excludeOne removes the first occurrence of `name` from `in`. Used to
-// drop the sender from a broadcast recipient list — you don't ping
-// yourself when blasting "status?" to the whole team.
-func excludeOne(in []string, name string) []string {
-	out := make([]string, 0, len(in))
-	for _, n := range in {
-		if n != name {
-			out = append(out, n)
-		}
-	}
-	return out
-}
-
 // InboxCmd reads the mailbox addressed to one agent. By default lists
-// unread pings and marks them read on the way out.
-//
-//	--peek     read without marking as read
-//	--all      include already-read pings (still bounded by TTL)
-//	--clear    mark every unread as read without listing
-//	--watch    continuous emission as new pings arrive
+// unread pings and marks them read on the way out. Also manages topic
+// subscriptions — when --topic is set with --watch/--tail, the
+// subscription is refreshed every tick and lives for the duration of
+// the loop. Persistent subscriptions can be created by passing
+// --topic without --watch/--tail (uses --topic-ttl).
 type InboxCmd struct {
 	Agent    string        `short:"a" name:"agent" default:"${user}" help:"Whose inbox to read (defaults to $USER). Ignored when --global is set."`
 	Global   bool          `short:"A" name:"global" help:"Tail/list every recipient's pings (system-wide). Never marks as read; --peek is implied."`
@@ -207,6 +87,11 @@ type InboxCmd struct {
 	Tail     bool          `name:"tail" help:"Like --watch, but append-only: each new ping prints on its own line without redrawing. Closer to 'tail -f'. Ctrl+C to exit."`
 	Interval time.Duration `name:"interval" default:"1s" help:"Poll interval when --watch or --tail is set."`
 	Limit    int           `short:"n" default:"50" help:"Max rows to list (0 = unlimited)."`
+
+	Topic    []string      `name:"topic" help:"Subscribe to a topic pattern (glob: 'release.*'). Repeatable. With --watch/--tail the subscription is refreshed every tick and dies on exit; without, it persists for --topic-ttl."`
+	NoTopic  []string      `name:"no-topic" help:"Unsubscribe from a topic pattern. Repeatable."`
+	TopicTTL time.Duration `name:"topic-ttl" default:"15m" help:"How long a subscription lives between refreshes. Capped at 168h."`
+	Topics   bool          `name:"topics" help:"List active subscriptions (across listeners by default; -a <name> to scope to one). Doesn't read messages."`
 }
 
 func (c *InboxCmd) Run(r *runCtx) error {
@@ -221,6 +106,24 @@ func (c *InboxCmd) Run(r *runCtx) error {
 	}
 	if c.Tail && c.Peek {
 		return errors.New("--tail and --peek are mutually exclusive (peek would re-emit the same pings forever)")
+	}
+	if c.Topics {
+		return c.runListTopics(r)
+	}
+	// --no-topic runs first so a "remove" call works without also
+	// needing to read messages.
+	if len(c.NoTopic) > 0 {
+		if err := c.runUnsubscribe(r); err != nil {
+			return err
+		}
+		if len(c.Topic) == 0 && !c.Watch && !c.Tail {
+			return nil
+		}
+	}
+	// Persistent subscription: --topic without --watch/--tail just
+	// registers the topic(s) and exits.
+	if len(c.Topic) > 0 && !c.Watch && !c.Tail {
+		return c.runSubscribe(r)
 	}
 	if c.Clear {
 		return c.runClear(r)
@@ -238,6 +141,112 @@ func (c *InboxCmd) Run(r *runCtx) error {
 		return c.runTail(r)
 	}
 	return c.runOnce(r)
+}
+
+// runSubscribe registers the requested --topic patterns as persistent
+// subscriptions for c.Agent. Each is idempotent (UPSERT); calling
+// repeatedly just bumps the TTL.
+func (c *InboxCmd) runSubscribe(r *runCtx) error {
+	return withStore(r, func(s *store.Store) error {
+		pid, host := pidHost()
+		out := make([]store.Subscription, 0, len(c.Topic))
+		for _, pat := range c.Topic {
+			row, err := s.SubscriptionUpsert(r.ctx, c.Agent, pat, pid, host, c.TopicTTL)
+			if err != nil {
+				return fmt.Errorf("subscribe %q: %w", pat, err)
+			}
+			out = append(out, row)
+		}
+		if r.json {
+			return r.emitJSON(out)
+		}
+		for _, row := range out {
+			r.notice("subscribed %s to %q (expires %s)\n",
+				row.Listener, row.Pattern,
+				time.Unix(row.Expires, 0).Format(time.RFC3339))
+		}
+		return nil
+	})
+}
+
+// runUnsubscribe removes the requested --no-topic patterns for c.Agent.
+// Missing rows are quiet (per-pattern notice, no error) — repeated
+// "remove" calls should not fail.
+func (c *InboxCmd) runUnsubscribe(r *runCtx) error {
+	return withStore(r, func(s *store.Store) error {
+		for _, pat := range c.NoTopic {
+			err := s.SubscriptionRemove(r.ctx, c.Agent, pat)
+			if errors.Is(err, store.ErrSubscriptionNotFound) {
+				r.notice("not subscribed: %s → %q\n", c.Agent, pat)
+				continue
+			}
+			if err != nil {
+				return fmt.Errorf("unsubscribe %q: %w", pat, err)
+			}
+			r.notice("unsubscribed %s from %q\n", c.Agent, pat)
+		}
+		return nil
+	})
+}
+
+// runListTopics renders the subscription table. Scoped to one listener
+// when --agent is explicitly set; otherwise system-wide.
+func (c *InboxCmd) runListTopics(r *runCtx) error {
+	return withStore(r, func(s *store.Store) error {
+		// Treat the default ($USER) as "no scope" — listing one's own
+		// subscriptions is rarely what you want; the cross-listener view
+		// is. Use -a explicitly to scope.
+		scope := ""
+		if c.Global {
+			scope = "" // global is already system-wide
+		}
+		rows, err := s.SubscriptionList(r.ctx, scope)
+		if err != nil {
+			return err
+		}
+		if r.json {
+			if rows == nil {
+				rows = []store.Subscription{}
+			}
+			return r.emitJSON(rows)
+		}
+		if len(rows) == 0 {
+			fmt.Fprintln(r.stdout, "(no active subscriptions)")
+			return nil
+		}
+		nowT := time.Now().Unix()
+		fmt.Fprintf(r.stdout, "%-20s  %-30s  %s\n", "LISTENER", "PATTERN", "EXPIRES IN")
+		for _, row := range rows {
+			fmt.Fprintf(r.stdout, "%-20s  %-30s  %s\n",
+				row.Listener, row.Pattern, relTime(row.Expires-nowT))
+		}
+		return nil
+	})
+}
+
+// pidHost returns this process's pid + hostname for the subscription
+// row. Diagnostic only — the lock/subscription machinery doesn't
+// enforce holder identity.
+func pidHost() (int, string) {
+	host, _ := osHostname()
+	return osGetpid(), host
+}
+
+// refreshTopics upserts every --topic pattern for the configured agent.
+// Called once at watch/tail start (so the subscription exists from
+// tick 0) and once per tick (so a long-running loop keeps the row
+// fresh past its TTL). Cheap when nothing's set (no-op).
+func (c *InboxCmd) refreshTopics(r *runCtx, s *store.Store) error {
+	if len(c.Topic) == 0 {
+		return nil
+	}
+	pid, host := pidHost()
+	for _, pat := range c.Topic {
+		if _, err := s.SubscriptionUpsert(r.ctx, c.Agent, pat, pid, host, c.TopicTTL); err != nil {
+			return fmt.Errorf("refresh topic %q: %w", pat, err)
+		}
+	}
+	return nil
 }
 
 // runClear dismisses every unread ping for the configured agent.
@@ -302,7 +311,13 @@ func (c *InboxCmd) runWatch(r *runCtx) error {
 		if interval < time.Second {
 			interval = time.Second
 		}
+		if err := c.refreshTopics(r, s); err != nil {
+			return err
+		}
 		return watchLoop(r.ctx, r.stdout, interval, func() (string, error) {
+			if err := c.refreshTopics(r, s); err != nil {
+				return "", err
+			}
 			var sinceTs int64
 			if c.Since > 0 {
 				sinceTs = time.Now().Add(-c.Since).Unix()
@@ -348,6 +363,9 @@ func (c *InboxCmd) runTail(r *runCtx) error {
 		if interval < time.Second {
 			interval = time.Second
 		}
+		if err := c.refreshTopics(r, s); err != nil {
+			return err
+		}
 		tick := time.NewTicker(interval)
 		defer tick.Stop()
 		// lastSeenID is only consulted in --global mode (the per-
@@ -356,6 +374,9 @@ func (c *InboxCmd) runTail(r *runCtx) error {
 		// First tick fires immediately so the user gets backlog they
 		// already have unread, then we settle into the interval.
 		emit := func() error {
+			if err := c.refreshTopics(r, s); err != nil {
+				return err
+			}
 			var sinceTs int64
 			if c.Since > 0 {
 				sinceTs = time.Now().Add(-c.Since).Unix()
@@ -428,12 +449,6 @@ func (c *InboxCmd) runTail(r *runCtx) error {
 			}
 		}
 	})
-}
-
-// printInbox renders rows in human or JSON form. Always emits an array
-// in JSON (empty inbox = `[]`).
-func printInbox(r *runCtx, rows []store.Mailbox) {
-	printInboxScoped(r, rows, false)
 }
 
 // printInboxScoped is the common renderer. When `showRecipient` is true

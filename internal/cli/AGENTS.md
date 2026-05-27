@@ -318,10 +318,17 @@ pollute the work log.
 clu ping eng2 "hold off on session.go, refactoring it for ~30m"
 echo "lint green, deploying preview" | clu ping reviewer -
 
-# Broadcast / targeted sends. The recipient slot is the selector:
-clu ping '*' "status update?"             # everyone (declared + live)
-clu ping 'bug-*' "build broken"           # glob across known agents
-clu ping cap:go "PR for review"           # everyone with capability `go`
+# Topic delivery via subscriptions. Senders just pick a recipient
+# name — direct delivery + fan-out to every active subscription whose
+# pattern matches that name. No special syntax on the sender side.
+clu ping release.urgent "deploy started"  # → release.urgent + matchers
+
+# Listener side — subscribe before the pings arrive. Patterns are
+# filepath.Match globs ('release.*', '*', literal names...).
+clu inbox -a alice --topic 'release.*' --topic-ttl 1h     # persistent
+clu inbox -a alice --topic 'release.*' --tail             # session-scoped
+clu inbox -a alice --no-topic 'release.*'                 # remove
+clu inbox --topics                                         # list all
 
 # Read your inbox (marks read on consume).
 clu inbox

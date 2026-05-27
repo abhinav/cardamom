@@ -35,18 +35,29 @@ type Mailbox struct {
 // against a never-checking agent inflating the table indefinitely.
 const PingMaxTTL = 30 * 24 * time.Hour
 
-// PingSend writes a new mailbox row and returns it. Sender and
-// recipient must be non-empty. ttl is capped at PingMaxTTL; ttl <= 0
-// uses a 7-day default.
-func (s *Store) PingSend(ctx context.Context, sender, recipient, body string, ttl time.Duration) (Mailbox, error) {
+// PingSend writes a mailbox row addressed to `recipient` AND fans out
+// to every active subscription whose pattern matches `recipient`.
+// Returns every row inserted (direct delivery first, then matched
+// subscribers, deduped). Sender + recipient + body must be non-empty.
+// ttl is capped at PingMaxTTL; ttl <= 0 uses a 7-day default.
+//
+// Direct delivery always happens — even if no subscriber matches and
+// nobody is reading the literal recipient's inbox. This preserves the
+// "I sent it" guarantee from the sender's POV; the row sits until TTL
+// expires.
+//
+// Subscriber fan-out skips the literal recipient (avoiding duplicate
+// delivery if a listener is subscribed to their own name) and skips
+// the sender (no self-ping on broadcasts).
+func (s *Store) PingSend(ctx context.Context, sender, recipient, body string, ttl time.Duration) ([]Mailbox, error) {
 	if sender == "" {
-		return Mailbox{}, fmt.Errorf("%w: sender required", ErrInvalid)
+		return nil, fmt.Errorf("%w: sender required", ErrInvalid)
 	}
 	if recipient == "" {
-		return Mailbox{}, fmt.Errorf("%w: recipient required", ErrInvalid)
+		return nil, fmt.Errorf("%w: recipient required", ErrInvalid)
 	}
 	if body == "" {
-		return Mailbox{}, fmt.Errorf("%w: body required", ErrInvalid)
+		return nil, fmt.Errorf("%w: body required", ErrInvalid)
 	}
 	if ttl <= 0 {
 		ttl = 7 * 24 * time.Hour
@@ -56,14 +67,33 @@ func (s *Store) PingSend(ctx context.Context, sender, recipient, body string, tt
 	}
 	t := now()
 	expires := t + int64(ttl.Seconds())
-	m := Mailbox{Sender: sender, Recipient: recipient, Body: body, Created: t, Expires: expires}
-	if _, err := s.db.NewInsert().Model(&m).Returning("*").Exec(ctx); err != nil {
-		return Mailbox{}, err
+
+	// Resolve fan-out targets first so we know the full set before
+	// inserting. Dedupe against the literal recipient + sender.
+	matched, err := s.SubscriptionMatching(ctx, recipient)
+	if err != nil {
+		return nil, err
 	}
-	// Opportunistic GC. Errors here are non-fatal; the send already
-	// happened.
+	targets := []string{recipient}
+	seen := map[string]bool{recipient: true, sender: true}
+	for _, sub := range matched {
+		if seen[sub.Listener] {
+			continue
+		}
+		seen[sub.Listener] = true
+		targets = append(targets, sub.Listener)
+	}
+
+	out := make([]Mailbox, 0, len(targets))
+	for _, tgt := range targets {
+		row := Mailbox{Sender: sender, Recipient: tgt, Body: body, Created: t, Expires: expires}
+		if _, err := s.db.NewInsert().Model(&row).Returning("*").Exec(ctx); err != nil {
+			return nil, err
+		}
+		out = append(out, row)
+	}
 	_, _ = s.PingGC(ctx)
-	return m, nil
+	return out, nil
 }
 
 // Inbox returns mailbox rows for `recipient`, newest first. Filters:

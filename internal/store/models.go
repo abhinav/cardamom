@@ -68,6 +68,26 @@ type ActiveAgent struct {
 	LastSeen     int64  `bun:"last_seen,notnull" json:"last_seen"`
 }
 
+// Subscription is one listener's interest in pings whose recipient
+// matches `Pattern` (a SQLite GLOB / filepath.Match pattern — typically
+// dotted topic paths like `release.*` but bare names work too).
+//
+// At ping time, the sender always delivers to the literal recipient
+// AND fans out to every subscription whose pattern matches that
+// recipient. `Expires` is required (no infinite subscriptions); dead
+// listeners stop refreshing and drop off via opportunistic GC.
+type Subscription struct {
+	bun.BaseModel `bun:"table:subscriptions" json:"-"`
+
+	ID       int64  `bun:"id,pk,autoincrement" json:"id"`
+	Listener string `bun:"listener,notnull" json:"listener"`
+	Pattern  string `bun:"pattern,notnull" json:"pattern"`
+	PID      int    `bun:"pid,notnull" json:"pid"`
+	Host     string `bun:"host,notnull" json:"host"`
+	Created  int64  `bun:"created,notnull" json:"created"`
+	Expires  int64  `bun:"expires,notnull" json:"expires"`
+}
+
 // CronJob is one scheduled invocation. The `Job` field carries a
 // JSON-encoded payload whose shape depends on its discriminator —
 // see the v9 migration comment for the current vocabulary.

@@ -153,6 +153,26 @@ var migrations = []string{
     ALTER TABLE issues DROP COLUMN agent;
     CREATE INDEX IF NOT EXISTS idx_issues_assignee ON issues(assignee);
     `,
+	// v14: topic subscriptions for ping fan-out. A subscription is
+	// "listener X is interested in any ping whose recipient matches
+	// pattern P." At send time, `PingSend` delivers to the literal
+	// recipient *and* to every subscription whose pattern matches.
+	// Required TTL like locks — no infinite subscriptions; dead
+	// listeners (no refresh) drop off.
+	`
+    CREATE TABLE IF NOT EXISTS subscriptions (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        listener TEXT    NOT NULL,
+        pattern  TEXT    NOT NULL,
+        pid      INTEGER NOT NULL,
+        host     TEXT    NOT NULL,
+        created  INTEGER NOT NULL,
+        expires  INTEGER NOT NULL,
+        UNIQUE (listener, pattern)
+    );
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_listener ON subscriptions(listener);
+    CREATE INDEX IF NOT EXISTS idx_subscriptions_expires  ON subscriptions(expires);
+    `,
 }
 
 func migrate(db *sql.DB) error {
