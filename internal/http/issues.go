@@ -127,11 +127,12 @@ type createIssueReq struct {
 	Priority *int   `json:"priority,omitempty"` // default 2 (matches CLI)
 	// "agent" mirrors the CLI flag; the value lands in the assignee
 	// column. nil = the shared unassigned pool.
-	Agent       *string  `json:"agent,omitempty"`
-	Labels      []string `json:"labels,omitempty"`  // attached after create
-	Parents     []string `json:"parents,omitempty"` // dep edges to add
-	Description string   `json:"description,omitempty"`
-	Notes       string   `json:"notes,omitempty"`
+	Agent        *string  `json:"agent,omitempty"`
+	Labels       []string `json:"labels,omitempty"`       // attached after create
+	Capabilities []string `json:"capabilities,omitempty"` // cap:<name> labels, expanded server-side (matches CLI --capability)
+	Parents      []string `json:"parents,omitempty"`      // dep edges to add
+	Description  string   `json:"description,omitempty"`
+	Notes        string   `json:"notes,omitempty"`
 }
 
 // handleCreateIssue — POST /api/issues
@@ -149,6 +150,7 @@ func (s *Server) handleCreateIssue(w stdhttp.ResponseWriter, r *stdhttp.Request)
 		priority = *body.Priority
 	}
 	issue, err := s.store.CreateWithLinks(ctxOf(r), body.Title, body.Type, priority, body.Agent, store.CreateOpts{
+		Caps:        body.Capabilities,
 		Parents:     body.Parents,
 		Description: body.Description,
 		Notes:       body.Notes,
@@ -277,6 +279,14 @@ func (o *jsonOpt) UnmarshalJSON(data []byte) error {
 	var v string
 	if err := json.Unmarshal(data, &v); err != nil {
 		return err
+	}
+	// Treat empty string as null: PATCH {"assignee":""} unassigns,
+	// matching `clu update --unassign`. Storing the literal "" would
+	// produce a phantom non-null assignee with zero meaning — neither
+	// claimed nor unclaimed — that `list -a ""` could match.
+	if v == "" {
+		o.Value = nil
+		return nil
 	}
 	o.Value = &v
 	return nil

@@ -80,7 +80,7 @@ type InboxCmd struct {
 	Agent    string        `short:"a" name:"agent" default:"${user}" help:"Whose inbox to read (defaults to $USER). Ignored when --global is set."`
 	Global   bool          `short:"A" name:"global" help:"Tail/list every recipient's pings (system-wide). Never marks as read; --peek is implied."`
 	All      bool          `name:"all" help:"Include already-read pings (default: unread only)."`
-	Since    time.Duration `name:"since" default:"0" help:"Only pings newer than this (e.g. 1h). 0 = no floor."`
+	Since    string        `name:"since" help:"Only pings newer than this (e.g. 1h, 2d, 1w). Empty = no floor."`
 	Peek     bool          `name:"peek" help:"Read without marking as read. Default: listing marks them."`
 	Clear    bool          `name:"clear" help:"Mark every unread ping as read without listing them. Mutually exclusive with --peek and --watch."`
 	Watch    bool          `short:"w" name:"watch" help:"Keep emitting as new pings arrive; redraws the screen on each tick. Ctrl+C to exit."`
@@ -268,9 +268,9 @@ func (c *InboxCmd) runClear(r *runCtx) error {
 // mode, never marks read (the caller isn't the recipient, by definition).
 func (c *InboxCmd) runOnce(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
-		var sinceTs int64
-		if c.Since > 0 {
-			sinceTs = time.Now().Add(-c.Since).Unix()
+		sinceTs, err := c.sinceTs()
+		if err != nil {
+			return err
 		}
 		rows, err := c.fetch(r, s, sinceTs)
 		if err != nil {
@@ -302,6 +302,23 @@ func (c *InboxCmd) fetch(r *runCtx, s *store.Store, sinceTs int64) ([]store.Mail
 	return s.Inbox(r.ctx, c.Agent, c.All, sinceTs, c.Limit)
 }
 
+// sinceTs resolves --since to a unix epoch. Empty → 0 (no floor).
+// Accepts d/w units in addition to Go's stdlib durations, matching
+// the parser `clu defer` and `clu cron` use.
+func (c *InboxCmd) sinceTs() (int64, error) {
+	if c.Since == "" {
+		return 0, nil
+	}
+	d, err := parseRelDuration(c.Since)
+	if err != nil {
+		return 0, fmt.Errorf("--since: %w", err)
+	}
+	if d <= 0 {
+		return 0, fmt.Errorf("--since: must be > 0")
+	}
+	return time.Now().Add(-d).Unix(), nil
+}
+
 // runWatch streams new pings as they arrive. Uses the shared
 // watchLoop so unchanged ticks are silent. Each render reads the
 // current unread set; consumed pings stop appearing once marked.
@@ -318,9 +335,9 @@ func (c *InboxCmd) runWatch(r *runCtx) error {
 			if err := c.refreshTopics(r, s); err != nil {
 				return "", err
 			}
-			var sinceTs int64
-			if c.Since > 0 {
-				sinceTs = time.Now().Add(-c.Since).Unix()
+			sinceTs, sErr := c.sinceTs()
+			if sErr != nil {
+				return "", sErr
 			}
 			rows, err := c.fetch(r, s, sinceTs)
 			if err != nil {
@@ -377,9 +394,9 @@ func (c *InboxCmd) runTail(r *runCtx) error {
 			if err := c.refreshTopics(r, s); err != nil {
 				return err
 			}
-			var sinceTs int64
-			if c.Since > 0 {
-				sinceTs = time.Now().Add(-c.Since).Unix()
+			sinceTs, sErr := c.sinceTs()
+			if sErr != nil {
+				return sErr
 			}
 			// Tail is always "unread only" — including all (--all) would
 			// re-emit history every tick. In --global mode we can't

@@ -59,7 +59,10 @@ func (s *Store) PingSend(ctx context.Context, sender, recipient, body string, tt
 	if body == "" {
 		return nil, fmt.Errorf("%w: body required", ErrInvalid)
 	}
-	if ttl <= 0 {
+	if ttl < 0 {
+		return nil, fmt.Errorf("%w: ttl must be > 0", ErrInvalid)
+	}
+	if ttl == 0 {
 		ttl = 7 * 24 * time.Hour
 	}
 	if ttl > PingMaxTTL {

@@ -98,11 +98,15 @@ func (s *Store) PendingCheckpoints(ctx context.Context) ([]PendingCheckpoint, er
 
 // CheckpointResult bundles the outputs of ResolveCheckpoint so callers
 // can format pass/fail uniformly without re-reading the issue.
+//
+// JSON shape matches the rest of the HTTP API (lowercase, omitempty
+// on mode-specific fields so /approve doesn't return a stub
+// `cancelled:null` and /fail doesn't return a zero-valued `closed`).
 type CheckpointResult struct {
-	Pass      bool     // true if the checkpoint passed; false if failed
-	Closed    Issue    // pass mode: the now-closed checkpoint issue
-	Labels    []string // pass mode: labels on the closed issue (incl. checkpoint:passed)
-	Cancelled []Issue  // fail mode: every issue cancelled (the checkpoint + downstream cascade)
+	Pass      bool     `json:"pass"`
+	Closed    *Issue   `json:"closed,omitempty"`    // pass mode only
+	Labels    []string `json:"labels,omitempty"`    // pass mode only
+	Cancelled []Issue  `json:"cancelled,omitempty"` // fail mode only
 }
 
 // ResolveCheckpoint passes or fails a checkpoint issue:
@@ -165,7 +169,7 @@ func (s *Store) ResolveCheckpoint(ctx context.Context, id, as string, pass bool,
 			return CheckpointResult{}, err
 		}
 		labels, _ := s.LabelsForIssue(ctx, id)
-		return CheckpointResult{Pass: true, Closed: closed, Labels: labels}, nil
+		return CheckpointResult{Pass: true, Closed: &closed, Labels: labels}, nil
 	}
 	// Fail: cancel-cascade. Closing the gate would satisfy the `link`
 	// edge from the downstream step and unblock it — opposite of what

@@ -46,7 +46,7 @@ func resolveCheckpoint(r *runCtx, id, as string, pass bool, reason string) error
 		if res.Pass {
 			r.notice("passed %s\n", res.Closed.ID)
 			if r.json {
-				return r.emitJSON(issueOut{Issue: res.Closed, Labels: res.Labels})
+				return r.emitJSON(issueOut{Issue: *res.Closed, Labels: res.Labels})
 			}
 			return nil
 		}

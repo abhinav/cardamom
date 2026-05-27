@@ -60,6 +60,40 @@ func (c *UndeferCmd) Run(r *runCtx) error {
 	})
 }
 
+// parseRelDuration accepts a positive relative duration with h/d/w
+// units in addition to Go's stdlib units (ns/us/ms/s/m/h). Used by
+// `inbox --since`, etc., so users typing `1d` or `2w` get the answer
+// they expect — same parser the defer/cron paths already accept.
+func parseRelDuration(s string) (time.Duration, error) {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return 0, fmt.Errorf("empty duration")
+	}
+	// Try the stdlib first so "1h30m", "500ms", etc. work unchanged.
+	if d, err := time.ParseDuration(s); err == nil {
+		return d, nil
+	}
+	// d/w fallback. Strip an optional leading '+' for symmetry with
+	// `+Nd` in defer/cron — users habitually paste either form.
+	body := strings.TrimPrefix(s, "+")
+	if len(body) < 2 {
+		return 0, fmt.Errorf("invalid duration %q (use Nh, Nd, or Nw)", s)
+	}
+	unit := body[len(body)-1]
+	n, err := strconv.Atoi(body[:len(body)-1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid duration %q (use Nh, Nd, or Nw)", s)
+	}
+	switch unit {
+	case 'd':
+		return time.Duration(n) * 24 * time.Hour, nil
+	case 'w':
+		return time.Duration(n) * 7 * 24 * time.Hour, nil
+	default:
+		return 0, fmt.Errorf("invalid unit %q in %q (use h, d, or w)", string(unit), s)
+	}
+}
+
 // parseWhen accepts:
 //   - YYYY-MM-DD (date, interpreted as 00:00 local time)
 //   - RFC3339 (absolute timestamp)
