@@ -100,6 +100,33 @@ func (s *Store) Inbox(ctx context.Context, recipient string, includeRead bool, s
 	return rows, nil
 }
 
+// InboxAll is Inbox without the recipient filter — every non-expired
+// ping in the mailbox, optionally bounded by `since` / `limit`. Used by
+// `clu inbox --global` to surface a system-wide ping log (debugging,
+// coordinator dashboards). Never marks rows as read; callers are by
+// definition not the addressed recipient.
+func (s *Store) InboxAll(ctx context.Context, includeRead bool, since int64, limit int) ([]Mailbox, error) {
+	_, _ = s.PingGC(ctx)
+	t := now()
+	q := s.db.NewSelect().Model((*Mailbox)(nil)).
+		Where("expires > ?", t).
+		OrderExpr("created DESC")
+	if !includeRead {
+		q = q.Where("read_at IS NULL")
+	}
+	if since > 0 {
+		q = q.Where("created >= ?", since)
+	}
+	if limit > 0 {
+		q = q.Limit(limit)
+	}
+	var rows []Mailbox
+	if err := q.Scan(ctx, &rows); err != nil {
+		return nil, err
+	}
+	return rows, nil
+}
+
 // InboxUnreadCount returns the number of unread, non-expired pings for
 // `recipient`. Used by `clu brief` to surface "you have N waiting" at
 // session start without listing the bodies.
