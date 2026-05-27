@@ -57,14 +57,21 @@ type InboxCmd struct {
 	Since    time.Duration `name:"since" default:"0" help:"Only pings newer than this (e.g. 1h). 0 = no floor."`
 	Peek     bool          `name:"peek" help:"Read without marking as read. Default: listing marks them."`
 	Clear    bool          `name:"clear" help:"Mark every unread ping as read without listing them. Mutually exclusive with --peek and --watch."`
-	Watch    bool          `short:"w" name:"watch" help:"Keep emitting as new pings arrive. Ctrl+C to exit."`
-	Interval time.Duration `name:"interval" default:"1s" help:"Poll interval when --watch is set."`
+	Watch    bool          `short:"w" name:"watch" help:"Keep emitting as new pings arrive; redraws the screen on each tick. Ctrl+C to exit."`
+	Tail     bool          `name:"tail" help:"Like --watch, but append-only: each new ping prints on its own line without redrawing. Closer to 'tail -f'. Ctrl+C to exit."`
+	Interval time.Duration `name:"interval" default:"1s" help:"Poll interval when --watch or --tail is set."`
 	Limit    int           `short:"n" default:"50" help:"Max rows to list (0 = unlimited)."`
 }
 
 func (c *InboxCmd) Run(r *runCtx) error {
-	if c.Clear && (c.Peek || c.Watch) {
-		return errors.New("--clear is mutually exclusive with --peek and --watch")
+	if c.Clear && (c.Peek || c.Watch || c.Tail) {
+		return errors.New("--clear is mutually exclusive with --peek, --watch, and --tail")
+	}
+	if c.Watch && c.Tail {
+		return errors.New("--watch and --tail are mutually exclusive (they render differently)")
+	}
+	if c.Tail && c.Peek {
+		return errors.New("--tail and --peek are mutually exclusive (peek would re-emit the same pings forever)")
 	}
 	if c.Clear {
 		return c.runClear(r)
@@ -74,6 +81,12 @@ func (c *InboxCmd) Run(r *runCtx) error {
 			return errors.New("--watch is not supported with --json (JSON output is a single document)")
 		}
 		return c.runWatch(r)
+	}
+	if c.Tail {
+		if r.json {
+			return errors.New("--tail is not supported with --json (use --watch + a downstream JSON consumer instead)")
+		}
+		return c.runTail(r)
 	}
 	return c.runOnce(r)
 }
@@ -158,6 +171,68 @@ func (c *InboxCmd) runWatch(r *runCtx) error {
 			printInbox(&sub, rows)
 			return buf.String(), nil
 		})
+	})
+}
+
+// runTail streams new pings as one-liners, append-only — no screen
+// redraw. Closer in spirit to `tail -f` than `watch`: you can pipe it
+// into a logger, scroll back through the buffer, and the rendering
+// doesn't fight with anything else printing to the same terminal.
+//
+// Each tick reads the *unread* set, marks it read, and prints one line
+// per ping. Silent on ticks with nothing new.
+func (c *InboxCmd) runTail(r *runCtx) error {
+	return withStore(r, func(s *store.Store) error {
+		interval := c.Interval
+		if interval < time.Second {
+			interval = time.Second
+		}
+		tick := time.NewTicker(interval)
+		defer tick.Stop()
+		// First tick fires immediately so the user gets backlog they
+		// already have unread, then we settle into the interval.
+		emit := func() error {
+			var sinceTs int64
+			if c.Since > 0 {
+				sinceTs = time.Now().Add(-c.Since).Unix()
+			}
+			// Tail is always "unread only" — including all (--all) would
+			// re-emit history every tick.
+			rows, err := s.Inbox(r.ctx, c.Agent, false, sinceTs, c.Limit)
+			if err != nil {
+				return err
+			}
+			if len(rows) == 0 {
+				return nil
+			}
+			for _, m := range rows {
+				ts := time.Unix(m.Created, 0).Format("15:04:05")
+				fmt.Fprintf(r.stdout, "[%s] %s → %s: %s\n", ts, m.Sender, m.Recipient, m.Body)
+			}
+			ids := make([]int64, 0, len(rows))
+			for _, m := range rows {
+				if m.ReadAt == nil {
+					ids = append(ids, m.ID)
+				}
+			}
+			if _, err := s.PingMarkRead(r.ctx, c.Agent, ids); err != nil {
+				return err
+			}
+			return nil
+		}
+		if err := emit(); err != nil {
+			return err
+		}
+		for {
+			select {
+			case <-r.ctx.Done():
+				return r.ctx.Err()
+			case <-tick.C:
+				if err := emit(); err != nil {
+					return err
+				}
+			}
+		}
 	})
 }
 

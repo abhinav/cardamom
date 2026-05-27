@@ -10,7 +10,7 @@ BIN      := clu
 PKG      := ./cmd/clu
 GOBIN    := $(shell $(GO) env GOPATH)/bin
 
-.PHONY: all build install install-bin install-web test test-race vet lint tidy clean demo demo-workflow help
+.PHONY: all build install install-bin install-web update test test-race vet lint tidy clean demo demo-workflow help
 
 all: build
 
@@ -41,6 +41,23 @@ install-web:
 	    echo "skipping web install: pnpm not on PATH"; \
 	    echo "  install pnpm and run: clu web --install"; \
 	fi
+
+## update        Fast-forward main, then build + install (binary + web).
+##                Refuses if the working tree isn't on `main` or has
+##                uncommitted changes — too easy to clobber WIP otherwise.
+update:
+	@branch=$$(git rev-parse --abbrev-ref HEAD); \
+	if [ "$$branch" != "main" ]; then \
+	    echo "make update: on '$$branch', not main. Switch to main or run `git pull` + `make install` manually."; \
+	    exit 1; \
+	fi
+	@if [ -n "$$(git status --porcelain)" ]; then \
+	    echo "make update: working tree has uncommitted changes; commit/stash first."; \
+	    git status --short; \
+	    exit 1; \
+	fi
+	git pull --ff-only
+	$(MAKE) install
 
 ## test          Run all tests (no cache).
 test:
