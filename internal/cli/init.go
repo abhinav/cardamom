@@ -107,13 +107,37 @@ func (c *InitCmd) Run(r *runCtx) error {
 			r.notice("wrote %s\n", examplePath)
 		}
 	}
-	// Gitignore hint on a fresh init.
+	// Local state (data.sqlite + WAL siblings) should never be committed.
+	// Add the patterns to .git/info/exclude (per-clone, untracked) on a
+	// fresh init so users don't have to edit a tracked .gitignore — same
+	// pattern `clu worktree add` uses for .worktrees/. If the user is
+	// outside a git repo, fall back to the printed hint.
 	if !cfgExisted && !r.quiet && !r.json {
-		fmt.Fprintln(r.stdout, "")
-		fmt.Fprintln(r.stdout, "Add to your repo's .gitignore:")
-		fmt.Fprintln(r.stdout, "  "+filepath.Base(r.dir)+"/data.sqlite")
-		fmt.Fprintln(r.stdout, "  "+filepath.Base(r.dir)+"/data.sqlite-shm")
-		fmt.Fprintln(r.stdout, "  "+filepath.Base(r.dir)+"/data.sqlite-wal")
+		base := filepath.Base(r.dir)
+		patterns := []string{
+			base + "/data.sqlite",
+			base + "/data.sqlite-shm",
+			base + "/data.sqlite-wal",
+		}
+		any := false
+		for _, p := range patterns {
+			added, err := ensureGitExclude(r, p)
+			if err != nil {
+				fmt.Fprintln(r.stdout, "")
+				fmt.Fprintln(r.stdout, "(could not update .git/info/exclude; add these to .gitignore manually:)")
+				for _, p2 := range patterns {
+					fmt.Fprintln(r.stdout, "  "+p2)
+				}
+				any = false
+				break
+			}
+			if added {
+				any = true
+			}
+		}
+		if any {
+			fmt.Fprintf(r.stdout, "\nadded %s/data.sqlite* patterns to .git/info/exclude (per-clone; not committed)\n", base)
+		}
 	}
 	return nil
 }
