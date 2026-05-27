@@ -2,23 +2,39 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
+	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
+	"github.com/rovak/clu/internal/config"
 	"github.com/rovak/clu/internal/store"
 )
 
-// PingCmd writes a fire-and-forget mailbox row addressed to one
-// agent. Distinct from `clu comment add`: doesn't attach to an issue,
+// PingCmd writes a fire-and-forget mailbox row to one or more agents.
+// Distinct from `clu comment add`: doesn't attach to an issue,
 // auto-expires, doesn't pollute the work log. The body can come from
 // positional args, '-', or piped stdin (same convention as comment add).
+//
+// The recipient slot is the targeting selector:
+//
+//	clu ping alice "msg"             - one recipient (literal name)
+//	clu ping '*' "msg"               - broadcast to every declared+live agent
+//	clu ping 'bug-*' "msg"           - glob across declared+live agents
+//	clu ping cap:go "msg"            - everyone advertising the "go" capability
+//
+// Quote selectors that contain shell-significant characters (`*`,
+// `?`, `[`). Sender is always excluded from multi-recipient targets
+// — you don't ping yourself. A selector with zero matches exits
+// nonzero so callers can detect "nobody was reachable."
 type PingCmd struct {
-	Recipient string        `arg:"" name:"recipient" help:"Agent name to ping."`
+	Recipient string        `arg:"" name:"recipient" help:"Agent name, '*' for broadcast, 'cap:<name>' for capability filter, or a glob like 'bug-*'."`
 	Body      []string      `arg:"" optional:"" help:"Message body. Use '-' or omit (with piped stdin) to read from stdin."`
 	Agent     string        `short:"a" name:"agent" default:"${user}" help:"Sender identity (defaults to $USER)."`
-	TTL       time.Duration `name:"ttl" default:"168h" help:"How long the ping lives in the recipient's mailbox before auto-purge. Capped at 720h (30 days)."`
+	TTL       time.Duration `name:"ttl" default:"168h" help:"How long each ping lives in the recipient's mailbox before auto-purge. Capped at 720h (30 days)."`
 }
 
 func (c *PingCmd) Run(r *runCtx) error {
@@ -30,18 +46,147 @@ func (c *PingCmd) Run(r *runCtx) error {
 		return errors.New("ping body required (positional args, '-', or pipe via stdin)")
 	}
 	return withStore(r, func(s *store.Store) error {
-		m, err := s.PingSend(r.ctx, c.Agent, c.Recipient, body, c.TTL)
+		recipients, err := c.resolveRecipients(r, s)
 		if err != nil {
 			return err
 		}
-		if r.json {
-			return r.emitJSON(m)
+		recipients = excludeOne(recipients, c.Agent)
+		if len(recipients) == 0 {
+			return errors.New("no matching agents")
 		}
-		r.notice("pinged %s as %s (#%d, expires %s)\n",
-			m.Recipient, m.Sender, m.ID,
-			time.Unix(m.Expires, 0).Format(time.RFC3339))
+		sent := make([]store.Mailbox, 0, len(recipients))
+		for _, recip := range recipients {
+			m, err := s.PingSend(r.ctx, c.Agent, recip, body, c.TTL)
+			if err != nil {
+				return fmt.Errorf("ping %s: %w", recip, err)
+			}
+			sent = append(sent, m)
+		}
+		if r.json {
+			return r.emitJSON(sent)
+		}
+		// Single-recipient: keep the original tighter format. Broadcast:
+		// summary first, then per-row IDs so a script can pick them up.
+		if len(sent) == 1 {
+			m := sent[0]
+			r.notice("pinged %s as %s (#%d, expires %s)\n",
+				m.Recipient, m.Sender, m.ID,
+				time.Unix(m.Expires, 0).Format(time.RFC3339))
+			return nil
+		}
+		names := make([]string, len(sent))
+		for i, m := range sent {
+			names[i] = m.Recipient
+		}
+		r.notice("pinged %d agent(s) as %s: %s\n", len(sent), c.Agent, strings.Join(names, ", "))
 		return nil
 	})
+}
+
+// resolveRecipients interprets the recipient slot as a selector:
+//
+//	"*"            → every declared + currently-live agent
+//	"cap:<name>"   → every agent (declared OR live) with that capability
+//	"bug-*" etc.   → glob match against declared+live agent names
+//	"alice"        → literal name (one recipient)
+//
+// Globs match the union of declared (config.yaml) and currently-live
+// (heartbeat) agents, so an ad-hoc claude session running --watch is
+// reachable even without a config entry.
+func (c *PingCmd) resolveRecipients(r *runCtx, s *store.Store) ([]string, error) {
+	cfg, err := config.Load(r.dir)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case c.Recipient == "*":
+		return knownAgents(r.ctx, s, cfg)
+	case strings.HasPrefix(c.Recipient, "cap:"):
+		capName := strings.TrimPrefix(c.Recipient, "cap:")
+		if capName == "" {
+			return nil, errors.New("cap: selector requires a capability name (e.g. cap:go)")
+		}
+		return agentsWithCapability(r.ctx, s, cfg, capName)
+	case strings.ContainsAny(c.Recipient, "*?["):
+		universe, err := knownAgents(r.ctx, s, cfg)
+		if err != nil {
+			return nil, err
+		}
+		var matches []string
+		for _, name := range universe {
+			if ok, _ := filepath.Match(c.Recipient, name); ok {
+				matches = append(matches, name)
+			}
+		}
+		return matches, nil
+	default:
+		return []string{c.Recipient}, nil
+	}
+}
+
+// knownAgents returns the union of declared agents (config.yaml) and
+// currently-live agents (active_agents heartbeats), sorted, deduped.
+// Used by targeting that needs to know "every agent that might
+// reasonably receive a ping."
+func knownAgents(ctx context.Context, s *store.Store, cfg config.Config) ([]string, error) {
+	set := make(map[string]bool, len(cfg.Agents))
+	for name := range cfg.Agents {
+		set[name] = true
+	}
+	live, err := s.AgentList(ctx, store.AgentStaleThresholdSec)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range live {
+		set[a.Name] = true
+	}
+	out := make([]string, 0, len(set))
+	for n := range set {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// agentsWithCapability returns every agent (declared OR live) whose
+// capability list contains `cap`. Live agents publish their caps in
+// active_agents.capabilities; declared ones come from config.
+func agentsWithCapability(ctx context.Context, s *store.Store, cfg config.Config, cap string) ([]string, error) {
+	set := make(map[string]bool)
+	for _, name := range cfg.AgentsWithCapability(cap) {
+		set[name] = true
+	}
+	live, err := s.AgentList(ctx, store.AgentStaleThresholdSec)
+	if err != nil {
+		return nil, err
+	}
+	for _, a := range live {
+		for _, c := range a.DecodeCapabilities() {
+			if c == cap {
+				set[a.Name] = true
+				break
+			}
+		}
+	}
+	out := make([]string, 0, len(set))
+	for n := range set {
+		out = append(out, n)
+	}
+	sort.Strings(out)
+	return out, nil
+}
+
+// excludeOne removes the first occurrence of `name` from `in`. Used to
+// drop the sender from a broadcast recipient list — you don't ping
+// yourself when blasting "status?" to the whole team.
+func excludeOne(in []string, name string) []string {
+	out := make([]string, 0, len(in))
+	for _, n := range in {
+		if n != name {
+			out = append(out, n)
+		}
+	}
+	return out
 }
 
 // InboxCmd reads the mailbox addressed to one agent. By default lists

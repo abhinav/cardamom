@@ -318,6 +318,11 @@ pollute the work log.
 clu ping eng2 "hold off on session.go, refactoring it for ~30m"
 echo "lint green, deploying preview" | clu ping reviewer -
 
+# Broadcast / targeted sends. The recipient slot is the selector:
+clu ping '*' "status update?"             # everyone (declared + live)
+clu ping 'bug-*' "build broken"           # glob across known agents
+clu ping cap:go "PR for review"           # everyone with capability `go`
+
 # Read your inbox (marks read on consume).
 clu inbox
 clu inbox --peek                  # see without consuming
@@ -327,6 +332,8 @@ clu inbox --clear                 # dismiss all unread
 
 # Continuous push feed (works with Claude Code's Monitor tool).
 Monitor: clu inbox --watch -a <your-name>
+Monitor: clu inbox --tail -a <your-name>  # append-only, no redraw
+Monitor: clu inbox --global --tail        # system-wide feed, never marks read
 ```
 
 `clu brief` shows your unread-pings count at session start, so a
