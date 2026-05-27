@@ -45,7 +45,7 @@ func (c *WorktreeAddCmd) Run(r *runCtx) error {
 	if worktreeDir == "" {
 		worktreeDir = config.DefaultWorktreeDir
 	}
-	dest, usedDefault, err := resolveWorktreePath(c.Path, worktreeDir)
+	dest, usedDefault, err := resolveWorktreePath(r, c.Path, worktreeDir)
 	if err != nil {
 		return err
 	}
@@ -56,13 +56,24 @@ func (c *WorktreeAddCmd) Run(r *runCtx) error {
 	// diff to surprise the team, but the entry still survives across
 	// secondary worktrees since info/exclude lives in the common .git.
 	if usedDefault {
-		if added, err := ensureGitExclude(worktreeDir + "/"); err != nil {
+		if added, err := ensureGitExclude(r, worktreeDir+"/"); err != nil {
 			r.notice("warning: could not update .git/info/exclude: %v (add `%s/` manually)\n", err, worktreeDir)
 		} else if added {
 			r.notice("added `%s/` to .git/info/exclude (per-clone; not committed)\n", worktreeDir)
 		}
 	}
+	// Anchor `git worktree add` to the main worktree so it works when
+	// the user runs clu from outside the repo via --dir.
+	gitDir := mainFromDir(r.dir)
+	if gitDir == "" {
+		if m, err := mainWorktreePath(); err == nil {
+			gitDir = m
+		}
+	}
 	args := []string{"worktree", "add"}
+	if gitDir != "" {
+		args = append([]string{"-C", gitDir}, args...)
+	}
 	if c.Branch != "" {
 		args = append(args, "-b", c.Branch)
 	}
@@ -98,7 +109,7 @@ func (c *WorktreeAddCmd) Run(r *runCtx) error {
 // The bare-name default keeps worktrees inside a single, gitignored
 // folder so they don't clutter sibling directories or accidentally
 // land inside the working tree as untracked files.
-func resolveWorktreePath(raw, worktreeDir string) (string, bool, error) {
+func resolveWorktreePath(r *runCtx, raw, worktreeDir string) (string, bool, error) {
 	if raw == "" {
 		return "", false, errors.New("path required")
 	}
@@ -112,15 +123,37 @@ func resolveWorktreePath(raw, worktreeDir string) (string, bool, error) {
 		}
 		return abs, false, nil
 	}
-	// Bare name: place under <main>/<worktreeDir>/<name>.
-	main, err := mainWorktreePath()
-	if err != nil {
-		// Not in a git repo; fall back to cwd-relative without the
-		// worktreeDir prefix — git worktree add will fail anyway.
-		abs, ferr := filepath.Abs(raw)
-		return abs, false, ferr
+	// Bare name: place under <main>/<worktreeDir>/<name>. Prefer the
+	// main worktree implied by r.dir (which resolveCluDir already
+	// resolved to <main>/.clu, including when --dir was passed
+	// explicitly). Fall back to a fresh git rev-parse from cwd when
+	// r.dir doesn't look like .clu inside a worktree — this covers the
+	// "no .clu yet, brand-new project" case.
+	if main := mainFromDir(r.dir); main != "" {
+		return filepath.Join(main, worktreeDir, raw), true, nil
 	}
-	return filepath.Join(main, worktreeDir, raw), true, nil
+	if main, err := mainWorktreePath(); err == nil {
+		return filepath.Join(main, worktreeDir, raw), true, nil
+	}
+	// Last resort: cwd-relative without the worktreeDir prefix.
+	abs, ferr := filepath.Abs(raw)
+	return abs, false, ferr
+}
+
+// mainFromDir returns the absolute path of the main worktree implied
+// by the given clu directory (which is expected to be `<main>/.clu`).
+// Returns "" if r.dir is the bare default ".clu" — that means
+// resolveCluDir couldn't find a real .clu and we should fall back to
+// the git-driven lookup.
+func mainFromDir(dir string) string {
+	if dir == "" || dir == ".clu" {
+		return ""
+	}
+	abs, err := filepath.Abs(dir)
+	if err != nil {
+		return ""
+	}
+	return filepath.Dir(abs)
 }
 
 // resolveExistingWorktreePath is the bootstrap/remove counterpart to
@@ -134,10 +167,14 @@ func resolveExistingWorktreePath(r *runCtx, raw string) (string, error) {
 		return "", errors.New("path required")
 	}
 	if filepath.IsAbs(raw) {
-		return filepath.Clean(raw), nil
+		return canonical(filepath.Clean(raw)), nil
 	}
 	if strings.HasPrefix(raw, "./") || strings.HasPrefix(raw, "../") || strings.ContainsRune(raw, filepath.Separator) {
-		return filepath.Abs(raw)
+		abs, err := filepath.Abs(raw)
+		if err != nil {
+			return "", err
+		}
+		return canonical(abs), nil
 	}
 	cfg, err := config.Load(r.dir)
 	if err != nil {
@@ -147,13 +184,36 @@ func resolveExistingWorktreePath(r *runCtx, raw string) (string, error) {
 	if worktreeDir == "" {
 		worktreeDir = config.DefaultWorktreeDir
 	}
-	if main, err := mainWorktreePath(); err == nil {
+	// Same dir-driven preference as resolveWorktreePath — honors --dir
+	// from outside the repo. Falls back to git lookup for the
+	// brand-new project case.
+	var main string
+	if m := mainFromDir(r.dir); m != "" {
+		main = m
+	} else if m, err := mainWorktreePath(); err == nil {
+		main = m
+	}
+	if main != "" {
 		candidate := filepath.Join(main, worktreeDir, raw)
 		if info, err := os.Stat(candidate); err == nil && info.IsDir() {
-			return candidate, nil
+			return canonical(candidate), nil
 		}
 	}
-	return filepath.Abs(raw)
+	abs, err := filepath.Abs(raw)
+	if err != nil {
+		return "", err
+	}
+	return canonical(abs), nil
+}
+
+// canonical resolves symlinks if possible, otherwise returns the
+// cleaned input. Used in the resolve-existing path so /tmp/foo and
+// /private/tmp/foo (macOS) compare equal downstream.
+func canonical(p string) string {
+	if r, err := filepath.EvalSymlinks(p); err == nil {
+		return r
+	}
+	return filepath.Clean(p)
 }
 
 // ensureGitExclude appends `entry` to the repo's `.git/info/exclude`
@@ -162,8 +222,12 @@ func resolveExistingWorktreePath(r *runCtx, raw string) (string, error) {
 // across secondary worktrees (it lives in the common .git directory,
 // found via `git rev-parse --git-common-dir`). Creates the file if it
 // doesn't exist. Returns true when the file was actually written to.
-func ensureGitExclude(entry string) (bool, error) {
-	out, err := exec.Command("git", "rev-parse", "--path-format=absolute", "--git-common-dir").Output()
+func ensureGitExclude(r *runCtx, entry string) (bool, error) {
+	cmd := exec.Command("git", "rev-parse", "--path-format=absolute", "--git-common-dir")
+	if m := mainFromDir(r.dir); m != "" {
+		cmd.Dir = m
+	}
+	out, err := cmd.Output()
 	if err != nil {
 		return false, fmt.Errorf("git rev-parse: %w", err)
 	}
@@ -254,7 +318,16 @@ func (c *WorktreeRemoveCmd) Run(r *runCtx) error {
 		}
 	}
 
-	args := []string{"worktree", "remove"}
+	// Run git from inside the target worktree (or the main worktree
+	// as fallback) so `git worktree remove` works even when the user
+	// invokes clu from outside the repo via --dir.
+	gitDir := dest
+	if !isGitWorktree(gitDir) {
+		if m := mainFromDir(r.dir); m != "" {
+			gitDir = m
+		}
+	}
+	args := []string{"-C", gitDir, "worktree", "remove"}
 	if c.Force {
 		args = append(args, "--force")
 	}
