@@ -24,7 +24,8 @@ import (
 // surfaces the local-state gitignore recipe so the user knows what to
 // add to their repo's .gitignore.
 type InitCmd struct {
-	Prefix string `name:"prefix" help:"ID prefix for newly-created issues (only used on first init; ignored if config.yaml already exists)."`
+	Prefix  string `name:"prefix" help:"ID prefix for newly-created issues (only used on first init; ignored if config.yaml already exists)."`
+	Stealth bool   `name:"stealth" help:"Exclude the entire .clu/ folder via .git/info/exclude (per-clone, not committed). Use when you want to run clu locally without sharing config or templates with the repo. Default excludes only data.sqlite*."`
 }
 
 func (c *InitCmd) Run(r *runCtx) error {
@@ -108,35 +109,51 @@ func (c *InitCmd) Run(r *runCtx) error {
 		}
 	}
 	// Local state (data.sqlite + WAL siblings) should never be committed.
-	// Add the patterns to .git/info/exclude (per-clone, untracked) on a
-	// fresh init so users don't have to edit a tracked .gitignore — same
-	// pattern `clu worktree add` uses for .worktrees/. If the user is
-	// outside a git repo, fall back to the printed hint.
+	// Default mode excludes just those via .git/info/exclude (per-clone,
+	// untracked) — config.yaml + templates/ stay trackable for sharing.
+	// --stealth excludes the whole <dir>/ folder so a single dev can use
+	// clu locally without committing anything to the shared repo.
+	//
+	// Caveat for --stealth: files already tracked in git (e.g. someone
+	// else committed .clu/config.yaml) stay tracked. Use `git rm
+	// --cached <path>` to fully un-share an already-committed file.
 	if !cfgExisted && !r.quiet && !r.json {
 		base := filepath.Base(r.dir)
-		patterns := []string{
-			base + "/data.sqlite",
-			base + "/data.sqlite-shm",
-			base + "/data.sqlite-wal",
-		}
-		any := false
-		for _, p := range patterns {
-			added, err := ensureGitExclude(r, p)
-			if err != nil {
-				fmt.Fprintln(r.stdout, "")
-				fmt.Fprintln(r.stdout, "(could not update .git/info/exclude; add these to .gitignore manually:)")
-				for _, p2 := range patterns {
-					fmt.Fprintln(r.stdout, "  "+p2)
-				}
-				any = false
-				break
-			}
-			if added {
-				any = true
+		var patterns []string
+		if c.Stealth {
+			patterns = []string{base + "/"}
+		} else {
+			patterns = []string{
+				base + "/data.sqlite",
+				base + "/data.sqlite-shm",
+				base + "/data.sqlite-wal",
 			}
 		}
-		if any {
-			fmt.Fprintf(r.stdout, "\nadded %s/data.sqlite* patterns to .git/info/exclude (per-clone; not committed)\n", base)
+		if err := writeExcludes(r, patterns); err != nil {
+			fmt.Fprintln(r.stdout, "")
+			fmt.Fprintln(r.stdout, "(could not update .git/info/exclude; add these to .gitignore manually:)")
+			for _, p := range patterns {
+				fmt.Fprintln(r.stdout, "  "+p)
+			}
+			return nil
+		}
+		fmt.Fprintln(r.stdout, "")
+		if c.Stealth {
+			fmt.Fprintf(r.stdout, "stealth mode: added %s/ to .git/info/exclude — nothing in this folder will land in git status (per-clone; not committed). If %s/config.yaml is already tracked by someone else, `git rm --cached` to fully un-share.\n", base, base)
+		} else {
+			fmt.Fprintf(r.stdout, "added %s/data.sqlite* patterns to .git/info/exclude (per-clone; not committed)\n", base)
+		}
+	}
+	return nil
+}
+
+// writeExcludes appends each pattern to .git/info/exclude (idempotent).
+// Returns the first error; partial writes are tolerated since
+// ensureGitExclude is itself idempotent on re-run.
+func writeExcludes(r *runCtx, patterns []string) error {
+	for _, p := range patterns {
+		if _, err := ensureGitExclude(r, p); err != nil {
+			return err
 		}
 	}
 	return nil
