@@ -1,13 +1,16 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/rovak/clu/internal/config"
@@ -98,6 +101,15 @@ func (c *AgentStartCmd) Run(r *runCtx) error {
 
 // runAgentProcess execs argv in the foreground with inherited stdio,
 // keeping the agent's heartbeat fresh until the child exits.
+//
+// Signal handling: the child runs in clu's process group, so the
+// terminal delivers Ctrl+C (SIGINT) straight to it — claude/codex get to
+// handle their own interrupt (e.g. cancel the current turn) rather than
+// being hard-killed. We deliberately use exec.Command (not
+// CommandContext) so clu never SIGKILLs the child on its own signal, and
+// clu ignores SIGINT/SIGQUIT while the child is foreground so it doesn't
+// tear itself down out from under the child. The child owns the terminal
+// until it exits.
 func runAgentProcess(r *runCtx, s *store.Store, name string, caps []string, argv []string) error {
 	cleanup, err := startHeartbeat(s, name, caps)
 	if err != nil {
@@ -123,11 +135,32 @@ func runAgentProcess(r *runCtx, s *store.Store, name string, caps []string, argv
 	}()
 
 	r.notice("starting %s: %s\n", name, argv[0])
-	cmd := exec.CommandContext(r.ctx, argv[0], argv[1:]...)
+	cmd := exec.Command(argv[0], argv[1:]...)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = r.stdout
 	cmd.Stderr = r.stderr
-	return cmd.Run()
+	if err := cmd.Start(); err != nil {
+		return err
+	}
+	// Ignore SIGINT/SIGQUIT in clu now that the child has its own copy
+	// (inherited the default disposition at exec time). Set after Start
+	// so the child isn't launched with SIG_IGN already in place.
+	signal.Ignore(syscall.SIGINT, syscall.SIGQUIT)
+	defer signal.Reset(syscall.SIGINT, syscall.SIGQUIT)
+
+	werr := cmd.Wait()
+	// A child terminated by a signal (e.g. the user killing it) isn't a
+	// clu error. A non-zero exit is surfaced so scripts see the failure.
+	var exit *exec.ExitError
+	if errors.As(werr, &exit) {
+		if exit.ProcessState.Exited() {
+			if code := exit.ProcessState.ExitCode(); code != 0 {
+				return fmt.Errorf("%s exited with status %d", name, code)
+			}
+		}
+		return nil
+	}
+	return werr
 }
 
 // shellSafe matches tokens that need no quoting in a copy-pasteable line.
