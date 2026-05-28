@@ -51,12 +51,26 @@ type Worktree struct {
 // `worktree.dir` is unset.
 const DefaultWorktreeDir = ".worktrees"
 
-// Agent is the declarative side of an agent: who they are and what they
-// can do. Committed to git. The live side (heartbeat, pid, host) lives
-// in the active_agents table, populated by --wait/--watch loops.
+// Agent is the declarative side of an agent: who they are, what they can
+// do, and how to launch them. Committed to git. The live side (heartbeat,
+// pid, host) lives in the active_agents table, populated by --wait/--watch
+// loops and by `clu agent start`.
+//
+// The launch fields drive `clu agent start <name>`:
+//   - Command is the executable (e.g. "claude"). Required to start.
+//   - Prompts are files under <dir>/agents/<name>/ passed to the command,
+//     each preceded by PromptFlag. Empty → every *.md in that folder.
+//   - PromptFlag is how each prompt path is passed (default
+//     "--append-system-prompt" when Command is "claude"; otherwise
+//     required when Prompts are present).
+//   - Args are extra static arguments appended after the prompts.
 type Agent struct {
 	Description  string   `yaml:"description,omitempty"`
 	Capabilities []string `yaml:"capabilities,omitempty"`
+	Command      string   `yaml:"command,omitempty"`
+	PromptFlag   string   `yaml:"prompt_flag,omitempty"`
+	Prompts      []string `yaml:"prompts,omitempty"`
+	Args         []string `yaml:"args,omitempty"`
 }
 
 // Default returns a Config with the safe defaults Load uses when a key
@@ -104,6 +118,17 @@ func (c Config) Validate() error {
 		for _, cap := range a.Capabilities {
 			if !agentNameRe.MatchString(cap) {
 				return fmt.Errorf("agent %q: capability %q: same rules as agent names", name, cap)
+			}
+		}
+		for _, p := range a.Prompts {
+			if p == "" {
+				return fmt.Errorf("agent %q: prompts: empty entry", name)
+			}
+			if filepath.IsAbs(p) {
+				return fmt.Errorf("agent %q: prompt %q: must be relative to agents/%s/, not absolute", name, p, name)
+			}
+			if strings.Contains(p, "..") {
+				return fmt.Errorf("agent %q: prompt %q: must not contain '..'", name, p)
 			}
 		}
 	}
@@ -225,6 +250,13 @@ id_prefix: %s
 #   code-reviewer:
 #     description: "Reviews Go code for correctness and security"
 #     capabilities: [go-review, security-review]
+#     # Launch with: clu agent start code-reviewer
+#     # command is the executable; prompts are files under
+#     # .clu/agents/code-reviewer/ passed to it (claude defaults
+#     # prompt_flag to --append-system-prompt). Omit prompts to use every
+#     # *.md in that folder. Run with --print to see the command first.
+#     command: claude
+#     prompts: [AGENTS.md, SOUL.md]
 #   doc-writer:
 #     description: "Writes README + docs/ updates"
 #     capabilities: [docs]

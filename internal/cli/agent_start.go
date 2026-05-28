@@ -1,0 +1,148 @@
+package cli
+
+import (
+	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/rovak/clu/internal/config"
+	"github.com/rovak/clu/internal/store"
+)
+
+// AgentStartCmd launches a declared agent: it assembles a command from
+// the agent's config.yaml launch spec and execs it in the foreground,
+// inheriting the terminal. While the child runs, a heartbeat keeps the
+// agent visible as live in `clu agent ls`; the row is cleared on exit.
+//
+// This is a thin launcher, not a supervisor — no daemonizing, no
+// restart-on-crash. Use --print to see the assembled command without
+// running it (handy for wiring clu into your own launcher).
+type AgentStartCmd struct {
+	Name  string   `arg:"" help:"Agent name (declared in config.yaml)."`
+	Print bool     `name:"print" aliases:"dry-run" help:"Print the assembled command and exit without launching."`
+	Rest  []string `arg:"" optional:"" name:"args" passthrough:"" help:"Extra arguments forwarded to the agent command."`
+}
+
+func (c *AgentStartCmd) Run(r *runCtx) error {
+	cfg, err := config.Load(r.dir)
+	if err != nil {
+		return err
+	}
+	agent, ok := cfg.Agents[c.Name]
+	if !ok {
+		return fmt.Errorf("agent %q is not declared in config.yaml", c.Name)
+	}
+	if agent.Command == "" {
+		return fmt.Errorf("agent %q has no `command` set in config.yaml (e.g. command: claude)", c.Name)
+	}
+
+	// Prompts live under <dir>/agents/<name>/. An explicit list wins;
+	// otherwise every *.md in that folder, sorted, is used.
+	promptDir := filepath.Join(r.dir, "agents", c.Name)
+	prompts := agent.Prompts
+	if len(prompts) == 0 {
+		matches, _ := filepath.Glob(filepath.Join(promptDir, "*.md"))
+		sort.Strings(matches)
+		for _, m := range matches {
+			prompts = append(prompts, filepath.Base(m))
+		}
+	}
+
+	// How each prompt is passed. claude is the common case, so default
+	// its flag; any other command must declare prompt_flag if it has
+	// prompts, since there's no portable convention.
+	promptFlag := agent.PromptFlag
+	if promptFlag == "" && len(prompts) > 0 {
+		if filepath.Base(agent.Command) == "claude" {
+			promptFlag = "--append-system-prompt"
+		} else {
+			return fmt.Errorf("agent %q: prompts are set but prompt_flag is not — declare how %q takes a prompt file (e.g. prompt_flag: --system-prompt)", c.Name, agent.Command)
+		}
+	}
+
+	argv := []string{agent.Command}
+	for _, p := range prompts {
+		full := filepath.Join(promptDir, p)
+		if _, err := os.Stat(full); err != nil {
+			return fmt.Errorf("agent %q: prompt file not found: %s", c.Name, full)
+		}
+		argv = append(argv, promptFlag, full)
+	}
+	argv = append(argv, agent.Args...)
+	// A leading "--" is the flags/args separator, not an argument to
+	// forward — drop one if present so `start name -- foo` passes `foo`.
+	rest := c.Rest
+	if len(rest) > 0 && rest[0] == "--" {
+		rest = rest[1:]
+	}
+	argv = append(argv, rest...)
+
+	if c.Print {
+		if r.json {
+			return r.emitJSON(map[string]any{"command": agent.Command, "argv": argv})
+		}
+		fmt.Fprintln(r.stdout, shellJoin(argv))
+		return nil
+	}
+
+	caps := resolveAgent(r.dir, c.Name)
+	return withStore(r, func(s *store.Store) error {
+		return runAgentProcess(r, s, c.Name, caps, argv)
+	})
+}
+
+// runAgentProcess execs argv in the foreground with inherited stdio,
+// keeping the agent's heartbeat fresh until the child exits.
+func runAgentProcess(r *runCtx, s *store.Store, name string, caps []string, argv []string) error {
+	cleanup, err := startHeartbeat(s, name, caps)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+
+	// Advance last_seen periodically so `agent ls` shows the session as
+	// live for its whole lifetime, not just the first 30s.
+	done := make(chan struct{})
+	defer close(done)
+	go func() {
+		t := time.NewTicker(10 * time.Second)
+		defer t.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-t.C:
+				heartbeatTick(s, name, caps)
+			}
+		}
+	}()
+
+	r.notice("starting %s: %s\n", name, argv[0])
+	cmd := exec.CommandContext(r.ctx, argv[0], argv[1:]...)
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = r.stdout
+	cmd.Stderr = r.stderr
+	return cmd.Run()
+}
+
+// shellSafe matches tokens that need no quoting in a copy-pasteable line.
+var shellSafe = regexp.MustCompile(`^[A-Za-z0-9_@%+=:,./-]+$`)
+
+// shellJoin renders argv as a single shell-pasteable line, single-quoting
+// any token that isn't obviously safe.
+func shellJoin(argv []string) string {
+	parts := make([]string, len(argv))
+	for i, a := range argv {
+		if a != "" && shellSafe.MatchString(a) {
+			parts[i] = a
+		} else {
+			parts[i] = "'" + strings.ReplaceAll(a, "'", `'\''`) + "'"
+		}
+	}
+	return strings.Join(parts, " ")
+}

@@ -68,9 +68,10 @@ func heartbeatTick(s *store.Store, name string, caps []string) {
 // ---- `clu agent` commands ----
 
 type AgentCmd struct {
-	Ls   AgentLsCmd   `cmd:"" aliases:"list" help:"List declared agents (config) with an active indicator."`
-	Show AgentShowCmd `cmd:"" help:"Show one agent's full record."`
-	Gc   AgentGcCmd   `cmd:"" help:"Forcibly drop stale active_agents rows (older than --stale-seconds)."`
+	Start AgentStartCmd `cmd:"" help:"Launch a declared agent (config.yaml command + prompts), heartbeating while it runs."`
+	Ls    AgentLsCmd    `cmd:"" aliases:"list" help:"List declared agents (config) with an active indicator."`
+	Show  AgentShowCmd  `cmd:"" help:"Show one agent's full record."`
+	Gc    AgentGcCmd    `cmd:"" help:"Forcibly drop stale active_agents rows (older than --stale-seconds)."`
 }
 
 // ---- agent ls ----

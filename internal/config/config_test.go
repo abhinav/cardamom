@@ -105,3 +105,40 @@ func TestWriteRefusesOverwrite(t *testing.T) {
 		t.Fatal("Write should refuse to overwrite an existing config")
 	}
 }
+
+func TestLoadAgentLaunchSpec(t *testing.T) {
+	dir := t.TempDir()
+	body := `id_prefix: clu-
+agents:
+  reviewer:
+    description: "reviews"
+    capabilities: [go-review]
+    command: claude
+    prompts: [AGENTS.md, SOUL.md]
+`
+	if err := os.WriteFile(filepath.Join(dir, "config.yaml"), []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cfg, err := Load(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	a := cfg.Agents["reviewer"]
+	if a.Command != "claude" {
+		t.Fatalf("command = %q, want claude", a.Command)
+	}
+	if len(a.Prompts) != 2 || a.Prompts[0] != "AGENTS.md" {
+		t.Fatalf("prompts = %v", a.Prompts)
+	}
+}
+
+func TestValidateRejectsBadPromptPaths(t *testing.T) {
+	for _, p := range []string{"/abs/AGENTS.md", "../escape.md", ""} {
+		c := Config{IDPrefix: "clu-", Agents: map[string]Agent{
+			"a": {Command: "claude", Prompts: []string{p}},
+		}}
+		if err := c.Validate(); err == nil {
+			t.Fatalf("prompt %q should be rejected", p)
+		}
+	}
+}

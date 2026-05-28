@@ -264,3 +264,92 @@ func TestCLIAgentGcDropsStaleRows(t *testing.T) {
 		t.Fatalf("expected 'no stale rows':\n%s", out)
 	}
 }
+
+func TestCLIAgentStartPrint(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  reviewer:
+    description: "Reviews code"
+    capabilities: [go-review]
+    command: claude
+    prompts: [AGENTS.md, SOUL.md]
+`)
+	// Prompt files must exist for assembly to succeed.
+	pdir := filepath.Join(c.dir, "agents", "reviewer")
+	if err := os.MkdirAll(pdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"AGENTS.md", "SOUL.md"} {
+		if err := os.WriteFile(filepath.Join(pdir, f), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	out := c.run("agent", "start", "--print", "reviewer")
+	if !strings.Contains(out, "claude --append-system-prompt") {
+		t.Fatalf("expected claude default prompt flag:\n%s", out)
+	}
+	if !strings.Contains(out, "AGENTS.md") || !strings.Contains(out, "SOUL.md") {
+		t.Fatalf("expected both prompt files in command:\n%s", out)
+	}
+
+	// JSON form carries the full argv.
+	jout := c.run("--json", "agent", "start", "--print", "reviewer")
+	var got struct {
+		Command string   `json:"command"`
+		Argv    []string `json:"argv"`
+	}
+	if err := json.Unmarshal([]byte(jout), &got); err != nil {
+		t.Fatalf("json: %v\n%s", err, jout)
+	}
+	if got.Command != "claude" || len(got.Argv) != 5 {
+		t.Fatalf("unexpected argv: %+v", got)
+	}
+}
+
+func TestCLIAgentStartErrors(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  nocmd:
+    description: "no command"
+`)
+	c.runFail("agent", "start", "--print", "ghost")  // not declared
+	c.runFail("agent", "start", "--print", "nocmd")  // no command set
+}
+
+func TestCLIAgentStartGlobsPromptDir(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  reviewer:
+    command: claude
+`)
+	pdir := filepath.Join(c.dir, "agents", "reviewer")
+	if err := os.MkdirAll(pdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// No `prompts:` in config → every *.md is picked up, sorted.
+	for _, f := range []string{"02-second.md", "01-first.md", "ignore.txt"} {
+		if err := os.WriteFile(filepath.Join(pdir, f), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	out := c.run("agent", "start", "--print", "reviewer")
+	if !strings.Contains(out, "01-first.md") || !strings.Contains(out, "02-second.md") {
+		t.Fatalf("expected globbed md files:\n%s", out)
+	}
+	if strings.Contains(out, "ignore.txt") {
+		t.Fatalf("non-md file leaked into command:\n%s", out)
+	}
+	if strings.Index(out, "01-first.md") > strings.Index(out, "02-second.md") {
+		t.Fatalf("globbed prompts not sorted:\n%s", out)
+	}
+}
