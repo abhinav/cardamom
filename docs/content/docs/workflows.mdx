@@ -56,8 +56,10 @@ A step with `type: checkpoint` additionally gets:
 - a `checkpoint:pending` label, and
 - a `cp:<issue-id>` KV entry holding `{kind, approvers}` JSON.
 
-`clu approve` checks the calling agent against the `approvers` list before
-closing the checkpoint. **Failing** a checkpoint cascade-cancels the rest of
+`clu approve` records the calling agent as the approver and closes the
+checkpoint. The `approvers` list is informational only — it is **not**
+enforced (single-user model), so any agent can approve. **Failing** a
+checkpoint cascade-cancels the rest of
 the run via the same forward-walk that powers `clu cancel`.
 
 See [`demo-workflow.sh`](https://github.com/Rovak/agents-clu/blob/main/demo-workflow.sh)

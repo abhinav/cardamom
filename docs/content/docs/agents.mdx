@@ -36,6 +36,7 @@ notification. No `while true`, no diff-against-seen.
   agent name, claim from your lane. If you're a generalist, claim from the
   unassigned lane.
 - **Don't bypass checkpoints.** A `checkpoint:pending` label means a human (or
-  another agent on the approver list) needs to clear it via `clu approve`.
+  another agent) needs to clear it via `clu approve` (the approver list is
+  informational, not enforced).
 - **Don't hand-edit `.clu/data.sqlite`.** Use the CLI; it knows about labels,
   KV side tables, and the cascade walk.

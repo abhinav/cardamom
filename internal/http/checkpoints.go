@@ -54,9 +54,9 @@ type resolveCheckpointReq struct {
 
 // handleApproveCheckpoint — POST /api/checkpoints/{id}/approve
 //
-// X-Clu-Agent is the approver identity; store.ResolveCheckpoint checks
-// it against the cp:<id> payload's approver list for approval-kind
-// checkpoints. body.reason (optional) is appended to the issue's notes.
+// X-Clu-Agent is the approver identity, recorded on the checkpoint.
+// It is informational only — the declared approver list is not enforced
+// (single-user model). body.reason (optional) is appended to the notes.
 func (s *Server) handleApproveCheckpoint(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 	s.resolveCheckpoint(w, r, true)
 }

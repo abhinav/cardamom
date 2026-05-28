@@ -46,7 +46,7 @@ type CLI struct {
 	Priority PriorityCmd `cmd:"" group:"edits" help:"Set an issue's priority (sugar for 'update -p N')."`
 	Describe DescribeCmd `cmd:"" group:"edits" help:"Set or clear an issue's description (sugar for 'update --description')."`
 	Note     NoteCmd     `cmd:"" group:"edits" help:"Manage an issue's freeform notes."`
-	Comment  CommentCmd  `cmd:"" group:"edits" help:"Manage threaded comments on an issue."`
+	Comment  CommentCmd  `cmd:"" group:"edits" help:"Manage comments on an issue."`
 	Label    LabelCmd    `cmd:"" group:"edits" help:"Manage labels on an issue."`
 	Tag      TagCmd      `cmd:"" group:"edits" help:"Add labels to an issue (alias for 'label add')."`
 	Dep      DepCmd      `cmd:"" group:"edits" help:"Manage dependency edges."`

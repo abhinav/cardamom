@@ -36,7 +36,7 @@ identity uses `-a` / `--agent <name>`:
 
 - `clu claim -a foo` — `foo` is both the lane filter and the assignee.
 - `clu comment add -a foo …` — `foo` is the author.
-- `clu approve -a foo` — `foo` is the approver checked against the approvers list.
+- `clu approve -a foo` — `foo` is recorded as the approver (informational; the approvers list is not enforced).
 - `clu ready -a foo` / `clu list -a foo` — `foo` is the lane filter.
 
 Bare `clu claim` defaults assignee to `$USER` and pulls from the unassigned

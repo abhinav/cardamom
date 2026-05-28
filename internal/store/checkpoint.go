@@ -112,7 +112,8 @@ type CheckpointResult struct {
 // ResolveCheckpoint passes or fails a checkpoint issue:
 //
 //   - validates the issue exists, is type=checkpoint, and is not closed
-//   - for pass+approval, checks `as` is in the approvers list
+//   - records `as` as the approver (informational — the approver list is
+//     NOT enforced; see the note below)
 //   - swaps checkpoint:pending → checkpoint:passed | checkpoint:failed
 //   - appends `reason` to notes (if non-empty)
 //   - pass: MarkClosed the issue (unblocks downstream)
