@@ -39,6 +39,7 @@ func resolveCheckpoint(r *runCtx, id, as string, pass bool, reason string) error
 		as = currentUser()
 	}
 	return withStore(r, func(s *store.Store) error {
+		s.SetActor(as) // the approver/caller is the acting identity
 		res, err := s.ResolveCheckpoint(r.ctx, id, as, pass, reason)
 		if err != nil {
 			return err

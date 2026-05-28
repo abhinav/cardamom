@@ -130,6 +130,26 @@ func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority
 	if created.Assignee != nil {
 		changed["assignee"] = *created.Assignee
 	}
+	// Record the atomically-attached extras so history reflects what was
+	// actually created (no separate labeled/dep_added events follow a
+	// CreateWithLinks). Description/notes are recorded as presence flags,
+	// not text, matching the changed-fields-only payload convention.
+	if len(opts.Caps) > 0 {
+		caps := make([]string, len(opts.Caps))
+		for i, c := range opts.Caps {
+			caps[i] = "cap:" + c
+		}
+		changed["labels"] = caps
+	}
+	if len(opts.Parents) > 0 {
+		changed["depends_on"] = opts.Parents
+	}
+	if created.Description != nil {
+		changed["description"] = true
+	}
+	if created.Notes != nil {
+		changed["notes"] = true
+	}
 	s.recordEvent(ctx, created.ID, "created", changed)
 	return created, nil
 }
@@ -382,7 +402,22 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 	if f.Description != nil {
 		changed["description"] = *f.Description != nil
 	}
-	s.recordEvent(ctx, id, "updated", changed)
+	// When the status changes, emit the semantic kind matching the
+	// resulting state (closed/cancelled/reopened) so `log --kind closed`
+	// finds transitions made via `update`, not just via `close`/`cancel`.
+	// The full changed-field set is preserved in the payload either way.
+	kind := "updated"
+	if f.Status != nil {
+		switch *f.Status {
+		case "closed":
+			kind = "closed"
+		case "cancelled":
+			kind = "cancelled"
+		case "open":
+			kind = "reopened"
+		}
+	}
+	s.recordEvent(ctx, id, kind, changed)
 	return s.Get(ctx, id)
 }
 

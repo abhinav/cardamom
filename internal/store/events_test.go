@@ -124,3 +124,129 @@ func TestEventsSurviveBlankActor(t *testing.T) {
 		t.Fatalf("expected one event with nil actor, got %v", evs)
 	}
 }
+
+func TestEventLabelRecordsOnlyChanged(t *testing.T) {
+	s := newTestStore(t)
+	i, _ := s.Create(ctx, "t", "task", 2, nil)
+	mustPayload := func(kind, want string) {
+		t.Helper()
+		evs, _ := s.History(ctx, i.ID)
+		last := evs[len(evs)-1]
+		if last.Kind != kind {
+			t.Fatalf("last kind = %q, want %q", last.Kind, kind)
+		}
+		if last.Payload == nil || !strings.Contains(*last.Payload, want) {
+			t.Fatalf("%s payload = %v, want contains %q", kind, last.Payload, want)
+		}
+	}
+	if _, err := s.AddLabels(ctx, i.ID, []string{"alpha", "beta"}); err != nil {
+		t.Fatal(err)
+	}
+	mustPayload("labeled", `["alpha","beta"]`)
+	// alpha already present → only gamma is the real change.
+	if _, err := s.AddLabels(ctx, i.ID, []string{"alpha", "gamma"}); err != nil {
+		t.Fatal(err)
+	}
+	mustPayload("labeled", `"added":["gamma"]`)
+	// missing-label not present → only beta is the real removal.
+	if _, err := s.RemoveLabels(ctx, i.ID, []string{"beta", "missing-label"}); err != nil {
+		t.Fatal(err)
+	}
+	mustPayload("unlabeled", `"removed":["beta"]`)
+
+	// Adding only already-present labels records no event.
+	before, _ := s.History(ctx, i.ID)
+	if _, err := s.AddLabels(ctx, i.ID, []string{"alpha"}); err != nil {
+		t.Fatal(err)
+	}
+	after, _ := s.History(ctx, i.ID)
+	if len(after) != len(before) {
+		t.Fatalf("no-op label add recorded an event: %d → %d", len(before), len(after))
+	}
+}
+
+func TestEventDuplicateDepNoSecondEvent(t *testing.T) {
+	s := newTestStore(t)
+	a, _ := s.Create(ctx, "a", "task", 2, nil)
+	b, _ := s.Create(ctx, "b", "task", 2, nil)
+	if err := s.AddDep(ctx, a.ID, b.ID); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.AddDep(ctx, a.ID, b.ID); err != nil { // duplicate, no-op
+		t.Fatal(err)
+	}
+	var n int
+	for _, k := range kindsFor(t, s, a.ID) {
+		if k == "dep_added" {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Fatalf("duplicate dep add recorded %d dep_added events, want 1", n)
+	}
+}
+
+func TestEventCreatedRecordsExtras(t *testing.T) {
+	s := newTestStore(t)
+	parent, _ := s.Create(ctx, "parent", "task", 2, nil)
+	child, err := s.CreateWithLinks(ctx, "child", "task", 2, ptr("routed"), CreateOpts{
+		Caps:        []string{"go-review"},
+		Parents:     []string{parent.ID},
+		Description: "desc",
+		Notes:       "note",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	evs, _ := s.History(ctx, child.ID)
+	p := *evs[0].Payload
+	for _, want := range []string{`"labels":["cap:go-review"]`, `"depends_on":["` + parent.ID + `"]`, `"description":true`, `"notes":true`, `"assignee":"routed"`} {
+		if !strings.Contains(p, want) {
+			t.Fatalf("created payload missing %q:\n%s", want, p)
+		}
+	}
+}
+
+func TestEventCommentEditRemove(t *testing.T) {
+	s := newTestStore(t)
+	i, _ := s.Create(ctx, "t", "task", 2, nil)
+	cm, err := s.AddComment(ctx, i.ID, "alice", "first")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.EditComment(ctx, cm.ID, "edited"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.RemoveComment(ctx, cm.ID); err != nil {
+		t.Fatal(err)
+	}
+	got := kindsFor(t, s, i.ID)
+	want := []string{"created", "commented", "comment_edited", "comment_removed"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("comment event kinds:\n got %v\nwant %v", got, want)
+	}
+}
+
+func TestEventUpdateUsesSemanticStatusKind(t *testing.T) {
+	s := newTestStore(t)
+	i, _ := s.Create(ctx, "t", "task", 2, nil)
+	if _, err := s.Update(ctx, i.ID, UpdateFields{Status: ptr("closed")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Update(ctx, i.ID, UpdateFields{Status: ptr("open")}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := s.Update(ctx, i.ID, UpdateFields{Status: ptr("cancelled")}); err != nil {
+		t.Fatal(err)
+	}
+	got := kindsFor(t, s, i.ID)
+	want := []string{"created", "closed", "reopened", "cancelled"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("update status kinds:\n got %v\nwant %v", got, want)
+	}
+	// And they are reachable by kind filter.
+	closed, _ := s.EventLog(ctx, EventFilter{IssueID: i.ID, Kind: "closed"})
+	if len(closed) != 1 {
+		t.Fatalf("log --kind closed found %d, want 1", len(closed))
+	}
+}

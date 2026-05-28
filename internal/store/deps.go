@@ -13,6 +13,7 @@ func (s *Store) AddDep(ctx context.Context, child, parent string) error {
 	if child == parent {
 		return ErrSelfDep
 	}
+	var inserted bool
 	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if err := issueExistsTx(ctx, tx, child); err != nil {
 			return fmt.Errorf("child: %w", err)
@@ -36,13 +37,19 @@ func (s *Store) AddDep(ctx context.Context, child, parent string) error {
 		if cycle == 1 {
 			return ErrCycle
 		}
-		_, err = tx.NewInsert().
+		res, err := tx.NewInsert().
 			Model(&Dep{ChildID: child, ParentID: parent}).
 			On("CONFLICT DO NOTHING").
 			Exec(ctx)
-		return err
+		if err != nil {
+			return err
+		}
+		if n, _ := res.RowsAffected(); n > 0 {
+			inserted = true
+		}
+		return nil
 	})
-	if err == nil {
+	if err == nil && inserted {
 		s.recordEvent(ctx, child, "dep_added", map[string]any{"parent": parent})
 	}
 	return err

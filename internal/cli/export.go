@@ -14,6 +14,10 @@ import (
 //
 // Issue:  {"kind":"issue","data":{...issue fields..., "labels":["x"]}}
 // Dep:    {"kind":"dep","data":{"child":"bd-x","parent":"bd-y"}}
+//
+// Export carries portable *state* (issues, deps, labels, comments, kv) —
+// not the audit log. Events are a local history trail and are
+// intentionally excluded; restoring an export starts a fresh log.
 type exportLine struct {
 	Kind string          `json:"kind"`
 	Data json.RawMessage `json:"data"`

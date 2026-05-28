@@ -2620,3 +2620,45 @@ func TestCLIHistoryAndLog(t *testing.T) {
 		t.Fatalf("kind filter leaked other kinds:\n%s", claimed)
 	}
 }
+
+func TestCLILabelJSONContract(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "json labels", "task"))
+
+	// label ls --json on an empty set → [] (not human "(none)").
+	out := c.run("--json", "label", "ls", id)
+	if strings.TrimSpace(out) != "[]" {
+		t.Fatalf("empty label ls --json = %q, want []", strings.TrimSpace(out))
+	}
+
+	c.run("label", "add", id, "one")
+	// label ls --json → JSON array.
+	var labels []string
+	if err := json.Unmarshal([]byte(c.run("--json", "label", "ls", id)), &labels); err != nil {
+		t.Fatalf("label ls --json not an array: %v", err)
+	}
+	if len(labels) != 1 || labels[0] != "one" {
+		t.Fatalf("label ls --json = %v", labels)
+	}
+
+	// label rm --json → an issue object (not empty output).
+	rmOut := c.run("--json", "label", "rm", id, "one")
+	var obj map[string]any
+	if err := json.Unmarshal([]byte(rmOut), &obj); err != nil {
+		t.Fatalf("label rm --json not an object: %v\n%q", err, rmOut)
+	}
+	if obj["id"] != id {
+		t.Fatalf("label rm --json missing id: %v", obj)
+	}
+}
+
+func TestCLICommentLsJSONEmptyIsArray(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "no comments", "task"))
+	out := strings.TrimSpace(c.run("--json", "comment", "ls", id))
+	if out != "[]" {
+		t.Fatalf("empty comment ls --json = %q, want []", out)
+	}
+}

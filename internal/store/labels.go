@@ -25,6 +25,19 @@ func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) 
 	if err := s.exists(ctx, issueID); err != nil {
 		return 0, err
 	}
+	// Compute the labels that aren't already present so the audit event
+	// records what actually changed, not the requested set.
+	have, err := s.labelSet(ctx, issueID)
+	if err != nil {
+		return 0, err
+	}
+	var added []string
+	for _, l := range labels {
+		if !have[l] {
+			added = append(added, l)
+			have[l] = true // dedupe within this call
+		}
+	}
 	rows := make([]IssueLabel, len(labels))
 	for i, l := range labels {
 		rows[i] = IssueLabel{IssueID: issueID, Label: l}
@@ -34,10 +47,28 @@ func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) 
 		return 0, err
 	}
 	n, _ := res.RowsAffected()
-	if n > 0 {
-		s.recordEvent(ctx, issueID, "labeled", map[string]any{"added": labels})
+	if len(added) > 0 {
+		s.recordEvent(ctx, issueID, "labeled", map[string]any{"added": added})
 	}
 	return int(n), nil
+}
+
+// labelSet returns the issue's current labels as a set for membership
+// checks. The issue is assumed to exist (callers check first).
+func (s *Store) labelSet(ctx context.Context, issueID string) (map[string]bool, error) {
+	var labels []string
+	if err := s.db.NewSelect().
+		Model((*IssueLabel)(nil)).
+		Column("label").
+		Where("issue_id = ?", issueID).
+		Scan(ctx, &labels); err != nil {
+		return nil, err
+	}
+	set := make(map[string]bool, len(labels))
+	for _, l := range labels {
+		set[l] = true
+	}
+	return set, nil
 }
 
 // RemoveLabels detaches labels from an issue. Returns the number
@@ -51,6 +82,19 @@ func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []strin
 	if len(labels) == 0 {
 		return 0, nil
 	}
+	// Record only the labels that were actually present (and thus
+	// removed), not the requested set.
+	have, err := s.labelSet(ctx, issueID)
+	if err != nil {
+		return 0, err
+	}
+	var removed []string
+	for _, l := range labels {
+		if have[l] {
+			removed = append(removed, l)
+			delete(have, l) // dedupe within this call
+		}
+	}
 	res, err := s.db.NewDelete().
 		Model((*IssueLabel)(nil)).
 		Where("issue_id = ?", issueID).
@@ -60,8 +104,8 @@ func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []strin
 		return 0, err
 	}
 	n, _ := res.RowsAffected()
-	if n > 0 {
-		s.recordEvent(ctx, issueID, "unlabeled", map[string]any{"removed": labels})
+	if len(removed) > 0 {
+		s.recordEvent(ctx, issueID, "unlabeled", map[string]any{"removed": removed})
 	}
 	return int(n), nil
 }

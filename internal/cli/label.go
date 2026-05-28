@@ -61,6 +61,17 @@ func (c *LabelRmCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			i, err := s.Get(r.ctx, c.ID)
+			if err != nil {
+				return err
+			}
+			labels, err := s.LabelsForIssue(r.ctx, c.ID)
+			if err != nil {
+				return err
+			}
+			return r.emitJSON(issueOut{Issue: i, Labels: labels})
+		}
 		// Honest count: report actual removals, surface absent ones
 		// so a script can tell whether the call changed anything.
 		absent := len(c.Labels) - removed
@@ -164,6 +175,12 @@ func (c *LabelPropagateCmd) Run(r *runCtx) error {
 			return err
 		}
 
+		// Audit each child that actually gained labels. Done after the
+		// tx commits (events are best-effort, like every other path).
+		for _, res := range results {
+			s.RecordLabeled(r.ctx, res.ID, res.Added)
+		}
+
 		if r.json {
 			// Non-nil slices so `jq -r '.results[].skipped[]'` doesn't
 			// trip on missing keys when a child had no overlap.
@@ -217,6 +234,12 @@ func (c *LabelLsCmd) Run(r *runCtx) error {
 		labels, err := s.LabelsForIssue(r.ctx, c.ID)
 		if err != nil {
 			return err
+		}
+		if r.json {
+			if labels == nil {
+				labels = []string{}
+			}
+			return r.emitJSON(labels)
 		}
 		if len(labels) == 0 {
 			fmt.Fprintln(r.stdout, "(none)")

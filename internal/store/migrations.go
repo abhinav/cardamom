@@ -173,14 +173,22 @@ var migrations = []string{
     CREATE INDEX IF NOT EXISTS idx_subscriptions_listener ON subscriptions(listener);
     CREATE INDEX IF NOT EXISTS idx_subscriptions_expires  ON subscriptions(expires);
     `,
-	// v15: append-only audit log. Every write path records who changed
-	// what, when. `payload` is JSON holding *only the fields that
-	// changed* (e.g. {"status":"closed"}), not a full snapshot — the
-	// row `id` is the handle for richer lookups. issue_id / actor are
-	// nullable: some events aren't issue-scoped, and actor is whatever
-	// identity the CLI resolved ($USER or --agent). No FK on issue_id:
-	// events outlive the issues they describe (we keep history even
-	// after a hard delete).
+	// v15: append-only audit log for issue + comment history. Issue
+	// write paths (create, claim, close, reopen, cancel, update, defer,
+	// notes, label add/rm, dep add/rm) and comment writes record who
+	// changed what, when. Deliberately NOT recorded: ephemeral
+	// coordination state (locks, mailbox/ping, agent heartbeats,
+	// subscriptions) and the side stores (kv, cron) — heartbeats alone
+	// would flood the log. These events are local only and are not
+	// included in export/import (which carries portable state, not
+	// audit history).
+	//
+	// `payload` is JSON holding *only the fields that changed* (e.g.
+	// {"status":"closed"}), not a full snapshot — the row `id` is the
+	// handle for richer lookups. issue_id / actor are nullable: actor is
+	// whatever identity the CLI resolved ($USER or --agent). No FK on
+	// issue_id: events outlive the issues they describe (history
+	// survives a hard delete).
 	`
     CREATE TABLE IF NOT EXISTS events (
         id       INTEGER PRIMARY KEY AUTOINCREMENT,

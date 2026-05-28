@@ -31,6 +31,17 @@ func (s *Store) recordEvent(ctx context.Context, issueID, kind string, changed m
 	_, _ = s.db.NewInsert().Model(&ev).Exec(ctx)
 }
 
+// RecordLabeled records a "labeled" audit event for issueID. Exported
+// for callers (label propagate) that add labels through a transaction
+// helper instead of AddLabels and so need to log the change themselves.
+// No-op when added is empty.
+func (s *Store) RecordLabeled(ctx context.Context, issueID string, added []string) {
+	if len(added) == 0 {
+		return
+	}
+	s.recordEvent(ctx, issueID, "labeled", map[string]any{"added": added})
+}
+
 // EventFilter narrows EventLog. Zero value matches everything.
 type EventFilter struct {
 	IssueID string // exact issue scope; empty = any

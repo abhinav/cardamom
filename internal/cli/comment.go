@@ -78,8 +78,9 @@ func readBody(args []string) (string, error) {
 // + created timestamp are preserved so references to the comment ID
 // stay stable.
 type CommentEditCmd struct {
-	ID   int64    `arg:"" help:"Comment ID (numeric, as shown in 'clu comment ls')."`
-	Body []string `arg:"" optional:"" help:"New body. Same input modes as 'comment add' (positional, '-', or stdin)."`
+	ID    int64    `arg:"" help:"Comment ID (numeric, as shown in 'clu comment ls')."`
+	Body  []string `arg:"" optional:"" help:"New body. Same input modes as 'comment add' (positional, '-', or stdin)."`
+	Agent string   `short:"a" name:"agent" default:"${user}" help:"Agent identity recorded as the actor for this edit. Defaults to $USER."`
 }
 
 func (c *CommentEditCmd) Run(r *runCtx) error {
@@ -91,6 +92,7 @@ func (c *CommentEditCmd) Run(r *runCtx) error {
 		return fmt.Errorf("comment body required (positional args, '-', or pipe via stdin)")
 	}
 	return withStore(r, func(s *store.Store) error {
+		s.SetActor(c.Agent)
 		cm, err := s.EditComment(r.ctx, c.ID, body)
 		if err != nil {
 			return err
@@ -114,6 +116,9 @@ func (c *CommentLsCmd) Run(r *runCtx) error {
 			return err
 		}
 		if r.json {
+			if cs == nil {
+				cs = []store.Comment{}
+			}
 			return r.emitJSON(cs)
 		}
 		printComments(r, cs)
@@ -122,11 +127,13 @@ func (c *CommentLsCmd) Run(r *runCtx) error {
 }
 
 type CommentRmCmd struct {
-	ID int64 `arg:"" help:"Comment ID (numeric, as shown in 'cli comment ls')."`
+	ID    int64  `arg:"" help:"Comment ID (numeric, as shown in 'cli comment ls')."`
+	Agent string `short:"a" name:"agent" default:"${user}" help:"Agent identity recorded as the actor for this removal. Defaults to $USER."`
 }
 
 func (c *CommentRmCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
+		s.SetActor(c.Agent)
 		if err := s.RemoveComment(r.ctx, c.ID); err != nil {
 			return err
 		}

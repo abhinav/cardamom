@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 )
@@ -48,6 +49,17 @@ func (s *Store) Comments(ctx context.Context, issueID string) ([]Comment, error)
 // ErrNotFound (which is for issues) so the CLI can say "comment not
 // found" instead of "issue not found".
 func (s *Store) RemoveComment(ctx context.Context, commentID int64) error {
+	// Look up the owning issue first so the audit event can be scoped to
+	// it (the delete itself only knows the comment id).
+	var issueID string
+	err := s.db.NewSelect().Model((*Comment)(nil)).
+		Column("issue_id").Where("id = ?", commentID).Scan(ctx, &issueID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrCommentNotFound
+	}
+	if err != nil {
+		return err
+	}
 	res, err := s.db.NewDelete().
 		Model((*Comment)(nil)).
 		Where("id = ?", commentID).
@@ -58,6 +70,7 @@ func (s *Store) RemoveComment(ctx context.Context, commentID int64) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrCommentNotFound
 	}
+	s.recordEvent(ctx, issueID, "comment_removed", map[string]any{"comment_id": commentID})
 	return nil
 }
 
@@ -83,6 +96,7 @@ func (s *Store) EditComment(ctx context.Context, commentID int64, body string) (
 	if err := s.db.NewSelect().Model(&cm).Where("id = ?", commentID).Scan(ctx); err != nil {
 		return Comment{}, err
 	}
+	s.recordEvent(ctx, cm.IssueID, "comment_edited", map[string]any{"comment_id": commentID})
 	return cm, nil
 }
 
