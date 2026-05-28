@@ -255,6 +255,10 @@ id_prefix: %s
 #     # .clu/agents/code-reviewer/ passed to it (claude defaults
 #     # prompt_flag to --append-system-prompt). Omit prompts to use every
 #     # *.md in that folder. Run with --print to see the command first.
+#     #
+#     # Shared base: any *.md in .clu/agents/_shared/ is prepended to
+#     # every agent (e.g. a common AGENTS.md / AUTONOMY.md) so the shared
+#     # contract lives in one place. Per-agent prompts come after it.
 #     command: claude
 #     prompts: [AGENTS.md, SOUL.md]
 #   doc-writer:

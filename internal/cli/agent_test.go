@@ -353,3 +353,45 @@ agents:
 		t.Fatalf("globbed prompts not sorted:\n%s", out)
 	}
 }
+
+func TestCLIAgentStartSharedLayer(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  reviewer:
+    command: claude
+    prompts: [SOUL.md]
+`)
+	// Shared base files.
+	shared := filepath.Join(c.dir, "agents", "_shared")
+	if err := os.MkdirAll(shared, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{"AGENTS.md", "AUTONOMY.md"} {
+		if err := os.WriteFile(filepath.Join(shared, f), []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Per-agent persona.
+	pdir := filepath.Join(c.dir, "agents", "reviewer")
+	if err := os.MkdirAll(pdir, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(pdir, "SOUL.md"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	out := c.run("agent", "start", "--print", "reviewer")
+	// Shared files come first (sorted), persona last.
+	iA := strings.Index(out, "_shared/AGENTS.md")
+	iU := strings.Index(out, "_shared/AUTONOMY.md")
+	iS := strings.Index(out, "reviewer/SOUL.md")
+	if iA < 0 || iU < 0 || iS < 0 {
+		t.Fatalf("missing a prompt file in command:\n%s", out)
+	}
+	if !(iA < iU && iU < iS) {
+		t.Fatalf("expected shared-first, sorted, persona-last ordering:\n%s", out)
+	}
+}

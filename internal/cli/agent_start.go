@@ -17,10 +17,22 @@ import (
 	"github.com/rovak/clu/internal/store"
 )
 
+// sharedPromptDir is the conventional folder under <dir>/agents/ whose
+// *.md files are prepended to every agent's prompts. It lets the common
+// contract (e.g. AGENTS.md, AUTONOMY.md) live in one place instead of
+// being copied into each agent folder. The leading underscore keeps it
+// from ever colliding with an agent name (those must start with a
+// letter — see config.ValidAgentOrCapName).
+const sharedPromptDir = "_shared"
+
 // AgentStartCmd launches a declared agent: it assembles a command from
 // the agent's config.yaml launch spec and execs it in the foreground,
 // inheriting the terminal. While the child runs, a heartbeat keeps the
 // agent visible as live in `clu agent ls`; the row is cleared on exit.
+//
+// Prompt files are layered: the shared base (<dir>/agents/_shared/*.md,
+// sorted) comes first, then the agent's own prompts, so a persona refines
+// the shared contract rather than restating it.
 //
 // This is a thin launcher, not a supervisor — no daemonizing, no
 // restart-on-crash. Use --print to see the assembled command without
@@ -44,23 +56,38 @@ func (c *AgentStartCmd) Run(r *runCtx) error {
 		return fmt.Errorf("agent %q has no `command` set in config.yaml (e.g. command: claude)", c.Name)
 	}
 
-	// Prompts live under <dir>/agents/<name>/. An explicit list wins;
-	// otherwise every *.md in that folder, sorted, is used.
-	promptDir := filepath.Join(r.dir, "agents", c.Name)
-	prompts := agent.Prompts
-	if len(prompts) == 0 {
-		matches, _ := filepath.Glob(filepath.Join(promptDir, "*.md"))
-		sort.Strings(matches)
-		for _, m := range matches {
-			prompts = append(prompts, filepath.Base(m))
+	// Assemble the prompt files as full paths, shared layer first.
+	agentsDir := filepath.Join(r.dir, "agents")
+	promptDir := filepath.Join(agentsDir, c.Name)
+	var promptPaths []string
+
+	// Shared base: every *.md in <dir>/agents/_shared/, sorted, applied
+	// to every agent before its own prompts.
+	sharedMatches, _ := filepath.Glob(filepath.Join(agentsDir, sharedPromptDir, "*.md"))
+	sort.Strings(sharedMatches)
+	promptPaths = append(promptPaths, sharedMatches...)
+
+	// Per-agent layer: an explicit prompts: list (relative to the agent
+	// folder), or every *.md in it when unset.
+	if len(agent.Prompts) > 0 {
+		for _, p := range agent.Prompts {
+			full := filepath.Join(promptDir, p)
+			if _, err := os.Stat(full); err != nil {
+				return fmt.Errorf("agent %q: prompt file not found: %s", c.Name, full)
+			}
+			promptPaths = append(promptPaths, full)
 		}
+	} else {
+		ownMatches, _ := filepath.Glob(filepath.Join(promptDir, "*.md"))
+		sort.Strings(ownMatches)
+		promptPaths = append(promptPaths, ownMatches...)
 	}
 
 	// How each prompt is passed. claude is the common case, so default
 	// its flag; any other command must declare prompt_flag if it has
 	// prompts, since there's no portable convention.
 	promptFlag := agent.PromptFlag
-	if promptFlag == "" && len(prompts) > 0 {
+	if promptFlag == "" && len(promptPaths) > 0 {
 		if filepath.Base(agent.Command) == "claude" {
 			promptFlag = "--append-system-prompt"
 		} else {
@@ -69,11 +96,7 @@ func (c *AgentStartCmd) Run(r *runCtx) error {
 	}
 
 	argv := []string{agent.Command}
-	for _, p := range prompts {
-		full := filepath.Join(promptDir, p)
-		if _, err := os.Stat(full); err != nil {
-			return fmt.Errorf("agent %q: prompt file not found: %s", c.Name, full)
-		}
+	for _, full := range promptPaths {
 		argv = append(argv, promptFlag, full)
 	}
 	argv = append(argv, agent.Args...)
