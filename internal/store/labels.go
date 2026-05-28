@@ -34,6 +34,9 @@ func (s *Store) AddLabels(ctx context.Context, issueID string, labels []string) 
 		return 0, err
 	}
 	n, _ := res.RowsAffected()
+	if n > 0 {
+		s.recordEvent(ctx, issueID, "labeled", map[string]any{"added": labels})
+	}
 	return int(n), nil
 }
 
@@ -57,6 +60,9 @@ func (s *Store) RemoveLabels(ctx context.Context, issueID string, labels []strin
 		return 0, err
 	}
 	n, _ := res.RowsAffected()
+	if n > 0 {
+		s.recordEvent(ctx, issueID, "unlabeled", map[string]any{"removed": labels})
+	}
 	return int(n), nil
 }
 

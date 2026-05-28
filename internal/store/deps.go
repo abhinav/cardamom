@@ -13,7 +13,7 @@ func (s *Store) AddDep(ctx context.Context, child, parent string) error {
 	if child == parent {
 		return ErrSelfDep
 	}
-	return s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+	err := s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if err := issueExistsTx(ctx, tx, child); err != nil {
 			return fmt.Errorf("child: %w", err)
 		}
@@ -42,6 +42,10 @@ func (s *Store) AddDep(ctx context.Context, child, parent string) error {
 			Exec(ctx)
 		return err
 	})
+	if err == nil {
+		s.recordEvent(ctx, child, "dep_added", map[string]any{"parent": parent})
+	}
+	return err
 }
 
 func issueExistsTx(ctx context.Context, tx bun.Tx, id string) error {
@@ -75,6 +79,7 @@ func (s *Store) RemoveDep(ctx context.Context, child, parent string) error {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return ErrDepNotFound
 	}
+	s.recordEvent(ctx, child, "dep_removed", map[string]any{"parent": parent})
 	return nil
 }
 

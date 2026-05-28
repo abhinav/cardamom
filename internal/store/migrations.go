@@ -173,6 +173,26 @@ var migrations = []string{
     CREATE INDEX IF NOT EXISTS idx_subscriptions_listener ON subscriptions(listener);
     CREATE INDEX IF NOT EXISTS idx_subscriptions_expires  ON subscriptions(expires);
     `,
+	// v15: append-only audit log. Every write path records who changed
+	// what, when. `payload` is JSON holding *only the fields that
+	// changed* (e.g. {"status":"closed"}), not a full snapshot — the
+	// row `id` is the handle for richer lookups. issue_id / actor are
+	// nullable: some events aren't issue-scoped, and actor is whatever
+	// identity the CLI resolved ($USER or --agent). No FK on issue_id:
+	// events outlive the issues they describe (we keep history even
+	// after a hard delete).
+	`
+    CREATE TABLE IF NOT EXISTS events (
+        id       INTEGER PRIMARY KEY AUTOINCREMENT,
+        issue_id TEXT,
+        actor    TEXT,
+        kind     TEXT    NOT NULL,
+        payload  TEXT,
+        ts       INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_events_issue ON events(issue_id, ts);
+    CREATE INDEX IF NOT EXISTS idx_events_ts    ON events(ts);
+    `,
 }
 
 func migrate(db *sql.DB) error {

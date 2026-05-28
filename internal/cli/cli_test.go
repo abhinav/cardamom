@@ -2577,3 +2577,46 @@ func TestCLIWorktreeRemoveRefusesMain(t *testing.T) {
 		t.Fatalf("expected main-worktree error; got:\n%s", errBuf.String())
 	}
 }
+
+func TestCLIHistoryAndLog(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	id := strings.TrimSpace(c.run("create", "-p", "2", "trackme", "task"))
+	c.run("claim", "-a", "worker", id)
+	c.run("close", id)
+
+	// history: per-issue timeline, oldest first.
+	hist := c.run("history", id)
+	for _, want := range []string{"created", "claimed", "closed"} {
+		if !strings.Contains(hist, want) {
+			t.Fatalf("history missing %q:\n%s", want, hist)
+		}
+	}
+	if idx0, idxC := strings.Index(hist, "created"), strings.Index(hist, "closed"); idx0 > idxC {
+		t.Fatalf("history not oldest-first:\n%s", hist)
+	}
+	// The claimer is recorded as the actor on the claim event.
+	if !strings.Contains(hist, "worker") {
+		t.Fatalf("history missing claimer actor:\n%s", hist)
+	}
+
+	// log --json: one array, payload is a nested object not a string.
+	out := c.run("--json", "log", "--issue", id)
+	var evs []map[string]any
+	if err := json.Unmarshal([]byte(out), &evs); err != nil {
+		t.Fatalf("log --json not valid array: %v\n%s", err, out)
+	}
+	if len(evs) != 3 {
+		t.Fatalf("expected 3 events, got %d:\n%s", len(evs), out)
+	}
+	// Newest-first: closed leads.
+	if evs[0]["kind"] != "closed" {
+		t.Fatalf("expected newest-first (closed leads), got %v", evs[0]["kind"])
+	}
+
+	// log --kind filter.
+	claimed := c.run("log", "--kind", "claimed")
+	if !strings.Contains(claimed, "claimed") || strings.Contains(claimed, "closed") {
+		t.Fatalf("kind filter leaked other kinds:\n%s", claimed)
+	}
+}

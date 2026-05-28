@@ -126,6 +126,11 @@ func (s *Store) CreateWithLinks(ctx context.Context, title, typ string, priority
 	if err != nil {
 		return Issue{}, err
 	}
+	changed := map[string]any{"title": created.Title, "type": created.Type, "priority": created.Priority}
+	if created.Assignee != nil {
+		changed["assignee"] = *created.Assignee
+	}
+	s.recordEvent(ctx, created.ID, "created", changed)
 	return created, nil
 }
 
@@ -159,6 +164,7 @@ func (s *Store) Reopen(ctx context.Context, id string) (Issue, error) {
 		}
 		return Issue{}, ErrAlreadyOpen
 	}
+	s.recordEvent(ctx, id, "reopened", map[string]any{"status": "open"})
 	return s.Get(ctx, id)
 }
 
@@ -237,6 +243,11 @@ func (s *Store) Cancel(ctx context.Context, roots []string) ([]Issue, error) {
 			OrderExpr("id ASC").
 			Scan(ctx)
 	})
+	if err == nil {
+		for _, c := range changed {
+			s.recordEvent(ctx, c.ID, "cancelled", map[string]any{"status": "cancelled"})
+		}
+	}
 	return changed, err
 }
 
@@ -264,6 +275,7 @@ func (s *Store) MarkClosed(ctx context.Context, id string) (Issue, error) {
 		}
 		return Issue{}, ErrAlreadyClosed
 	}
+	s.recordEvent(ctx, id, "closed", map[string]any{"status": "closed"})
 	return s.Get(ctx, id)
 }
 
@@ -351,6 +363,26 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 	if _, err := q.Exec(ctx); err != nil {
 		return Issue{}, err
 	}
+	changed := map[string]any{}
+	if f.Title != nil {
+		changed["title"] = *f.Title
+	}
+	if f.Type != nil {
+		changed["type"] = *f.Type
+	}
+	if f.Status != nil {
+		changed["status"] = *f.Status
+	}
+	if f.Priority != nil {
+		changed["priority"] = *f.Priority
+	}
+	if f.Assignee != nil {
+		changed["assignee"] = *f.Assignee // *string: nil means cleared
+	}
+	if f.Description != nil {
+		changed["description"] = *f.Description != nil
+	}
+	s.recordEvent(ctx, id, "updated", changed)
 	return s.Get(ctx, id)
 }
 
@@ -368,6 +400,11 @@ func (s *Store) SetDefer(ctx context.Context, id string, until *int64) (Issue, e
 	n, _ := res.RowsAffected()
 	if n == 0 {
 		return Issue{}, ErrNotFound
+	}
+	if until != nil {
+		s.recordEvent(ctx, id, "deferred", map[string]any{"defer_until": *until})
+	} else {
+		s.recordEvent(ctx, id, "undeferred", nil)
 	}
 	return s.Get(ctx, id)
 }
@@ -391,6 +428,7 @@ func (s *Store) SetNotes(ctx context.Context, id, text string) (Issue, error) {
 	if n, _ := res.RowsAffected(); n == 0 {
 		return Issue{}, ErrNotFound
 	}
+	s.recordEvent(ctx, id, "notes", map[string]any{"cleared": val == nil})
 	return s.Get(ctx, id)
 }
 

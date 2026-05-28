@@ -36,6 +36,7 @@ func (c *CommentAddCmd) Run(r *runCtx) error {
 		return fmt.Errorf("comment body required (positional args, '-', or pipe via stdin)")
 	}
 	return withStore(r, func(s *store.Store) error {
+		s.SetActor(c.Author) // the comment author is the acting identity
 		cm, err := s.AddComment(r.ctx, c.ID, c.Author, body)
 		if err != nil {
 			return err

@@ -23,6 +23,7 @@ func (s *Store) AddComment(ctx context.Context, issueID, author, body string) (C
 	if _, err := s.db.NewInsert().Model(&c).Exec(ctx); err != nil {
 		return Comment{}, err
 	}
+	s.recordEvent(ctx, issueID, "commented", map[string]any{"comment_id": c.ID})
 	return c, nil
 }
 

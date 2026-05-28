@@ -31,6 +31,8 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 		if assignee == "" {
 			assignee = currentUser()
 		}
+		// The claimer is the acting identity for audit purposes.
+		s.SetActor(assignee)
 		if c.ID != "" {
 			i, err := s.ClaimByID(r.ctx, c.ID, assignee)
 			if err != nil {

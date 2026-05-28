@@ -155,6 +155,9 @@ func (s *Store) Claim(ctx context.Context, assignee string, agent *string, caps 
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound
 	}
+	if err == nil {
+		s.recordEvent(ctx, i.ID, "claimed", map[string]any{"assignee": assignee, "status": "in_progress"})
+	}
 	return i, err
 }
 
@@ -186,6 +189,7 @@ func (s *Store) ClaimByID(ctx context.Context, id, assignee string) (Issue, erro
 		}
 		return Issue{}, fmt.Errorf("%w: %s", ErrNotClaimable, id)
 	}
+	s.recordEvent(ctx, id, "claimed", map[string]any{"assignee": assignee, "status": "in_progress"})
 	return s.Get(ctx, id)
 }
 

@@ -70,6 +70,8 @@ type CLI struct {
 	Approve    ApproveCmd    `cmd:"" group:"workflow" help:"Approve a checkpoint (sugar for 'checkpoint pass')."`
 
 	// --- inspection: read-only diagnostics ---
+	History  HistoryCmd  `cmd:"" group:"inspect" help:"Show the audit trail for one issue (oldest first)."`
+	Log      LogCmd      `cmd:"" group:"inspect" help:"Show the global event stream, newest first (filter by --actor/--kind/--issue/--since)."`
 	Count    CountCmd    `cmd:"" group:"inspect" help:"Count issues matching the same filters as 'list'."`
 	Stats    StatsCmd    `cmd:"" group:"inspect" help:"Show issue counts grouped by status, agent, and type."`
 	Info     InfoCmd     `cmd:"" group:"inspect" help:"Show database path, schema version, and a summary of issues."`
@@ -102,6 +104,7 @@ type runCtx struct {
 	stderr io.Writer
 	json   bool
 	quiet  bool
+	actor  string // identity recorded on audit events; defaults to $USER
 }
 
 // eachID applies fn to every id, collecting successes and per-id errors.
@@ -248,6 +251,7 @@ func withStore(c *runCtx, fn func(*store.Store) error) error {
 		return err
 	}
 	defer s.Close()
+	s.SetActor(c.actor)
 	return fn(s)
 }
 
@@ -374,7 +378,7 @@ func Run(ctx context.Context, stdout, stderr io.Writer, args []string) int {
 		return 2
 	}
 	cli.Dir = resolveCluDir(cli.Dir)
-	rctx := &runCtx{ctx: ctx, dir: cli.Dir, stdout: stdout, stderr: stderr, json: cli.JSON, quiet: cli.Quiet}
+	rctx := &runCtx{ctx: ctx, dir: cli.Dir, stdout: stdout, stderr: stderr, json: cli.JSON, quiet: cli.Quiet, actor: currentUser()}
 	if err := kctx.Run(rctx); err != nil {
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 			return 130 // standard for SIGINT / cancelled wait

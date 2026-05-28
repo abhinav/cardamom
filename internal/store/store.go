@@ -34,6 +34,7 @@ import (
 type Store struct {
 	db       *bun.DB
 	idPrefix string
+	actor    string // identity recorded on audit events; set per CLI invocation
 }
 
 // Option configures Open. Use the With* helpers; the option struct
@@ -73,6 +74,11 @@ func Open(path string, opts ...Option) (*Store, error) {
 // IDPrefix returns the prefix this Store uses for newly-created issues.
 // Surfaced by `clu info`.
 func (s *Store) IDPrefix() string { return s.idPrefix }
+
+// SetActor sets the identity recorded on audit events emitted by
+// subsequent writes. The CLI sets this once per invocation (the resolved
+// --agent, or $USER). Empty actor → events record a NULL actor.
+func (s *Store) SetActor(actor string) { s.actor = actor }
 
 func (s *Store) Close() error { return s.db.Close() }
 

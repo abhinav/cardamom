@@ -88,6 +88,21 @@ type Subscription struct {
 	Expires  int64  `bun:"expires,notnull" json:"expires"`
 }
 
+// Event is one row in the append-only audit log. Payload holds a JSON
+// object of only the changed fields (or relevant context for non-update
+// kinds); it's nil when there's nothing to record beyond kind+actor+ts.
+// IssueID and Actor are nullable — see the v15 migration comment.
+type Event struct {
+	bun.BaseModel `bun:"table:events,alias:e" json:"-"`
+
+	ID      int64   `bun:"id,pk,autoincrement" json:"id"`
+	IssueID *string `bun:"issue_id" json:"issue_id,omitempty"`
+	Actor   *string `bun:"actor" json:"actor,omitempty"`
+	Kind    string  `bun:"kind,notnull" json:"kind"`
+	Payload *string `bun:"payload" json:"payload,omitempty"`
+	TS      int64   `bun:"ts,notnull" json:"ts"`
+}
+
 // CronJob is one scheduled invocation. The `Job` field carries a
 // JSON-encoded payload whose shape depends on its discriminator —
 // see the v9 migration comment for the current vocabulary.

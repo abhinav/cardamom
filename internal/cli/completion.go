@@ -11,6 +11,7 @@ var completionCmds = []string{
 	"init", "create", "list", "ls", "ready", "blocked", "show", "claim", "close",
 	"cancel",
 	"update", "dep", "label", "defer", "undefer",
+	"history", "log",
 	"count", "stats", "reopen",
 	"assign", "priority", "tag", "link",
 	"export", "import", "sql",
