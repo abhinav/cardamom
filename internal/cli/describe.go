@@ -24,6 +24,9 @@ func (c *DescribeCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(issueOut{Issue: i})
+		}
 		if c.Text == "" {
 			r.notice("cleared description on %s\n", i.ID)
 		} else {

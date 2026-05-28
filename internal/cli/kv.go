@@ -64,6 +64,9 @@ func (c *KVClearCmd) Run(r *runCtx) error {
 		if err := s.KVDelete(r.ctx, c.Key); err != nil {
 			return fmt.Errorf("%s: %w", c.Key, err)
 		}
+		if r.json {
+			return r.emitJSON(map[string]any{"key": c.Key, "cleared": true})
+		}
 		r.notice("cleared %s\n", c.Key)
 		return nil
 	})

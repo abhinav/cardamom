@@ -53,6 +53,9 @@ func (c *NoteAppendCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(issueOut{Issue: i})
+		}
 		r.notice("appended note to %s\n", i.ID)
 		return nil
 	})
@@ -67,6 +70,9 @@ func (c *NoteClearCmd) Run(r *runCtx) error {
 		i, err := s.SetNotes(r.ctx, c.ID, "")
 		if err != nil {
 			return err
+		}
+		if r.json {
+			return r.emitJSON(issueOut{Issue: i})
 		}
 		r.notice("cleared notes on %s\n", i.ID)
 		return nil

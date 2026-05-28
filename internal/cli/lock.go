@@ -35,6 +35,13 @@ func (c *LockCmd) Run(r *runCtx) error {
 	if c.TTL <= 0 {
 		return errors.New("--ttl must be > 0")
 	}
+	// The trailing-command form streams the child's stdout, which can't
+	// also be a single JSON value. Reject the combination rather than
+	// emit non-JSON under --json. (Bare `lock --json <name>` is fine.)
+	hasCmd := len(c.Cmd) > 0 && !(len(c.Cmd) == 1 && c.Cmd[0] == "--")
+	if r.json && hasCmd {
+		return errors.New("--json is not supported with a trailing command (the child owns stdout); acquire with bare `lock --json <name>` and release with `unlock`")
+	}
 	host, _ := os.Hostname()
 	pid := os.Getpid()
 
@@ -131,6 +138,9 @@ func (c *UnlockCmd) Run(r *runCtx) error {
 		}
 		if err := s.LockRelease(r.ctx, c.Name, holder); err != nil {
 			return err
+		}
+		if r.json {
+			return r.emitJSON(map[string]any{"name": c.Name, "released": true})
 		}
 		r.notice("released lock %q\n", c.Name)
 		return nil

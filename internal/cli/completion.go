@@ -30,10 +30,22 @@ type CompletionCmd struct {
 }
 
 func (c *CompletionCmd) Run(r *runCtx) error {
+	script := completionScript(c.Shell)
+	// Under --json the script is a string field so the output is still
+	// exactly one JSON value (the raw script isn't valid JSON on its own).
+	if r.json {
+		return r.emitJSON(map[string]any{"shell": c.Shell, "script": script})
+	}
+	fmt.Fprint(r.stdout, script)
+	return nil
+}
+
+// completionScript renders the completion script for the given shell.
+func completionScript(shell string) string {
 	cmds := strings.Join(completionCmds, " ")
-	switch c.Shell {
+	switch shell {
 	case "bash":
-		fmt.Fprintf(r.stdout, `# bash completion for clu. Source this file or add to ~/.bashrc:
+		return fmt.Sprintf(`# bash completion for clu. Source this file or add to ~/.bashrc:
 #   source <(clu completion bash)
 _clu_completions() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
@@ -44,7 +56,7 @@ _clu_completions() {
 complete -F _clu_completions clu
 `, cmds)
 	case "zsh":
-		fmt.Fprintf(r.stdout, `# zsh completion for clu. Source this file or add to ~/.zshrc:
+		return fmt.Sprintf(`# zsh completion for clu. Source this file or add to ~/.zshrc:
 #   source <(clu completion zsh)
 #compdef clu
 _clu() {
@@ -54,11 +66,13 @@ _clu() {
 compdef _clu clu
 `, cmds)
 	case "fish":
-		fmt.Fprintln(r.stdout, "# fish completion for clu. Save to ~/.config/fish/completions/clu.fish:")
-		fmt.Fprintln(r.stdout, "#   clu completion fish > ~/.config/fish/completions/clu.fish")
+		var b strings.Builder
+		fmt.Fprintln(&b, "# fish completion for clu. Save to ~/.config/fish/completions/clu.fish:")
+		fmt.Fprintln(&b, "#   clu completion fish > ~/.config/fish/completions/clu.fish")
 		for _, cmd := range completionCmds {
-			fmt.Fprintf(r.stdout, "complete -c clu -n '__fish_use_subcommand' -a %s\n", cmd)
+			fmt.Fprintf(&b, "complete -c clu -n '__fish_use_subcommand' -a %s\n", cmd)
 		}
+		return b.String()
 	}
-	return nil
+	return ""
 }

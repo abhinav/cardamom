@@ -14,6 +14,17 @@ func (c *TagCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			i, err := s.Get(r.ctx, c.ID)
+			if err != nil {
+				return err
+			}
+			labels, err := s.LabelsForIssue(r.ctx, c.ID)
+			if err != nil {
+				return err
+			}
+			return r.emitJSON(issueOut{Issue: i, Labels: labels})
+		}
 		skipped := len(c.Labels) - added
 		if skipped > 0 {
 			r.notice("tagged %s with %d label(s) (%d already present)\n", c.ID, added, skipped)

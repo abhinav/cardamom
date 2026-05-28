@@ -177,6 +177,9 @@ func (c *CronRmCmd) Run(r *runCtx) error {
 		if err := s.CronJobDelete(r.ctx, c.Name); err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(map[string]any{"name": c.Name, "removed": true})
+		}
 		r.notice("removed cron job %s\n", c.Name)
 		return nil
 	})
@@ -191,6 +194,13 @@ func (c *CronEnableCmd) Run(r *runCtx) error {
 		if err := s.CronJobSetEnabled(r.ctx, c.Name, true); err != nil {
 			return err
 		}
+		if r.json {
+			j, err := s.CronJobGet(r.ctx, c.Name)
+			if err != nil {
+				return err
+			}
+			return r.emitJSON(j)
+		}
 		r.notice("enabled %s\n", c.Name)
 		return nil
 	})
@@ -204,6 +214,13 @@ func (c *CronDisableCmd) Run(r *runCtx) error {
 	return withStore(r, func(s *store.Store) error {
 		if err := s.CronJobSetEnabled(r.ctx, c.Name, false); err != nil {
 			return err
+		}
+		if r.json {
+			j, err := s.CronJobGet(r.ctx, c.Name)
+			if err != nil {
+				return err
+			}
+			return r.emitJSON(j)
 		}
 		r.notice("disabled %s\n", c.Name)
 		return nil

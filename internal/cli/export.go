@@ -2,6 +2,7 @@ package cli
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -38,6 +39,12 @@ type ExportCmd struct {
 }
 
 func (c *ExportCmd) Run(r *runCtx) error {
+	// export is a JSONL stream (one object per line) by design — it can't
+	// honor the "--json = exactly one JSON value" contract. Reject the
+	// flag explicitly rather than silently ignore it.
+	if r.json {
+		return errors.New("export always emits JSONL (one object per line); the --json flag does not apply — use plain `clu export`")
+	}
 	return withStore(r, func(s *store.Store) error {
 		w := io.Writer(r.stdout)
 		if c.Out != "" {

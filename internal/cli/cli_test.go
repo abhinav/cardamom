@@ -2662,3 +2662,76 @@ func TestCLICommentLsJSONEmptyIsArray(t *testing.T) {
 		t.Fatalf("empty comment ls --json = %q, want []", out)
 	}
 }
+
+// assertOneJSON fails unless s is exactly one valid JSON value.
+func assertOneJSON(t *testing.T, label, s string) {
+	t.Helper()
+	s = strings.TrimSpace(s)
+	if s == "" {
+		t.Fatalf("%s: --json emitted nothing", label)
+	}
+	var v any
+	dec := json.NewDecoder(strings.NewReader(s))
+	if err := dec.Decode(&v); err != nil {
+		t.Fatalf("%s: not valid JSON: %v\n%q", label, err, s)
+	}
+	if dec.More() {
+		t.Fatalf("%s: more than one JSON value\n%q", label, s)
+	}
+}
+
+func TestCLIJSONContractSweep(t *testing.T) {
+	c := newTestCLI(t)
+
+	// init --json
+	assertOneJSON(t, "init", c.run("--json", "init"))
+
+	id := strings.TrimSpace(c.run("create", "sweep target", "task"))
+	id2 := strings.TrimSpace(c.run("create", "sweep parent", "task"))
+
+	// sugar verbs → affected issue
+	assertOneJSON(t, "assign", c.run("--json", "assign", id, "alice"))
+	assertOneJSON(t, "priority", c.run("--json", "priority", id, "1"))
+	assertOneJSON(t, "describe", c.run("--json", "describe", id, "some desc"))
+	assertOneJSON(t, "tag", c.run("--json", "tag", id, "blue"))
+	assertOneJSON(t, "link", c.run("--json", "link", id, id2))
+	assertOneJSON(t, "note-append", c.run("--json", "note", "append", id, "a note"))
+
+	// deletes / mutations → result objects
+	assertOneJSON(t, "dep-rm", c.run("--json", "dep", "rm", id, id2))
+	cid := strings.TrimSpace(c.run("--json", "comment", "add", id, "hi"))
+	_ = cid
+	cmid := func() int64 {
+		var cm map[string]any
+		_ = json.Unmarshal([]byte(c.run("--json", "comment", "add", id, "x")), &cm)
+		return int64(cm["id"].(float64))
+	}()
+	assertOneJSON(t, "comment-rm", c.run("--json", "comment", "rm", "-a", "alice", fmt.Sprintf("%d", cmid)))
+
+	c.run("kv", "set", "k", "v")
+	assertOneJSON(t, "kv-clear", c.run("--json", "kv", "clear", "k"))
+
+	c.run("cron", "add", "nightly", "--schedule", "@daily", "--", "create", "x")
+	assertOneJSON(t, "cron-disable", c.run("--json", "cron", "disable", "nightly"))
+	assertOneJSON(t, "cron-enable", c.run("--json", "cron", "enable", "nightly"))
+	assertOneJSON(t, "cron-rm", c.run("--json", "cron", "rm", "nightly"))
+
+	c.run("lock", "deploy", "--ttl", "1m", "-a", "alice")
+	assertOneJSON(t, "unlock", c.run("--json", "unlock", "deploy", "-a", "alice"))
+
+	assertOneJSON(t, "completion", c.run("--json", "completion", "bash"))
+
+	// import --json (round-trips an export)
+	exp := filepath.Join(t.TempDir(), "e.jsonl")
+	c.run("export", "-o", exp)
+	assertOneJSON(t, "import", c.run("--json", "import", exp))
+}
+
+func TestCLIJSONRejectedWhereStreaming(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	// export is JSONL by design → --json rejected.
+	c.runFail("--json", "export")
+	// lock with a trailing command streams child stdout → --json rejected.
+	c.runFail("--json", "lock", "deploy", "--ttl", "1m", "--", "echo", "hi")
+}

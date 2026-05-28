@@ -77,6 +77,13 @@ func (c *ImportCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(map[string]any{
+				"imported": map[string]int{
+					"issues": issues, "deps": deps, "comments": comments, "kv": kvs, "cron": crons,
+				},
+			})
+		}
 		r.notice("imported %d issues, %d deps, %d comments, %d kv, %d cron\n", issues, deps, comments, kvs, crons)
 		return nil
 	})

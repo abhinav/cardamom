@@ -24,6 +24,9 @@ func (c *AssignCmd) Run(r *runCtx) error {
 		if err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(issueOut{Issue: i})
+		}
 		if c.To == "" {
 			r.notice("unassigned %s\n", i.ID)
 		} else {

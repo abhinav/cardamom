@@ -13,6 +13,14 @@ func (c *LinkCmd) Run(r *runCtx) error {
 		if err := s.AddDep(r.ctx, c.Child, c.Parent); err != nil {
 			return err
 		}
+		if r.json {
+			// Echo the affected child issue (matches `dep add --json`).
+			i, err := s.Get(r.ctx, c.Child)
+			if err != nil {
+				return err
+			}
+			return r.emitJSON(issueOut{Issue: i})
+		}
 		r.notice("%s depends on %s\n", c.Child, c.Parent)
 		return nil
 	})

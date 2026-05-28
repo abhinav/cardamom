@@ -47,6 +47,9 @@ func (c *DepRmCmd) Run(r *runCtx) error {
 		if err := s.RemoveDep(r.ctx, c.Child, c.Parent); err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(map[string]any{"child": c.Child, "parent": c.Parent, "removed": true})
+		}
 		r.notice("removed %s -> %s\n", c.Child, c.Parent)
 		return nil
 	})

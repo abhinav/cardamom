@@ -90,6 +90,21 @@ func (c *InitCmd) Run(r *runCtx) error {
 		return err
 	}
 
+	// Machine-readable result: one JSON object describing what init did.
+	// Emitted before the human summary + gitignore recipe (both skipped
+	// under --json) so the contract holds: exactly one JSON value.
+	if r.json {
+		return r.emitJSON(map[string]any{
+			"dir":                 r.dir,
+			"id_prefix":           cfg.IDPrefix,
+			"schema_version":      store.SchemaVersion(),
+			"config_written":      !cfgExisted,
+			"db_written":          !dbExisted,
+			"templates_written":   !tmplExisted,
+			"already_initialized": cfgExisted && dbExisted && tmplExisted,
+		})
+	}
+
 	// Summary. Quiet mode skips this whole block via r.notice.
 	switch {
 	case !cfgExisted && !dbExisted:

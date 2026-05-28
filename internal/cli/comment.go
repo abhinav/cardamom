@@ -137,6 +137,9 @@ func (c *CommentRmCmd) Run(r *runCtx) error {
 		if err := s.RemoveComment(r.ctx, c.ID); err != nil {
 			return err
 		}
+		if r.json {
+			return r.emitJSON(map[string]any{"id": c.ID, "removed": true})
+		}
 		r.notice("removed comment #%d\n", c.ID)
 		return nil
 	})
