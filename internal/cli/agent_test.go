@@ -395,3 +395,37 @@ agents:
 		t.Fatalf("expected shared-first, sorted, persona-last ordering:\n%s", out)
 	}
 }
+
+func TestCLIAgentStartStartupPrompt(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	writeAgentsConfig(t, c.dir, `
+id_prefix: clu-
+agents:
+  developer:
+    command: claude
+    startup_prompt: "Check clu inbox -a developer, then claim ready work."
+`)
+	// No prompt files needed; startup_prompt is a positional, not a system prompt.
+	out := c.run("agent", "start", "--print", "developer")
+	if !strings.Contains(out, "Check clu inbox -a developer, then claim ready work.") {
+		t.Fatalf("startup prompt missing from command:\n%s", out)
+	}
+	// It must be the trailing positional (last token of the command).
+	trimmed := strings.TrimSpace(out)
+	if !strings.HasSuffix(trimmed, "work.'") && !strings.HasSuffix(trimmed, "work.") {
+		t.Fatalf("startup prompt should be the trailing positional:\n%s", out)
+	}
+
+	// JSON form carries it as the last argv element.
+	jout := c.run("--json", "agent", "start", "--print", "developer")
+	var got struct {
+		Argv []string `json:"argv"`
+	}
+	if err := json.Unmarshal([]byte(jout), &got); err != nil {
+		t.Fatalf("json: %v\n%s", err, jout)
+	}
+	if len(got.Argv) == 0 || got.Argv[len(got.Argv)-1] != "Check clu inbox -a developer, then claim ready work." {
+		t.Fatalf("startup prompt not the last argv element: %v", got.Argv)
+	}
+}

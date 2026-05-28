@@ -32,7 +32,9 @@ const sharedPromptDir = "_shared"
 //
 // Prompt files are layered: the shared base (<dir>/agents/_shared/*.md,
 // sorted) comes first, then the agent's own prompts, so a persona refines
-// the shared contract rather than restating it.
+// the shared contract rather than restating it. An optional
+// startup_prompt is passed as the command's trailing positional — the
+// agent's first message.
 //
 // This is a thin launcher, not a supervisor — no daemonizing, no
 // restart-on-crash. Use --print to see the assembled command without
@@ -107,6 +109,12 @@ func (c *AgentStartCmd) Run(r *runCtx) error {
 		rest = rest[1:]
 	}
 	argv = append(argv, rest...)
+	// The startup prompt is the agent's first message — a trailing
+	// positional (claude and codex both take one). Last so any flags in
+	// Args/rest precede it.
+	if agent.StartupPrompt != "" {
+		argv = append(argv, agent.StartupPrompt)
+	}
 
 	if c.Print {
 		if r.json {

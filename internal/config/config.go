@@ -64,13 +64,18 @@ const DefaultWorktreeDir = ".worktrees"
 //     "--append-system-prompt" when Command is "claude"; otherwise
 //     required when Prompts are present).
 //   - Args are extra static arguments appended after the prompts.
+//   - StartupPrompt, if set, is passed as the command's trailing
+//     positional — the agent's first message. Use it to seed startup
+//     steps the agent should run itself (e.g. "check `clu inbox -a
+//     developer`, then claim ready work").
 type Agent struct {
-	Description  string   `yaml:"description,omitempty"`
-	Capabilities []string `yaml:"capabilities,omitempty"`
-	Command      string   `yaml:"command,omitempty"`
-	PromptFlag   string   `yaml:"prompt_flag,omitempty"`
-	Prompts      []string `yaml:"prompts,omitempty"`
-	Args         []string `yaml:"args,omitempty"`
+	Description   string   `yaml:"description,omitempty"`
+	Capabilities  []string `yaml:"capabilities,omitempty"`
+	Command       string   `yaml:"command,omitempty"`
+	PromptFlag    string   `yaml:"prompt_flag,omitempty"`
+	Prompts       []string `yaml:"prompts,omitempty"`
+	Args          []string `yaml:"args,omitempty"`
+	StartupPrompt string   `yaml:"startup_prompt,omitempty"`
 }
 
 // Default returns a Config with the safe defaults Load uses when a key
@@ -259,6 +264,12 @@ id_prefix: %s
 #     # Shared base: any *.md in .clu/agents/_shared/ is prepended to
 #     # every agent (e.g. a common AGENTS.md / AUTONOMY.md) so the shared
 #     # contract lives in one place. Per-agent prompts come after it.
+#     #
+#     # startup_prompt (optional) is the agent's first message, passed as
+#     # a trailing positional. Use it for startup steps the agent runs
+#     # itself, e.g.:
+#     #   startup_prompt: |
+#     #     Check your inbox (clu inbox -a code-reviewer), then claim work.
 #     command: claude
 #     prompts: [AGENTS.md, SOUL.md]
 #   doc-writer:
