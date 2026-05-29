@@ -19,6 +19,8 @@ type ClaimCmd struct {
 	Wait      bool          `help:"Block until something is claimable."`
 	Interval  time.Duration `default:"250ms" help:"Poll interval when --wait is set."`
 	Heartbeat bool          `name:"heartbeat" help:"While waiting, register --agent (or $USER) as a live agent so 'clu agent ls' shows this session active."`
+	Context   bool          `name:"context" help:"Print the upstream dependency chain (descriptions, notes, comments) so you inherit what was done before this task."`
+	Depth     int           `name:"context-depth" help:"Cap how far up the dependency chain --context walks (0 = unlimited)."`
 	ID        string        `arg:"" optional:"" help:"Specific issue to claim; omit for next ready."`
 }
 
@@ -38,7 +40,7 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			if err != nil {
 				return err
 			}
-			return reportClaimed(r, s, i)
+			return reportClaimed(r, s, i, c.Context, c.Depth)
 		}
 		// Lane filter and capability lookup follow the explicit agent name
 		// only. The default ($USER) intentionally doesn't filter — bare
@@ -64,7 +66,7 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 		for {
 			i, err := s.Claim(r.ctx, assignee, laneAgent, caps)
 			if err == nil {
-				return reportClaimed(r, s, i)
+				return reportClaimed(r, s, i, c.Context, c.Depth)
 			}
 			if !errors.Is(err, store.ErrNotFound) {
 				return err
@@ -81,7 +83,9 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 }
 
 // reportClaimed prints the just-claimed issue in full (matches `clu show`).
-func reportClaimed(r *runCtx, s *store.Store, i store.Issue) error {
+// With withContext, it first prints the upstream dependency chain so the
+// claiming agent inherits what was done before this task.
+func reportClaimed(r *runCtx, s *store.Store, i store.Issue, withContext bool, depth int) error {
 	r.notice("claimed %s (%s)\n", i.ID, i.Title)
 	parents, blocks, err := s.Deps(r.ctx, i.ID)
 	if err != nil {
@@ -99,7 +103,29 @@ func reportClaimed(r *runCtx, s *store.Store, i store.Issue) error {
 	if err != nil {
 		return err
 	}
-	printIssue(r, i, parents, blocks, labels, comments, blocked[i.ID])
+	return emitIssueWithContext(r, s, i, parents, blocks, labels, comments, blocked[i.ID], withContext, depth)
+}
+
+// emitIssueWithContext renders one issue, optionally preceded by its
+// upstream dependency context. Shared by `claim --context` and
+// `show --context`. Without context it falls back to the plain printIssue.
+func emitIssueWithContext(r *runCtx, s *store.Store, i store.Issue, parents, blocks, labels []string, comments []store.Comment, blocked, withContext bool, depth int) error {
+	if !withContext {
+		printIssue(r, i, parents, blocks, labels, comments, blocked)
+		return nil
+	}
+	entries, err := loadContext(r, s, i.ID, depth)
+	if err != nil {
+		return err
+	}
+	if r.json {
+		return r.emitJSON(map[string]any{
+			"issue":   newIssueShowOut(i, parents, blocks, labels, comments, blocked),
+			"context": entries,
+		})
+	}
+	printContextHuman(r, entries)
+	printIssue(r, i, parents, blocks, labels, comments, blocked)
 	return nil
 }
 

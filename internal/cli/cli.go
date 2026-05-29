@@ -488,20 +488,7 @@ func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comm
 		// Always emit non-nil slices so `jq -r '.labels[]'` etc. don't
 		// trip on missing keys when the issue has no labels / deps /
 		// comments.
-		if parents == nil {
-			parents = []string{}
-		}
-		if blocks == nil {
-			blocks = []string{}
-		}
-		if labels == nil {
-			labels = []string{}
-		}
-		if comments == nil {
-			comments = []store.Comment{}
-		}
-		out := issueShowOut{Issue: i, Labels: labels, Depends: parents, Blocks: blocks, Comments: comments, Blocked: blocked}
-		_ = r.emitJSON(out)
+		_ = r.emitJSON(newIssueShowOut(i, parents, blocks, labels, comments, blocked))
 		return
 	}
 	w := r.stdout

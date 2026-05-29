@@ -2903,3 +2903,53 @@ func TestCLIBatchIdempotentImport(t *testing.T) {
 		t.Fatalf("update run updated = %d, want 1", r3.Updated)
 	}
 }
+
+func TestCLIContextBundle(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	// upstream → downstream chain via batch (b needs a).
+	graph := writeBatchFile(t, `[
+	  {"alias":"a","title":"Design auth","description":"design the endpoint","notes":"chose JWT"},
+	  {"alias":"b","title":"Implement auth","needs":["a"]}
+	]`)
+	out := c.run("--json", "batch", graph)
+	var res struct{ Created map[string]string }
+	json.Unmarshal([]byte(out), &res)
+	aID, bID := res.Created["a"], res.Created["b"]
+
+	// Put a comment + close on the upstream task.
+	c.run("comment", "add", aID, "-a", "alice", "endpoint shipped, edge case X handled")
+	c.run("close", aID)
+
+	// show b --context surfaces a's description/notes/comment.
+	human := c.run("show", bID, "--context")
+	for _, want := range []string{"Context", aID, "design the endpoint", "chose JWT", "endpoint shipped, edge case X handled"} {
+		if !strings.Contains(human, want) {
+			t.Fatalf("context output missing %q:\n%s", want, human)
+		}
+	}
+
+	// --json wraps {issue, context}; context carries a's comments.
+	j := c.run("--json", "show", bID, "--context")
+	var doc struct {
+		Issue   map[string]any `json:"issue"`
+		Context []struct {
+			ID       string `json:"id"`
+			Comments []struct {
+				Body string `json:"body"`
+			} `json:"comments"`
+		} `json:"context"`
+	}
+	if err := json.Unmarshal([]byte(j), &doc); err != nil {
+		t.Fatalf("context json: %v\n%s", err, j)
+	}
+	if doc.Issue["id"] != bID {
+		t.Fatalf("issue wrapper wrong: %v", doc.Issue["id"])
+	}
+	if len(doc.Context) != 1 || doc.Context[0].ID != aID {
+		t.Fatalf("context should have 1 entry (a): %+v", doc.Context)
+	}
+	if len(doc.Context[0].Comments) != 1 || !strings.Contains(doc.Context[0].Comments[0].Body, "edge case X") {
+		t.Fatalf("ancestor comment missing: %+v", doc.Context[0].Comments)
+	}
+}
