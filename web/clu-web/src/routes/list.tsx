@@ -2,8 +2,9 @@ import { createFileRoute, Link } from '@tanstack/react-router'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useMemo, useState } from 'react'
 import { Plus, Tag as TagIcon, X } from 'lucide-react'
-import { api, filtersToQuery, type Issue, type Meta } from '../lib/api'
-import { formatRelative, type Status } from '../lib/issue-display'
+import { api, filtersToQuery } from '../lib/api'
+import type { Issue, Meta } from '../lib/api'
+import { formatRelative } from '../lib/issue-display'
 import { PriorityBadge, StatusBadge } from '../components/StatusBadge'
 import NewIssueDialog from '../components/NewIssueDialog'
 import LiveIndicator from '../components/LiveIndicator'
@@ -62,7 +63,11 @@ function ListPage() {
     limit: 500,
   })
 
-  const { data: issues = [], isLoading, error } = useQuery<Issue[]>({
+  const {
+    data: issues = [],
+    isLoading,
+    error,
+  } = useQuery<Issue[]>({
     queryKey: ['issues', 'list', { filterQuery }],
     queryFn: () => api.get('/api/issues' + filterQuery),
   })
@@ -153,7 +158,7 @@ function ListPage() {
 
       {error && (
         <div className="border-destructive/40 bg-destructive/10 text-destructive m-6 rounded-md border p-3 text-sm">
-          {(error as Error).message}
+          {error instanceof Error ? error.message : String(error)}
         </div>
       )}
 
@@ -237,10 +242,7 @@ function ListPage() {
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-col items-start gap-0.5">
-                      <StatusBadge
-                        status={i.status as Status}
-                        blocked={i.blocked}
-                      />
+                      <StatusBadge status={i.status} blocked={i.blocked} />
                       {i.status === 'in_progress' && i.started_at != null && (
                         <span
                           className="text-muted-foreground text-[10px]"
@@ -355,21 +357,20 @@ function BulkActionBar({
     setBusy(true)
     try {
       const results = await Promise.allSettled(ids.map((id) => each(id)))
-      const failed = results.filter((r) => r.status === 'rejected')
+      const failed = results.filter(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      )
       if (failed.length === 0) {
         notifyOk(`${label} (${ids.length})`)
         onCleared()
       } else if (failed.length === ids.length) {
-        notifyError(`${label} failed for all ${ids.length}`, (failed[0] as PromiseRejectedResult).reason)
+        notifyError(`${label} failed for all ${ids.length}`, failed[0].reason)
       } else {
         notifyOk(
           `${label} — ${ids.length - failed.length}/${ids.length}`,
           `${failed.length} failed. Check the console for details.`,
         )
-        failed.forEach((f) =>
-          // eslint-disable-next-line no-console
-          console.error('bulk failure:', (f as PromiseRejectedResult).reason),
-        )
+        failed.forEach((f) => console.error('bulk failure:', f.reason))
       }
     } finally {
       setBusy(false)

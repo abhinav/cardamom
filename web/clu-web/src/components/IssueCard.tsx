@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { Issue } from '../lib/api'
-import { formatRelative, type Status } from '../lib/issue-display'
+import { formatRelative } from '../lib/issue-display'
 import { PriorityBadge, StatusBadge } from './StatusBadge'
 import { Badge } from './ui/badge'
 
@@ -61,10 +61,7 @@ export default function IssueCard({
           {issue.id}
         </code>
         {!hideStatus && (
-          <StatusBadge
-            status={issue.status as Status}
-            blocked={issue.blocked}
-          />
+          <StatusBadge status={issue.status} blocked={issue.blocked} />
         )}
         {!hideAssignee && issue.assignee && (
           <span className="text-muted-foreground inline-flex items-center gap-1">
