@@ -316,3 +316,25 @@ func TestBatchGroup(t *testing.T) {
 		t.Fatalf("run label should match 4 issues, got %d", len(grouped))
 	}
 }
+
+func TestBatchDedupesLabels(t *testing.T) {
+	s := newTestStore(t)
+	// Repeated label, and a capability that collides with an explicit
+	// cap: label — both must be deduped, not crash on the unique constraint.
+	issues := []BatchIssue{
+		{Alias: "a", Title: "A", Labels: []string{"x", "x"}},
+		{Alias: "b", Title: "B", Capabilities: []string{"go"}, Labels: []string{"cap:go"}},
+	}
+	res, err := s.BatchCreate(ctx, issues, nil)
+	if err != nil {
+		t.Fatalf("dedupe should avoid constraint error: %v", err)
+	}
+	la, _ := s.LabelsForIssue(ctx, res.Mapping["a"])
+	if len(la) != 1 || la[0] != "x" {
+		t.Fatalf("a labels = %v, want [x]", la)
+	}
+	lb, _ := s.LabelsForIssue(ctx, res.Mapping["b"])
+	if len(lb) != 1 || lb[0] != "cap:go" {
+		t.Fatalf("b labels = %v, want [cap:go]", lb)
+	}
+}

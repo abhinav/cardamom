@@ -453,7 +453,16 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 				cpKV["cp:"+id] = string(b)
 			}
 		}
+		// Dedupe effective labels — a repeated label, or a capability that
+		// collides with an explicit cap:<name> label, would otherwise hit the
+		// issue_labels unique constraint. Matches AddLabels' conflict-ignore
+		// behavior so dry-run and commit agree.
+		seenLabel := make(map[string]bool, len(allLabels))
 		for _, l := range allLabels {
+			if seenLabel[l] {
+				continue
+			}
+			seenLabel[l] = true
 			labelRows = append(labelRows, IssueLabel{IssueID: id, Label: l})
 		}
 		// Dep edges: internal (resolved alias) + external (real ID).

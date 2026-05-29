@@ -149,7 +149,16 @@ func parseBatch(raw []byte) ([]batchInput, *batchGroupInput, error) {
 	dec := func(v any) error {
 		d := json.NewDecoder(bytes.NewReader(trimmed))
 		d.DisallowUnknownFields()
-		return d.Decode(v)
+		if err := d.Decode(v); err != nil {
+			return err
+		}
+		// Reject trailing tokens after the value — a generator that leaks an
+		// extra log line or a second JSON value onto stdout must fail loudly,
+		// not silently commit a partial-looking stream.
+		if d.More() {
+			return fmt.Errorf("unexpected trailing content after the JSON value")
+		}
+		return nil
 	}
 	switch trimmed[0] {
 	case '[':

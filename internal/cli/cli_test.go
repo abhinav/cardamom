@@ -2849,3 +2849,15 @@ func TestCLIBatchGroup(t *testing.T) {
 		t.Fatalf("doc group should produce a parent:\n%s", out2)
 	}
 }
+
+func TestCLIBatchRejectsTrailingContent(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	// Valid array followed by extra JSON must be rejected, not committed.
+	c.runFail("batch", writeBatchFile(t, `[{"alias":"a","title":"A"}] {"extra":true}`))
+	// And nothing was written.
+	out := c.run("--json", "list", "--status", "all")
+	if !strings.Contains(strings.TrimSpace(out), "[]") {
+		t.Fatalf("trailing-content batch should have created nothing:\n%s", out)
+	}
+}
