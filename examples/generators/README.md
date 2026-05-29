@@ -43,4 +43,5 @@ A JSON array (or `{"issues": [...]}`) of issues. Per issue:
   `node feature-rollout.js <feature> <module...> [--approver=NAME]`.
   Demonstrates argument parsing, per-module fan-out, a conditional security
   audit for sensitive modules, and an approval checkpoint gating the ship
-  step.
+  step. (Kept capability-free so a fresh `clu ready` surfaces work
+  immediately — see the note in the file for how to add `capabilities`.)

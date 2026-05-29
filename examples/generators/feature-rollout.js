@@ -25,17 +25,23 @@
 //   node feature-rollout.js search-revamp api ui | clu batch
 //
 // WHAT IT BUILDS (for `<feature> <m1> <m2> ...`)
-//   design                         (architecture)            ─┐
-//   impl-<m>     needs design      (go)         per module    │ fan-out
-//   test-<m>     needs impl-<m>    (qa)         per module    │
-//   audit-<m>    needs impl-<m>    (security)   ONLY sensitive modules
-//   docs         needs every impl  (docs)                     │
+//   design                                                   ─┐
+//   impl-<m>     needs design                  per module     │ fan-out
+//   test-<m>     needs impl-<m>                per module     │
+//   audit-<m>    needs impl-<m>                ONLY sensitive │
+//   docs         needs every impl                            │
 //   gate         needs every test+audit+docs   CHECKPOINT  ←──┘ approval gate
-//   ship         needs gate        (release)
+//   ship         needs gate
 //
 // The security audit is added only for modules whose name looks sensitive
 // (payments/auth/billing/...) — the kind of conditional logic a static
 // template can't express.
+//
+// (This example keeps things in the default pool — no capability labels —
+// so a fresh `clu ready` surfaces the design step right away. Add
+// `capabilities: [...]` to an issue to route it to a specific agent lane;
+// note that capability-labelled work is hidden from bare `clu ready` and
+// only shows for `clu ready -a <agent>` advertising that capability.)
 
 "use strict";
 
@@ -80,7 +86,6 @@ add({
   title: `Design: ${feature}`,
   type: "decision",
   priority: 1,
-  capabilities: ["architecture"],
   description: `Design the ${feature} rollout across: ${modules.join(", ")}.`,
 });
 
@@ -93,7 +98,6 @@ for (const mod of modules) {
     title: `Implement ${feature} — ${mod}`,
     priority: 1,
     needs: ["design"],
-    capabilities: ["go"],
   });
   implAliases.push(impl);
 
@@ -101,7 +105,6 @@ for (const mod of modules) {
     alias: `test-${mod}`,
     title: `Test ${feature} — ${mod}`,
     needs: [impl],
-    capabilities: ["qa"],
   });
   gateDeps.push(test);
 
@@ -111,7 +114,6 @@ for (const mod of modules) {
       title: `Security audit ${feature} — ${mod}`,
       priority: 0,
       needs: [impl],
-      capabilities: ["security"],
       description: `${mod} handles sensitive data — audit before ship.`,
     });
     gateDeps.push(audit);
@@ -123,7 +125,6 @@ const docs = add({
   alias: "docs",
   title: `Document: ${feature}`,
   needs: [...implAliases],
-  capabilities: ["docs"],
 });
 gateDeps.push(docs);
 
@@ -143,7 +144,6 @@ add({
   title: `Ship: ${feature}`,
   priority: 0,
   needs: ["gate"],
-  capabilities: ["release"],
 });
 
 // ---- emit -------------------------------------------------------------
