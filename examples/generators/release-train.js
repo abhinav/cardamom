@@ -15,29 +15,20 @@
 //   node release-train.js v1.4.0 api worker web --approver=alice | clu batch --dry-run
 //   node release-train.js v1.4.0 api worker web --approver=alice | clu batch --json
 
-"use strict";
-
-const { Graph } = require("./clu.js");
+import { Graph, parseArgs, usage } from "./clu.js";
 
 // ---- args -------------------------------------------------------------
 
-const flags = {};
-const positional = [];
-for (const a of process.argv.slice(2)) {
-  const m = /^--([^=]+)=(.*)$/.exec(a);
-  if (m) flags[m[1]] = m[2];
-  else if (a === "-h" || a === "--help") flags.help = "1";
-  else positional.push(a);
-}
+const { flags, positional } = parseArgs();
 const version = positional[0];
 const services = positional.slice(1);
 
 if (flags.help || !version || services.length === 0) {
-  process.stderr.write(
+  usage(
     "usage: node release-train.js <version> <service...> [--approver=NAME]\n" +
-      "  pipe into:  | clu batch [--dry-run|--json]\n"
+      "  pipe into:  | clu batch [--dry-run|--json]",
+    flags.help ? 0 : 2,
   );
-  process.exit(flags.help ? 0 : 2);
 }
 
 // ---- graph ------------------------------------------------------------
@@ -55,7 +46,7 @@ for (const svc of services) {
     g.add(`stage-${svc}`, {
       title: `Deploy ${svc} to staging`,
       needs: [build], // handle from add() — typo-proof
-    })
+    }),
   );
 }
 

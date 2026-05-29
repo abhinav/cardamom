@@ -43,26 +43,21 @@
 // note that capability-labelled work is hidden from bare `clu ready` and
 // only shows for `clu ready -a <agent>` advertising that capability.)
 
-"use strict";
+// The graph below is built RAW (plain objects, no Graph helper) so it reads
+// as a direct map of the JSON `clu batch` consumes — port it to any
+// language. Only the boilerplate arg parsing borrows clu.js helpers.
+import { parseArgs, usage } from "./clu.js";
 
 // ---- args -------------------------------------------------------------
 
-const argv = process.argv.slice(2);
-const flags = {};
-const positional = [];
-for (const a of argv) {
-  const m = /^--([^=]+)=(.*)$/.exec(a);
-  if (m) flags[m[1]] = m[2];
-  else if (a === "-h" || a === "--help") flags.help = "1";
-  else positional.push(a);
-}
+const { flags, positional } = parseArgs();
 
 if (flags.help || positional.length < 2) {
-  process.stderr.write(
+  usage(
     "usage: node feature-rollout.js <feature> <module...> [--approver=NAME]\n" +
-      "  pipe into:  | clu batch [--dry-run|--json]\n"
+      "  pipe into:  | clu batch [--dry-run|--json]",
+    flags.help ? 0 : 2,
   );
-  process.exit(flags.help ? 0 : 2);
 }
 
 const feature = positional[0];

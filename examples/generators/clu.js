@@ -21,7 +21,7 @@
 //   g.add("ship", { title: "Ship", needs: ["gate"] });
 //   g.emit();                                   // → pipe into `clu batch`
 
-class Graph {
+export class Graph {
   constructor() {
     this._issues = [];
     this._aliases = new Set();
@@ -71,4 +71,31 @@ class Graph {
   }
 }
 
-module.exports = { Graph };
+// parseArgs splits process args into { flags, positional }:
+//   --key=value   → flags.key = "value"
+//   --flag        → flags.flag = true
+//   -h | --help   → flags.help = true
+//   anything else → positional[]
+// A tiny zero-dependency replacement for the hand-rolled loop every
+// generator otherwise repeats at the top.
+export function parseArgs(argv = process.argv.slice(2)) {
+  const flags = {};
+  const positional = [];
+  for (const a of argv) {
+    if (a === "-h" || a === "--help") {
+      flags.help = true;
+      continue;
+    }
+    const m = /^--([^=]+)(?:=(.*))?$/.exec(a);
+    if (m) flags[m[1]] = m[2] ?? true;
+    else positional.push(a);
+  }
+  return { flags, positional };
+}
+
+// usage prints a message to stderr and exits. Pass code 0 for an explicit
+// --help, non-zero for a bad invocation.
+export function usage(text, code = 2) {
+  process.stderr.write(text.endsWith("\n") ? text : text + "\n");
+  process.exit(code);
+}

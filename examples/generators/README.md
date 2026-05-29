@@ -55,8 +55,22 @@ g.add("ship", { title: "Ship", needs: ["gate"] });
 g.emit();                                  // → pipe into `clu batch`
 ```
 
+It also exports two tiny arg helpers so generators don't re-hand-roll the
+messy parse loop:
+
+```js
+import { parseArgs, usage } from "./clu.js";
+const { flags, positional } = parseArgs();      // --k=v → flags.k, --flag → true, -h → flags.help
+if (flags.help || positional.length < 1) {
+  usage("usage: node gen.js <thing...> [--approver=NAME]", flags.help ? 0 : 2);
+}
+```
+
 It's optional: the contract is still plain JSON, so generators in any
 language (or raw Node) work without it.
+
+These examples are ES modules (`package.json` sets `"type": "module"`), so
+`import` works with a plain `node <script>.js`.
 
 ## Examples
 
