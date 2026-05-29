@@ -171,6 +171,7 @@ func (s *Store) Reopen(ctx context.Context, id string) (Issue, error) {
 		Model((*Issue)(nil)).
 		Set("status = 'open'").
 		Set("closed = NULL").
+		Set("started_at = NULL"). // reopened → no longer in progress
 		Set("updated = ?", now()).
 		Where("id = ? AND status IN ('closed', 'cancelled')", id).
 		Exec(ctx)
@@ -366,10 +367,15 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 		case "closed", "cancelled":
 			// Terminal transitions clear defer_until too (doctor's
 			// Closed+deferred check otherwise fires on any previously
-			// deferred row we close).
+			// deferred row we close). started_at is preserved → closed -
+			// started_at is the cycle time.
 			q = q.Set("closed = ?", now()).Set("defer_until = NULL")
-		default:
-			q = q.Set("closed = NULL")
+		case "in_progress":
+			// Entering in_progress via update (with an assignee) stamps the
+			// start, same as claim.
+			q = q.Set("closed = NULL").Set("started_at = ?", now())
+		default: // open
+			q = q.Set("closed = NULL").Set("started_at = NULL")
 		}
 	}
 	if f.Priority != nil {

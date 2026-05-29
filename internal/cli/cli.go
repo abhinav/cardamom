@@ -502,6 +502,9 @@ func printIssue(r *runCtx, i store.Issue, parents, blocks, labels []string, comm
 	}
 	fmt.Fprintf(w, "Created:  %s\n", time.Unix(i.Created, 0).Format(time.RFC3339))
 	fmt.Fprintf(w, "Updated:  %s\n", time.Unix(i.Updated, 0).Format(time.RFC3339))
+	if i.StartedAt != nil {
+		fmt.Fprintf(w, "Started:  %s\n", time.Unix(*i.StartedAt, 0).Format(time.RFC3339))
+	}
 	if i.Closed != nil {
 		fmt.Fprintf(w, "Closed:   %s\n", time.Unix(*i.Closed, 0).Format(time.RFC3339))
 	}

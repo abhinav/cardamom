@@ -65,6 +65,7 @@ export interface Issue {
   assignee?: string | null
   created: number
   updated: number
+  started_at?: number | null
   closed?: number | null
   defer_until?: number | null
   description?: string | null

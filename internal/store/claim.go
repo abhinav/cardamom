@@ -128,7 +128,7 @@ func (s *Store) Claim(ctx context.Context, assignee string, agent *string, caps 
 	// unassigned work. With agent=nil, every match has assignee IS NULL
 	// so the CASE is a no-op.
 	q := `
-        UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?
+        UPDATE issues SET assignee = ?, status = 'in_progress', updated = ?, started_at = ?
         WHERE id = (
             SELECT id FROM issues
             WHERE status = 'open'
@@ -142,15 +142,15 @@ func (s *Store) Claim(ctx context.Context, assignee string, agent *string, caps 
             ORDER BY (CASE WHEN assignee IS NULL THEN 1 ELSE 0 END), priority ASC, created ASC
             LIMIT 1
         )
-        RETURNING id, title, type, status, priority, assignee, created, updated, closed, defer_until, description, notes`
+        RETURNING id, title, type, status, priority, assignee, created, updated, started_at, closed, defer_until, description, notes`
 	t := now()
-	args := []any{assignee, t}
+	args := []any{assignee, t, t}
 	args = append(args, laneArgs...)
 	args = append(args, t)
 	var i Issue
 	err := s.db.QueryRowContext(ctx, q, args...).Scan(
 		&i.ID, &i.Title, &i.Type, &i.Status, &i.Priority,
-		&i.Assignee, &i.Created, &i.Updated, &i.Closed, &i.DeferUntil, &i.Description, &i.Notes,
+		&i.Assignee, &i.Created, &i.Updated, &i.StartedAt, &i.Closed, &i.DeferUntil, &i.Description, &i.Notes,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return Issue{}, ErrNotFound
@@ -172,11 +172,13 @@ func (s *Store) ClaimByID(ctx context.Context, id, assignee string) (Issue, erro
 	// Allow claiming a pre-assigned issue if it's already assigned to
 	// the same claimer; the status transition is the lock. Refuse if
 	// someone else holds it.
+	t := now()
 	res, err := s.db.NewUpdate().
 		Model((*Issue)(nil)).
 		Set("assignee = ?", assignee).
 		Set("status = 'in_progress'").
-		Set("updated = ?", now()).
+		Set("updated = ?", t).
+		Set("started_at = ?", t).
 		Where("id = ? AND status = 'open' AND (assignee IS NULL OR assignee = ?)", id, assignee).
 		Exec(ctx)
 	if err != nil {

@@ -13,6 +13,7 @@ type Issue struct {
 	Assignee    *string `bun:"assignee" json:"assignee,omitempty"`
 	Created     int64   `bun:"created,notnull" json:"created"`
 	Updated     int64   `bun:"updated,notnull" json:"updated"`
+	StartedAt   *int64  `bun:"started_at" json:"started_at,omitempty"` // when it last entered in_progress
 	Closed      *int64  `bun:"closed" json:"closed,omitempty"`
 	DeferUntil  *int64  `bun:"defer_until" json:"defer_until,omitempty"`
 	Description *string `bun:"description" json:"description,omitempty"`

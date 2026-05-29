@@ -85,7 +85,10 @@ func (s *Store) Doctor(ctx context.Context, stuckThresholdHours int) (DoctorRepo
 
 	if stuckThresholdHours > 0 {
 		cutoff := now() - int64(stuckThresholdHours)*3600
-		if err := s.db.NewRaw("SELECT COUNT(*) FROM issues WHERE status = 'in_progress' AND updated < ?", cutoff).Scan(ctx, &r.StuckInProgress); err != nil {
+		// Use started_at (when work began) rather than updated — an edit
+		// (note/comment/label) bumps updated and would mask a stuck issue.
+		// COALESCE to updated for rows claimed before started_at existed.
+		if err := s.db.NewRaw("SELECT COUNT(*) FROM issues WHERE status = 'in_progress' AND COALESCE(started_at, updated) < ?", cutoff).Scan(ctx, &r.StuckInProgress); err != nil {
 			return r, err
 		}
 	}

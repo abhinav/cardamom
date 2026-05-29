@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import type { Issue } from '../lib/api'
-import { type Status } from '../lib/issue-display'
+import { formatRelative, type Status } from '../lib/issue-display'
 import { PriorityBadge, StatusBadge } from './StatusBadge'
 import { Badge } from './ui/badge'
 
@@ -12,6 +12,10 @@ interface Props {
   showAllLabels?: boolean
   // Hide the status pill on cards already grouped by status (kanban).
   hideStatus?: boolean
+  // Hide repeated fields when the surrounding board column already
+  // represents that dimension.
+  hideAssignee?: boolean
+  hidePriority?: boolean
 }
 
 // IssueCard — compact preview of an issue. Lives on the kanban board
@@ -23,6 +27,8 @@ export default function IssueCard({
   draggable,
   showAllLabels,
   hideStatus,
+  hideAssignee,
+  hidePriority,
 }: Props) {
   const labels = showAllLabels
     ? issue.labels
@@ -43,7 +49,9 @@ export default function IssueCard({
       className="bg-card hover:bg-accent/60 hover:border-foreground/20 group relative flex cursor-grab flex-col gap-2 rounded-md border p-3 text-card-foreground no-underline shadow-sm transition-colors active:cursor-grabbing"
     >
       <div className="flex items-start gap-2">
-        <PriorityBadge priority={issue.priority} className="shrink-0" />
+        {!hidePriority && (
+          <PriorityBadge priority={issue.priority} className="shrink-0" />
+        )}
         <span className="flex-1 text-[13px] leading-snug font-medium">
           {issue.title}
         </span>
@@ -58,7 +66,7 @@ export default function IssueCard({
             blocked={issue.blocked}
           />
         )}
-        {issue.assignee && (
+        {!hideAssignee && issue.assignee && (
           <span className="text-muted-foreground inline-flex items-center gap-1">
             <span className="bg-accent text-accent-foreground inline-flex size-4 items-center justify-center rounded-full text-[9px] font-semibold uppercase">
               {issue.assignee.charAt(0)}
@@ -73,6 +81,14 @@ export default function IssueCard({
         ))}
         {labels.length > 3 && (
           <span className="text-muted-foreground">+{labels.length - 3}</span>
+        )}
+        {issue.status === 'in_progress' && issue.started_at != null && (
+          <span
+            className="text-muted-foreground ml-auto"
+            title={`started ${new Date(issue.started_at * 1000).toLocaleString()}`}
+          >
+            ⏱ {formatRelative(issue.started_at)}
+          </span>
         )}
       </div>
     </Link>

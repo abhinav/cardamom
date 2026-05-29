@@ -201,6 +201,14 @@ var migrations = []string{
     CREATE INDEX IF NOT EXISTS idx_events_issue ON events(issue_id, ts);
     CREATE INDEX IF NOT EXISTS idx_events_ts    ON events(ts);
     `,
+	// v16: started_at — when an issue most recently entered in_progress.
+	// Distinct from `updated` (which any edit bumps): set on claim, cleared
+	// on reopen, preserved on close/cancel (so a closed issue's started_at →
+	// closed span is its cycle time). Backs the web list "started Nh ago"
+	// display and a correct doctor stuck-in-progress check.
+	`
+    ALTER TABLE issues ADD COLUMN started_at INTEGER;
+    `,
 }
 
 func migrate(db *sql.DB) error {
