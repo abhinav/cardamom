@@ -37,11 +37,40 @@ A JSON array (or `{"issues": [...]}`) of issues. Per issue:
 | `description` / `notes` | freeform text                                      |
 | `checkpoint`   | `{}` (manual gate) or `{"approvers":["alice"]}` — a manual approval gate, same as a `clu run` checkpoint step |
 
+## Optional helper: `clu.js`
+
+`clu.js` is a tiny, zero-dependency convenience for Node generators — copy
+it or `require("./clu.js")`. It only shapes data; `clu batch` still owns all
+validation, so the helper can't drift from the real rules. The wins are
+ergonomic: `add()` returns the alias so you wire `needs` by handle (typos
+become JS reference errors), and duplicate aliases throw at build time.
+
+```js
+const { Graph } = require("./clu.js");
+const g = new Graph();
+const design = g.add("design", { title: "Design", type: "decision" });
+const impl   = g.add("impl",   { title: "Implement", needs: [design] });
+g.checkpoint("gate", { title: "Approve", needs: [impl], approvers: ["alice"] });
+g.add("ship", { title: "Ship", needs: ["gate"] });
+g.emit();                                  // → pipe into `clu batch`
+```
+
+It's optional: the contract is still plain JSON, so generators in any
+language (or raw Node) work without it.
+
 ## Examples
 
 - **`feature-rollout.js`** — parameterized per-module feature rollout:
   `node feature-rollout.js <feature> <module...> [--approver=NAME]`.
   Demonstrates argument parsing, per-module fan-out, a conditional security
   audit for sensitive modules, and an approval checkpoint gating the ship
-  step. (Kept capability-free so a fresh `clu ready` surfaces work
-  immediately — see the note in the file for how to add `capabilities`.)
+  step. Written **raw** (no helper) as the "this is just JSON, translate to
+  any language" reference. Kept capability-free so a fresh `clu ready`
+  surfaces work immediately — see the note in the file for how to add
+  `capabilities`.
+
+- **`release-train.js`** — per-service build → staging, one approval gate,
+  then per-service prod deploy:
+  `node release-train.js <version> <service...> [--approver=NAME]`.
+  Built **with `clu.js`** to show the helper: fan-out → fan-in checkpoint →
+  fan-out, with `needs` passed by handle.
