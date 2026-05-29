@@ -14,7 +14,7 @@ var completionCmds = []string{
 	"history", "log",
 	"count", "stats", "reopen",
 	"assign", "priority", "tag", "link",
-	"export", "import", "sql",
+	"export", "import", "batch", "sql",
 	"info", "statuses", "types", "doctor",
 	"describe", "note", "comment", "kv",
 	"cron", "agent", "brief",

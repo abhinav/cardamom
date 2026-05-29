@@ -2735,3 +2735,81 @@ func TestCLIJSONRejectedWhereStreaming(t *testing.T) {
 	// lock with a trailing command streams child stdout → --json rejected.
 	c.runFail("--json", "lock", "deploy", "--ttl", "1m", "--", "echo", "hi")
 }
+
+// writeBatchFile writes a graph JSON doc to a temp file and returns its path.
+func writeBatchFile(t *testing.T, body string) string {
+	t.Helper()
+	p := filepath.Join(t.TempDir(), "graph.json")
+	if err := os.WriteFile(p, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	return p
+}
+
+func TestCLIBatchArrayForm(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	graph := writeBatchFile(t, `[
+	  {"alias":"a","title":"Task A","priority":1},
+	  {"alias":"b","title":"Task B","needs":["a"],"capabilities":["go"]},
+	  {"alias":"c","title":"Task C","needs":["a","b"]}
+	]`)
+	out := c.run("--json", "batch", graph)
+	var res struct {
+		Count   int               `json:"count"`
+		Edges   int               `json:"edges"`
+		Created map[string]string `json:"created"`
+	}
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("batch --json: %v\n%s", err, out)
+	}
+	if res.Count != 3 || res.Edges != 3 {
+		t.Fatalf("count/edges = %d/%d, want 3/3", res.Count, res.Edges)
+	}
+	if len(res.Created) != 3 {
+		t.Fatalf("created map = %v", res.Created)
+	}
+	// The graph really exists: c depends on a and b.
+	show := c.run("--json", "show", res.Created["c"])
+	for _, id := range []string{res.Created["a"], res.Created["b"]} {
+		if !strings.Contains(show, id) {
+			t.Fatalf("c should depend on %s:\n%s", id, show)
+		}
+	}
+	// cap label routed onto b.
+	labels := c.run("--json", "label", "ls", res.Created["b"])
+	if !strings.Contains(labels, "cap:go") {
+		t.Fatalf("b should carry cap:go:\n%s", labels)
+	}
+}
+
+func TestCLIBatchDocFormAndDryRun(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	graph := writeBatchFile(t, `{"issues":[{"alias":"x","title":"X"},{"alias":"y","title":"Y","needs":["x"]}]}`)
+
+	// Dry-run writes nothing.
+	c.run("batch", "--dry-run", graph)
+	listOut := c.run("--json", "list", "--status", "all")
+	if !strings.Contains(listOut, "[]") {
+		t.Fatalf("dry-run should have created nothing:\n%s", listOut)
+	}
+
+	// Real run creates them.
+	c.run("batch", graph)
+	listOut = c.run("--json", "list", "--status", "all")
+	if strings.Contains(strings.TrimSpace(listOut), "[]") {
+		t.Fatalf("batch should have created issues:\n%s", listOut)
+	}
+}
+
+func TestCLIBatchRejectsBadInput(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	// Unknown field (typo) must fail loudly.
+	c.runFail("batch", writeBatchFile(t, `[{"alias":"a","title":"A","capabilites":["go"]}]`))
+	// Cycle must fail.
+	c.runFail("batch", writeBatchFile(t, `[{"alias":"a","title":"A","needs":["b"]},{"alias":"b","title":"B","needs":["a"]}]`))
+	// Invalid capability charset must fail.
+	c.runFail("batch", writeBatchFile(t, `[{"alias":"a","title":"A","capabilities":["Go Lang"]}]`))
+}

@@ -1,0 +1,487 @@
+package store
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"sort"
+	"strings"
+
+	"github.com/uptrace/bun"
+)
+
+// BatchIssue is one node in a batch graph. Alias is a local handle used
+// only to wire Needs edges within the batch; it is not stored. Needs
+// entries are either another issue's Alias (an internal edge) or an
+// existing real issue ID (an external edge onto the committed graph).
+type BatchIssue struct {
+	Alias        string
+	Title        string
+	Type         string
+	Priority     int
+	Assignee     *string
+	Description  *string
+	Notes        *string
+	Capabilities []string // bare names; stored as cap:<name> labels
+	Labels       []string // arbitrary extra labels
+	Needs        []string // aliases or existing real IDs
+}
+
+// BatchStats summarizes a validated batch graph. Returned by BatchValidate
+// (dry-run) and BatchCreate so callers can show what was/would be built.
+type BatchStats struct {
+	Issues   int `json:"issues"`
+	Edges    int `json:"edges"`         // total Needs references (internal + external)
+	Roots    int `json:"roots"`         // issues with no prerequisites (ready immediately)
+	Leaves   int `json:"leaves"`        // issues nothing else depends on (terminal goals)
+	MaxDepth int `json:"max_depth"`     // longest dependency chain (in nodes)
+	External int `json:"external_refs"` // edges onto pre-existing issues
+}
+
+// chunkInsertParams caps how many bind parameters one INSERT uses, kept
+// well under SQLite's SQLITE_MAX_VARIABLE_NUMBER (999 on old builds) so
+// chunked bulk inserts work on every modernc.org/sqlite version.
+const chunkInsertParams = 800
+
+// batchPlan is the validated, resolved form of a batch, ready to write.
+type batchPlan struct {
+	issues   []BatchIssue
+	stats    BatchStats
+	internal [][]int    // internal[i] = indices of batch issues that issue i needs
+	external [][]string // external[i] = existing real IDs that issue i needs
+}
+
+// batchPrepare runs all validation that doesn't require allocated IDs:
+// structural field checks, alias uniqueness, Needs resolution (alias vs.
+// existing real ID, with a single existence query for the externals),
+// cycle detection over the internal graph, and stats. Every problem is
+// collected and returned together (errors.Join) so a generator can fix
+// in one pass instead of fix-rerun-repeat.
+func (s *Store) batchPrepare(ctx context.Context, issues []BatchIssue) (*batchPlan, error) {
+	var errs []error
+	add := func(format string, a ...any) { errs = append(errs, fmt.Errorf(format, a...)) }
+
+	if len(issues) == 0 {
+		return nil, fmt.Errorf("%w: batch is empty", ErrInvalid)
+	}
+
+	// Index aliases; flag duplicates and empties.
+	aliasIdx := make(map[string]int, len(issues))
+	for i, iss := range issues {
+		al := strings.TrimSpace(iss.Alias)
+		if al == "" {
+			add("issue #%d (%q): alias required", i+1, iss.Title)
+			continue
+		}
+		if prev, ok := aliasIdx[al]; ok {
+			add("alias %q: duplicated (issues #%d and #%d)", al, prev+1, i+1)
+			continue
+		}
+		aliasIdx[al] = i
+	}
+
+	// Per-issue field validation.
+	for i, iss := range issues {
+		ref := iss.Alias
+		if ref == "" {
+			ref = fmt.Sprintf("#%d", i+1)
+		}
+		if strings.TrimSpace(iss.Title) == "" {
+			add("%s: title required", ref)
+		}
+		typ := iss.Type
+		if typ != "" {
+			if err := ValidateType(typ); err != nil {
+				add("%s: %v", ref, err)
+			}
+		}
+		if err := ValidatePriority(iss.Priority); err != nil {
+			add("%s: %v", ref, err)
+		}
+		for _, c := range iss.Capabilities {
+			if strings.TrimSpace(c) == "" {
+				add("%s: capability cannot be empty", ref)
+			}
+		}
+		for _, l := range iss.Labels {
+			if strings.TrimSpace(l) == "" {
+				add("%s: label cannot be empty", ref)
+			}
+		}
+	}
+
+	// Resolve Needs into internal (alias) and external (real ID) edges.
+	internal := make([][]int, len(issues))
+	external := make([][]string, len(issues))
+	extSet := map[string]struct{}{}
+	edgeCount := 0
+	for i, iss := range issues {
+		ref := iss.Alias
+		if ref == "" {
+			ref = fmt.Sprintf("#%d", i+1)
+		}
+		seen := map[string]struct{}{}
+		for _, need := range iss.Needs {
+			need = strings.TrimSpace(need)
+			if need == "" {
+				add("%s: empty entry in needs", ref)
+				continue
+			}
+			if _, dup := seen[need]; dup {
+				continue // tolerate a repeated need; just one edge
+			}
+			seen[need] = struct{}{}
+			edgeCount++
+			if j, ok := aliasIdx[need]; ok {
+				if j == i {
+					add("%s: cannot depend on itself", ref)
+					continue
+				}
+				internal[i] = append(internal[i], j)
+			} else {
+				external[i] = append(external[i], need)
+				extSet[need] = struct{}{}
+			}
+		}
+	}
+
+	// One existence query for every external ID referenced.
+	if len(extSet) > 0 {
+		extIDs := make([]string, 0, len(extSet))
+		for id := range extSet {
+			extIDs = append(extIDs, id)
+		}
+		found, err := s.existingIDs(ctx, extIDs)
+		if err != nil {
+			return nil, err
+		}
+		// Deterministic error ordering: report missing refs sorted.
+		var missing []string
+		for _, id := range extIDs {
+			if _, ok := found[id]; !ok {
+				missing = append(missing, id)
+			}
+		}
+		sort.Strings(missing)
+		for _, id := range missing {
+			add("needs references unknown issue %q (not a batch alias, and no such issue exists)", id)
+		}
+	}
+
+	// Cycle detection + stats only make sense once the graph is structurally
+	// sound enough to walk. If aliases/refs already failed, bail with those.
+	if len(errs) > 0 {
+		return nil, fmt.Errorf("%w:\n  %s", ErrInvalid, joinErrs(errs))
+	}
+
+	if cyclePath := detectCycle(internal, issues); cyclePath != "" {
+		return nil, fmt.Errorf("%w: dependency cycle: %s", ErrInvalid, cyclePath)
+	}
+
+	plan := &batchPlan{issues: issues, internal: internal, external: external}
+	plan.stats = batchStats(issues, internal, external, edgeCount)
+	return plan, nil
+}
+
+// existingIDs returns the subset of ids that exist in the issues table,
+// queried in chunks to respect the bind-variable limit.
+func (s *Store) existingIDs(ctx context.Context, ids []string) (map[string]struct{}, error) {
+	out := make(map[string]struct{}, len(ids))
+	for start := 0; start < len(ids); start += chunkInsertParams {
+		end := min(start+chunkInsertParams, len(ids))
+		var got []string
+		err := s.db.NewSelect().Model((*Issue)(nil)).
+			Column("id").
+			Where("id IN (?)", bun.In(ids[start:end])).
+			Scan(ctx, &got)
+		if err != nil {
+			return nil, err
+		}
+		for _, id := range got {
+			out[id] = struct{}{}
+		}
+	}
+	return out, nil
+}
+
+// detectCycle returns a human-readable cycle path (alias → alias → …) over
+// the internal edge graph, or "" if the graph is acyclic. Iterative
+// three-color DFS so a pathological 1k-deep chain can't blow the stack.
+func detectCycle(internal [][]int, issues []BatchIssue) string {
+	const (
+		white = 0 // unvisited
+		gray  = 1 // on the current DFS stack
+		black = 2 // fully explored
+	)
+	color := make([]int, len(issues))
+	var path []int // current DFS stack (node indices)
+
+	var visit func(n int) []int
+	visit = func(n int) []int {
+		color[n] = gray
+		path = append(path, n)
+		for _, m := range internal[n] {
+			switch color[m] {
+			case white:
+				if cyc := visit(m); cyc != nil {
+					return cyc
+				}
+			case gray:
+				// Back-edge: m is on the stack. Slice from m to the top.
+				for k := len(path) - 1; k >= 0; k-- {
+					if path[k] == m {
+						cyc := append([]int(nil), path[k:]...)
+						return append(cyc, m) // close the loop
+					}
+				}
+			}
+		}
+		color[n] = black
+		path = path[:len(path)-1]
+		return nil
+	}
+
+	for n := range issues {
+		if color[n] == white {
+			if cyc := visit(n); cyc != nil {
+				parts := make([]string, len(cyc))
+				for i, idx := range cyc {
+					parts[i] = issues[idx].Alias
+				}
+				return strings.Join(parts, " → ")
+			}
+		}
+	}
+	return ""
+}
+
+// batchStats computes the summary over a validated (acyclic) graph.
+func batchStats(issues []BatchIssue, internal [][]int, external [][]string, edges int) BatchStats {
+	n := len(issues)
+	st := BatchStats{Issues: n, Edges: edges}
+
+	// Roots: no prerequisites at all (ready immediately).
+	// Leaves: nothing internal depends on them (terminal goals).
+	hasDependent := make([]bool, n)
+	for i := 0; i < n; i++ {
+		if len(internal[i]) == 0 && len(external[i]) == 0 {
+			st.Roots++
+		}
+		for _, j := range internal[i] {
+			hasDependent[j] = true
+		}
+		st.External += len(external[i])
+	}
+	for i := 0; i < n; i++ {
+		if !hasDependent[i] {
+			st.Leaves++
+		}
+	}
+
+	// Longest dependency chain (nodes) via memoized DFS over internal edges.
+	depth := make([]int, n)
+	var dfs func(i int) int
+	dfs = func(i int) int {
+		if depth[i] != 0 {
+			return depth[i]
+		}
+		best := 1
+		for _, j := range internal[i] {
+			if d := dfs(j) + 1; d > best {
+				best = d
+			}
+		}
+		depth[i] = best
+		return best
+	}
+	for i := 0; i < n; i++ {
+		if d := dfs(i); d > st.MaxDepth {
+			st.MaxDepth = d
+		}
+	}
+	return st
+}
+
+// BatchValidate validates a batch without writing anything and returns its
+// stats. Used by `clu batch --dry-run`.
+func (s *Store) BatchValidate(ctx context.Context, issues []BatchIssue) (BatchStats, error) {
+	plan, err := s.batchPrepare(ctx, issues)
+	if err != nil {
+		return BatchStats{}, err
+	}
+	return plan.stats, nil
+}
+
+// BatchCreate validates, allocates IDs, and writes the whole graph in one
+// transaction. Returns the alias→real-ID mapping and the graph stats. A
+// single bad input aborts everything — by the time anything is written the
+// graph is already proven valid.
+func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[string]string, BatchStats, error) {
+	plan, err := s.batchPrepare(ctx, issues)
+	if err != nil {
+		return nil, BatchStats{}, err
+	}
+
+	// Allocate all IDs up front, deduped against existing rows and each
+	// other — the random suffix collides at batch scale otherwise.
+	existing, err := s.allIDs(ctx)
+	if err != nil {
+		return nil, BatchStats{}, err
+	}
+	aliasToID := make(map[string]string, len(plan.issues))
+	idByIdx := make([]string, len(plan.issues))
+	for i, iss := range plan.issues {
+		var id string
+		for tries := 0; ; tries++ {
+			id = newID(s.idPrefix)
+			if _, clash := existing[id]; !clash {
+				break
+			}
+			if tries > 1000 {
+				return nil, BatchStats{}, errors.New("failed to allocate unique ids; id space may be exhausted")
+			}
+		}
+		existing[id] = struct{}{}
+		idByIdx[i] = id
+		aliasToID[iss.Alias] = id
+	}
+
+	// Build all rows in memory, then bulk-insert in chunks within one tx.
+	t := now()
+	issueRows := make([]Issue, len(plan.issues))
+	var labelRows []IssueLabel
+	var depRows []Dep
+	var eventRows []Event
+	for i, iss := range plan.issues {
+		id := idByIdx[i]
+		typ := iss.Type
+		if typ == "" {
+			typ = "task"
+		}
+		issueRows[i] = Issue{
+			ID: id, Title: strings.TrimSpace(iss.Title), Type: typ, Status: "open",
+			Priority: iss.Priority, Assignee: iss.Assignee,
+			Created: t, Updated: t,
+			Description: iss.Description, Notes: iss.Notes,
+		}
+		// Labels: cap:<name> + arbitrary.
+		var allLabels []string
+		for _, c := range iss.Capabilities {
+			allLabels = append(allLabels, "cap:"+c)
+		}
+		allLabels = append(allLabels, iss.Labels...)
+		for _, l := range allLabels {
+			labelRows = append(labelRows, IssueLabel{IssueID: id, Label: l})
+		}
+		// Dep edges: internal (resolved alias) + external (real ID).
+		var parents []string
+		for _, j := range plan.internal[i] {
+			parents = append(parents, idByIdx[j])
+		}
+		parents = append(parents, plan.external[i]...)
+		for _, p := range parents {
+			depRows = append(depRows, Dep{ChildID: id, ParentID: p})
+		}
+		// created event, mirroring CreateWithLinks' changed-fields payload.
+		eventRows = append(eventRows, Event{
+			IssueID: &id, Actor: s.actorPtr(), Kind: "created", TS: t,
+			Payload: batchCreatedPayload(issueRows[i], allLabels, parents),
+		})
+	}
+
+	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
+		if err := chunkInsert(ctx, tx, issueRows, chunkInsertParams/11); err != nil {
+			return err
+		}
+		if err := chunkInsert(ctx, tx, depRows, chunkInsertParams/2); err != nil {
+			return err
+		}
+		if err := chunkInsert(ctx, tx, labelRows, chunkInsertParams/2); err != nil {
+			return err
+		}
+		if err := chunkInsert(ctx, tx, eventRows, chunkInsertParams/5); err != nil {
+			return err
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, BatchStats{}, err
+	}
+	return aliasToID, plan.stats, nil
+}
+
+// allIDs loads every existing issue ID into a set for collision-free
+// allocation.
+func (s *Store) allIDs(ctx context.Context) (map[string]struct{}, error) {
+	var ids []string
+	if err := s.db.NewSelect().Model((*Issue)(nil)).Column("id").Scan(ctx, &ids); err != nil {
+		return nil, err
+	}
+	out := make(map[string]struct{}, len(ids))
+	for _, id := range ids {
+		out[id] = struct{}{}
+	}
+	return out, nil
+}
+
+// actorPtr returns the store's audit actor as a pointer, or nil when unset.
+func (s *Store) actorPtr() *string {
+	if s.actor == "" {
+		return nil
+	}
+	a := s.actor
+	return &a
+}
+
+// batchCreatedPayload builds the changed-fields JSON for a created event,
+// matching CreateWithLinks' shape (plus arbitrary labels).
+func batchCreatedPayload(i Issue, labels, parents []string) *string {
+	changed := map[string]any{"title": i.Title, "type": i.Type, "priority": i.Priority}
+	if i.Assignee != nil {
+		changed["assignee"] = *i.Assignee
+	}
+	if len(labels) > 0 {
+		changed["labels"] = labels
+	}
+	if len(parents) > 0 {
+		changed["depends_on"] = parents
+	}
+	if i.Description != nil {
+		changed["description"] = true
+	}
+	if i.Notes != nil {
+		changed["notes"] = true
+	}
+	b, err := json.Marshal(changed)
+	if err != nil {
+		return nil
+	}
+	p := string(b)
+	return &p
+}
+
+// chunkInsert bulk-inserts rows in batches of at most perChunk to stay
+// under SQLite's bind-variable limit. A zero/empty slice is a no-op.
+func chunkInsert[T any](ctx context.Context, tx bun.Tx, rows []T, perChunk int) error {
+	if perChunk < 1 {
+		perChunk = 1
+	}
+	for start := 0; start < len(rows); start += perChunk {
+		end := min(start+perChunk, len(rows))
+		chunk := rows[start:end]
+		if _, err := tx.NewInsert().Model(&chunk).Exec(ctx); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// joinErrs renders accumulated validation errors as an indented list.
+func joinErrs(errs []error) string {
+	parts := make([]string, len(errs))
+	for i, e := range errs {
+		parts[i] = e.Error()
+	}
+	return strings.Join(parts, "\n  ")
+}
