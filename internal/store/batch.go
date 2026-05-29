@@ -27,6 +27,12 @@ type BatchIssue struct {
 	Labels       []string // arbitrary extra labels
 	Needs        []string // aliases or existing real IDs
 
+	// Key, if set, is a stable external identity (e.g. "linear:ENG-123")
+	// recorded as the KV row extkey:<Key>. On a later batch, an issue whose
+	// Key already exists is not re-created — it is skipped or updated per the
+	// BatchExisting mode — which makes re-running an import idempotent.
+	Key string
+
 	// Checkpoint, if set, makes this issue a manual gate: type is forced
 	// to "checkpoint", a checkpoint:pending label is added, and the
 	// payload is written to the cp:<id> KV row — exactly what `clu run`
@@ -44,7 +50,22 @@ type BatchStats struct {
 	MaxDepth    int `json:"max_depth"`     // longest dependency chain (in nodes)
 	External    int `json:"external_refs"` // edges onto pre-existing issues
 	Checkpoints int `json:"checkpoints"`   // issues that are manual gates
+	Existing    int `json:"existing"`      // issues whose Key already exists (skip/update on create)
 }
+
+// BatchExisting selects what BatchCreate does with an issue whose Key
+// already exists from a prior batch.
+type BatchExisting int
+
+const (
+	// BatchSkip leaves the existing issue untouched (no duplicate, no
+	// clobber). Re-running only ever adds genuinely-new issues.
+	BatchSkip BatchExisting = iota
+	// BatchUpdate syncs the existing issue's source-owned fields (title,
+	// type, priority, description) to the new values, leaving local
+	// workflow state (status, assignee, labels, deps, notes) alone.
+	BatchUpdate
+)
 
 // chunkInsertParams caps how many bind parameters one INSERT uses, kept
 // well under SQLite's SQLITE_MAX_VARIABLE_NUMBER (999 on old builds) so
@@ -53,10 +74,11 @@ const chunkInsertParams = 800
 
 // batchPlan is the validated, resolved form of a batch, ready to write.
 type batchPlan struct {
-	issues   []BatchIssue
-	stats    BatchStats
-	internal [][]int    // internal[i] = indices of batch issues that issue i needs
-	external [][]string // external[i] = existing real IDs that issue i needs
+	issues     []BatchIssue
+	stats      BatchStats
+	internal   [][]int    // internal[i] = indices of batch issues that issue i needs
+	external   [][]string // external[i] = existing real IDs that issue i needs
+	existingID []string   // existingID[i] = real ID if issue i's Key already exists, else ""
 }
 
 // batchPrepare runs all validation that doesn't require allocated IDs:
@@ -88,7 +110,8 @@ func (s *Store) batchPrepare(ctx context.Context, issues []BatchIssue) (*batchPl
 		aliasIdx[al] = i
 	}
 
-	// Per-issue field validation.
+	// Per-issue field validation (+ duplicate-Key detection within the batch).
+	keyIdx := map[string]int{}
 	for i, iss := range issues {
 		ref := iss.Alias
 		if ref == "" {
@@ -96,6 +119,13 @@ func (s *Store) batchPrepare(ctx context.Context, issues []BatchIssue) (*batchPl
 		}
 		if strings.TrimSpace(iss.Title) == "" {
 			add("%s: title required", ref)
+		}
+		if k := strings.TrimSpace(iss.Key); k != "" {
+			if prev, ok := keyIdx[k]; ok {
+				add("%s: key %q also used by issue #%d", ref, k, prev+1)
+			} else {
+				keyIdx[k] = i
+			}
 		}
 		typ := iss.Type
 		if typ != "" {
@@ -201,7 +231,54 @@ func (s *Store) batchPrepare(ctx context.Context, issues []BatchIssue) (*batchPl
 			plan.stats.Checkpoints++
 		}
 	}
+
+	// Resolve external keys: which issues already exist from a prior batch.
+	plan.existingID = make([]string, len(issues))
+	var keys []string
+	for _, iss := range issues {
+		if k := strings.TrimSpace(iss.Key); k != "" {
+			keys = append(keys, k)
+		}
+	}
+	if len(keys) > 0 {
+		found, err := s.existingExtKeys(ctx, keys)
+		if err != nil {
+			return nil, err
+		}
+		for i, iss := range issues {
+			if id, ok := found[strings.TrimSpace(iss.Key)]; ok && iss.Key != "" {
+				plan.existingID[i] = id
+				plan.stats.Existing++
+			}
+		}
+	}
 	return plan, nil
+}
+
+// extKeyPrefix namespaces external-identity KV rows.
+const extKeyPrefix = "extkey:"
+
+// existingExtKeys returns key→issueID for the subset of keys already recorded
+// (as extkey:<key> KV rows). Queried in chunks to respect the bind limit.
+func (s *Store) existingExtKeys(ctx context.Context, keys []string) (map[string]string, error) {
+	out := make(map[string]string, len(keys))
+	kvKeys := make([]string, len(keys))
+	for i, k := range keys {
+		kvKeys[i] = extKeyPrefix + k
+	}
+	for start := 0; start < len(kvKeys); start += chunkInsertParams {
+		end := min(start+chunkInsertParams, len(kvKeys))
+		var rows []KV
+		if err := s.db.NewSelect().Model(&rows).
+			Where("key IN (?)", bun.In(kvKeys[start:end])).
+			Scan(ctx); err != nil {
+			return nil, err
+		}
+		for _, r := range rows {
+			out[strings.TrimPrefix(r.Key, extKeyPrefix)] = r.Value
+		}
+	}
+	return out, nil
 }
 
 // existingIDs returns the subset of ids that exist in the issues table,
@@ -334,11 +411,15 @@ type BatchGroup struct {
 	Description string
 }
 
-// BatchResult is what BatchCreate returns: the alias→real-ID map, the
-// optional group parent ID, and the graph stats.
+// BatchResult is what BatchCreate returns: the alias→resolved-ID map (new
+// AND pre-existing issues, so callers can correlate every alias), the
+// optional group parent ID, per-action counts, and the graph stats.
 type BatchResult struct {
-	Mapping  map[string]string `json:"created"`
-	ParentID string            `json:"group,omitempty"`
+	Mapping  map[string]string `json:"created"`         // alias → resolved id
+	ParentID string            `json:"group,omitempty"` // group umbrella id, if any
+	New      int               `json:"new"`             // issues newly inserted
+	Existing int               `json:"existing"`        // issues matched by an existing key
+	Updated  int               `json:"updated"`         // existing issues updated (update mode)
 	Stats    BatchStats        `json:"stats"`
 }
 
@@ -352,18 +433,20 @@ func (s *Store) BatchValidate(ctx context.Context, issues []BatchIssue) (BatchSt
 	return plan.stats, nil
 }
 
-// BatchCreate validates, allocates IDs, and writes the whole graph in one
-// transaction. With a non-nil group it also creates a parent umbrella issue
-// (see BatchGroup). A single bad input aborts everything — by the time
-// anything is written the graph is already proven valid.
-func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *BatchGroup) (BatchResult, error) {
+// BatchCreate validates, resolves external keys, allocates IDs for new
+// issues, and writes the graph in one transaction. Issues whose Key already
+// exists are skipped or updated per `mode`; their alias still resolves to the
+// existing ID so cross-references stay correct. With a non-nil group it also
+// creates a parent umbrella (see BatchGroup). A single bad input aborts
+// everything — by write time the graph is already proven valid.
+func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *BatchGroup, mode BatchExisting) (BatchResult, error) {
 	plan, err := s.batchPrepare(ctx, issues)
 	if err != nil {
 		return BatchResult{}, err
 	}
 
-	// Allocate all IDs up front, deduped against existing rows and each
-	// other — the random suffix collides at batch scale otherwise.
+	// Allocate IDs for NEW issues, deduped against existing rows and each
+	// other. Existing (keyed-and-found) issues keep their real ID.
 	existing, err := s.allIDs(ctx)
 	if err != nil {
 		return BatchResult{}, err
@@ -383,13 +466,21 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 
 	aliasToID := make(map[string]string, len(plan.issues))
 	idByIdx := make([]string, len(plan.issues))
+	isExisting := make([]bool, len(plan.issues))
+	newCount := 0
 	for i, iss := range plan.issues {
-		id, err := alloc()
-		if err != nil {
-			return BatchResult{}, err
+		if plan.existingID[i] != "" {
+			idByIdx[i] = plan.existingID[i]
+			isExisting[i] = true
+		} else {
+			id, err := alloc()
+			if err != nil {
+				return BatchResult{}, err
+			}
+			idByIdx[i] = id
+			newCount++
 		}
-		idByIdx[i] = id
-		aliasToID[iss.Alias] = id
+		aliasToID[iss.Alias] = idByIdx[i]
 	}
 
 	// Optional group parent + its run:<id> label, applied to every issue.
@@ -403,12 +494,17 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 	}
 
 	// Build all rows in memory, then bulk-insert in chunks within one tx.
+	// Only NEW issues generate rows; existing ones generate nothing (skip) or
+	// a scalar UPDATE (update mode).
 	t := now()
-	issueRows := make([]Issue, len(plan.issues))
+	var issueRows []Issue
 	var labelRows []IssueLabel
 	var depRows []Dep
 	var eventRows []Event
-	cpKV := map[string]string{} // issue id → checkpoint payload JSON
+	cpKV := map[string]string{}  // issue id → checkpoint payload JSON
+	extKV := map[string]string{} // extkey:<key> → id, for new keyed issues
+	var updates []Issue          // existing issues to re-sync (update mode)
+	updatedCount := 0
 	hasDependent := make([]bool, len(plan.issues))
 	for i := range plan.issues {
 		for _, j := range plan.internal[i] {
@@ -424,11 +520,31 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 		if typ == "" {
 			typ = "task"
 		}
-		issueRows[i] = Issue{
+
+		// Existing issue: skip, or update its source-owned scalar fields.
+		if isExisting[i] {
+			if mode == BatchUpdate {
+				updates = append(updates, Issue{
+					ID: id, Title: strings.TrimSpace(iss.Title), Type: typ,
+					Priority: iss.Priority, Updated: t, Description: iss.Description,
+				})
+				eventRows = append(eventRows, Event{
+					IssueID: &idByIdx[i], Actor: s.actorPtr(), Kind: "updated", TS: t,
+					Payload: ptrStr(`{"synced":true}`),
+				})
+				updatedCount++
+			}
+			continue
+		}
+
+		issueRows = append(issueRows, Issue{
 			ID: id, Title: strings.TrimSpace(iss.Title), Type: typ, Status: "open",
 			Priority: iss.Priority, Assignee: iss.Assignee,
 			Created: t, Updated: t,
 			Description: iss.Description, Notes: iss.Notes,
+		})
+		if k := strings.TrimSpace(iss.Key); k != "" {
+			extKV[extKeyPrefix+k] = id
 		}
 		// Labels: cap:<name> + arbitrary + run:<parent> + checkpoint:pending.
 		var allLabels []string
@@ -465,7 +581,8 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 			seenLabel[l] = true
 			labelRows = append(labelRows, IssueLabel{IssueID: id, Label: l})
 		}
-		// Dep edges: internal (resolved alias) + external (real ID).
+		// Dep edges: internal (resolved alias) + external (real ID). Only new
+		// issues add edges; existing issues already carry theirs.
 		var parents []string
 		for _, j := range plan.internal[i] {
 			parents = append(parents, idByIdx[j])
@@ -475,9 +592,10 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 			depRows = append(depRows, Dep{ChildID: id, ParentID: p})
 		}
 		// created event, mirroring CreateWithLinks' changed-fields payload.
+		eid := id
 		eventRows = append(eventRows, Event{
-			IssueID: &id, Actor: s.actorPtr(), Kind: "created", TS: t,
-			Payload: batchCreatedPayload(issueRows[i], allLabels, parents),
+			IssueID: &eid, Actor: s.actorPtr(), Kind: "created", TS: t,
+			Payload: batchCreatedPayload(issueRows[len(issueRows)-1], allLabels, parents),
 		})
 	}
 
@@ -524,8 +642,26 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 		if err := chunkInsert(ctx, tx, eventRows, chunkInsertParams/5); err != nil {
 			return err
 		}
-		// Checkpoint payloads → cp:<id> KV rows, in the same tx.
+		// Update-mode re-sync of existing issues' source-owned scalar fields.
+		for _, u := range updates {
+			if _, err := tx.NewUpdate().Model((*Issue)(nil)).
+				Set("title = ?", u.Title).
+				Set("type = ?", u.Type).
+				Set("priority = ?", u.Priority).
+				Set("description = ?", u.Description).
+				Set("updated = ?", u.Updated).
+				Where("id = ?", u.ID).
+				Exec(ctx); err != nil {
+				return err
+			}
+		}
+		// Checkpoint payloads (cp:<id>) + external keys (extkey:<key>) → KV.
 		for key, val := range cpKV {
+			if err := KVSetTx(ctx, tx, key, val); err != nil {
+				return err
+			}
+		}
+		for key, val := range extKV {
 			if err := KVSetTx(ctx, tx, key, val); err != nil {
 				return err
 			}
@@ -535,8 +671,18 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 	if err != nil {
 		return BatchResult{}, err
 	}
-	return BatchResult{Mapping: aliasToID, ParentID: parentID, Stats: plan.stats}, nil
+	return BatchResult{
+		Mapping:  aliasToID,
+		ParentID: parentID,
+		New:      newCount,
+		Existing: plan.stats.Existing,
+		Updated:  updatedCount,
+		Stats:    plan.stats,
+	}, nil
 }
+
+// ptrStr returns a pointer to s (helper for inline event payloads).
+func ptrStr(s string) *string { return &s }
 
 // allIDs loads every existing issue ID into a set for collision-free
 // allocation.

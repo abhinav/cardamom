@@ -20,10 +20,11 @@ import (
 //	node gen.js | clu batch --dry-run   # validate + stats, write nothing
 //	node gen.js | clu batch --json      # commit; returns {alias: real-id}
 type BatchCmd struct {
-	File   string `arg:"" optional:"" help:"JSON file (default: stdin)."`
-	DryRun bool   `name:"dry-run" help:"Validate and report stats without writing anything."`
-	Group  string `name:"group" help:"Wrap the batch under a parent umbrella issue with this title; every issue (and the parent) is tagged run:<parent-id>. Overrides a 'group' field in the document."`
-	Agent  string `short:"a" name:"agent" default:"${user}" help:"Identity recorded as the actor on the created issues' audit events."`
+	File       string `arg:"" optional:"" help:"JSON file (default: stdin)."`
+	DryRun     bool   `name:"dry-run" help:"Validate and report stats without writing anything."`
+	Group      string `name:"group" help:"Wrap the batch under a parent umbrella issue with this title; every issue (and the parent) is tagged run:<parent-id>. Overrides a 'group' field in the document."`
+	OnExisting string `name:"on-existing" enum:"skip,update" default:"skip" help:"When an issue's 'key' already exists: skip it (default) or update its title/type/priority/description from the source."`
+	Agent      string `short:"a" name:"agent" default:"${user}" help:"Identity recorded as the actor on the created issues' audit events."`
 }
 
 // batchInput is the per-issue wire shape. Priority is a pointer so an
@@ -39,6 +40,7 @@ type batchInput struct {
 	Capabilities []string         `json:"capabilities,omitempty"`
 	Labels       []string         `json:"labels,omitempty"`
 	Needs        []string         `json:"needs,omitempty"`
+	Key          string           `json:"key,omitempty"`
 	Checkpoint   *checkpointInput `json:"checkpoint,omitempty"`
 }
 
@@ -83,6 +85,10 @@ func (c *BatchCmd) Run(r *runCtx) error {
 	} else if docGroup != nil {
 		group = &store.BatchGroup{Title: docGroup.Title, Description: docGroup.Description}
 	}
+	mode := store.BatchSkip
+	if c.OnExisting == "update" {
+		mode = store.BatchUpdate
+	}
 
 	return withStore(r, func(s *store.Store) error {
 		s.SetActor(c.Agent)
@@ -96,20 +102,26 @@ func (c *BatchCmd) Run(r *runCtx) error {
 			}
 			r.notice("valid: ")
 			printBatchStats(r, stats)
+			if stats.Existing > 0 {
+				r.notice("%d already exist (would %s)\n", stats.Existing, c.OnExisting)
+			}
 			if group != nil {
 				r.notice("group: %s (parent issue would be created)\n", group.Title)
 			}
 			return nil
 		}
-		res, err := s.BatchCreate(r.ctx, issues, group)
+		res, err := s.BatchCreate(r.ctx, issues, group, mode)
 		if err != nil {
 			return err
 		}
 		if r.json {
 			out := map[string]any{
-				"count":   res.Stats.Issues,
-				"edges":   res.Stats.Edges,
-				"created": res.Mapping,
+				"count":    res.Stats.Issues,
+				"edges":    res.Stats.Edges,
+				"new":      res.New,
+				"existing": res.Existing,
+				"updated":  res.Updated,
+				"created":  res.Mapping,
 			}
 			if res.ParentID != "" {
 				out["group"] = res.ParentID
@@ -117,11 +129,16 @@ func (c *BatchCmd) Run(r *runCtx) error {
 			return r.emitJSON(out)
 		}
 		printBatchStats(r, res.Stats)
-		if res.ParentID != "" {
-			r.notice("created %d issues under group %s\n", res.Stats.Issues, res.ParentID)
-		} else {
-			r.notice("created %d issues\n", res.Stats.Issues)
+		summary := fmt.Sprintf("created %d new", res.New)
+		if mode == store.BatchUpdate {
+			summary += fmt.Sprintf(", updated %d existing", res.Updated)
+		} else if res.Existing > 0 {
+			summary += fmt.Sprintf(", skipped %d existing", res.Existing)
 		}
+		if res.ParentID != "" {
+			summary += fmt.Sprintf(" under group %s", res.ParentID)
+		}
+		r.notice("%s\n", summary)
 		return nil
 	})
 }
@@ -251,6 +268,7 @@ func toBatchIssues(inputs []batchInput) ([]store.BatchIssue, error) {
 			Capabilities: in.Capabilities,
 			Labels:       in.Labels,
 			Needs:        in.Needs,
+			Key:          in.Key,
 			Checkpoint:   cp,
 		}
 	}

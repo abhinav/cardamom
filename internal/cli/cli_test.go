@@ -2861,3 +2861,45 @@ func TestCLIBatchRejectsTrailingContent(t *testing.T) {
 		t.Fatalf("trailing-content batch should have created nothing:\n%s", out)
 	}
 }
+
+func TestCLIBatchIdempotentImport(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+	graph := writeBatchFile(t, `[
+	  {"alias":"a","title":"Ticket A","key":"linear:ENG-1"},
+	  {"alias":"b","title":"Ticket B","key":"linear:ENG-2"}
+	]`)
+
+	// First import: both new.
+	out1 := c.run("--json", "batch", graph)
+	var r1 struct{ New, Existing int }
+	if err := json.Unmarshal([]byte(out1), &r1); err != nil {
+		t.Fatal(err)
+	}
+	if r1.New != 2 || r1.Existing != 0 {
+		t.Fatalf("run1 new/existing = %d/%d, want 2/0", r1.New, r1.Existing)
+	}
+
+	// Re-run (skip default): nothing new, no duplicates.
+	out2 := c.run("--json", "batch", graph)
+	var r2 struct{ New, Existing int }
+	json.Unmarshal([]byte(out2), &r2)
+	if r2.New != 0 || r2.Existing != 2 {
+		t.Fatalf("run2 new/existing = %d/%d, want 0/2", r2.New, r2.Existing)
+	}
+	all := c.run("--json", "list", "--status", "all")
+	var items []map[string]any
+	json.Unmarshal([]byte(all), &items)
+	if len(items) != 2 {
+		t.Fatalf("re-run duplicated: %d issues, want 2", len(items))
+	}
+
+	// Re-run with --on-existing update: title change syncs.
+	graph2 := writeBatchFile(t, `[{"alias":"a","title":"Ticket A (renamed)","key":"linear:ENG-1"}]`)
+	out3 := c.run("--json", "batch", "--on-existing", "update", graph2)
+	var r3 struct{ Updated int }
+	json.Unmarshal([]byte(out3), &r3)
+	if r3.Updated != 1 {
+		t.Fatalf("update run updated = %d, want 1", r3.Updated)
+	}
+}

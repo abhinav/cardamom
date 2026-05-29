@@ -16,7 +16,7 @@ func TestBatchCreateHappyGraph(t *testing.T) {
 		{Alias: "docs", Title: "Docs", Needs: []string{"impl"}},
 		{Alias: "ship", Title: "Ship", Priority: 0, Needs: []string{"tests", "docs"}},
 	}
-	res, err := s.BatchCreate(ctx, issues, nil)
+	res, err := s.BatchCreate(ctx, issues, nil, BatchSkip)
 	mapping, stats := res.Mapping, res.Stats
 	if err != nil {
 		t.Fatal(err)
@@ -64,7 +64,7 @@ func TestBatchExternalRef(t *testing.T) {
 	issues := []BatchIssue{
 		{Alias: "sub", Title: "Subtask", Needs: []string{epic.ID}}, // external real ID
 	}
-	res, err := s.BatchCreate(ctx, issues, nil)
+	res, err := s.BatchCreate(ctx, issues, nil, BatchSkip)
 	mapping, stats := res.Mapping, res.Stats
 	if err != nil {
 		t.Fatal(err)
@@ -85,7 +85,7 @@ func TestBatchCycleDetected(t *testing.T) {
 		{Alias: "b", Title: "B", Needs: []string{"a"}},
 		{Alias: "c", Title: "C", Needs: []string{"b"}},
 	}
-	_, err := s.BatchCreate(ctx, issues, nil)
+	_, err := s.BatchCreate(ctx, issues, nil, BatchSkip)
 	if err == nil {
 		t.Fatal("expected cycle error")
 	}
@@ -107,7 +107,7 @@ func TestBatchAllErrorsAtOnce(t *testing.T) {
 		{Alias: "b", Title: "B", Needs: []string{"ghost"}}, // unknown ref
 		{Alias: "c", Title: "C", Priority: 9},              // bad priority
 	}
-	_, err := s.BatchCreate(ctx, issues, nil)
+	_, err := s.BatchCreate(ctx, issues, nil, BatchSkip)
 	if err == nil {
 		t.Fatal("expected validation errors")
 	}
@@ -140,7 +140,7 @@ func TestBatchValidateNoWrite(t *testing.T) {
 
 func TestBatchSelfDep(t *testing.T) {
 	s := newTestStore(t)
-	_, err := s.BatchCreate(ctx, []BatchIssue{{Alias: "a", Title: "A", Needs: []string{"a"}}}, nil)
+	_, err := s.BatchCreate(ctx, []BatchIssue{{Alias: "a", Title: "A", Needs: []string{"a"}}}, nil, BatchSkip)
 	if err == nil || !strings.Contains(err.Error(), "itself") {
 		t.Fatalf("expected self-dep error, got %v", err)
 	}
@@ -163,7 +163,7 @@ func TestBatchScale(t *testing.T) {
 		}
 		issues[i] = bi
 	}
-	res, err := s.BatchCreate(ctx, issues, nil)
+	res, err := s.BatchCreate(ctx, issues, nil, BatchSkip)
 	mapping, stats := res.Mapping, res.Stats
 	if err != nil {
 		t.Fatal(err)
@@ -196,7 +196,7 @@ func TestBatchCheckpoint(t *testing.T) {
 			Checkpoint: &CheckpointPayload{Approvers: []string{"alice"}}},
 		{Alias: "manual-gate", Title: "Manual gate", Checkpoint: &CheckpointPayload{}},
 	}
-	res, err := s.BatchCreate(ctx, issues, nil)
+	res, err := s.BatchCreate(ctx, issues, nil, BatchSkip)
 	mapping, stats := res.Mapping, res.Stats
 	if err != nil {
 		t.Fatal(err)
@@ -253,7 +253,7 @@ func TestBatchCheckpointTypeConflict(t *testing.T) {
 	s := newTestStore(t)
 	_, err := s.BatchCreate(ctx, []BatchIssue{
 		{Alias: "x", Title: "X", Type: "task", Checkpoint: &CheckpointPayload{}},
-	}, nil)
+	}, nil, BatchSkip)
 	if err == nil || !strings.Contains(err.Error(), "checkpoint set but type") {
 		t.Fatalf("expected type-conflict error, got %v", err)
 	}
@@ -275,7 +275,7 @@ func TestBatchGroup(t *testing.T) {
 		{Alias: "b", Title: "B", Needs: []string{"a"}},
 		{Alias: "c", Title: "C", Needs: []string{"a"}}, // two leaves: b, c
 	}
-	res, err := s.BatchCreate(ctx, issues, &BatchGroup{Title: "My Rollout", Description: "desc"})
+	res, err := s.BatchCreate(ctx, issues, &BatchGroup{Title: "My Rollout", Description: "desc"}, BatchSkip)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -325,7 +325,7 @@ func TestBatchDedupesLabels(t *testing.T) {
 		{Alias: "a", Title: "A", Labels: []string{"x", "x"}},
 		{Alias: "b", Title: "B", Capabilities: []string{"go"}, Labels: []string{"cap:go"}},
 	}
-	res, err := s.BatchCreate(ctx, issues, nil)
+	res, err := s.BatchCreate(ctx, issues, nil, BatchSkip)
 	if err != nil {
 		t.Fatalf("dedupe should avoid constraint error: %v", err)
 	}
@@ -336,5 +336,95 @@ func TestBatchDedupesLabels(t *testing.T) {
 	lb, _ := s.LabelsForIssue(ctx, res.Mapping["b"])
 	if len(lb) != 1 || lb[0] != "cap:go" {
 		t.Fatalf("b labels = %v, want [cap:go]", lb)
+	}
+}
+
+func TestBatchIdempotentSkip(t *testing.T) {
+	s := newTestStore(t)
+	graph := []BatchIssue{
+		{Alias: "a", Title: "Ticket A", Key: "linear:ENG-1"},
+		{Alias: "b", Title: "Ticket B", Key: "linear:ENG-2", Needs: []string{"a"}},
+	}
+	// First run: both new.
+	r1, err := s.BatchCreate(ctx, graph, nil, BatchSkip)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r1.New != 2 || r1.Existing != 0 {
+		t.Fatalf("run1 new/existing = %d/%d, want 2/0", r1.New, r1.Existing)
+	}
+
+	// Second run, same keys: both skipped, no duplicates, aliases resolve to
+	// the SAME ids.
+	r2, err := s.BatchCreate(ctx, graph, nil, BatchSkip)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r2.New != 0 || r2.Existing != 2 {
+		t.Fatalf("run2 new/existing = %d/%d, want 0/2", r2.New, r2.Existing)
+	}
+	if r2.Mapping["a"] != r1.Mapping["a"] || r2.Mapping["b"] != r1.Mapping["b"] {
+		t.Fatalf("re-run resolved to different ids: %v vs %v", r2.Mapping, r1.Mapping)
+	}
+	// Total issues in the DB is still 2.
+	n, _ := s.db.NewSelect().Model((*Issue)(nil)).Count(ctx)
+	if n != 2 {
+		t.Fatalf("re-run duplicated issues: db has %d, want 2", n)
+	}
+}
+
+func TestBatchIdempotentUpdate(t *testing.T) {
+	s := newTestStore(t)
+	_, err := s.BatchCreate(ctx, []BatchIssue{
+		{Alias: "a", Title: "Old title", Priority: 3, Key: "linear:ENG-1"},
+	}, nil, BatchSkip)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Re-run in update mode with a changed title/priority.
+	r, err := s.BatchCreate(ctx, []BatchIssue{
+		{Alias: "a", Title: "New title", Priority: 0, Key: "linear:ENG-1"},
+	}, nil, BatchUpdate)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.New != 0 || r.Updated != 1 {
+		t.Fatalf("new/updated = %d/%d, want 0/1", r.New, r.Updated)
+	}
+	got, _ := s.Get(ctx, r.Mapping["a"])
+	if got.Title != "New title" || got.Priority != 0 {
+		t.Fatalf("update didn't sync fields: %+v", got)
+	}
+}
+
+func TestBatchNewIssueCanNeedExistingKeyed(t *testing.T) {
+	s := newTestStore(t)
+	r1, _ := s.BatchCreate(ctx, []BatchIssue{{Alias: "a", Title: "A", Key: "k:a"}}, nil, BatchSkip)
+	// Second batch: a already exists (by key); b is new and needs a.
+	r2, err := s.BatchCreate(ctx, []BatchIssue{
+		{Alias: "a", Title: "A", Key: "k:a"},
+		{Alias: "b", Title: "B", Needs: []string{"a"}},
+	}, nil, BatchSkip)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r2.New != 1 || r2.Existing != 1 {
+		t.Fatalf("new/existing = %d/%d, want 1/1", r2.New, r2.Existing)
+	}
+	// b's dep resolves to the EXISTING a.
+	parents, _, _ := s.Deps(ctx, r2.Mapping["b"])
+	if len(parents) != 1 || parents[0] != r1.Mapping["a"] {
+		t.Fatalf("b should depend on existing a (%s), got %v", r1.Mapping["a"], parents)
+	}
+}
+
+func TestBatchDuplicateKeyInBatch(t *testing.T) {
+	s := newTestStore(t)
+	_, err := s.BatchCreate(ctx, []BatchIssue{
+		{Alias: "a", Title: "A", Key: "dup"},
+		{Alias: "b", Title: "B", Key: "dup"},
+	}, nil, BatchSkip)
+	if err == nil || !strings.Contains(err.Error(), "key") {
+		t.Fatalf("expected duplicate-key error, got %v", err)
 	}
 }

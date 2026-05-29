@@ -118,3 +118,32 @@ These examples are ES modules (`package.json` sets `"type": "module"`), so
   `node migrate.js <target> <module...> [--approver=NAME]`.
   Shows `phase()` (auto-advancing milestone boundaries) plus a checkpoint in
   the final phase. Best with `clu batch --group "<name>"`.
+
+- **`linear-todo.js`** — turn a Linear export into a batch graph:
+  `linear issue query --json | node linear-todo.js | clu batch`.
+  Each issue carries a stable `key` (`linear:<id>`), so re-running is
+  **idempotent** — see below.
+
+## Idempotent re-import (`key` + `--on-existing`)
+
+Give an issue a stable `key` and re-running a batch won't duplicate it:
+
+```jsonc
+{ "alias": "eng-123", "key": "linear:ENG-123", "title": "Fix login" }
+```
+
+clu records the key (as a `extkey:<key>` row) on first create. On later
+runs, an issue whose key already exists is, per `--on-existing`:
+
+- `skip` (default) — left untouched; re-runs only add genuinely-new issues.
+- `update` — its source-owned fields (title, type, priority, description)
+  are re-synced; local workflow state (status, assignee, labels, deps,
+  notes) is left alone.
+
+Either way the alias still resolves to the existing ID, so a new issue that
+`needs` an already-imported one wires up correctly. `--json` reports
+`new` / `existing` / `updated` counts.
+
+> Note: `--group` creates a *new* umbrella each run (the parent isn't
+> keyed), so don't pass it on every scheduled re-import unless you want one
+> umbrella per run.
