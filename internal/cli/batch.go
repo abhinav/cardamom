@@ -28,16 +28,24 @@ type BatchCmd struct {
 // batchInput is the per-issue wire shape. Priority is a pointer so an
 // omitted value defaults to 2 (normal) rather than 0 (highest).
 type batchInput struct {
-	Alias        string   `json:"alias"`
-	Title        string   `json:"title"`
-	Type         string   `json:"type,omitempty"`
-	Priority     *int     `json:"priority,omitempty"`
-	Assignee     *string  `json:"assignee,omitempty"`
-	Description  *string  `json:"description,omitempty"`
-	Notes        *string  `json:"notes,omitempty"`
-	Capabilities []string `json:"capabilities,omitempty"`
-	Labels       []string `json:"labels,omitempty"`
-	Needs        []string `json:"needs,omitempty"`
+	Alias        string           `json:"alias"`
+	Title        string           `json:"title"`
+	Type         string           `json:"type,omitempty"`
+	Priority     *int             `json:"priority,omitempty"`
+	Assignee     *string          `json:"assignee,omitempty"`
+	Description  *string          `json:"description,omitempty"`
+	Notes        *string          `json:"notes,omitempty"`
+	Capabilities []string         `json:"capabilities,omitempty"`
+	Labels       []string         `json:"labels,omitempty"`
+	Needs        []string         `json:"needs,omitempty"`
+	Checkpoint   *checkpointInput `json:"checkpoint,omitempty"`
+}
+
+// checkpointInput declares a manual gate. kind is optional — it's
+// inferred as "approval" when approvers are listed, else "manual".
+type checkpointInput struct {
+	Kind      string   `json:"kind,omitempty"`
+	Approvers []string `json:"approvers,omitempty"`
 }
 
 // batchDoc is the {"issues":[...]} wrapper form.
@@ -151,6 +159,18 @@ func toBatchIssues(inputs []batchInput) ([]store.BatchIssue, error) {
 				return nil, fmt.Errorf("%s: invalid capability %q (lowercase a-z, digits, dashes; start with a letter)", ref, cap)
 			}
 		}
+		var cp *store.CheckpointPayload
+		if in.Checkpoint != nil {
+			kind := in.Checkpoint.Kind
+			if kind == "" {
+				if len(in.Checkpoint.Approvers) > 0 {
+					kind = "approval"
+				} else {
+					kind = "manual"
+				}
+			}
+			cp = &store.CheckpointPayload{Kind: kind, Approvers: in.Checkpoint.Approvers}
+		}
 		out[i] = store.BatchIssue{
 			Alias:        in.Alias,
 			Title:        in.Title,
@@ -162,12 +182,13 @@ func toBatchIssues(inputs []batchInput) ([]store.BatchIssue, error) {
 			Capabilities: in.Capabilities,
 			Labels:       in.Labels,
 			Needs:        in.Needs,
+			Checkpoint:   cp,
 		}
 	}
 	return out, nil
 }
 
 func printBatchStats(r *runCtx, st store.BatchStats) {
-	r.notice("%d issues, %d edges (%d external), %d roots, %d leaves, depth %d\n",
-		st.Issues, st.Edges, st.External, st.Roots, st.Leaves, st.MaxDepth)
+	r.notice("%d issues, %d edges (%d external), %d roots, %d leaves, depth %d, %d checkpoints\n",
+		st.Issues, st.Edges, st.External, st.Roots, st.Leaves, st.MaxDepth, st.Checkpoints)
 }

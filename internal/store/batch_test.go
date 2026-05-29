@@ -184,3 +184,82 @@ func TestBatchScale(t *testing.T) {
 		t.Fatalf("db has %d issues, want %d", count, n)
 	}
 }
+
+func TestBatchCheckpoint(t *testing.T) {
+	s := newTestStore(t)
+	issues := []BatchIssue{
+		{Alias: "impl", Title: "Implement"},
+		{Alias: "gate", Title: "Approve deploy", Needs: []string{"impl"},
+			Checkpoint: &CheckpointPayload{Approvers: []string{"alice"}}},
+		{Alias: "manual-gate", Title: "Manual gate", Checkpoint: &CheckpointPayload{}},
+	}
+	mapping, stats, err := s.BatchCreate(ctx, issues)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.Checkpoints != 2 {
+		t.Fatalf("checkpoints = %d, want 2", stats.Checkpoints)
+	}
+
+	// Checkpoint issue: type forced, pending label, cp KV with inferred kind.
+	gateID := mapping["gate"]
+	gate, _ := s.Get(ctx, gateID)
+	if gate.Type != "checkpoint" {
+		t.Fatalf("gate type = %q, want checkpoint", gate.Type)
+	}
+	labels, _ := s.LabelsForIssue(ctx, gateID)
+	if !contains(labels, "checkpoint:pending") {
+		t.Fatalf("gate labels missing checkpoint:pending: %v", labels)
+	}
+	pay, err := s.GetCheckpointPayload(ctx, gateID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pay.Kind != "approval" || len(pay.Approvers) != 1 || pay.Approvers[0] != "alice" {
+		t.Fatalf("gate payload = %+v, want approval/[alice]", pay)
+	}
+	// No-approvers checkpoint infers manual.
+	mpay, err := s.GetCheckpointPayload(ctx, mapping["manual-gate"])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if mpay.Kind != "manual" {
+		t.Fatalf("manual-gate kind = %q, want manual", mpay.Kind)
+	}
+
+	// The gate blocks until its prereq closes — batch-created deps drive
+	// the same checkpoint gating as `clu run`.
+	if _, err := s.ResolveCheckpoint(ctx, gateID, "alice", true, "ok"); err == nil {
+		t.Fatal("expected checkpoint to block on its open prerequisite")
+	}
+	if _, err := s.MarkClosed(ctx, mapping["impl"]); err != nil {
+		t.Fatal(err)
+	}
+	// Now it resolves like a real checkpoint.
+	if _, err := s.ResolveCheckpoint(ctx, gateID, "alice", true, "ok"); err != nil {
+		t.Fatalf("resolve checkpoint: %v", err)
+	}
+	g2, _ := s.Get(ctx, gateID)
+	if g2.Status != "closed" {
+		t.Fatalf("passed checkpoint status = %q, want closed", g2.Status)
+	}
+}
+
+func TestBatchCheckpointTypeConflict(t *testing.T) {
+	s := newTestStore(t)
+	_, _, err := s.BatchCreate(ctx, []BatchIssue{
+		{Alias: "x", Title: "X", Type: "task", Checkpoint: &CheckpointPayload{}},
+	})
+	if err == nil || !strings.Contains(err.Error(), "checkpoint set but type") {
+		t.Fatalf("expected type-conflict error, got %v", err)
+	}
+}
+
+func contains(ss []string, want string) bool {
+	for _, s := range ss {
+		if s == want {
+			return true
+		}
+	}
+	return false
+}

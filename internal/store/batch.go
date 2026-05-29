@@ -26,17 +26,24 @@ type BatchIssue struct {
 	Capabilities []string // bare names; stored as cap:<name> labels
 	Labels       []string // arbitrary extra labels
 	Needs        []string // aliases or existing real IDs
+
+	// Checkpoint, if set, makes this issue a manual gate: type is forced
+	// to "checkpoint", a checkpoint:pending label is added, and the
+	// payload is written to the cp:<id> KV row — exactly what `clu run`
+	// wires up, so `clu approve` / `clu checkpoint pass|fail` work.
+	Checkpoint *CheckpointPayload
 }
 
 // BatchStats summarizes a validated batch graph. Returned by BatchValidate
 // (dry-run) and BatchCreate so callers can show what was/would be built.
 type BatchStats struct {
-	Issues   int `json:"issues"`
-	Edges    int `json:"edges"`         // total Needs references (internal + external)
-	Roots    int `json:"roots"`         // issues with no prerequisites (ready immediately)
-	Leaves   int `json:"leaves"`        // issues nothing else depends on (terminal goals)
-	MaxDepth int `json:"max_depth"`     // longest dependency chain (in nodes)
-	External int `json:"external_refs"` // edges onto pre-existing issues
+	Issues      int `json:"issues"`
+	Edges       int `json:"edges"`         // total Needs references (internal + external)
+	Roots       int `json:"roots"`         // issues with no prerequisites (ready immediately)
+	Leaves      int `json:"leaves"`        // issues nothing else depends on (terminal goals)
+	MaxDepth    int `json:"max_depth"`     // longest dependency chain (in nodes)
+	External    int `json:"external_refs"` // edges onto pre-existing issues
+	Checkpoints int `json:"checkpoints"`   // issues that are manual gates
 }
 
 // chunkInsertParams caps how many bind parameters one INSERT uses, kept
@@ -94,6 +101,14 @@ func (s *Store) batchPrepare(ctx context.Context, issues []BatchIssue) (*batchPl
 		if typ != "" {
 			if err := ValidateType(typ); err != nil {
 				add("%s: %v", ref, err)
+			}
+		}
+		if iss.Checkpoint != nil {
+			if typ != "" && typ != "checkpoint" {
+				add("%s: checkpoint set but type is %q (must be checkpoint or omitted)", ref, typ)
+			}
+			if k := iss.Checkpoint.Kind; k != "" && k != "manual" && k != "approval" {
+				add("%s: invalid checkpoint kind %q (manual or approval)", ref, k)
 			}
 		}
 		if err := ValidatePriority(iss.Priority); err != nil {
@@ -181,6 +196,11 @@ func (s *Store) batchPrepare(ctx context.Context, issues []BatchIssue) (*batchPl
 
 	plan := &batchPlan{issues: issues, internal: internal, external: external}
 	plan.stats = batchStats(issues, internal, external, edgeCount)
+	for _, iss := range issues {
+		if iss.Checkpoint != nil {
+			plan.stats.Checkpoints++
+		}
+	}
 	return plan, nil
 }
 
@@ -353,9 +373,13 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[strin
 	var labelRows []IssueLabel
 	var depRows []Dep
 	var eventRows []Event
+	cpKV := map[string]string{} // issue id → checkpoint payload JSON
 	for i, iss := range plan.issues {
 		id := idByIdx[i]
 		typ := iss.Type
+		if iss.Checkpoint != nil {
+			typ = "checkpoint" // checkpoint spec forces the type
+		}
 		if typ == "" {
 			typ = "task"
 		}
@@ -365,12 +389,26 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[strin
 			Created: t, Updated: t,
 			Description: iss.Description, Notes: iss.Notes,
 		}
-		// Labels: cap:<name> + arbitrary.
+		// Labels: cap:<name> + arbitrary + checkpoint:pending gate.
 		var allLabels []string
 		for _, c := range iss.Capabilities {
 			allLabels = append(allLabels, "cap:"+c)
 		}
 		allLabels = append(allLabels, iss.Labels...)
+		if iss.Checkpoint != nil {
+			allLabels = append(allLabels, "checkpoint:pending")
+			payload := *iss.Checkpoint
+			if payload.Kind == "" { // infer: approvers → approval, else manual
+				if len(payload.Approvers) > 0 {
+					payload.Kind = "approval"
+				} else {
+					payload.Kind = "manual"
+				}
+			}
+			if b, err := json.Marshal(payload); err == nil {
+				cpKV["cp:"+id] = string(b)
+			}
+		}
 		for _, l := range allLabels {
 			labelRows = append(labelRows, IssueLabel{IssueID: id, Label: l})
 		}
@@ -402,6 +440,12 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[strin
 		}
 		if err := chunkInsert(ctx, tx, eventRows, chunkInsertParams/5); err != nil {
 			return err
+		}
+		// Checkpoint payloads → cp:<id> KV rows, in the same tx.
+		for key, val := range cpKV {
+			if err := KVSetTx(ctx, tx, key, val); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
