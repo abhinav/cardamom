@@ -22,6 +22,7 @@ import (
 type BatchCmd struct {
 	File   string `arg:"" optional:"" help:"JSON file (default: stdin)."`
 	DryRun bool   `name:"dry-run" help:"Validate and report stats without writing anything."`
+	Group  string `name:"group" help:"Wrap the batch under a parent umbrella issue with this title; every issue (and the parent) is tagged run:<parent-id>. Overrides a 'group' field in the document."`
 	Agent  string `short:"a" name:"agent" default:"${user}" help:"Identity recorded as the actor on the created issues' audit events."`
 }
 
@@ -48,9 +49,18 @@ type checkpointInput struct {
 	Approvers []string `json:"approvers,omitempty"`
 }
 
-// batchDoc is the {"issues":[...]} wrapper form.
+// batchDoc is the {"issues":[...]} wrapper form. An optional "group" wraps
+// the batch under a parent umbrella; it may be a bare string (the title) or
+// an object {"title","description"}.
 type batchDoc struct {
-	Issues []batchInput `json:"issues"`
+	Group  json.RawMessage `json:"group,omitempty"`
+	Issues []batchInput    `json:"issues"`
+}
+
+// batchGroupInput is the object form of a document "group".
+type batchGroupInput struct {
+	Title       string `json:"title"`
+	Description string `json:"description,omitempty"`
 }
 
 func (c *BatchCmd) Run(r *runCtx) error {
@@ -58,13 +68,20 @@ func (c *BatchCmd) Run(r *runCtx) error {
 	if err != nil {
 		return err
 	}
-	inputs, err := parseBatch(raw)
+	inputs, docGroup, err := parseBatch(raw)
 	if err != nil {
 		return err
 	}
 	issues, err := toBatchIssues(inputs)
 	if err != nil {
 		return err
+	}
+	// Group resolution: --group flag wins over a document "group".
+	var group *store.BatchGroup
+	if c.Group != "" {
+		group = &store.BatchGroup{Title: c.Group}
+	} else if docGroup != nil {
+		group = &store.BatchGroup{Title: docGroup.Title, Description: docGroup.Description}
 	}
 
 	return withStore(r, func(s *store.Store) error {
@@ -75,25 +92,36 @@ func (c *BatchCmd) Run(r *runCtx) error {
 				return err
 			}
 			if r.json {
-				return r.emitJSON(map[string]any{"dry_run": true, "stats": stats})
+				return r.emitJSON(map[string]any{"dry_run": true, "stats": stats, "grouped": group != nil})
 			}
 			r.notice("valid: ")
 			printBatchStats(r, stats)
+			if group != nil {
+				r.notice("group: %s (parent issue would be created)\n", group.Title)
+			}
 			return nil
 		}
-		mapping, stats, err := s.BatchCreate(r.ctx, issues)
+		res, err := s.BatchCreate(r.ctx, issues, group)
 		if err != nil {
 			return err
 		}
 		if r.json {
-			return r.emitJSON(map[string]any{
-				"count":   stats.Issues,
-				"edges":   stats.Edges,
-				"created": mapping,
-			})
+			out := map[string]any{
+				"count":   res.Stats.Issues,
+				"edges":   res.Stats.Edges,
+				"created": res.Mapping,
+			}
+			if res.ParentID != "" {
+				out["group"] = res.ParentID
+			}
+			return r.emitJSON(out)
 		}
-		printBatchStats(r, stats)
-		r.notice("created %d issues\n", stats.Issues)
+		printBatchStats(r, res.Stats)
+		if res.ParentID != "" {
+			r.notice("created %d issues under group %s\n", res.Stats.Issues, res.ParentID)
+		} else {
+			r.notice("created %d issues\n", res.Stats.Issues)
+		}
 		return nil
 	})
 }
@@ -111,11 +139,12 @@ func readBatchInput(file string) ([]byte, error) {
 
 // parseBatch accepts either a bare array of issues or {"issues":[...]}.
 // Unknown fields are rejected so a typo'd key (e.g. "capabilites") fails
-// loudly instead of silently dropping data.
-func parseBatch(raw []byte) ([]batchInput, error) {
+// loudly instead of silently dropping data. Returns the optional document
+// group (nil for the array form or when absent).
+func parseBatch(raw []byte) ([]batchInput, *batchGroupInput, error) {
 	trimmed := bytes.TrimSpace(raw)
 	if len(trimmed) == 0 {
-		return nil, fmt.Errorf("empty input")
+		return nil, nil, fmt.Errorf("empty input")
 	}
 	dec := func(v any) error {
 		d := json.NewDecoder(bytes.NewReader(trimmed))
@@ -126,17 +155,48 @@ func parseBatch(raw []byte) ([]batchInput, error) {
 	case '[':
 		var arr []batchInput
 		if err := dec(&arr); err != nil {
-			return nil, fmt.Errorf("parse batch array: %w", err)
+			return nil, nil, fmt.Errorf("parse batch array: %w", err)
 		}
-		return arr, nil
+		return arr, nil, nil
 	case '{':
 		var doc batchDoc
 		if err := dec(&doc); err != nil {
-			return nil, fmt.Errorf("parse batch document: %w", err)
+			return nil, nil, fmt.Errorf("parse batch document: %w", err)
 		}
-		return doc.Issues, nil
+		group, err := parseGroup(doc.Group)
+		if err != nil {
+			return nil, nil, err
+		}
+		return doc.Issues, group, nil
 	default:
-		return nil, fmt.Errorf("input must be a JSON array or {\"issues\":[...]} object")
+		return nil, nil, fmt.Errorf("input must be a JSON array or {\"issues\":[...]} object")
+	}
+}
+
+// parseGroup resolves a document "group" value, which may be a bare string
+// (the title) or an object {"title","description"}.
+func parseGroup(raw json.RawMessage) (*batchGroupInput, error) {
+	t := bytes.TrimSpace(raw)
+	if len(t) == 0 {
+		return nil, nil
+	}
+	switch t[0] {
+	case '"':
+		var title string
+		if err := json.Unmarshal(t, &title); err != nil {
+			return nil, fmt.Errorf("parse group: %w", err)
+		}
+		return &batchGroupInput{Title: title}, nil
+	case '{':
+		var g batchGroupInput
+		d := json.NewDecoder(bytes.NewReader(t))
+		d.DisallowUnknownFields()
+		if err := d.Decode(&g); err != nil {
+			return nil, fmt.Errorf("parse group: %w", err)
+		}
+		return &g, nil
+	default:
+		return nil, fmt.Errorf("group must be a string title or {\"title\",\"description\"} object")
 	}
 }
 

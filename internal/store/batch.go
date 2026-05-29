@@ -323,6 +323,25 @@ func batchStats(issues []BatchIssue, internal [][]int, external [][]string, edge
 	return st
 }
 
+// BatchGroup, when passed to BatchCreate, wraps the whole batch under a
+// parent issue: the parent is created, every batched issue (and the parent)
+// gets a run:<parent-id> label, and the parent depends on every leaf so it
+// only closes once the whole graph is done. This reuses `clu run`'s grouping
+// convention, so `clu list -l run:<id>` and the web run view work on
+// batch-created graphs too.
+type BatchGroup struct {
+	Title       string
+	Description string
+}
+
+// BatchResult is what BatchCreate returns: the alias→real-ID map, the
+// optional group parent ID, and the graph stats.
+type BatchResult struct {
+	Mapping  map[string]string `json:"created"`
+	ParentID string            `json:"group,omitempty"`
+	Stats    BatchStats        `json:"stats"`
+}
+
 // BatchValidate validates a batch without writing anything and returns its
 // stats. Used by `clu batch --dry-run`.
 func (s *Store) BatchValidate(ctx context.Context, issues []BatchIssue) (BatchStats, error) {
@@ -334,37 +353,53 @@ func (s *Store) BatchValidate(ctx context.Context, issues []BatchIssue) (BatchSt
 }
 
 // BatchCreate validates, allocates IDs, and writes the whole graph in one
-// transaction. Returns the alias→real-ID mapping and the graph stats. A
-// single bad input aborts everything — by the time anything is written the
-// graph is already proven valid.
-func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[string]string, BatchStats, error) {
+// transaction. With a non-nil group it also creates a parent umbrella issue
+// (see BatchGroup). A single bad input aborts everything — by the time
+// anything is written the graph is already proven valid.
+func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *BatchGroup) (BatchResult, error) {
 	plan, err := s.batchPrepare(ctx, issues)
 	if err != nil {
-		return nil, BatchStats{}, err
+		return BatchResult{}, err
 	}
 
 	// Allocate all IDs up front, deduped against existing rows and each
 	// other — the random suffix collides at batch scale otherwise.
 	existing, err := s.allIDs(ctx)
 	if err != nil {
-		return nil, BatchStats{}, err
+		return BatchResult{}, err
 	}
+	alloc := func() (string, error) {
+		for tries := 0; ; tries++ {
+			id := newID(s.idPrefix)
+			if _, clash := existing[id]; !clash {
+				existing[id] = struct{}{}
+				return id, nil
+			}
+			if tries > 1000 {
+				return "", errors.New("failed to allocate unique ids; id space may be exhausted")
+			}
+		}
+	}
+
 	aliasToID := make(map[string]string, len(plan.issues))
 	idByIdx := make([]string, len(plan.issues))
 	for i, iss := range plan.issues {
-		var id string
-		for tries := 0; ; tries++ {
-			id = newID(s.idPrefix)
-			if _, clash := existing[id]; !clash {
-				break
-			}
-			if tries > 1000 {
-				return nil, BatchStats{}, errors.New("failed to allocate unique ids; id space may be exhausted")
-			}
+		id, err := alloc()
+		if err != nil {
+			return BatchResult{}, err
 		}
-		existing[id] = struct{}{}
 		idByIdx[i] = id
 		aliasToID[iss.Alias] = id
+	}
+
+	// Optional group parent + its run:<id> label, applied to every issue.
+	var parentID, runLabel string
+	if group != nil {
+		parentID, err = alloc()
+		if err != nil {
+			return BatchResult{}, err
+		}
+		runLabel = "run:" + parentID
 	}
 
 	// Build all rows in memory, then bulk-insert in chunks within one tx.
@@ -374,6 +409,12 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[strin
 	var depRows []Dep
 	var eventRows []Event
 	cpKV := map[string]string{} // issue id → checkpoint payload JSON
+	hasDependent := make([]bool, len(plan.issues))
+	for i := range plan.issues {
+		for _, j := range plan.internal[i] {
+			hasDependent[j] = true
+		}
+	}
 	for i, iss := range plan.issues {
 		id := idByIdx[i]
 		typ := iss.Type
@@ -389,12 +430,15 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[strin
 			Created: t, Updated: t,
 			Description: iss.Description, Notes: iss.Notes,
 		}
-		// Labels: cap:<name> + arbitrary + checkpoint:pending gate.
+		// Labels: cap:<name> + arbitrary + run:<parent> + checkpoint:pending.
 		var allLabels []string
 		for _, c := range iss.Capabilities {
 			allLabels = append(allLabels, "cap:"+c)
 		}
 		allLabels = append(allLabels, iss.Labels...)
+		if runLabel != "" {
+			allLabels = append(allLabels, runLabel)
+		}
 		if iss.Checkpoint != nil {
 			allLabels = append(allLabels, "checkpoint:pending")
 			payload := *iss.Checkpoint
@@ -428,6 +472,34 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[strin
 		})
 	}
 
+	// Parent umbrella: depends on every leaf, carries the run label.
+	if group != nil {
+		desc := group.Description
+		var descPtr *string
+		if desc != "" {
+			descPtr = &desc
+		}
+		title := strings.TrimSpace(group.Title)
+		if title == "" {
+			title = "Batch"
+		}
+		issueRows = append(issueRows, Issue{
+			ID: parentID, Title: title, Type: "task", Status: "open",
+			Priority: 2, Created: t, Updated: t, Description: descPtr,
+		})
+		labelRows = append(labelRows, IssueLabel{IssueID: parentID, Label: runLabel})
+		for i := range plan.issues {
+			if !hasDependent[i] { // leaf → parent waits on it
+				depRows = append(depRows, Dep{ChildID: parentID, ParentID: idByIdx[i]})
+			}
+		}
+		pid := parentID
+		eventRows = append(eventRows, Event{
+			IssueID: &pid, Actor: s.actorPtr(), Kind: "created", TS: t,
+			Payload: batchCreatedPayload(issueRows[len(issueRows)-1], []string{runLabel}, nil),
+		})
+	}
+
 	err = s.db.RunInTx(ctx, nil, func(ctx context.Context, tx bun.Tx) error {
 		if err := chunkInsert(ctx, tx, issueRows, chunkInsertParams/11); err != nil {
 			return err
@@ -450,9 +522,9 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue) (map[strin
 		return nil
 	})
 	if err != nil {
-		return nil, BatchStats{}, err
+		return BatchResult{}, err
 	}
-	return aliasToID, plan.stats, nil
+	return BatchResult{Mapping: aliasToID, ParentID: parentID, Stats: plan.stats}, nil
 }
 
 // allIDs loads every existing issue ID into a set for collision-free

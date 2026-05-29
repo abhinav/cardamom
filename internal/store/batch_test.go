@@ -16,7 +16,8 @@ func TestBatchCreateHappyGraph(t *testing.T) {
 		{Alias: "docs", Title: "Docs", Needs: []string{"impl"}},
 		{Alias: "ship", Title: "Ship", Priority: 0, Needs: []string{"tests", "docs"}},
 	}
-	mapping, stats, err := s.BatchCreate(ctx, issues)
+	res, err := s.BatchCreate(ctx, issues, nil)
+	mapping, stats := res.Mapping, res.Stats
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -63,7 +64,8 @@ func TestBatchExternalRef(t *testing.T) {
 	issues := []BatchIssue{
 		{Alias: "sub", Title: "Subtask", Needs: []string{epic.ID}}, // external real ID
 	}
-	mapping, stats, err := s.BatchCreate(ctx, issues)
+	res, err := s.BatchCreate(ctx, issues, nil)
+	mapping, stats := res.Mapping, res.Stats
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -83,7 +85,7 @@ func TestBatchCycleDetected(t *testing.T) {
 		{Alias: "b", Title: "B", Needs: []string{"a"}},
 		{Alias: "c", Title: "C", Needs: []string{"b"}},
 	}
-	_, _, err := s.BatchCreate(ctx, issues)
+	_, err := s.BatchCreate(ctx, issues, nil)
 	if err == nil {
 		t.Fatal("expected cycle error")
 	}
@@ -105,7 +107,7 @@ func TestBatchAllErrorsAtOnce(t *testing.T) {
 		{Alias: "b", Title: "B", Needs: []string{"ghost"}}, // unknown ref
 		{Alias: "c", Title: "C", Priority: 9},              // bad priority
 	}
-	_, _, err := s.BatchCreate(ctx, issues)
+	_, err := s.BatchCreate(ctx, issues, nil)
 	if err == nil {
 		t.Fatal("expected validation errors")
 	}
@@ -138,7 +140,7 @@ func TestBatchValidateNoWrite(t *testing.T) {
 
 func TestBatchSelfDep(t *testing.T) {
 	s := newTestStore(t)
-	_, _, err := s.BatchCreate(ctx, []BatchIssue{{Alias: "a", Title: "A", Needs: []string{"a"}}})
+	_, err := s.BatchCreate(ctx, []BatchIssue{{Alias: "a", Title: "A", Needs: []string{"a"}}}, nil)
 	if err == nil || !strings.Contains(err.Error(), "itself") {
 		t.Fatalf("expected self-dep error, got %v", err)
 	}
@@ -161,7 +163,8 @@ func TestBatchScale(t *testing.T) {
 		}
 		issues[i] = bi
 	}
-	mapping, stats, err := s.BatchCreate(ctx, issues)
+	res, err := s.BatchCreate(ctx, issues, nil)
+	mapping, stats := res.Mapping, res.Stats
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -193,7 +196,8 @@ func TestBatchCheckpoint(t *testing.T) {
 			Checkpoint: &CheckpointPayload{Approvers: []string{"alice"}}},
 		{Alias: "manual-gate", Title: "Manual gate", Checkpoint: &CheckpointPayload{}},
 	}
-	mapping, stats, err := s.BatchCreate(ctx, issues)
+	res, err := s.BatchCreate(ctx, issues, nil)
+	mapping, stats := res.Mapping, res.Stats
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -247,9 +251,9 @@ func TestBatchCheckpoint(t *testing.T) {
 
 func TestBatchCheckpointTypeConflict(t *testing.T) {
 	s := newTestStore(t)
-	_, _, err := s.BatchCreate(ctx, []BatchIssue{
+	_, err := s.BatchCreate(ctx, []BatchIssue{
 		{Alias: "x", Title: "X", Type: "task", Checkpoint: &CheckpointPayload{}},
-	})
+	}, nil)
 	if err == nil || !strings.Contains(err.Error(), "checkpoint set but type") {
 		t.Fatalf("expected type-conflict error, got %v", err)
 	}
@@ -262,4 +266,53 @@ func contains(ss []string, want string) bool {
 		}
 	}
 	return false
+}
+
+func TestBatchGroup(t *testing.T) {
+	s := newTestStore(t)
+	issues := []BatchIssue{
+		{Alias: "a", Title: "A"},
+		{Alias: "b", Title: "B", Needs: []string{"a"}},
+		{Alias: "c", Title: "C", Needs: []string{"a"}}, // two leaves: b, c
+	}
+	res, err := s.BatchCreate(ctx, issues, &BatchGroup{Title: "My Rollout", Description: "desc"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.ParentID == "" {
+		t.Fatal("expected a group parent id")
+	}
+	parent, err := s.Get(ctx, res.ParentID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if parent.Title != "My Rollout" {
+		t.Fatalf("parent title = %q", parent.Title)
+	}
+	runLabel := "run:" + res.ParentID
+	// Parent + every issue carry the run label.
+	for _, id := range []string{res.ParentID, res.Mapping["a"], res.Mapping["b"], res.Mapping["c"]} {
+		labels, _ := s.LabelsForIssue(ctx, id)
+		if !contains(labels, runLabel) {
+			t.Fatalf("%s missing %s: %v", id, runLabel, labels)
+		}
+	}
+	// Parent depends on both leaves (b, c) — not on a.
+	parents, _, _ := s.Deps(ctx, res.ParentID)
+	if len(parents) != 2 {
+		t.Fatalf("parent should depend on 2 leaves, got %d: %v", len(parents), parents)
+	}
+	for _, p := range parents {
+		if p == res.Mapping["a"] {
+			t.Fatalf("parent should not depend on non-leaf a")
+		}
+	}
+	// The whole group is addressable by the run label.
+	grouped, err := s.List(ctx, ListFilter{Labels: []string{runLabel}, Statuses: []string{"open", "in_progress", "closed", "cancelled"}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(grouped) != 4 { // 3 issues + parent
+		t.Fatalf("run label should match 4 issues, got %d", len(grouped))
+	}
 }

@@ -2813,3 +2813,39 @@ func TestCLIBatchRejectsBadInput(t *testing.T) {
 	// Invalid capability charset must fail.
 	c.runFail("batch", writeBatchFile(t, `[{"alias":"a","title":"A","capabilities":["Go Lang"]}]`))
 }
+
+func TestCLIBatchGroup(t *testing.T) {
+	c := newTestCLI(t)
+	c.run("init")
+
+	// --group flag creates a parent + run: label on everything.
+	graph := writeBatchFile(t, `[{"alias":"a","title":"A"},{"alias":"b","title":"B","needs":["a"]}]`)
+	out := c.run("--json", "batch", "--group", "Sprint 7", graph)
+	var res struct {
+		Count   int               `json:"count"`
+		Group   string            `json:"group"`
+		Created map[string]string `json:"created"`
+	}
+	if err := json.Unmarshal([]byte(out), &res); err != nil {
+		t.Fatalf("batch --json: %v\n%s", err, out)
+	}
+	if res.Group == "" {
+		t.Fatalf("expected group parent id:\n%s", out)
+	}
+	// run:<parent> matches parent + 2 issues = 3.
+	list := c.run("--json", "list", "--status", "all", "-l", "run:"+res.Group)
+	var items []map[string]any
+	if err := json.Unmarshal([]byte(list), &items); err != nil {
+		t.Fatal(err)
+	}
+	if len(items) != 3 {
+		t.Fatalf("run label should match 3 (parent+2), got %d:\n%s", len(items), list)
+	}
+
+	// Document "group" string form also works.
+	graph2 := writeBatchFile(t, `{"group":"From Doc","issues":[{"alias":"x","title":"X"}]}`)
+	out2 := c.run("--json", "batch", graph2)
+	if !strings.Contains(out2, `"group"`) {
+		t.Fatalf("doc group should produce a parent:\n%s", out2)
+	}
+}
