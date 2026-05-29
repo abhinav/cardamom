@@ -296,6 +296,7 @@ func (s *Store) MarkClosed(ctx context.Context, id string) (Issue, error) {
 		return Issue{}, ErrAlreadyClosed
 	}
 	s.recordEvent(ctx, id, "closed", map[string]any{"status": "closed"})
+	s.closeSatisfiedMilestones(ctx, id)
 	return s.Get(ctx, id)
 }
 
@@ -418,6 +419,12 @@ func (s *Store) Update(ctx context.Context, id string, f UpdateFields) (Issue, e
 		}
 	}
 	s.recordEvent(ctx, id, kind, changed)
+	// A close via `update --status closed` can satisfy dependent milestones,
+	// same as MarkClosed. (Cancel does not — a cancelled dep never satisfies
+	// a milestone.)
+	if kind == "closed" {
+		s.closeSatisfiedMilestones(ctx, id)
+	}
 	return s.Get(ctx, id)
 }
 

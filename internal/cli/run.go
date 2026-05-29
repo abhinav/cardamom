@@ -47,7 +47,9 @@ func (c *RunCmd) Run(r *runCtx) error {
 		return emitPlan(r, plan, "", nil)
 	}
 	return withStore(r, func(s *store.Store) error {
-		parent, err := s.CreateWithLinks(r.ctx, plan.Parent.Title, "task", 2, nil, store.CreateOpts{
+		// type=milestone so the run parent self-completes when all steps
+		// close, instead of lingering open and surfacing in `ready`.
+		parent, err := s.CreateWithLinks(r.ctx, plan.Parent.Title, "milestone", 2, nil, store.CreateOpts{
 			Description: plan.Parent.Description,
 		})
 		if err != nil {

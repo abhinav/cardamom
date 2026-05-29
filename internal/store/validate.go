@@ -19,7 +19,11 @@ var ValidStatuses = []string{"open", "in_progress", "closed", "cancelled"}
 // `cli types`. The schema does not enforce these — any string is
 // allowed at the DB level — but the CLI uses this list for help text
 // and discoverability.
-var ValidTypes = []string{"task", "bug", "feature", "epic", "chore", "decision", "checkpoint"}
+// A "milestone" is a behavioral type like "checkpoint": it auto-closes
+// when all its dependencies are closed (see closeSatisfiedMilestones).
+// Used as the self-completing umbrella for `clu run` / `clu batch --group`
+// and as phase-boundary join nodes.
+var ValidTypes = []string{"task", "bug", "feature", "epic", "chore", "decision", "checkpoint", "milestone"}
 
 // Valid priority range, inclusive. 0 = highest, 4 = lowest. Five
 // buckets keeps the urgency hierarchy meaningful without explicit

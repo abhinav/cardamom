@@ -483,8 +483,10 @@ func (s *Store) BatchCreate(ctx context.Context, issues []BatchIssue, group *Bat
 		if title == "" {
 			title = "Batch"
 		}
+		// type=milestone so the umbrella self-completes when every leaf
+		// closes, instead of lingering open (and showing up in `ready`).
 		issueRows = append(issueRows, Issue{
-			ID: parentID, Title: title, Type: "task", Status: "open",
+			ID: parentID, Title: title, Type: "milestone", Status: "open",
 			Priority: 2, Created: t, Updated: t, Description: descPtr,
 		})
 		labelRows = append(labelRows, IssueLabel{IssueID: parentID, Label: runLabel})
