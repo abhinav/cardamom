@@ -99,7 +99,13 @@ clu claim -a <your-name>             # next ready in your lane
 clu claim <specific-id>              # claim a specific issue
 clu claim --wait                     # block until something is claimable
 clu claim --wait --heartbeat -a X    # also publish heartbeat so coordinators can see you
+clu claim <id> --context            # also print the upstream chain (what was done before this task)
 ```
+
+`--context` walks the issue's transitive dependencies (most-upstream
+first) and prints each one's description, notes, and comments — so you
+inherit what prior steps decided/did. Also available on `clu show <id>
+--context`. Cap the walk with `--context-depth N`.
 
 `claim` does `UPDATE … RETURNING` atomically — two sessions racing each
 other will get different issues, not the same one. If nothing's ready,
@@ -236,6 +242,20 @@ issue is returned.
 > `claim --watch` could grab it before the second command lands.
 > One-shot create wraps everything in a single transaction — the
 > issue is never visible without its edges and body.
+
+### Creating many issues at once — `clu batch`
+
+To create a whole **graph** of issues + dependencies in one transaction
+(an imported backlog, a generated workflow, hundreds of tasks), produce a
+JSON document and pipe it to `clu batch`. Run **`clu batch --docs`** for
+the full format reference (fields, `needs`/`checkpoint`/`key`/`group`
+semantics, idempotent re-import, a worked example).
+
+```bash
+generate-graph | clu batch --dry-run                  # validate, write nothing
+generate-graph | clu batch --group "Sprint 7" --json  # commit; returns {alias: id}
+generate-graph | clu batch --on-existing update        # idempotent re-import via "key"
+```
 
 ## Dependencies + cascade
 

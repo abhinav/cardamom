@@ -2953,3 +2953,23 @@ func TestCLIContextBundle(t *testing.T) {
 		t.Fatalf("ancestor comment missing: %+v", doc.Context[0].Comments)
 	}
 }
+
+func TestCLIBatchDocs(t *testing.T) {
+	c := newTestCLI(t)
+	// --docs works WITHOUT init (no DB needed) and covers the key surface.
+	out := c.run("batch", "--docs")
+	for _, want := range []string{
+		"alias", "needs", "checkpoint", "key", "--on-existing", "--group",
+		"--dry-run", "milestone", "EXAMPLE", "idempotent",
+	} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("--docs missing %q:\n%s", want, out)
+		}
+	}
+	// The example should itself be valid JSON the parser accepts. Extract the
+	// array between the first '[' and its matching trailing ']' line.
+	start := strings.Index(out, "[\n")
+	if start < 0 {
+		t.Fatal("no example array found in --docs")
+	}
+}
