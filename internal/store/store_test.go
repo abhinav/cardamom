@@ -32,7 +32,8 @@ func TestCreateAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(i.ID, "clu-") || len(i.ID) != 8 {
+	// "clu-" (4) + 24-bit hex suffix (6) = 10 chars.
+	if !strings.HasPrefix(i.ID, "clu-") || len(i.ID) != 10 {
 		t.Fatalf("unexpected id: %q", i.ID)
 	}
 	if i.Title != "first task" || i.Priority != 1 || i.Status != "open" {
