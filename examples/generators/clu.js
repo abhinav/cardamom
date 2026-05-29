@@ -25,6 +25,9 @@ export class Graph {
   constructor() {
     this._issues = [];
     this._aliases = new Set();
+    this._phase = null; // active phase context (set during phase(fn))
+    this._phaseCount = 0;
+    this._prevGate = null; // previous phase's milestone alias
   }
 
   // add(alias, fields) appends an issue and RETURNS its alias, so you can
@@ -32,6 +35,9 @@ export class Graph {
   // then becomes a JS reference error, not a clu "unknown ref" at batch
   // time. `fields` is any subset of the issue shape: title, type, priority,
   // assignee, description, notes, capabilities, labels, needs.
+  //
+  // Inside phase(), each added issue is also stamped with the phase label
+  // and wired to wait for the previous phase's gate.
   add(alias, fields = {}) {
     if (typeof alias !== "string" || alias.trim() === "") {
       throw new Error("clu.add: alias must be a non-empty string");
@@ -39,9 +45,45 @@ export class Graph {
     if (this._aliases.has(alias)) {
       throw new Error(`clu.add: duplicate alias ${JSON.stringify(alias)}`);
     }
+    const issue = { alias, ...fields };
+    if (this._phase) {
+      const label = `phase:${this._phase.index}-${this._phase.name}`;
+      issue.labels = [...(issue.labels || []), label];
+      if (this._phase.gate) {
+        issue.needs = [this._phase.gate, ...(issue.needs || [])];
+      }
+      this._phase.members.push(alias);
+    }
     this._aliases.add(alias);
-    this._issues.push({ alias, ...fields });
+    this._issues.push(issue);
     return alias;
+  }
+
+  // phase(name, fn) groups every issue added inside fn() into an ordered
+  // stage. Tasks in a phase can't start until the previous phase is fully
+  // done, and a milestone is inserted at each boundary so advancement is
+  // automatic — the milestone auto-closes when its phase completes, which
+  // unblocks the next phase (no human gate; use checkpoint() for that).
+  // Each task gets a phase:<n>-<name> label for grouping/display. Returns
+  // the phase's gate (milestone) alias.
+  phase(name, fn) {
+    this._phaseCount += 1;
+    const index = this._phaseCount;
+    this._phase = { index, name, gate: this._prevGate, members: [] };
+    fn();
+    const { members } = this._phase;
+    this._phase = null; // close context before adding the gate itself
+    if (members.length === 0) return this._prevGate; // empty phase: no-op
+
+    const gate = `phase-${index}`;
+    this.add(gate, {
+      title: `Phase ${index}: ${name} — complete`,
+      type: "milestone",
+      needs: members,
+      labels: [`phase:${index}-${name}`],
+    });
+    this._prevGate = gate;
+    return gate;
   }
 
   // checkpoint(alias, fields) is add() for a manual approval gate. Pass

@@ -55,6 +55,30 @@ g.add("ship", { title: "Ship", needs: ["gate"] });
 g.emit();                                  // → pipe into `clu batch`
 ```
 
+### Phases
+
+`Graph.phase(name, fn)` groups the issues added inside `fn()` into an
+ordered stage. A phase can't start until the previous one is fully done —
+the helper drops a `milestone` at each boundary that **auto-closes** when
+its phase completes, which unblocks the next phase automatically (no human
+gate; use `checkpoint()` inside a phase for that). Each task is labelled
+`phase:<n>-<name>`.
+
+```js
+const g = new Graph();
+g.phase("inventory", () => { for (const m of mods) g.add(`inv-${m}`, {title:`Inventory ${m}`}); });
+g.phase("analysis",  () => { for (const m of mods) g.add(`ana-${m}`, {title:`Analyze ${m}`}); });
+g.phase("migrate",   () => { for (const m of mods) g.add(`mig-${m}`, {title:`Migrate ${m}`}); });
+g.emit();
+```
+
+Pair with `clu batch --group "<name>"` for an umbrella that itself
+self-completes when the whole thing is done (the umbrella is a milestone
+too). Milestones are a clu core type — `phase()` is just sugar that emits
+them; the auto-close happens in clu, not the generator.
+
+### Arg helpers
+
 It also exports two tiny arg helpers so generators don't re-hand-roll the
 messy parse loop:
 
@@ -88,3 +112,9 @@ These examples are ES modules (`package.json` sets `"type": "module"`), so
   `node release-train.js <version> <service...> [--approver=NAME]`.
   Built **with `clu.js`** to show the helper: fan-out → fan-in checkpoint →
   fan-out, with `needs` passed by handle.
+
+- **`migrate.js`** — a **phased** migration (inventory → analysis → migrate
+  → verify), one task per module per phase:
+  `node migrate.js <target> <module...> [--approver=NAME]`.
+  Shows `phase()` (auto-advancing milestone boundaries) plus a checkpoint in
+  the final phase. Best with `clu batch --group "<name>"`.
