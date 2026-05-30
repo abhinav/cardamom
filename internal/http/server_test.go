@@ -230,7 +230,7 @@ func TestListWithFilter(t *testing.T) {
 	}
 
 	// Tag filter (label_any).
-	resp, data = do(t, ts, "GET", "/api/issues?tag=frontend", "", nil)
+	_, data = do(t, ts, "GET", "/api/issues?tag=frontend", "", nil)
 	mustJSON(t, data, &out)
 	if len(out) != 1 || out[0].ID != a.ID {
 		t.Fatalf("tag filter wrong: %+v", out)

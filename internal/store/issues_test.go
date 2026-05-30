@@ -31,7 +31,9 @@ func TestStartedAtLifecycle(t *testing.T) {
 
 func TestStartedAtViaClaimRace(t *testing.T) {
 	s := newTestStore(t)
-	s.Create(ctx, "a", "task", 2, nil)
+	if _, err := s.Create(ctx, "a", "task", 2, nil); err != nil {
+		t.Fatal(err)
+	}
 	// The lane Claim path (raw SQL RETURNING) also stamps started_at.
 	got, err := s.Claim(ctx, "dev", nil, nil)
 	if err != nil {
