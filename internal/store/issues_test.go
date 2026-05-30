@@ -2,7 +2,6 @@ package store
 
 import "testing"
 
-
 func TestStartedAtLifecycle(t *testing.T) {
 	s := newTestStore(t)
 	i, _ := s.Create(ctx, "task", "task", 2, nil)

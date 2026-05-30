@@ -270,7 +270,7 @@ func (s *Store) existingExtKeys(ctx context.Context, keys []string) (map[string]
 		end := min(start+chunkInsertParams, len(kvKeys))
 		var rows []KV
 		if err := s.db.NewSelect().Model(&rows).
-			Where("key IN (?)", bun.In(kvKeys[start:end])).
+			Where("key IN (?)", bun.List(kvKeys[start:end])).
 			Scan(ctx); err != nil {
 			return nil, err
 		}
@@ -290,7 +290,7 @@ func (s *Store) existingIDs(ctx context.Context, ids []string) (map[string]struc
 		var got []string
 		err := s.db.NewSelect().Model((*Issue)(nil)).
 			Column("id").
-			Where("id IN (?)", bun.In(ids[start:end])).
+			Where("id IN (?)", bun.List(ids[start:end])).
 			Scan(ctx, &got)
 		if err != nil {
 			return nil, err

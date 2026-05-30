@@ -38,7 +38,7 @@ func (c *LockCmd) Run(r *runCtx) error {
 	// The trailing-command form streams the child's stdout, which can't
 	// also be a single JSON value. Reject the combination rather than
 	// emit non-JSON under --json. (Bare `lock --json <name>` is fine.)
-	hasCmd := len(c.Cmd) > 0 && !(len(c.Cmd) == 1 && c.Cmd[0] == "--")
+	hasCmd := len(c.Cmd) > 0 && (len(c.Cmd) != 1 || c.Cmd[0] != "--")
 	if r.json && hasCmd {
 		return errors.New("--json is not supported with a trailing command (the child owns stdout); acquire with bare `lock --json <name>` and release with `unlock`")
 	}

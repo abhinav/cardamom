@@ -184,8 +184,8 @@ func runAgentProcess(r *runCtx, s *store.Store, name string, caps []string, argv
 	// clu error. A non-zero exit is surfaced so scripts see the failure.
 	var exit *exec.ExitError
 	if errors.As(werr, &exit) {
-		if exit.ProcessState.Exited() {
-			if code := exit.ProcessState.ExitCode(); code != 0 {
+		if exit.Exited() {
+			if code := exit.ExitCode(); code != 0 {
 				return fmt.Errorf("%s exited with status %d", name, code)
 			}
 		}

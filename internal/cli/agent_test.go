@@ -319,8 +319,8 @@ agents:
   nocmd:
     description: "no command"
 `)
-	c.runFail("agent", "start", "--print", "ghost")  // not declared
-	c.runFail("agent", "start", "--print", "nocmd")  // no command set
+	c.runFail("agent", "start", "--print", "ghost") // not declared
+	c.runFail("agent", "start", "--print", "nocmd") // no command set
 }
 
 func TestCLIAgentStartGlobsPromptDir(t *testing.T) {

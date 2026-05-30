@@ -47,8 +47,8 @@ func TestMilestoneAutoClosesWhenDepsClose(t *testing.T) {
 func TestMilestoneCascadeRecursive(t *testing.T) {
 	s := newTestStore(t)
 	a, _ := s.Create(ctx, "a", "task", 2, nil)
-	inner := mkMilestone(t, s, "inner", a.ID)        // closes when a closes
-	outer := mkMilestone(t, s, "outer", inner.ID)    // closes when inner closes
+	inner := mkMilestone(t, s, "inner", a.ID)     // closes when a closes
+	outer := mkMilestone(t, s, "outer", inner.ID) // closes when inner closes
 
 	if _, err := s.MarkClosed(ctx, a.ID); err != nil {
 		t.Fatal(err)
