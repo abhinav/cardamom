@@ -391,7 +391,7 @@ agents:
 	if iA < 0 || iU < 0 || iS < 0 {
 		t.Fatalf("missing a prompt file in command:\n%s", out)
 	}
-	if !(iA < iU && iU < iS) {
+	if iA >= iU || iU >= iS {
 		t.Fatalf("expected shared-first, sorted, persona-last ordering:\n%s", out)
 	}
 }
