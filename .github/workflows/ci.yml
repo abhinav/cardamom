@@ -40,9 +40,13 @@ jobs:
         run: go vet ./...
 
       - name: golangci-lint
-        uses: golangci/golangci-lint-action@v6
+        # The repo's .golangci.yml is v2-format, so we need golangci-lint v2
+        # (action v7+). Pin a build made with Go >= the go.mod target —
+        # golangci-lint refuses to run if its build Go minor is lower than
+        # the module's (v1.64.8 / go1.24 < go 1.26 → "can't load config").
+        uses: golangci/golangci-lint-action@v7
         with:
-          version: latest
+          version: v2.12.2
 
       - name: build
         run: go build ./...
