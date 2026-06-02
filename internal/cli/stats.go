@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 type StatsCmd struct{}

@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 type DeferCmd struct {

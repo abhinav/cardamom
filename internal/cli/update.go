@@ -3,7 +3,7 @@ package cli
 import (
 	"errors"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 type UpdateCmd struct {

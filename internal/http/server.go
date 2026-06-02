@@ -21,7 +21,7 @@ import (
 	stdhttp "net/http"
 	"strings"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 // Server is the REST API bound to a single Store. Construct with New,

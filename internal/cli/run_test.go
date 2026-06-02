@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/rovak/clu/internal/workflow"
+	"github.com/Rovak/agents-clu/internal/workflow"
 )
 
 const releaseYAML = `

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 type NoteCmd struct {

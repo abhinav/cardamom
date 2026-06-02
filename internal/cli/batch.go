@@ -7,8 +7,8 @@ import (
 	"io"
 	"os"
 
-	"github.com/rovak/clu/internal/config"
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/config"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 // BatchCmd instantiates a whole issue graph from a single JSON document in

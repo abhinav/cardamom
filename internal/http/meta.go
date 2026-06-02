@@ -3,7 +3,7 @@ package http
 import (
 	stdhttp "net/http"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 // metaOut is the single-call payload the web UI uses to populate

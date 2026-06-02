@@ -6,9 +6,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/rovak/clu/internal/config"
-	"github.com/rovak/clu/internal/store"
-	"github.com/rovak/clu/internal/workflow"
+	"github.com/Rovak/agents-clu/internal/config"
+	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/workflow"
 )
 
 // InitCmd lays down the project skeleton:

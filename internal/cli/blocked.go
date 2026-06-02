@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/clu/internal/store"
+import "github.com/Rovak/agents-clu/internal/store"
 
 type BlockedCmd struct {
 	Limit int    `short:"n" name:"limit" default:"20" help:"Limit results (0 = unlimited)."`

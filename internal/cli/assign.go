@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/rovak/clu/internal/store"
+import "github.com/Rovak/agents-clu/internal/store"
 
 // AssignCmd is sugar for `clu update <id> --assignee <who>`.
 // Pass an empty <who> to clear the assignee.

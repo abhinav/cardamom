@@ -11,8 +11,8 @@
 
 <p align="center">
   <a href="https://github.com/Rovak/agents-clu/actions"><img src="https://img.shields.io/github/actions/workflow/status/Rovak/agents-clu/ci.yml?branch=main&label=build&style=flat-square&logo=github" alt="Build status"></a>
-  <a href="https://goreportcard.com/report/github.com/rovak/clu"><img src="https://goreportcard.com/badge/github.com/rovak/clu?style=flat-square" alt="Go report card"></a>
-  <a href="https://pkg.go.dev/github.com/rovak/clu"><img src="https://img.shields.io/badge/pkg.go.dev-reference-007d9c?style=flat-square&logo=go&logoColor=white" alt="Go reference"></a>
+  <a href="https://goreportcard.com/report/github.com/Rovak/agents-clu"><img src="https://goreportcard.com/badge/github.com/Rovak/agents-clu?style=flat-square" alt="Go report card"></a>
+  <a href="https://pkg.go.dev/github.com/Rovak/agents-clu"><img src="https://img.shields.io/badge/pkg.go.dev-reference-007d9c?style=flat-square&logo=go&logoColor=white" alt="Go reference"></a>
   <img src="https://img.shields.io/badge/go-1.26%2B-00ADD8?style=flat-square&logo=go&logoColor=white" alt="Go 1.26+">
   <img src="https://img.shields.io/badge/sqlite-pure_go-003B57?style=flat-square&logo=sqlite&logoColor=white" alt="SQLite (pure Go)">
   <img src="https://img.shields.io/badge/license-MIT-blue?style=flat-square" alt="MIT licensed">
@@ -69,7 +69,7 @@ When you run more than one AI coding session against the same project, they need
 make install
 
 # Or, just the CLI:
-go install github.com/rovak/clu/cmd/clu@latest
+go install github.com/Rovak/agents-clu/cmd/clu@latest
 ```
 
 `make install` runs `go install` and then `clu web --install`, which

@@ -7,7 +7,7 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 // LockCmd implements `clu lock <name> [-- cmd args...]`: acquire a

@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Rovak/agents-clu/internal/config"
+	"github.com/Rovak/agents-clu/internal/store"
 	"github.com/alecthomas/kong"
-	"github.com/rovak/clu/internal/config"
-	"github.com/rovak/clu/internal/store"
 )
 
 // CLI is the kong-defined command structure.

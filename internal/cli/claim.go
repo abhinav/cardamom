@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 // ClaimCmd: one identity flag does everything.

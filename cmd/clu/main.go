@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/rovak/clu/internal/cli"
+	"github.com/Rovak/agents-clu/internal/cli"
 )
 
 func main() {

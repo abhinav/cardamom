@@ -31,7 +31,7 @@ linters:
         - (*os.File).Close
         - (*database/sql.DB).Close
         - (*database/sql.Rows).Close
-        - (*github.com/rovak/clu/internal/store.Store).Close
+        - (*github.com/Rovak/agents-clu/internal/store.Store).Close
         - (io.Closer).Close
         # Best-effort temp-dir cleanup.
         - os.RemoveAll

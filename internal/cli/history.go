@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 // HistoryCmd prints the audit trail for a single issue, oldest first —

@@ -8,9 +8,9 @@ import (
 	stdhttp "net/http"
 	"time"
 
-	httpsrv "github.com/rovak/clu/internal/http"
-	"github.com/rovak/clu/internal/store"
-	"github.com/rovak/clu/internal/workflow"
+	httpsrv "github.com/Rovak/agents-clu/internal/http"
+	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/workflow"
 )
 
 // HTTPCmd starts a REST API server backed by the project's store.

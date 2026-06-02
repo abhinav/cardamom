@@ -9,7 +9,7 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 // SqlCmd runs an ad-hoc SQL query against the project's data.sqlite.

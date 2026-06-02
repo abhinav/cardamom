@@ -24,7 +24,7 @@ builds:
       # Embed the version into the binary so `clu version` reports the
       # released tag rather than "dev".
       - -s -w
-      - -X github.com/rovak/clu/internal/cli.Version={{.Version}}
+      - -X github.com/Rovak/agents-clu/internal/cli.Version={{.Version}}
 
 archives:
   - id: clu
@@ -62,7 +62,7 @@ release:
     Install:
 
     ```bash
-    go install github.com/rovak/clu/cmd/clu@{{.Tag}}
+    go install github.com/Rovak/agents-clu/cmd/clu@{{.Tag}}
     ```
 
     Or grab a prebuilt binary from the assets below.

@@ -1,7 +1,7 @@
 # Project notes for Claude
 
 A SQLite-backed issue-tracker CLI for AI agents. Module:
-`github.com/rovak/clu`. Binary: `clu` (produced by `go build -o clu
+`github.com/Rovak/agents-clu`. Binary: `clu` (produced by `go build -o clu
 ./cmd/clu` or `go install ./cmd/clu`).
 
 ## Sticky decisions — don't re-debate
@@ -71,13 +71,17 @@ A SQLite-backed issue-tracker CLI for AI agents. Module:
 
 ## Working docs
 
-- **`work.md`** is the living planning doc — vision, per-commit log,
-  proposed next batches, decisions log, deliberate "skipped" list. Update
-  at the end of a batch, not mid-task. Treat the per-commit log as
+These live under **`.sandbox/`** (gitignored — local working notes kept
+out of the public repo), not the repo root:
+
+- **`.sandbox/work.md`** is the living planning doc — vision, per-commit
+  log, proposed next batches, decisions log, deliberate "skipped" list.
+  Update at the end of a batch, not mid-task. Treat the per-commit log as
   append-only.
-- **`bugs.md`** is QA findings from manual exploration. Mark items as
-  fixed inline; leave the file in place.
-- Don't write extra `.md` files unless the user asks.
+- **`.sandbox/bugs.md`** is QA findings from manual exploration. Mark items
+  as fixed inline; leave the file in place.
+- **`.sandbox/product-ideas.md`** is the parking lot for not-yet-built ideas.
+- Don't write extra `.md` files in the repo root unless the user asks.
 
 ## Not in scope (deliberate)
 

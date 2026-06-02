@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rovak/clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/store"
 )
 
 // listFilterFlags is the kong-tagged set of flags that build a

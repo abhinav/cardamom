@@ -13,3 +13,22 @@
 *.sqlite-shm
 *.sqlite-wal
 .idea/
+
+.sandbox
+
+# editors / OS
+.DS_Store
+*.swp
+
+# JS / web build (web/clu-web has its own .gitignore; this covers stray installs)
+node_modules/
+dist/
+.output/
+
+# secrets / env
+.env
+.env.*
+*.local
+
+# local working notes — kept out of the public repo
+.sandbox/

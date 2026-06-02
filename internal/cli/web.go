@@ -16,9 +16,9 @@ import (
 	"syscall"
 	"time"
 
-	httpsrv "github.com/rovak/clu/internal/http"
-	"github.com/rovak/clu/internal/store"
-	"github.com/rovak/clu/internal/workflow"
+	httpsrv "github.com/Rovak/agents-clu/internal/http"
+	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/Rovak/agents-clu/internal/workflow"
 )
 
 // WebCmd boots the local web UI: starts the REST API in-process and
