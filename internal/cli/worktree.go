@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Rovak/agents-clu/internal/config"
+	"github.com/arjia-labs/clu/internal/config"
 )
 
 // WorktreeCmd groups worktree lifecycle subcommands. clu wraps `git

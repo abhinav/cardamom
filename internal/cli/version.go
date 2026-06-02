@@ -5,7 +5,7 @@ import (
 	"runtime/debug"
 )
 
-// Version is set via -ldflags "-X github.com/Rovak/agents-clu/internal/cli.Version=…"
+// Version is set via -ldflags "-X github.com/arjia-labs/clu/internal/cli.Version=…"
 // at release time. Falls back to module/VCS info from runtime/debug when empty.
 var Version = ""
 

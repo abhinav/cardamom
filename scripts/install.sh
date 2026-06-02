@@ -2,10 +2,10 @@
 # clu install script.
 #
 # Usage:
-#   curl -fsSL https://raw.githubusercontent.com/Rovak/agents-clu/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/arjia-labs/clu/main/install.sh | bash
 #
 # Detects OS + arch, downloads the latest matching release archive from
-# https://github.com/Rovak/agents-clu/releases, extracts it, and installs
+# https://github.com/arjia-labs/clu/releases, extracts it, and installs
 # the `clu` binary to one of:
 #
 #   1. $CLU_INSTALL_DIR  if set
@@ -16,13 +16,13 @@
 #
 #   CLU_VERSION         tag to install (default: latest release)
 #   CLU_INSTALL_DIR     where to put the binary (default: see above)
-#   CLU_REPO            owner/name override (default: Rovak/agents-clu)
+#   CLU_REPO            owner/name override (default: arjia-labs/clu)
 #
 # After install, prints a PATH-setup hint if the chosen dir isn't on PATH.
 
 set -euo pipefail
 
-CLU_REPO="${CLU_REPO:-Rovak/agents-clu}"
+CLU_REPO="${CLU_REPO:-arjia-labs/clu}"
 CLU_VERSION="${CLU_VERSION:-}"
 CLU_INSTALL_DIR="${CLU_INSTALL_DIR:-}"
 

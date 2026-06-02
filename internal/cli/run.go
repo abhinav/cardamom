@@ -10,8 +10,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/Rovak/agents-clu/internal/store"
-	"github.com/Rovak/agents-clu/internal/workflow"
+	"github.com/arjia-labs/clu/internal/store"
+	"github.com/arjia-labs/clu/internal/workflow"
 )
 
 // RunCmd instantiates a workflow template into issues + deps.

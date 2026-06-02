@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/arjia-labs/clu/internal/store"
 )
 
 // ClaimCmd: one identity flag does everything.
@@ -52,8 +52,8 @@ func (c *ClaimCmd) Run(r *runCtx) error {
 			caps = resolveAgent(r.dir, c.Agent)
 		}
 		// Heartbeat is opt-in. Keys on whatever identity ends up in
-		// assignee (so `clu claim --heartbeat` while logged in as rovak
-		// shows up as "rovak" in agent ls).
+		// assignee (so `clu claim --heartbeat` while logged in as alice
+		// shows up as "alice" in agent ls).
 		hbName := ""
 		if c.Heartbeat && c.Wait {
 			hbName = assignee

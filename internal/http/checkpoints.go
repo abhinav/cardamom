@@ -3,7 +3,7 @@ package http
 import (
 	stdhttp "net/http"
 
-	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/arjia-labs/clu/internal/store"
 )
 
 // pendingCheckpointOut extends store.PendingCheckpoint with the

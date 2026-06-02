@@ -7,7 +7,7 @@ import (
 	"io"
 	"os"
 
-	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/arjia-labs/clu/internal/store"
 )
 
 // exportLine is the wire format for JSONL. One per line. The "kind"

@@ -5,8 +5,8 @@ import (
 	stdhttp "net/http"
 	"sort"
 
-	"github.com/Rovak/agents-clu/internal/store"
-	"github.com/Rovak/agents-clu/internal/workflow"
+	"github.com/arjia-labs/clu/internal/store"
+	"github.com/arjia-labs/clu/internal/workflow"
 )
 
 // templatesUnavailable writes 503 when the server has no templates

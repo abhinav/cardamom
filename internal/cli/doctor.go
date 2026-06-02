@@ -4,7 +4,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/arjia-labs/clu/internal/store"
 )
 
 type DoctorCmd struct {

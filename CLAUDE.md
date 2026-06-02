@@ -1,7 +1,7 @@
 # Project notes for Claude
 
 A SQLite-backed issue-tracker CLI for AI agents. Module:
-`github.com/Rovak/agents-clu`. Binary: `clu` (produced by `go build -o clu
+`github.com/arjia-labs/clu`. Binary: `clu` (produced by `go build -o clu
 ./cmd/clu` or `go install ./cmd/clu`).
 
 ## Sticky decisions — don't re-debate

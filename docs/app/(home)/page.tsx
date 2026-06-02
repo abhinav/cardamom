@@ -317,7 +317,7 @@ export default function HomePage() {
                 Quickstart
               </Link>
               <a
-                href="https://github.com/Rovak/agents-clu"
+                href="https://github.com/arjia-labs/clu"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="border-fd-border text-fd-foreground hover:bg-fd-accent inline-flex items-center gap-2 rounded-lg border px-6 py-2.5 text-sm font-medium transition-colors"

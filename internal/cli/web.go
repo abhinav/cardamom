@@ -16,9 +16,9 @@ import (
 	"syscall"
 	"time"
 
-	httpsrv "github.com/Rovak/agents-clu/internal/http"
-	"github.com/Rovak/agents-clu/internal/store"
-	"github.com/Rovak/agents-clu/internal/workflow"
+	httpsrv "github.com/arjia-labs/clu/internal/http"
+	"github.com/arjia-labs/clu/internal/store"
+	"github.com/arjia-labs/clu/internal/workflow"
 )
 
 // WebCmd boots the local web UI: starts the REST API in-process and
@@ -272,7 +272,7 @@ func resolveWebDir(chosen string) (string, error) {
 		return candidate, nil
 	}
 	return "", fmt.Errorf(
-		"could not locate the web project — tried %s (installed) and %s (repo checkout); run `clu web --install` inside the agents-clu repo, or pass --web-dir / set CLU_WEB_DIR",
+		"could not locate the web project — tried %s (installed) and %s (repo checkout); run `clu web --install` inside the clu repo, or pass --web-dir / set CLU_WEB_DIR",
 		installedWebDir(), candidate,
 	)
 }
@@ -406,7 +406,7 @@ func resolveWebSource(chosen string) (string, error) {
 	if hasPackageJSON(candidate) {
 		return candidate, nil
 	}
-	return "", fmt.Errorf("could not find web source; pass --web-dir or run from inside the agents-clu repo (looked in %s)", candidate)
+	return "", fmt.Errorf("could not find web source; pass --web-dir or run from inside the clu repo (looked in %s)", candidate)
 }
 
 // copyTree recursively copies src → dst, preserving file modes. Both

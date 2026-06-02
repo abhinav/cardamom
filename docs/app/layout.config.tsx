@@ -23,7 +23,7 @@ export const baseOptions: BaseLayoutProps = {
     },
     {
       text: 'GitHub',
-      url: 'https://github.com/Rovak/agents-clu',
+      url: 'https://github.com/arjia-labs/clu',
       active: 'none',
     },
   ],

@@ -14,8 +14,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Rovak/agents-clu/internal/store"
-	"github.com/Rovak/agents-clu/internal/workflow"
+	"github.com/arjia-labs/clu/internal/store"
+	"github.com/arjia-labs/clu/internal/workflow"
 )
 
 var ctx = context.Background()

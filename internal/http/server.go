@@ -21,7 +21,7 @@ import (
 	stdhttp "net/http"
 	"strings"
 
-	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/arjia-labs/clu/internal/store"
 )
 
 // Server is the REST API bound to a single Store. Construct with New,
@@ -248,7 +248,7 @@ func (s *Server) handleRoot(w stdhttp.ResponseWriter, r *stdhttp.Request) {
 			"POST   /api/templates/{name}/run",
 		},
 		"identity_header": agentHeader,
-		"docs":            "https://github.com/Rovak/agents-clu",
+		"docs":            "https://github.com/arjia-labs/clu",
 	})
 }
 

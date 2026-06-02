@@ -8,8 +8,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/Rovak/agents-clu/internal/config"
-	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/arjia-labs/clu/internal/config"
+	"github.com/arjia-labs/clu/internal/store"
 )
 
 // ---- Heartbeat helper (used by --wait / --watch loops) ----

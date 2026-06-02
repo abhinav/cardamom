@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/Rovak/agents-clu/internal/workflow"
+	"github.com/arjia-labs/clu/internal/workflow"
 )
 
 // TemplateCmd is the parent for `clu template ls|show|validate`.

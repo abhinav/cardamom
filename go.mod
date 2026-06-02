@@ -1,4 +1,4 @@
-module github.com/Rovak/agents-clu
+module github.com/arjia-labs/clu
 
 go 1.26.3
 

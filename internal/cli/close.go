@@ -1,7 +1,7 @@
 package cli
 
 import (
-	"github.com/Rovak/agents-clu/internal/store"
+	"github.com/arjia-labs/clu/internal/store"
 )
 
 type CloseCmd struct {

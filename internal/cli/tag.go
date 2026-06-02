@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/Rovak/agents-clu/internal/store"
+import "github.com/arjia-labs/clu/internal/store"
 
 // TagCmd is sugar for `clu label add <id> <labels...>`.
 type TagCmd struct {

@@ -1,6 +1,6 @@
 package cli
 
-import "github.com/Rovak/agents-clu/internal/store"
+import "github.com/arjia-labs/clu/internal/store"
 
 // LinkCmd is sugar for `clu dep add <child> <parent>`.
 type LinkCmd struct {
