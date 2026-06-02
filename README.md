@@ -62,6 +62,21 @@ When you run more than one AI coding session against the same project, they need
 | 🧾 **JSON everywhere** | Every command takes `--json` and emits exactly one JSON value to stdout. |
 | 🔒 **No network** | No telemetry, no sync, no cloud. Share a tracker? Copy the file. |
 
+## 🖥️ Web UI
+
+`clu web` serves a local dashboard (default `:5757`) over the same SQLite file — no extra config, no separate API to run.
+
+<table>
+  <tr>
+    <td width="50%"><img src="assets/web-board.png" alt="Kanban board grouped by status with assignee avatars and in-progress timers"><br><sub><b>Board</b> — kanban by status, with avatars and how long each task has been in progress.</sub></td>
+    <td width="50%"><img src="assets/web-list.png" alt="Issue list with priority, status and started-at timestamps"><br><sub><b>List</b> — every issue with priority, status, and <code>started_at</code> ("started 3h ago").</sub></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="assets/web-approvals.png" alt="Approvals view showing pending checkpoint cards"><br><sub><b>Approvals</b> — pending checkpoints with suggested approvers and what they block.</sub></td>
+    <td width="50%"><img src="assets/web-detail.png" alt="Issue detail with checkpoint gate and dependency edges"><br><sub><b>Detail</b> — status/priority/type controls, the checkpoint gate, and dependency edges.</sub></td>
+  </tr>
+</table>
+
 ## 📦 Install
 
 ```bash
@@ -112,6 +127,20 @@ prints the agent guide plus the project's declared agents and who's currently li
 | ❌ `cancelled` | abandoned | dependents stay blocked (or cascade-cancel) |
 
 `clu cancel <id>` marks the target **and all transitive descendants** as cancelled — the cascade is the whole point of having a status distinct from `closed`. `clu reopen <id>` reverses either terminal state.
+
+```mermaid
+stateDiagram-v2
+    [*] --> open: create
+    open --> in_progress: claim
+    in_progress --> closed: close
+    in_progress --> cancelled: cancel
+    open --> cancelled: cancel
+    closed --> open: reopen
+    cancelled --> open: reopen
+    closed --> [*]
+    note right of closed: unblocks dependents
+    note right of cancelled: cascade-cancels the tail
+```
 
 Two type-driven behaviours sit on top of the status loop: a **`checkpoint`** issue is a manual gate (stays `checkpoint:pending` until `clu approve`), and a **`milestone`** issue *auto-closes* when all its dependencies close — the self-completing umbrella behind `clu batch --group` and phase boundaries. Issues also carry a `started_at` (set on claim, distinct from `updated`) so `clu show`, the web list, and `doctor`'s stuck-check know how long something's actually been in progress.
 
@@ -304,6 +333,32 @@ examples/generators/     🕸️  codemode graph generators for `clu batch`
 ```
 
 ## 🧠 Design notes
+
+```mermaid
+flowchart TB
+    subgraph clients["Clients"]
+        cli["clu CLI<br/>(Kong)"]
+        agents["AI agents<br/>(claim · comment · close)"]
+        batch["generators<br/>(node script | clu batch)"]
+    end
+    subgraph core["clu binary"]
+        cmds["internal/cli<br/>one file per command"]
+        http["internal/http<br/>REST API"]
+        store["internal/store<br/>Bun + sqlitedialect"]
+        wf["internal/workflow<br/>YAML planner"]
+    end
+    web["web/clu-web<br/>TanStack dashboard"]
+    db[(".clu/data.sqlite<br/>single file, pure-Go driver")]
+
+    agents --> cli
+    cli --> cmds
+    batch --> cmds
+    cmds --> store
+    wf --> cmds
+    http --> store
+    web --> http
+    store --> db
+```
 
 - 🪪 **One identity flag.** `-a` / `--agent` is both the lane filter and the actor identity. No `--as` — single-user local tool, the user/agent distinction was deliberately collapsed.
 - 🗄️ **Hand-rolled migrations** via `PRAGMA user_version`. Append-only, never edit an applied migration.
