@@ -3,8 +3,10 @@ title: Web UI
 description: The bundled TanStack Start app served by `clu web`.
 ---
 
-`clu` ships with a small web UI — kanban board, issue list, and issue detail
-view — that's served by the CLI itself.
+`clu` ships with a small web UI — kanban board, issue list, approvals, and
+issue detail — that's served by the CLI itself.
+
+![clu web — kanban board grouped by status with assignee avatars and in-progress timers](/img/web-board.png)
 
 ```bash
 clu web
@@ -42,6 +44,20 @@ still works without the UI.
 - **Detail** — full issue view with status/priority/type controls, comments,
   notes, and dependency edges.
 - **Theme toggle** — light + dark.
+
+The **List** view — every issue with priority, status, and `started_at`:
+
+![clu web — issue list with priority, status, and started-at timestamps](/img/web-list.png)
+
+The **Approvals** view — pending checkpoint gates with suggested approvers and
+what they block:
+
+![clu web — approvals view with pending checkpoint cards](/img/web-approvals.png)
+
+The **Detail** view — controls, the checkpoint gate, comments, and dependency
+edges:
+
+![clu web — issue detail with checkpoint gate and dependency edges](/img/web-detail.png)
 
 ## When to use it vs. the CLI
 
