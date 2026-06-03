@@ -64,6 +64,11 @@ pre,
 kbd,
 samp {
   font-family: var(--font-geist-mono), ui-monospace, monospace;
+  /* Geist Mono ships coding ligatures (-- -> => …) on by default, which
+     visually fuse the dashes in CLI flags like `clu batch --dry-run`. Turn
+     them off so literal command syntax renders exactly as typed. */
+  font-variant-ligatures: none;
+  font-feature-settings: 'liga' 0, 'calt' 0;
 }
 
 /* Scrollbar */
