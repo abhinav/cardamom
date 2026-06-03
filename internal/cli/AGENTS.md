@@ -432,6 +432,7 @@ If you're parsing IDs out of human output, the regex is `clu-[a-f0-9]+`
 | schema/db info | `clu info` |
 | export everything | `clu export -o dump.jsonl` (preferred over `> dump.jsonl`) |
 | import a dump | `clu import dump.jsonl` |
+| sync across clones | `clu sync push --remote origin` / `clu sync pull --remote origin` (experimental) |
 
 ## Things not to do
 
@@ -660,6 +661,42 @@ of which checkout you ran them from. No symlinks, no env vars, no
 duplicate DBs. If you `clu init` inside a worktree by accident, you'll
 get a second DB; delete the worktree's `.clu/` to fall back to the
 shared one.
+
+## Syncing across machines (`clu sync`) — experimental
+
+On **one machine** you never need this — every worktree already shares
+the same DB (above). `clu sync` is for moving issue state **between
+clones / machines** without committing the gitignored DB to a code
+branch. It stores the tracker on a dedicated, branch-independent git ref
+(`refs/clu/store`) as JSONL; SQLite stays the working copy.
+
+```bash
+clu sync push                 # serialize the DB onto refs/clu/store (local only)
+clu sync pull                 # reconcile the ref back into the DB
+clu sync status               # how the ref compares to the local DB
+clu sync flush                # pull then push — the full round-trip
+
+# Cross-machine: add --remote to also push/fetch the ref over a git remote.
+clu sync push --remote origin
+clu sync pull --remote origin   # a fresh clone's DB starts empty; this fills it
+```
+
+What to know as an agent driving it:
+
+- **The DB is the source of truth; the ref is transport.** Pull merges
+  incoming records with last-writer-wins by `updated`, and applies
+  tombstones so deletes propagate. Push never touches your working tree
+  or branch — `git status` stays clean.
+- **Branch-independent.** The ref is one per repo; switching branches or
+  making a worktree doesn't change what you see. It never collides with
+  code commits.
+- **Concurrent pushes:** if a `--remote` push is rejected
+  (non-fast-forward), run `clu sync flush` — it pulls the other side in,
+  merges, and re-pushes. Nothing is lost because the data lives in the DB.
+- **Caveat:** `refs/clu/*` isn't fetched by a plain `git clone`/`fetch` —
+  use `clu sync pull --remote origin`. And same-second edits to the *same*
+  issue on two machines can tie (ties keep the local copy). It's a
+  prototype; prefer it for coarse hand-offs, not split-second contention.
 
 ## Where to dig deeper
 

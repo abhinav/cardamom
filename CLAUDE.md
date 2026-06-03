@@ -92,6 +92,11 @@ Upstream beads has these; we chose not to copy:
 - `swarm`, `ship`, `convoy` abstractions.
 - Generic federation / branch / worktree.
 
+Exception worth knowing: we *did* add an experimental, git-native
+`clu sync` (issue state on a `refs/clu/store` ref) — see the
+**Sync (git ref)** section below. It is not Dolt, not a server, not a
+daemon; it's a manual push/pull that reuses the `export` JSONL format.
+
 ## Workflows
 
 Templates live in `internal/workflow/` and instantiate to plain issues
@@ -110,6 +115,41 @@ shape live in `internal/workflow/template.go`. See `demo-workflow.sh`
 for an end-to-end run.
 
 Don't propose adding these without the user explicitly asking.
+
+## Sync (git ref) — experimental
+
+`clu sync` stores the tracker on a dedicated `refs/clu/store` git ref as
+JSONL, branch-independently. SQLite stays the working copy / query
+engine; the ref is the durable, shareable log. Lives in
+`internal/cli/sync.go`. Sticky decisions:
+
+- **Ref namespace is `refs/clu/store`** (not a branch). Deliberately
+  outside `refs/heads/*` so it's invisible on GitHub, never triggers
+  Actions, and never collides with code branches. Trade-off: not in the
+  default fetch refspec, so cross-machine onboarding needs
+  `clu sync pull --remote` (or a `.git/config` refspec). Don't move it
+  under `refs/heads/` without the user asking.
+- **DB is the source of truth; the ref is transport.** Remote pull is
+  force-fetch + DB-side reconcile, not a ref-level 3-way merge. Push is
+  pure plumbing (`hash-object → mktree → commit-tree → update-ref`) — it
+  must never touch the working tree or index. There's a test asserting
+  `git status` stays clean across a push; keep it that way.
+- **Reuses the `export` JSONL format.** `writeExportJSONL` in
+  `export.go` is shared by `clu export` and sync — don't fork it.
+- **IDs are already merge-safe** (random hex, repo-scoped prefix — same
+  property beads-rs relies on). Don't add a monotonic counter.
+- **Reconciliation:** issues LWW by `updated`; tombstones (derived by
+  diffing the prior snapshot vs the DB on push) propagate deletes;
+  deps/comments are additive; KV is last-sync-wins.
+- **Known gap, don't pretend it's solved:** `updated` is unix *seconds*,
+  so same-second edits to one issue across clones tie (ties keep local —
+  non-commutative). A real version needs a finer stamp + actor tiebreak.
+- **No daemon.** Manual `push`/`pull`/`status`/`flush`. Don't add a
+  background auto-sync without the user asking.
+
+Tests: `internal/cli/sync_test.go` (round-trip, branch independence,
+LWW, two-clone remote propagation + tombstone delete). User-facing docs:
+`docs/content/docs/sync.mdx`.
 
 ## Workflow expectations
 

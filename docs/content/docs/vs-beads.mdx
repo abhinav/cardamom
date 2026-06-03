@@ -43,7 +43,8 @@ you know transfers:
 |---|:---:|:---:|
 | Storage engine | SQLite (pure Go) | Dolt (versioned SQL) |
 | One plain file you can copy | ✅ `.clu/data.sqlite` | 🟡 Dolt dir / server |
-| Cross-machine sync | ❌ copy the file | ✅ Dolt remotes (`push`/`pull`) |
+| Cross-machine sync | 🟡 [`clu sync`](/docs/sync) git-ref (experimental) | ✅ Dolt remotes (`push`/`pull`) |
+| Branch-independent storage (no conflicts with code) | ✅ `refs/clu/store` ref | ✅ beads branch |
 | Multiple concurrent writers (server mode) | ❌ single-writer | ✅ `dolt sql-server` |
 | Branching + cell-level merge | ❌ | ✅ |
 | Backup / restore tooling | 🟡 `export`/`import` JSONL | ✅ `bd backup` (Dolt-aware) |
@@ -91,10 +92,13 @@ This is where clu adds the most over upstream:
 
 ## What clu drops on purpose
 
-- **Dolt, sync, and branching.** A single SQLite file is the whole database;
-  to share it, copy it. No remotes, no server, no merge engine. This is the
-  biggest divergence — if you need many machines or branches editing one
-  tracker, that's beads' core strength, not clu's.
+- **Dolt, a sync server, and cell-level branching/merge.** A single SQLite file
+  is the whole database; there's no server and no SQL merge engine. clu *does*
+  offer an experimental, git-native [`clu sync`](/docs/sync) that pushes issue
+  state to a branch-independent ref and reconciles across clones with
+  last-writer-wins — but it's a manual push/pull, not Dolt's live,
+  cell-merge distribution. If you need many machines concurrently writing one
+  server-backed tracker with real merge, that's beads' core strength.
 - **The memory system** (`remember` / `prime` / compaction). clu is a tracker,
   not an agent runtime — memory lives in your agent, not the issue DB.
 - **MCP and the broad integration matrix.** clu is a plain CLI with clean
@@ -112,9 +116,11 @@ deeper coordination toolkit for many agents on one machine.
 
 ## When to use which
 
-**Reach for beads** if you need a tracker that syncs across machines or git
-branches, an agent-memory layer, MCP and one-command setup for many agent tools,
-or first-class Windows/FreeBSD and brew/npm/pypi installs.
+**Reach for beads** if you need live, server-backed sync with cell-level merge
+across many concurrent writers, an agent-memory layer, MCP and one-command setup
+for many agent tools, or first-class Windows/FreeBSD and brew/npm/pypi installs.
+(clu can sync issue state across clones via the experimental
+[`clu sync`](/docs/sync) git ref, but it's manual push/pull, not a live server.)
 
 **Reach for clu** if you want a single local file with no network, no account,
 and no CGo; a built-in web UI; validated bulk-graph imports and workflow

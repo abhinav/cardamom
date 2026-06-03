@@ -87,6 +87,7 @@ Thin wrappers that delegate to `update` / store methods — each is 10–20 line
 | `clu batch` | Instantiate a whole issue graph from one JSON doc, atomically. See [Importing & bulk graphs](/docs/import). |
 | `clu export` | Dump issues + deps + labels + comments + KV + cron as JSONL (`-o file`). |
 | `clu import` | Restore JSONL produced by `clu export` (`--lenient` skips bad lines). |
+| `clu sync` | Sync issue state to a branch-independent git ref. `push` / `pull` / `status` / `flush`; `--remote` to go cross-machine. Experimental — see [Sync](/docs/sync). |
 | `clu kv …` | A generic key-value store (flags, env, scratch data). |
 | `clu sql <query>` | Ad-hoc SQL (read-only by default; `--write` for DML/DDL). |
 | `clu cron …` | Schedule recurring `clu` invocations (drive from OS cron / launchd). |

@@ -65,7 +65,8 @@ When you run more than one AI coding session against the same project, they need
 | 🔒 **Named locks + mailbox** | TTL'd `clu lock` for shared resources; `clu ping`/`clu inbox` for fire-and-forget inter-agent messages. |
 | 🖥️ **Web UI** | `clu web` — a local dashboard: list, kanban, dependency graph, approvals. |
 | 🧾 **JSON everywhere** | Every command takes `--json` and emits exactly one JSON value to stdout. |
-| 🔒 **No network** | No telemetry, no sync, no cloud. Share a tracker? Copy the file. |
+| 🌿 **Branchless sync** *(experimental)* | `clu sync` stores issues on a dedicated git ref (`refs/clu/store`) — branch-independent, no conflicts with code, syncs across clones. [Details](docs/content/docs/sync.mdx). |
+| 🔒 **No network** | No telemetry, no cloud, no account. Sharing is opt-in over *your own* git remote. |
 
 ## 🖥️ Web UI
 
@@ -311,7 +312,13 @@ clu lock deploy --ttl 1h -- ./deploy.sh prod   # TTL'd named lock; auto-released
 clu ping code-reviewer "PR #412 ready"          # fire-and-forget message (TTL'd, off the work log)
 clu inbox -a code-reviewer                       # read your messages
 clu worktree add feature-x --bootstrap           # git worktree + project-defined setup
+clu sync push --remote origin                    # publish issues to a branch-independent git ref (experimental)
 ```
+
+`clu sync` (experimental) keeps the tracker on a dedicated `refs/clu/store` ref —
+so any checkout sees the same issues, writes never collide with code commits, and
+a teammate's clone can `clu sync pull --remote origin` to get the backlog without
+the DB ever being committed. See [the sync docs](docs/content/docs/sync.mdx).
 
 ## 📁 Layout
 
@@ -376,9 +383,9 @@ The rationale for each sticky decision lives in [`CLAUDE.md`](CLAUDE.md).
 
 `clu` is deliberately small. It does **not** try to be:
 
-- 🔄 a cross-machine sync layer — copy the file or layer something on top
+- 🔄 a live, server-backed sync layer with cell-level merge — for sharing across machines there's the experimental [`clu sync`](docs/content/docs/sync.mdx) git ref (manual push/pull over your own remote), not a always-on sync server
 - 📊 a generic project-management tool — no sprints, milestones, OKRs
-- 🔗 a *live* bridge to GitHub / Linear / Jira — there's no built-in sync. (You can still **import** from anything by piping a generated graph to `clu batch`; an idempotent `key` keeps re-runs clean — see [`examples/generators/linear-todo.js`](examples/generators/linear-todo.js).)
+- 🔗 a *live* bridge to GitHub / Linear / Jira. (You can still **import** from anything by piping a generated graph to `clu batch`; an idempotent `key` keeps re-runs clean — see [`examples/generators/linear-todo.js`](examples/generators/linear-todo.js).)
 - 🤖 an agent runtime — *you* are the agent; `clu` just gives you somewhere to put the work
 
 ## 🤝 Contributing

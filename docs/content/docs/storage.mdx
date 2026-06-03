@@ -16,6 +16,11 @@ root:
 
 Override the location with the `CLU_DIR` environment variable.
 
+The database is local and gitignored, so it never travels with the repo. To
+share issue state across clones or machines without committing the DB to a code
+branch, see [Sync (git ref)](/docs/sync) — it stores the tracker on a dedicated,
+branch-independent `refs/clu/store` ref.
+
 ## config.yaml
 
 ```yaml

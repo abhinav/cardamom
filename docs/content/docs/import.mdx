@@ -214,3 +214,9 @@ clu import backup.jsonl             # restore into another .clu (one transaction
 `import` is the inverse of `export`; `--lenient` skips unparseable lines. Reach
 for `batch` when you're *creating* work, `export`/`import` when you're
 *relocating* it.
+
+For an ongoing, git-native version of the same round-trip — store the tracker on
+a branch-independent `refs/clu/store` ref and reconcile it across clones with
+last-writer-wins + tombstones — see [Sync (git ref)](/docs/sync). `state.jsonl`
+on that ref is exactly this `export` format; `clu sync` adds the git plumbing and
+the merge rules on top.
