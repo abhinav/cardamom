@@ -257,6 +257,29 @@ func withStore(c *runCtx, fn func(*store.Store) error) error {
 	return fn(s)
 }
 
+// withStoreBootstrap is like withStore but creates the project dir and an
+// empty, migrated DB if they don't exist yet. Used by `clu sync pull` /
+// `clu sync flush`, which must be able to fill a fresh clone: the ref is
+// only transport, so a missing local DB is rebuilt from it rather than
+// being a hard error. store.Open runs the schema migrations on the new
+// file; config absence falls back to defaults (same as openStore).
+func withStoreBootstrap(c *runCtx, fn func(*store.Store) error) error {
+	if err := os.MkdirAll(c.dir, 0o755); err != nil {
+		return err
+	}
+	cfg, err := config.Load(c.dir)
+	if err != nil {
+		return err
+	}
+	s, err := store.Open(c.dbPath(), store.WithIDPrefix(cfg.IDPrefix))
+	if err != nil {
+		return err
+	}
+	defer s.Close()
+	s.SetActor(c.actor)
+	return fn(s)
+}
+
 func currentUser() string {
 	if u, err := user.Current(); err == nil && u.Username != "" {
 		return u.Username

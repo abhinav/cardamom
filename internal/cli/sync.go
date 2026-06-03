@@ -81,104 +81,165 @@ type SyncPushCmd struct {
 	Message string `name:"message" short:"m" help:"Commit subject for the ref commit." default:"clu sync"`
 }
 
+// pushResult is the machine-readable outcome of a push, emitted under
+// --json and folded into the flush wrapper. Field tags preserve the
+// historical key names.
+type pushResult struct {
+	Ref        string `json:"ref"`
+	Commit     string `json:"commit"`
+	Tombstones int    `json:"tombstones"`
+	Issues     int    `json:"issues"`
+	Deps       int    `json:"deps"`
+	Comments   int    `json:"comments"`
+	KV         int    `json:"kv"`
+	Cron       int    `json:"cron"`
+	// NoOp is set when the serialized tree was identical to the ref's
+	// current tree, so no new commit was created (see pushFrom).
+	NoOp bool `json:"noop,omitempty"`
+}
+
 func (c *SyncPushCmd) Run(r *runCtx) error {
 	if err := requireGitRepo(r); err != nil {
 		return err
 	}
 	return withStore(r, func(s *store.Store) error {
-		// Previous snapshot (the commit we're extending) — gives us the
-		// prior issue-ID set to diff for tombstones, and the prior
-		// tombstones to carry forward.
-		parent, _ := gitResolve(r, syncRef)
-		prev := newSnapshot()
-		if parent != "" {
-			var err error
-			prev, err = readSnapshot(r, parent)
-			if err != nil {
-				return fmt.Errorf("read parent ref: %w", err)
-			}
-		}
-
-		// Serialize current DB state.
-		var state bytes.Buffer
-		counts, err := writeExportJSONL(r.ctx, s, &state)
+		res, err := c.pushFrom(r, s)
 		if err != nil {
 			return err
 		}
-
-		// Which issue IDs exist now?
-		live := map[string]bool{}
-		for _, line := range splitLines(state.Bytes()) {
-			var hdr exportLine
-			if json.Unmarshal(line, &hdr) != nil || hdr.Kind != "issue" {
-				continue
-			}
-			var ie issueExport
-			if json.Unmarshal(hdr.Data, &ie) == nil {
-				live[ie.ID] = true
-			}
-		}
-
-		// Tombstones: carry forward prior ones (minus any resurrected),
-		// then add a fresh tombstone for every ID that was in the parent
-		// snapshot but is gone from the DB now.
-		tombs := map[string]tombstone{}
-		for id, t := range prev.tombs {
-			if !live[id] {
-				tombs[id] = t
-			}
-		}
-		for id := range prev.issues {
-			if !live[id] {
-				tombs[id] = tombstone{ID: id, Deleted: time.Now().Unix(), Actor: r.actor}
-			}
-		}
-
-		var tombBuf bytes.Buffer
-		writeTombstones(&tombBuf, tombs)
-
-		// Plumbing: blobs → tree → commit → ref. Never touches the index
-		// or working tree.
-		stateBlob, err := gitHashObject(r, state.Bytes())
-		if err != nil {
-			return err
-		}
-		tombBlob, err := gitHashObject(r, tombBuf.Bytes())
-		if err != nil {
-			return err
-		}
-		tree, err := gitMkTree(r, []treeEntry{
-			{name: syncStateFile, sha: stateBlob},
-			{name: syncTombFile, sha: tombBlob},
-		})
-		if err != nil {
-			return err
-		}
-		commit, err := gitCommitTree(r, tree, parent, c.Message)
-		if err != nil {
-			return err
-		}
-		if err := gitUpdateRef(r, syncRef, commit, parent); err != nil {
-			return err
-		}
-
-		if c.Remote != "" {
-			if err := gitRun(r, nil, "push", c.Remote, syncRef+":"+syncRef); err != nil {
-				return fmt.Errorf("push to %s: %w", c.Remote, err)
-			}
-		}
-
 		if r.json {
-			return r.emitJSON(map[string]any{
-				"ref": syncRef, "commit": commit, "tombstones": len(tombs),
-				"issues": counts.Issues, "deps": counts.Deps,
-				"comments": counts.Comments, "kv": counts.KV, "cron": counts.Cron,
-			})
+			return r.emitJSON(res)
+		}
+		if res.NoOp {
+			r.notice("%s already up to date @ %s — nothing to push\n", syncRef, short(res.Commit))
+			return nil
 		}
 		r.notice("pushed %s @ %s — %d issues, %d deps, %d tombstones\n",
-			syncRef, short(commit), counts.Issues, counts.Deps, len(tombs))
+			syncRef, short(res.Commit), res.Issues, res.Deps, res.Tombstones)
 		return nil
 	})
+}
+
+// pushFrom serializes the DB onto refs/clu/store via pure git plumbing and
+// returns the outcome. It never emits output, so both Run and flush can
+// reuse it. If the serialized tree is byte-identical to the ref's current
+// tree, it's a no-op: no commit is created and the ref isn't moved (a
+// remote push still runs so an existing commit can propagate). That guard
+// keeps a clean-but-just-pulled clone from churning the ref and forcing
+// non-fast-forward rejections on other stale clones.
+func (c *SyncPushCmd) pushFrom(r *runCtx, s *store.Store) (pushResult, error) {
+	// Previous snapshot (the commit we're extending) — gives us the
+	// prior issue-ID set to diff for tombstones, and the prior
+	// tombstones to carry forward.
+	parent, _ := gitResolve(r, syncRef)
+	prev := newSnapshot()
+	if parent != "" {
+		var err error
+		prev, err = readSnapshot(r, parent)
+		if err != nil {
+			return pushResult{}, fmt.Errorf("read parent ref: %w", err)
+		}
+	}
+
+	// Serialize current DB state.
+	var state bytes.Buffer
+	counts, err := writeExportJSONL(r.ctx, s, &state)
+	if err != nil {
+		return pushResult{}, err
+	}
+
+	// Which issue IDs exist now?
+	live := map[string]bool{}
+	for _, line := range splitLines(state.Bytes()) {
+		var hdr exportLine
+		if json.Unmarshal(line, &hdr) != nil || hdr.Kind != "issue" {
+			continue
+		}
+		var ie issueExport
+		if json.Unmarshal(hdr.Data, &ie) == nil {
+			live[ie.ID] = true
+		}
+	}
+
+	// Tombstones: carry forward prior ones (minus any resurrected),
+	// then add a fresh tombstone for every ID that was in the parent
+	// snapshot but is gone from the DB now.
+	tombs := map[string]tombstone{}
+	for id, t := range prev.tombs {
+		if !live[id] {
+			tombs[id] = t
+		}
+	}
+	for id := range prev.issues {
+		if !live[id] {
+			tombs[id] = tombstone{ID: id, Deleted: time.Now().Unix(), Actor: r.actor}
+		}
+	}
+
+	var tombBuf bytes.Buffer
+	writeTombstones(&tombBuf, tombs)
+
+	// Plumbing: blobs → tree → commit → ref. Never touches the index
+	// or working tree.
+	stateBlob, err := gitHashObject(r, state.Bytes())
+	if err != nil {
+		return pushResult{}, err
+	}
+	tombBlob, err := gitHashObject(r, tombBuf.Bytes())
+	if err != nil {
+		return pushResult{}, err
+	}
+	tree, err := gitMkTree(r, []treeEntry{
+		{name: syncStateFile, sha: stateBlob},
+		{name: syncTombFile, sha: tombBlob},
+	})
+	if err != nil {
+		return pushResult{}, err
+	}
+
+	res := pushResult{
+		Ref: syncRef, Tombstones: len(tombs),
+		Issues: counts.Issues, Deps: counts.Deps,
+		Comments: counts.Comments, KV: counts.KV, Cron: counts.Cron,
+	}
+
+	// No-op guard: if the freshly-serialized tree matches the parent
+	// commit's tree, nothing changed. Keep the existing commit and leave
+	// the ref where it is.
+	if parent != "" {
+		if parentTree, terr := gitOut(r, nil, "rev-parse", "--verify", "--quiet", parent+"^{tree}"); terr == nil && parentTree == tree {
+			res.Commit = parent
+			res.NoOp = true
+			if err := c.pushRemote(r); err != nil {
+				return pushResult{}, err
+			}
+			return res, nil
+		}
+	}
+
+	commit, err := gitCommitTree(r, tree, parent, c.Message)
+	if err != nil {
+		return pushResult{}, err
+	}
+	if err := gitUpdateRef(r, syncRef, commit, parent); err != nil {
+		return pushResult{}, err
+	}
+	res.Commit = commit
+	if err := c.pushRemote(r); err != nil {
+		return pushResult{}, err
+	}
+	return res, nil
+}
+
+// pushRemote pushes refs/clu/store to c.Remote when one is configured.
+func (c *SyncPushCmd) pushRemote(r *runCtx) error {
+	if c.Remote == "" {
+		return nil
+	}
+	if err := gitRun(r, nil, "push", c.Remote, syncRef+":"+syncRef); err != nil {
+		return fmt.Errorf("push to %s: %w", c.Remote, err)
+	}
+	return nil
 }
 
 // ---- pull -------------------------------------------------------------
@@ -191,26 +252,15 @@ func (c *SyncPullCmd) Run(r *runCtx) error {
 	if err := requireGitRepo(r); err != nil {
 		return err
 	}
-	return withStore(r, func(s *store.Store) error {
-		if c.Remote != "" {
-			// Force-fetch is safe: the ref is only transport. Anything
-			// local that isn't on the remote yet still lives in the DB
-			// and gets re-derived on the next push.
-			if err := gitRun(r, nil, "fetch", "--force", c.Remote, syncRef+":"+syncRef); err != nil {
-				return fmt.Errorf("fetch from %s: %w", c.Remote, err)
-			}
+	// Bootstrap: a missing local DB is fine — pull's whole job is to fill
+	// one from the ref (fresh clone, or a deleted data.sqlite).
+	return withStoreBootstrap(r, func(s *store.Store) error {
+		res, ref, ok, err := c.pullInto(r, s)
+		if err != nil {
+			return err
 		}
-		ref, ok := gitResolve(r, syncRef)
-		if !ok || ref == "" {
+		if !ok {
 			return fmt.Errorf("%s does not exist — run `clu sync push` first (or pull --remote)", syncRef)
-		}
-		snap, err := readSnapshot(r, ref)
-		if err != nil {
-			return err
-		}
-		res, err := reconcile(r.ctx, s, snap)
-		if err != nil {
-			return err
 		}
 		if r.json {
 			return r.emitJSON(res)
@@ -219,6 +269,39 @@ func (c *SyncPullCmd) Run(r *runCtx) error {
 			syncRef, short(ref), res.Applied, res.SkippedOlder, res.Deleted)
 		return nil
 	})
+}
+
+// pullInto fetches (when --remote) and reconciles the ref into s. It never
+// emits output so flush can reuse it. ok=false means there was no ref to
+// pull (after an optional fetch); callers decide whether that's an error
+// (standalone pull) or fine (flush's first run). A remote that simply
+// doesn't have refs/clu/store yet is treated as "nothing to fetch", not a
+// fatal fetch error — mirroring how a missing local ref is tolerated.
+func (c *SyncPullCmd) pullInto(r *runCtx, s *store.Store) (reconcileResult, string, bool, error) {
+	if c.Remote != "" {
+		// Force-fetch is safe: the ref is only transport. Anything
+		// local that isn't on the remote yet still lives in the DB
+		// and gets re-derived on the next push.
+		if err := gitRun(r, nil, "fetch", "--force", c.Remote, syncRef+":"+syncRef); err != nil {
+			if !strings.Contains(err.Error(), "couldn't find remote ref") {
+				return reconcileResult{}, "", false, fmt.Errorf("fetch from %s: %w", c.Remote, err)
+			}
+			// Remote has no ref yet — nothing to pull from it.
+		}
+	}
+	ref, ok := gitResolve(r, syncRef)
+	if !ok || ref == "" {
+		return reconcileResult{}, "", false, nil
+	}
+	snap, err := readSnapshot(r, ref)
+	if err != nil {
+		return reconcileResult{}, "", false, err
+	}
+	res, err := reconcile(r.ctx, s, snap)
+	if err != nil {
+		return reconcileResult{}, "", false, err
+	}
+	return res, ref, true, nil
 }
 
 // ---- status -----------------------------------------------------------
@@ -236,6 +319,11 @@ func (c *SyncStatusCmd) Run(r *runCtx) error {
 		}
 		ref, ok := gitResolve(r, syncRef)
 		out := map[string]any{"ref": syncRef, "exists": ok, "local_issues": len(local)}
+		// dirty reports whether a push would change the ref. Computed from
+		// the full serialized tree, not just issue rows, so unsynced
+		// comments / deps / KV / cron (and deletions) all count — the
+		// local_ahead/ref_ahead numbers below remain issue-row-only.
+		dirty := len(local) > 0 // no ref yet ⇒ anything local is unsynced
 		if ok {
 			snap, err := readSnapshot(r, ref)
 			if err != nil {
@@ -258,12 +346,22 @@ func (c *SyncStatusCmd) Run(r *runCtx) error {
 					behind++
 				}
 			}
+			// Full-tree comparison: serialize the DB the same way push does
+			// and diff it against the ref's state blob. Byte-equal ⇒ a push
+			// would be a no-op. Both sides come from writeExportJSONL, so the
+			// bytes are directly comparable (trim the trailing newline that
+			// git cat-file drops).
+			dirty, err = c.localDirty(r, s, ref)
+			if err != nil {
+				return err
+			}
 			out["commit"] = ref
 			out["ref_issues"] = len(snap.issues)
 			out["tombstones"] = len(snap.tombs)
-			out["local_ahead"] = ahead // local newer/extra vs ref
-			out["ref_ahead"] = behind  // ref newer/extra vs local
+			out["local_ahead"] = ahead // local newer/extra vs ref (issues only)
+			out["ref_ahead"] = behind  // ref newer/extra vs local (issues only)
 		}
+		out["local_dirty"] = dirty
 		if r.json {
 			return r.emitJSON(out)
 		}
@@ -271,10 +369,32 @@ func (c *SyncStatusCmd) Run(r *runCtx) error {
 			r.notice("%s: not yet created (%d local issues). Run `clu sync push`.\n", syncRef, len(local))
 			return nil
 		}
-		r.notice("%s @ %s\n  ref:   %d issues, %d tombstones\n  local: %d issues\n  diff:  %d local-ahead, %d ref-ahead\n",
-			syncRef, short(ref), out["ref_issues"], out["tombstones"], len(local), out["local_ahead"], out["ref_ahead"])
+		sync := "in sync"
+		if dirty {
+			sync = "unpushed local changes"
+		}
+		r.notice("%s @ %s\n  ref:   %d issues, %d tombstones\n  local: %d issues (%s)\n  diff:  %d local-ahead, %d ref-ahead (issues only)\n",
+			syncRef, short(ref), out["ref_issues"], out["tombstones"], len(local), sync, out["local_ahead"], out["ref_ahead"])
 		return nil
 	})
+}
+
+// localDirty reports whether pushing would change the ref's data. It
+// serializes the DB with the shared exporter and byte-compares the result
+// to the ref's state.jsonl blob. This catches everything in the snapshot —
+// comments, deps, KV, cron, and issue deletions — not just issue rows
+// (which is all local_ahead/ref_ahead measure). git cat-file strips the
+// trailing newline, so both sides are trimmed before comparing.
+func (c *SyncStatusCmd) localDirty(r *runCtx, s *store.Store, ref string) (bool, error) {
+	var local bytes.Buffer
+	if _, err := writeExportJSONL(r.ctx, s, &local); err != nil {
+		return false, err
+	}
+	refState, err := gitCatFile(r, ref+":"+syncStateFile)
+	if err != nil {
+		return false, fmt.Errorf("read %s: %w", syncStateFile, err)
+	}
+	return !bytes.Equal(bytes.TrimSpace(local.Bytes()), bytes.TrimSpace(refState)), nil
 }
 
 // ---- flush ------------------------------------------------------------
@@ -284,13 +404,32 @@ type SyncFlushCmd struct {
 }
 
 func (c *SyncFlushCmd) Run(r *runCtx) error {
-	if err := (&SyncPullCmd{Remote: c.Remote}).Run(r); err != nil {
-		// A missing ref on first-ever flush is fine — nothing to pull.
-		if !strings.Contains(err.Error(), "does not exist") {
+	if err := requireGitRepo(r); err != nil {
+		return err
+	}
+	// One store for both halves; bootstrap so flush works on a fresh clone.
+	return withStoreBootstrap(r, func(s *store.Store) error {
+		pull := &SyncPullCmd{Remote: c.Remote}
+		// A missing ref (local or remote) on a first-ever flush is fine —
+		// there's simply nothing to pull yet. pullInto reports that as
+		// ok=false rather than an error.
+		pres, _, _, err := pull.pullInto(r, s)
+		if err != nil {
 			return err
 		}
-	}
-	return (&SyncPushCmd{Remote: c.Remote, Message: "clu sync"}).Run(r)
+		push := &SyncPushCmd{Remote: c.Remote, Message: "clu sync"}
+		qres, err := push.pushFrom(r, s)
+		if err != nil {
+			return err
+		}
+		// One JSON value for the whole round-trip (the --json contract).
+		if r.json {
+			return r.emitJSON(map[string]any{"pull": pres, "push": qres})
+		}
+		r.notice("flushed %s @ %s — pulled %d applied / %d deleted, pushed %d issues / %d tombstones\n",
+			syncRef, short(qres.Commit), pres.Applied, pres.Deleted, qres.Issues, qres.Tombstones)
+		return nil
+	})
 }
 
 // ---- reconciliation ---------------------------------------------------

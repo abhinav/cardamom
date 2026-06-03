@@ -59,9 +59,13 @@ over any shared git remote:
 # machine A
 clu sync push --remote origin     # git push origin refs/clu/store
 
-# machine B (fresh clone — its DB starts empty)
+# machine B (fresh clone — no .clu/ yet)
 clu sync pull --remote origin     # fetch the ref + reconcile into B's DB
 ```
+
+On a fresh clone you don't need to `clu init` first: `sync pull` creates and
+migrates the local DB if it's missing, then fills it from the ref. The same is
+true after deleting `data.sqlite` — a plain `clu sync pull` rebuilds it.
 
 The **DB is the source of truth on each box; the ref is just transport.** Pull
 reconciles incoming records into SQLite with last-writer-wins by `updated`, and

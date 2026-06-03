@@ -2,6 +2,7 @@ package cli
 
 import (
 	"context"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -200,5 +201,151 @@ func TestSyncRemotePropagation(t *testing.T) {
 	B.runFail("show", doomed) // gone
 	if alive := B.run("show", keep); !strings.Contains(alive, "shared task v2") {
 		t.Fatalf("tombstone collaterally removed the live issue:\n%s", alive)
+	}
+}
+
+// clu-0880d5: `sync pull` must be able to bootstrap a missing local DB —
+// both a fresh clone (never inited) and a clone whose data.sqlite was
+// deleted. The ref is transport; the DB is rebuilt from it.
+func TestSyncPullBootstrapsMissingDB(t *testing.T) {
+	root := t.TempDir()
+	remote := filepath.Join(root, "remote.git")
+	if err := os.MkdirAll(remote, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "init", "--bare", "-q")
+
+	aDir := gitInit(t, filepath.Join(root, "A"))
+	runGit(t, aDir, "remote", "add", "origin", remote)
+	A := cluAt(t, aDir)
+	A.run("init")
+	a := id(A.run("create", "shared task"))
+	A.run("sync", "push", "--remote", "origin")
+
+	// Fresh clone B: a git repo with the remote, but no `clu init` and so
+	// no .clu/data.sqlite. Pull must create it.
+	bDir := gitInit(t, filepath.Join(root, "B"))
+	runGit(t, bDir, "remote", "add", "origin", remote)
+	B := cluAt(t, bDir)
+	if _, err := os.Stat(filepath.Join(bDir, ".clu", "data.sqlite")); !os.IsNotExist(err) {
+		t.Fatalf("expected no DB before pull, stat err = %v", err)
+	}
+	B.run("sync", "pull", "--remote", "origin")
+	if out := B.run("show", a); !strings.Contains(out, "shared task") {
+		t.Fatalf("fresh clone did not bootstrap from ref:\n%s", out)
+	}
+
+	// Local rebuild: delete A's DB, pull from the local ref, recover.
+	if err := os.Remove(filepath.Join(aDir, ".clu", "data.sqlite")); err != nil {
+		t.Fatal(err)
+	}
+	A.run("sync", "pull")
+	if out := A.run("show", a); !strings.Contains(out, "shared task") {
+		t.Fatalf("local pull did not rebuild deleted DB:\n%s", out)
+	}
+}
+
+// clu-6eb080: first-ever `sync flush --remote` must tolerate a remote that
+// doesn't have refs/clu/store yet (nothing to pull), then push.
+func TestSyncFlushRemoteFirstUse(t *testing.T) {
+	root := t.TempDir()
+	remote := filepath.Join(root, "remote.git")
+	if err := os.MkdirAll(remote, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	runGit(t, remote, "init", "--bare", "-q")
+
+	aDir := gitInit(t, filepath.Join(root, "A"))
+	runGit(t, aDir, "remote", "add", "origin", remote)
+	A := cluAt(t, aDir)
+	A.run("init")
+	a := id(A.run("create", "shared task"))
+
+	// No prior push — the remote ref is missing. flush must not treat the
+	// failed fetch as fatal.
+	A.run("sync", "flush", "--remote", "origin")
+
+	// The ref now exists on the remote: a second clone can pull it.
+	bDir := gitInit(t, filepath.Join(root, "B"))
+	runGit(t, bDir, "remote", "add", "origin", remote)
+	B := cluAt(t, bDir)
+	B.run("sync", "pull", "--remote", "origin")
+	if out := B.run("show", a); !strings.Contains(out, "shared task") {
+		t.Fatalf("flush --remote did not publish the ref:\n%s", out)
+	}
+}
+
+// clu-6c0c1c: `sync flush --json` must emit exactly one JSON value, with
+// the pull and push results nested under one wrapper object.
+func TestSyncFlushJSONSingleValue(t *testing.T) {
+	c := newTestCLI(t)
+	gitInit(t, filepath.Dir(c.dir))
+	c.run("init")
+	c.run("create", "first")
+	c.run("sync", "push") // ref now exists, so flush's pull will also emit
+
+	c.run("create", "second")
+	out := c.run("--json", "sync", "flush")
+	dec := json.NewDecoder(strings.NewReader(out))
+	var wrapper struct {
+		Pull map[string]any `json:"pull"`
+		Push map[string]any `json:"push"`
+	}
+	if err := dec.Decode(&wrapper); err != nil {
+		t.Fatalf("first JSON value did not decode: %v\nout: %s", err, out)
+	}
+	if dec.More() {
+		t.Fatalf("flush --json emitted more than one JSON value:\n%s", out)
+	}
+	if wrapper.Pull == nil || wrapper.Push == nil {
+		t.Fatalf("flush --json missing pull/push keys:\n%s", out)
+	}
+}
+
+// clu-326774: a push whose serialized tree matches the ref's current tree
+// must be a no-op — no new commit, ref unchanged.
+func TestSyncPushNoOpKeepsRef(t *testing.T) {
+	c := newTestCLI(t)
+	root := gitInit(t, filepath.Dir(c.dir))
+	c.run("init")
+	c.run("create", "only task")
+	c.run("sync", "push")
+
+	before := strings.TrimSpace(runGit(t, root, "rev-parse", syncRef))
+	out := c.run("--json", "sync", "push") // no data changed
+	after := strings.TrimSpace(runGit(t, root, "rev-parse", syncRef))
+	if before != after {
+		t.Fatalf("no-op push advanced the ref: %s -> %s", before, after)
+	}
+	if !strings.Contains(out, `"noop":true`) {
+		t.Fatalf("expected noop flag in push output:\n%s", out)
+	}
+}
+
+// clu-118bac: `sync status` must report unsynced comments/KV (anything in
+// the serialized tree), not just issue-row differences.
+func TestSyncStatusFullTreeDirty(t *testing.T) {
+	c := newTestCLI(t)
+	gitInit(t, filepath.Dir(c.dir))
+	c.run("init")
+	a := id(c.run("create", "task one"))
+	c.run("sync", "push")
+
+	if st := c.run("--json", "sync", "status"); !strings.Contains(st, `"local_dirty":false`) {
+		t.Fatalf("expected clean status right after push:\n%s", st)
+	}
+
+	// Add records that don't change any issue row.
+	c.run("comment", "add", a, "unsynced note", "-a", "alice")
+	c.run("kv", "set", "unsynced-key", "unsynced-value")
+
+	st := c.run("--json", "sync", "status")
+	if !strings.Contains(st, `"local_dirty":true`) {
+		t.Fatalf("status ignored unsynced comment/KV:\n%s", st)
+	}
+
+	c.run("sync", "push")
+	if st := c.run("--json", "sync", "status"); !strings.Contains(st, `"local_dirty":false`) {
+		t.Fatalf("status still dirty after pushing the changes:\n%s", st)
 	}
 }
