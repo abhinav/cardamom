@@ -10,9 +10,10 @@ view — that's served by the CLI itself.
 clu web
 ```
 
-starts a local HTTP server on `:5757` (configurable with `--port`) that exposes
-a REST API over the same SQLite store and serves the prebuilt TanStack Start
-frontend.
+starts the frontend on `:5757` (`--web-port`) backed by an in-process REST API
+on `:7777` (`--api-port`), both over the same SQLite store. The default web port
+avoids colliding with common dev servers (3000 / 5173 / 8080); pass `0` for
+either to pick a free port.
 
 ## Installation
 
@@ -30,9 +31,16 @@ still works without the UI.
 
 ## What's in it
 
-- **Kanban** — columns by status, drag to reassign or change state.
-- **List** — filterable table with the same data as `clu list`.
-- **Detail** — full issue view with comments, deps, and labels.
+- **Board** — kanban columns by status, with assignee avatars and how long each
+  task has been in progress.
+- **List** — filterable table with the same data as `clu list`, including
+  `started_at` ("started 3h ago").
+- **Ready** — what's unblocked right now.
+- **Approvals** — pending checkpoint gates with suggested approvers and what
+  they block; approve or fail inline.
+- **Workflows** — the templates you can instantiate.
+- **Detail** — full issue view with status/priority/type controls, comments,
+  notes, and dependency edges.
 - **Theme toggle** — light + dark.
 
 ## When to use it vs. the CLI

@@ -32,18 +32,20 @@ something short and project-specific if you'll be moving issues between repos.
 ## Schema
 
 The schema is managed by hand-rolled migrations in
-`internal/store/store.go`'s `migrations[]` slice, gated by `PRAGMA user_version`.
-**Migrations are append-only** — never edit a past entry, only add new ones.
+`internal/store/migrations.go`'s `migrations[]` slice, gated by
+`PRAGMA user_version`. **Migrations are append-only** — never edit a past entry,
+only add new ones.
 
 Core tables:
 
 | table | what it holds |
 |---|---|
-| `issues` | id, title, description, status, priority, assignee, timestamps |
+| `issues` | id, title, description, status, priority, assignee, `started_at`, timestamps |
 | `deps` | edges: `from → to` (the `to` issue blocks until `from` is closed) |
 | `labels` | many-to-many string labels on issues |
 | `comments` | per-issue append-only log; author is an agent name |
-| `kv` | namespaced key/value scratch space (workflows use `cp:*` here) |
+| `events` | append-only audit log (one row per write); powers `clu history` / `clu log` |
+| `kv` | namespaced key/value scratch space (checkpoints use `cp:*`, batch idempotency uses `extkey:*`) |
 | `agents` | declared agents (synced from config.yaml) + last-heartbeat |
 | `locks` | named TTL'd locks for cross-cutting coordination |
 

@@ -10,8 +10,10 @@ useful place to coordinate ephemeral agent work that happens many times a
 second. `clu` is fast, local, and scoped to *this checkout of this repo* — it
 deletes cleanly when you `rm -rf .clu/`.
 
-If you want to mirror selected issues to a hosted tracker, do it as a one-way
-sync from a script — `clu list --json` is the seam.
+Pulling work *in* from a hosted tracker is supported, though: pipe its export
+through [`clu batch`](/docs/import) (a stable `key` per issue keeps re-runs
+idempotent). Pushing back *out* is a one-way sync from a script — `clu list
+--json` is the seam.
 
 ### Can two machines share a `clu` tracker?
 
@@ -48,8 +50,8 @@ another, claiming, and closing. The multi-agent bits (capability routing,
 `clu` is deliberately small. It doesn't try to be:
 
 - a cross-machine sync layer
-- a generic project-management tool (sprints, milestones, OKRs)
-- a bridge to GitHub / Linear / Jira / Notion / ADO
+- a generic project-management tool (sprints, OKRs)
+- a *live, two-way* bridge to GitHub / Linear / Jira / Notion / ADO (one-way **import** via [`clu batch`](/docs/import) is supported)
 - an agent runtime
 - a memory system
 

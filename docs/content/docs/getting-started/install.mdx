@@ -9,10 +9,11 @@ description: Install the clu CLI and (optionally) the bundled web UI.
 make install
 ```
 
-This runs `go install ./cmd/clu` to put the binary on your `PATH`, then runs
-`clu web --install` which builds the bundled TanStack web UI and copies the
-output to `~/.local/share/clu/web`. The web-UI step is skipped silently if
-`pnpm` is not on `PATH` — the CLI still works.
+This runs two targets: `install-bin` (`go install ./cmd/clu`, putting the
+binary on your `PATH`) and `install-web` (`clu web --install`, which builds the
+bundled TanStack web UI and copies the output to `~/.local/share/clu/web`). The
+web-UI step is skipped silently if `pnpm` is not on `PATH` — the CLI still
+works. Run them individually with `make install-bin` / `make install-web`.
 
 ## CLI only
 
@@ -28,7 +29,7 @@ clu --help
 
 ## Requirements
 
-- Go 1.22 or newer.
+- Go 1.26 or newer (matches `go.mod`).
 - (Optional) `pnpm` if you want the bundled web UI built during `make install`.
 
 There is no CGo dependency — `clu` uses the pure-Go SQLite driver

@@ -16,7 +16,20 @@ cancelled in a single CTE walk. If a chunk of work turns out to be unnecessary
 or unrecoverable, you don't have to manually close every dependent issue.
 
 `clu reopen <id>` reverses either terminal state and puts the issue back to
-`open`.
+`open`. Issues also carry a `started_at` timestamp (set on claim, distinct from
+`updated`) so `clu show`, the web list, and `doctor`'s stuck-check can tell how
+long something has actually been in progress.
+
+## Behavioral types
+
+Two issue **types** add behavior on top of the status loop:
+
+- A **`checkpoint`** is a manual gate. It stays labelled `checkpoint:pending`
+  until someone runs `clu approve` (or `clu checkpoint pass`); failing it
+  (`clu checkpoint fail`) cascade-cancels the rest of the run.
+- A **`milestone`** *auto-closes* when all its dependencies close. It's the
+  self-completing umbrella behind `clu batch --group` and the automatic phase
+  boundaries in [bulk graphs](/docs/import) and [workflows](/docs/workflows).
 
 ## Why claim is atomic
 
