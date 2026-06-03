@@ -504,6 +504,23 @@ func (s *Store) UpsertIssue(ctx context.Context, i Issue) error {
 	return UpsertIssueTx(ctx, s.db, i)
 }
 
+// DeleteIssue hard-deletes an issue and, via ON DELETE CASCADE
+// (foreign_keys is enabled at Open), its dep edges, labels, and
+// comments. Returns ErrNotFound if no such issue exists.
+//
+// This is the destructive counterpart to Cancel (which only flips
+// status). It exists for the git-ref sync path: applying an incoming
+// tombstone means physically removing the record so it doesn't get
+// re-exported and resurrected on the next round. Deliberately not wired
+// to a user-facing command — `cancel` remains the recoverable default.
+func (s *Store) DeleteIssue(ctx context.Context, id string) error {
+	if err := DeleteIssueTx(ctx, s.db, id); err != nil {
+		return err
+	}
+	s.recordEvent(ctx, id, "deleted", nil)
+	return nil
+}
+
 // exists reports ErrNotFound if no issue with id exists.
 func (s *Store) exists(ctx context.Context, id string) error {
 	n, err := s.db.NewSelect().Model((*Issue)(nil)).Where("id = ?", id).Count(ctx)

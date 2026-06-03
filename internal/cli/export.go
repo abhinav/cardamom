@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -55,80 +56,9 @@ func (c *ExportCmd) Run(r *runCtx) error {
 			defer f.Close()
 			w = f
 		}
-		issues, err := s.List(r.ctx, store.ListFilter{})
+		counts, err := writeExportJSONL(r.ctx, s, w)
 		if err != nil {
 			return err
-		}
-		ids := make([]string, len(issues))
-		for i, is := range issues {
-			ids[i] = is.ID
-		}
-		labelsMap, err := s.LoadLabels(r.ctx, ids)
-		if err != nil {
-			return err
-		}
-		enc := json.NewEncoder(w)
-		enc.SetEscapeHTML(false)
-		for _, is := range issues {
-			data, err := json.Marshal(issueExport{Issue: is, Labels: labelsMap[is.ID]})
-			if err != nil {
-				return err
-			}
-			if err := enc.Encode(exportLine{Kind: "issue", Data: data}); err != nil {
-				return err
-			}
-		}
-		deps, err := s.AllDeps(r.ctx)
-		if err != nil {
-			return err
-		}
-		for _, d := range deps {
-			data, err := json.Marshal(depExport{Child: d.ChildID, Parent: d.ParentID})
-			if err != nil {
-				return err
-			}
-			if err := enc.Encode(exportLine{Kind: "dep", Data: data}); err != nil {
-				return err
-			}
-		}
-		comments, err := s.AllComments(r.ctx)
-		if err != nil {
-			return err
-		}
-		for _, cm := range comments {
-			data, err := json.Marshal(cm)
-			if err != nil {
-				return err
-			}
-			if err := enc.Encode(exportLine{Kind: "comment", Data: data}); err != nil {
-				return err
-			}
-		}
-		kvs, err := s.KVList(r.ctx)
-		if err != nil {
-			return err
-		}
-		for _, kv := range kvs {
-			data, err := json.Marshal(kv)
-			if err != nil {
-				return err
-			}
-			if err := enc.Encode(exportLine{Kind: "kv", Data: data}); err != nil {
-				return err
-			}
-		}
-		crons, err := s.CronJobList(r.ctx)
-		if err != nil {
-			return err
-		}
-		for _, cj := range crons {
-			data, err := json.Marshal(cj)
-			if err != nil {
-				return err
-			}
-			if err := enc.Encode(exportLine{Kind: "cron", Data: data}); err != nil {
-				return err
-			}
 		}
 		// Summary goes to stderr — stdout may be the JSONL stream
 		// itself (`clu export > dump.jsonl`); mixing the two corrupts
@@ -136,8 +66,96 @@ func (c *ExportCmd) Run(r *runCtx) error {
 		// either way, but stderr keeps the behaviour uniform.
 		if !r.quiet {
 			fmt.Fprintf(r.stderr, "exported %d issues, %d deps, %d comments, %d kv, %d cron\n",
-				len(issues), len(deps), len(comments), len(kvs), len(crons))
+				counts.Issues, counts.Deps, counts.Comments, counts.KV, counts.Cron)
 		}
 		return nil
 	})
+}
+
+// exportCounts reports how many records of each kind a serialization emitted.
+type exportCounts struct {
+	Issues, Deps, Comments, KV, Cron int
+}
+
+// writeExportJSONL serializes the whole portable state of s as JSONL to w,
+// one exportLine per record, in a deterministic order (issues, deps,
+// comments, kv, cron). Shared by `clu export` and the git-ref sync path so
+// both produce byte-identical snapshots from the same DB state. The audit
+// log is intentionally excluded — see exportLine's doc comment.
+func writeExportJSONL(ctx context.Context, s *store.Store, w io.Writer) (exportCounts, error) {
+	var n exportCounts
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false)
+	emit := func(kind string, v any) error {
+		data, err := json.Marshal(v)
+		if err != nil {
+			return err
+		}
+		return enc.Encode(exportLine{Kind: kind, Data: data})
+	}
+
+	issues, err := s.List(ctx, store.ListFilter{})
+	if err != nil {
+		return n, err
+	}
+	ids := make([]string, len(issues))
+	for i, is := range issues {
+		ids[i] = is.ID
+	}
+	labelsMap, err := s.LoadLabels(ctx, ids)
+	if err != nil {
+		return n, err
+	}
+	for _, is := range issues {
+		if err := emit("issue", issueExport{Issue: is, Labels: labelsMap[is.ID]}); err != nil {
+			return n, err
+		}
+	}
+	n.Issues = len(issues)
+
+	deps, err := s.AllDeps(ctx)
+	if err != nil {
+		return n, err
+	}
+	for _, d := range deps {
+		if err := emit("dep", depExport{Child: d.ChildID, Parent: d.ParentID}); err != nil {
+			return n, err
+		}
+	}
+	n.Deps = len(deps)
+
+	comments, err := s.AllComments(ctx)
+	if err != nil {
+		return n, err
+	}
+	for _, cm := range comments {
+		if err := emit("comment", cm); err != nil {
+			return n, err
+		}
+	}
+	n.Comments = len(comments)
+
+	kvs, err := s.KVList(ctx)
+	if err != nil {
+		return n, err
+	}
+	for _, kv := range kvs {
+		if err := emit("kv", kv); err != nil {
+			return n, err
+		}
+	}
+	n.KV = len(kvs)
+
+	crons, err := s.CronJobList(ctx)
+	if err != nil {
+		return n, err
+	}
+	for _, cj := range crons {
+		if err := emit("cron", cj); err != nil {
+			return n, err
+		}
+	}
+	n.Cron = len(crons)
+
+	return n, nil
 }

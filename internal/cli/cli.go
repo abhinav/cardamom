@@ -83,6 +83,7 @@ type CLI struct {
 	KV     KVCmd     `cmd:"" group:"data" help:"Manage a generic key-value store (feature flags, env, scratch data)."`
 	Export ExportCmd `cmd:"" group:"data" help:"Export all issues + deps + labels as JSONL."`
 	Import ImportCmd `cmd:"" group:"data" help:"Import JSONL produced by 'clu export'."`
+	Sync   SyncCmd   `cmd:"" group:"data" help:"Sync issue state to a branch-independent git ref (refs/clu/store)."`
 	Batch  BatchCmd  `cmd:"" group:"data" help:"Instantiate a whole issue graph from one JSON doc, atomically (validated, alias-resolved)."`
 	SQL    SqlCmd    `cmd:"" group:"data" name:"sql" help:"Run an ad-hoc SQL query (read-only by default; pass --write for DML/DDL)."`
 	Cron   CronCmd   `cmd:"" group:"data" help:"Schedule recurring clu invocations (drive from OS cron / launchd)."`

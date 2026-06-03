@@ -96,6 +96,34 @@ func CronJobUpsertTx(ctx context.Context, q queryRunner, j CronJob) error {
 	return err
 }
 
+// DeleteIssueTx is the tx-bound variant of DeleteIssue: hard-delete the
+// issue, cascading to deps/labels/comments via ON DELETE CASCADE. Unlike
+// the Store method it records no audit event (the sync reconciler runs
+// many of these in one tx, and the event log is local-only anyway).
+// Returns ErrNotFound if no such issue exists.
+func DeleteIssueTx(ctx context.Context, q queryRunner, id string) error {
+	res, err := q.NewDelete().Model((*Issue)(nil)).Where("id = ?", id).Exec(ctx)
+	if err != nil {
+		return err
+	}
+	if n, _ := res.RowsAffected(); n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
+// ReplaceLabelsTx sets an issue's labels to exactly `labels`, removing any
+// not present. Used by the sync reconciler when an incoming issue revision
+// wins, so label *removals* propagate (AddLabelsTx alone is additive and
+// would leak deleted labels back in). Empty `labels` clears them.
+func ReplaceLabelsTx(ctx context.Context, q queryRunner, issueID string, labels []string) error {
+	if _, err := q.NewDelete().Model((*IssueLabel)(nil)).Where("issue_id = ?", issueID).Exec(ctx); err != nil {
+		return err
+	}
+	_, err := AddLabelsTx(ctx, q, issueID, labels)
+	return err
+}
+
 // AddLabelsTx is the tx-bound variant of AddLabels. Used by Import
 // so the labels for an issue go in the same transaction as the issue.
 // Returns count of actual inserts (excludes duplicates).
