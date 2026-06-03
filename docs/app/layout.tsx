@@ -28,7 +28,16 @@ export default function Layout({ children }: { children: ReactNode }) {
       <body
         className={`${geist.variable} ${geistMono.variable} ${orbitron.variable} font-sans antialiased`}
       >
-        <RootProvider>{children}</RootProvider>
+        <RootProvider
+          search={{
+            options: {
+              type: 'static',
+              api: `${process.env.NEXT_PUBLIC_BASE_PATH ?? ''}/api/search`,
+            },
+          }}
+        >
+          {children}
+        </RootProvider>
       </body>
     </html>
   )
