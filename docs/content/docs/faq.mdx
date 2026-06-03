@@ -27,18 +27,6 @@ something on top.
 No. No telemetry, no update checks, no cloud, no nothing. The only network
 activity is whatever your shell or agent does around it.
 
-### Why is the binary not called `bd`?
-
-Upstream beads uses `bd`, and we wanted a name that wouldn't conflict if you
-also have upstream installed. `clu` is the Tron reference, three letters, no
-clash.
-
-### Why is the project folder still called `beadsv2`?
-
-That's just the on-disk folder name — it has no cascading effect on imports
-(`github.com/arjia-labs/clu`) or the binary (`clu`). Renaming the folder is
-cosmetic.
-
 ### Can I use `clu` for non-agent work?
 
 Yes — there's nothing agent-specific about creating issues, depending one on
@@ -55,4 +43,5 @@ another, claiming, and closing. The multi-agent bits (capability routing,
 - an agent runtime
 - a memory system
 
-See `CLAUDE.md` at the repo root for the full "not in scope" list.
+For how clu compares to nearby tools, see [vs beads](/docs/vs-beads) and
+[vs Claude workflows](/docs/comparison).

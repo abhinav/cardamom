@@ -31,12 +31,9 @@ something short and project-specific if you'll be moving issues between repos.
 
 ## Schema
 
-The schema is managed by hand-rolled migrations in
-`internal/store/migrations.go`'s `migrations[]` slice, gated by
-`PRAGMA user_version`. **Migrations are append-only** — never edit a past entry,
-only add new ones.
-
-Core tables:
+The schema upgrades itself in place on first run (gated by SQLite's
+`user_version`) and is forward-only, so a newer clu opens an older database
+without rewriting or discarding your data. The core tables:
 
 | table | what it holds |
 |---|---|
@@ -49,13 +46,6 @@ Core tables:
 | `agents` | declared agents (synced from config.yaml) + last-heartbeat |
 | `locks` | named TTL'd locks for cross-cutting coordination |
 
-## Queries
-
-Most queries go through **Bun** with sqlitedialect. Raw SQL is reserved for
-exactly two cases:
-
-1. **`Claim`** — `UPDATE … RETURNING` with a subquery `WHERE` clause, to make
-   the read-then-update atomic.
-2. **Cycle check and cascade-cancel** — a recursive CTE walks the dep graph.
-
-Everything else is composed via Bun's query builder.
+It's an ordinary SQLite file — `clu sql "select …"` queries it directly (and
+`--write` lets you run DML when you really need to), but the CLI is the safe
+path: it knows about labels, the KV side tables, and the cascade walk.

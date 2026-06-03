@@ -73,15 +73,3 @@ the run via the same forward-walk that powers `clu cancel`.
 
 See [`demo-workflow.sh`](https://github.com/arjia-labs/clu/blob/main/demo-workflow.sh)
 in the repo for the full demo.
-
-## Architecture
-
-Workflows are split in two:
-
-- `internal/workflow/` is pure — YAML loader, validation, variable resolution,
-  `MakePlan(Template, vars) → Plan`. No store calls.
-- `internal/cli/run.go` walks the Plan, calls `store.Create` per step, writes
-  deps and the run/step labels.
-
-This keeps the planner trivially testable and the storage layer free of
-template concepts.
