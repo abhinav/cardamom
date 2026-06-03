@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+import { HeroTerminal } from './hero-terminal'
+
 const learningPaths = [
   {
     title: 'Getting Started',
@@ -80,18 +82,11 @@ const categoryCards = [
   },
 ]
 
-const codeSnippet = `# The core loop
-clu init
-clu create -p 1 "fix login redirect"          # → clu-a3f8
-clu create -d clu-a3f8 "add redirect tests"   # wires dep atomically
-
-clu ready                                      # what's unblocked?
-clu claim                                      # atomically take next
-clu close clu-a3f8                             # unblocks dependents`
-
 export default function HomePage() {
   return (
     <main className="relative flex min-h-screen flex-col overflow-hidden px-6 py-16 md:py-24">
+      {/* Ambient drifting TRON grid */}
+      <div className="grid-backdrop pointer-events-none absolute inset-0 -z-10" />
       <div
         className="pointer-events-none absolute inset-0 -z-10"
         style={{
@@ -124,71 +119,51 @@ export default function HomePage() {
             }}
           />
 
-          <div className="relative flex flex-col gap-8 lg:flex-row lg:items-center">
-            <div className="flex-1 space-y-5">
-              <p
-                className="text-xs font-medium tracking-[0.25em] uppercase"
-                style={{ color: 'oklch(0.78 0.16 195)' }}
-              >
-                Documentation
-              </p>
-              <h1 className="text-4xl font-bold tracking-tight md:text-5xl">
-                clu
-              </h1>
-              <p className="text-fd-muted-foreground max-w-xl text-base md:text-lg">
-                A SQLite-backed issue tracker for coordinating AI coding agents on a single
-                machine. Local-first, single binary, no daemon, no network.
-              </p>
+          <div className="relative space-y-5">
+            <p
+              className="text-xs font-medium tracking-[0.25em] uppercase"
+              style={{ color: 'oklch(0.78 0.16 195)' }}
+            >
+              Documentation
+            </p>
+            <h1 className="text-4xl font-bold tracking-tight md:text-5xl">clu</h1>
+            <p className="text-fd-muted-foreground max-w-xl text-base md:text-lg">
+              A SQLite-backed issue tracker for coordinating AI coding agents on a single machine.
+              Local-first, single binary, no daemon, no network.
+            </p>
 
-              <div className="flex flex-wrap items-center gap-3 pt-2">
-                <Link
-                  href="/docs/getting-started"
-                  className="text-fd-primary-foreground inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all hover:brightness-110"
-                  style={{
-                    background:
-                      'linear-gradient(135deg, oklch(0.78 0.16 195) 0%, oklch(0.62 0.18 210) 100%)',
-                    boxShadow: '0 0 24px oklch(0.78 0.16 195 / 25%)',
-                  }}
-                >
-                  Get started <span aria-hidden>→</span>
-                </Link>
-                <Link
-                  href="/docs/commands"
-                  className="border-fd-border text-fd-foreground hover:bg-fd-accent inline-flex items-center gap-2 rounded-lg border px-6 py-2.5 text-sm font-medium transition-colors"
-                >
-                  Command reference
-                </Link>
-              </div>
-            </div>
-
-            <div className="hidden w-[360px] shrink-0 lg:block">
-              <div
-                className="overflow-hidden rounded-xl border"
+            <div className="flex flex-wrap items-center gap-3 pt-2">
+              <Link
+                href="/docs/getting-started"
+                className="text-fd-primary-foreground inline-flex items-center gap-2 rounded-lg px-6 py-2.5 text-sm font-semibold transition-all hover:brightness-110"
                 style={{
-                  borderColor: 'oklch(1 0 0 / 10%)',
-                  background: 'oklch(0.08 0.01 240)',
+                  background:
+                    'linear-gradient(135deg, oklch(0.78 0.16 195) 0%, oklch(0.62 0.18 210) 100%)',
+                  boxShadow: '0 0 24px oklch(0.78 0.16 195 / 25%)',
                 }}
               >
-                <div
-                  className="flex items-center gap-2 border-b px-4 py-2.5"
-                  style={{ borderColor: 'oklch(1 0 0 / 5%)' }}
-                >
-                  <div className="flex gap-1.5">
-                    <span className="block h-2.5 w-2.5 rounded-full bg-red-500/60" />
-                    <span className="block h-2.5 w-2.5 rounded-full bg-yellow-500/60" />
-                    <span className="block h-2.5 w-2.5 rounded-full bg-green-500/60" />
-                  </div>
-                  <span className="text-fd-muted-foreground ml-2 font-mono text-[10px]">
-                    ~/project — zsh
-                  </span>
-                </div>
-                <pre className="text-fd-muted-foreground max-h-[240px] overflow-hidden p-4 font-mono text-[11px] leading-relaxed">
-                  <code>{codeSnippet}</code>
-                </pre>
-              </div>
+                Get started <span aria-hidden>→</span>
+              </Link>
+              <Link
+                href="/docs/commands"
+                className="border-fd-border text-fd-foreground hover:bg-fd-accent inline-flex items-center gap-2 rounded-lg border px-6 py-2.5 text-sm font-medium transition-colors"
+              >
+                Command reference
+              </Link>
             </div>
           </div>
         </div>
+      </div>
+
+      {/* The core loop — live terminal + reacting tickets */}
+      <div className="animate-fade-in-up mx-auto mt-8 w-full max-w-5xl">
+        <p
+          className="mb-4 text-xs font-medium tracking-[0.25em] uppercase"
+          style={{ color: 'oklch(0.78 0.16 195)' }}
+        >
+          The core loop
+        </p>
+        <HeroTerminal />
       </div>
 
       {/* Learning Paths */}
