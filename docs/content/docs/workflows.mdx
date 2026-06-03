@@ -9,6 +9,13 @@ A workflow template is a YAML graph of steps. Running it creates plain issues
 plus dependency edges plus `run:<parent>` / `step:<id>` labels — no new
 tables.
 
+<Callout type="info">
+**Two ways to build a graph.** This page covers *static* templates — a fixed
+shape with `{{var}}` substitution. When the shape is *computed* (a step per
+module, conditional fan-out), write a [dynamic workflow in
+JavaScript](/docs/dynamic-workflows) and pipe it into `clu batch` instead.
+</Callout>
+
 ## Template format
 
 Templates live in `.clu/templates/*.yaml`.

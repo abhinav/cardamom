@@ -26,25 +26,25 @@ They overlap less than they look — and they [compose well](#how-they-compose).
 
 | Capability | clu | Claude dynamic workflows |
 |---|---|---|
-| State persists across sessions | ✓ one SQLite file | ✗ resumable only within the same session; exit = fresh |
-| Survives restart / shareable between machines | ✓ copy `.clu/data.sqlite` | ✗ run is tied to the live session |
-| Durable dependency graph of work | ✓ issues + edges, `ready`/`blocked` | ◐ deps live in script variables for that run only |
-| Atomic claim across many workers | ✓ `UPDATE … RETURNING`, racing agents get different issues | ◐ the runtime schedules its own agents; no shared claim pool |
-| Long-horizon work (days, many sessions) | ✓ the graph is the memory | ✗ scoped to a single run |
-| Spawns & orchestrates agents itself | ✗ it's the substrate; *you* drive it | ✓ the runtime executes the script and spawns subagents |
-| Massive fan-out in one shot | ✗ | ✓ up to 16 concurrent, 1,000 per run |
-| Background run while the session stays free | ◐ commands are instant; `--watch` is push | ✓ runs in the background |
-| Built-in quality patterns (adversarial review, multi-angle) | ✗ not its job | ✓ codified in the script |
-| Durable human-approval gates | ✓ `checkpoint` / `clu approve`, persists until cleared | ✗ no mid-run input; split sign-off into separate workflows |
-| Audit trail of who did what, when | ✓ `clu history` / `clu log` | ◐ live progress view during the run, not a durable log |
-| Tool-agnostic (any agent, CLI, or human) | ✓ it's just a CLI + SQLite | ✗ Claude Code / Anthropic API / Bedrock·Vertex·Foundry |
-| Works offline, no account, no network | ✓ | ✗ paid plan + a provider |
-| Instantiate a whole task graph from a script | ✓ `clu batch` (validated, atomic, thousands of issues) | ◐ the script *is* the graph, but it's ephemeral |
-| Import from other trackers (Linear, Notion, …) | ✓ pipe into [`clu batch`](/docs/import) | ✗ |
-| Repeatable, codified orchestration | ◐ [templates](/docs/workflows) + [batch generators](/docs/import) | ✓ save a run's script as a `/command` |
-| See the shape of the work | ✓ [web UI](/docs/web): board, ready, approvals | ◐ terminal progress view |
+| State persists across sessions | ✅ one SQLite file | ❌ resumable only within the same session; exit = fresh |
+| Survives restart / shareable between machines | ✅ copy `.clu/data.sqlite` | ❌ run is tied to the live session |
+| Durable dependency graph of work | ✅ issues + edges, `ready`/`blocked` | 🟡 deps live in script variables for that run only |
+| Atomic claim across many workers | ✅ `UPDATE … RETURNING`, racing agents get different issues | 🟡 the runtime schedules its own agents; no shared claim pool |
+| Long-horizon work (days, many sessions) | ✅ the graph is the memory | ❌ scoped to a single run |
+| Spawns & orchestrates agents itself | ❌ it's the substrate; *you* drive it | ✅ the runtime executes the script and spawns subagents |
+| Massive fan-out in one shot | ❌ | ✅ up to 16 concurrent, 1,000 per run |
+| Background run while the session stays free | 🟡 commands are instant; `--watch` is push | ✅ runs in the background |
+| Built-in quality patterns (adversarial review, multi-angle) | ❌ not its job | ✅ codified in the script |
+| Durable human-approval gates | ✅ `checkpoint` / `clu approve`, persists until cleared | ❌ no mid-run input; split sign-off into separate workflows |
+| Audit trail of who did what, when | ✅ `clu history` / `clu log` | 🟡 live progress view during the run, not a durable log |
+| Tool-agnostic (any agent, CLI, or human) | ✅ it's just a CLI + SQLite | ❌ Claude Code / Anthropic API / Bedrock·Vertex·Foundry |
+| Works offline, no account, no network | ✅ | ❌ paid plan + a provider |
+| Instantiate a whole task graph from a script | ✅ `clu batch` (validated, atomic, thousands of issues) | 🟡 the script *is* the graph, but it's ephemeral |
+| Import from other trackers (Linear, Notion, …) | ✅ pipe into [`clu batch`](/docs/import) | ❌ |
+| Repeatable, codified orchestration | 🟡 [templates](/docs/workflows) + [batch generators](/docs/import) | ✅ save a run's script as a `/command` |
+| See the shape of the work | ✅ [web UI](/docs/web): board, ready, approvals | 🟡 terminal progress view |
 
-✓ first-class · ◐ partial / different shape · ✗ not a goal
+✅ first-class · 🟡 partial / different shape · ❌ not a goal
 
 ## When to reach for which
 

@@ -6,6 +6,7 @@
     "getting-started",
     "multi-agent",
     "workflows",
+    "dynamic-workflows",
     "import",
     "recipes",
     "---Reference---",
@@ -15,6 +16,7 @@
     "---Background---",
     "agents",
     "design",
+    "vs-beads",
     "comparison",
     "faq"
   ]
