@@ -21,6 +21,11 @@
 </p>
 
 <p align="center">
+  <a href="https://arjia-labs.github.io/clu/"><img src="https://img.shields.io/badge/%F0%9F%93%96_Read_the_docs-arjia--labs.github.io%2Fclu-007d9c?style=for-the-badge" alt="Documentation"></a>
+</p>
+
+<p align="center">
+  <a href="https://arjia-labs.github.io/clu/"><strong>Docs</strong></a> ·
   <a href="#-quickstart"><strong>Quickstart</strong></a> ·
   <a href="#-multi-agent-setup"><strong>Multi-agent</strong></a> ·
   <a href="#-bulk-graphs-clu-batch"><strong>Bulk graphs</strong></a> ·
