@@ -1,0 +1,3 @@
+/internal/gen/** linguist-generated=true -diff
+/internal/repository/internal/query/** linguist-generated=true -diff
+/web/src/gen/** linguist-generated=true -diff

@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/scope.proto";
+
+// WatchResource identifies browser reads invalidated by a notification.
+enum WatchResource {
+  // WATCH_RESOURCE_UNSPECIFIED does not identify a browser read.
+  WATCH_RESOURCE_UNSPECIFIED = 0;
+
+  // WATCH_RESOURCE_BOARD_CATALOG invalidates startup project and board data.
+  WATCH_RESOURCE_BOARD_CATALOG = 1;
+
+  // WATCH_RESOURCE_BOARD invalidates one board's settings.
+  WATCH_RESOURCE_BOARD = 2;
+
+  // WATCH_RESOURCE_ISSUES invalidates issue collections and detail.
+  WATCH_RESOURCE_ISSUES = 3;
+
+  // WATCH_RESOURCE_LOG invalidates issue log collections.
+  WATCH_RESOURCE_LOG = 4;
+
+  // WATCH_RESOURCE_APPROVALS invalidates actionable checkpoints.
+  WATCH_RESOURCE_APPROVALS = 5;
+}
+
+// WatchChangesRequest selects the board revisions observed by one stream.
+message WatchChangesRequest {
+  // scope selects one board or the aggregate of all boards.
+  BoardScope scope = 1;
+}
+
+// WatchChangesResponse invalidates reads after a committed board revision.
+message WatchChangesResponse {
+  // board_id identifies the board whose revision advanced.
+  string board_id = 1;
+
+  // revision is the positive committed store revision observed by the server.
+  uint64 revision = 2;
+
+  // resources identifies browser read families that may have changed.
+  repeated WatchResource resources = 3;
+
+  // issue_id narrows an invalidation to one issue when available.
+  optional string issue_id = 4;
+}
+
+// ChangeService streams coarse invalidation notifications to the browser.
+service ChangeService {
+  // WatchChanges streams committed revisions for a selected board scope.
+  rpc WatchChanges(WatchChangesRequest) returns (stream WatchChangesResponse);
+}

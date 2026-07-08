@@ -1,0 +1,17 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T12:00:00Z
+exec card init --prefix lease-
+
+exec card --actor index-builder lease acquire catalog-snapshot --ttl 17m
+cmp stdout $WORK/golden/catalog-snapshot.txt
+! stderr .
+exec card lease list
+cmp stdout $WORK/golden/catalog-snapshot.txt
+! stderr .
+exec card lease show catalog-snapshot
+cmp stdout $WORK/golden/catalog-snapshot.txt
+! stderr .
+
+-- golden/catalog-snapshot.txt --
+catalog-snapshot	index-builder	2026-07-12T12:00:00Z	2026-07-12T12:17:00Z

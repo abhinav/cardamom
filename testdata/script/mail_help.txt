@@ -1,0 +1,38 @@
+exec card mail recv --help
+cmp stdout $WORK/golden/help.txt
+
+-- golden/help.txt --
+Usage: card mail recv [flags]
+
+Receive messages.
+
+Read unread actor mail by default. Global observation is always read-only.
+
+Flags:
+  -h, --help                 Show context-sensitive help.
+      --store=PATH           Physical Cardamom store directory. Overrides
+                             automatic discovery ($CARDAMOM_STORE).
+      --board=BOARD          Coordination board ID or exact name
+                             ($CARDAMOM_BOARD).
+      --actor=ACTOR          Identity that owns active claims and attributes
+                             changes. Defaults to the current OS username
+                             ($CARDAMOM_ACTOR).
+      --json                 Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet                Suppress status notices while preserving requested
+                             output and errors.
+  -V, --version              Print version information and exit. This flag must
+                             precede any command.
+
+      --peek                 Read messages without marking them read.
+      --all                  Include messages that were already read.
+      --clear                Mark unread messages read without printing them.
+      --global               Observe messages across all recipients without
+                             changing read state.
+      --tail                 Poll until canceled and emit each delivery once per
+                             session.
+      --age=DURATION         Include messages no older than this Go duration,
+                             such as 30m or 24h. Zero has no age limit.
+      --limit=COUNT          Return at most this many messages per read.
+                             Zero has no count limit.
+      --interval=DURATION    Delay between tail polls in Go duration syntax.
+                             Values below 1s use 1s.

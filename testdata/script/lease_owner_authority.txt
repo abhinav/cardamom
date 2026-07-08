@@ -1,0 +1,38 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T12:00:00Z
+exec card init --prefix lease-
+
+exec card --actor video-worker lease acquire encoder-slot-4 --ttl 25m
+cmp stdout $WORK/golden/acquired.txt
+! stderr .
+
+! exec card --actor caption-worker lease release encoder-slot-4
+! stdout .
+cmp stderr $WORK/golden/held.txt
+! exec card --actor caption-worker lease renew encoder-slot-4 --ttl 5m
+! stdout .
+cmp stderr $WORK/golden/held.txt
+
+exec card --actor video-worker lease renew encoder-slot-4 --ttl 2h
+cmp stdout $WORK/golden/renewed.txt
+! stderr .
+exec card --actor video-worker lease release encoder-slot-4
+cmp stdout $WORK/golden/renewed.txt
+! stderr .
+exec card lease list
+cmp stdout $WORK/golden/empty.txt
+! stderr .
+! exec card lease show encoder-slot-4
+! stdout .
+cmp stderr $WORK/golden/missing.txt
+
+-- golden/acquired.txt --
+encoder-slot-4	video-worker	2026-07-12T12:00:00Z	2026-07-12T12:25:00Z
+-- golden/held.txt --
+error: lease "encoder-slot-4" is held by "video-worker" until 2026-07-12T12:25:00Z
+-- golden/renewed.txt --
+encoder-slot-4	video-worker	2026-07-12T12:00:00Z	2026-07-12T14:00:00Z
+-- golden/missing.txt --
+error: read lease "encoder-slot-4": lease not found
+-- golden/empty.txt --

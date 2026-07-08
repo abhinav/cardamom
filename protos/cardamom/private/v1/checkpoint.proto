@@ -1,0 +1,73 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/content.proto";
+import "cardamom/private/v1/issue.proto";
+import "cardamom/private/v1/mutation.proto";
+import "cardamom/private/v1/scope.proto";
+
+// ActionableCheckpoint contains evidence needed for an approve or deny
+// decision.
+message ActionableCheckpoint {
+  // checkpoint is the authoritative checkpoint issue summary.
+  IssueSummary checkpoint = 1;
+
+  // summary is the checkpoint's concise stable Markdown decision contract.
+  optional MarkdownContent summary = 2;
+
+  // context contains board, ancestor, and prerequisite evidence.
+  IssueContext context = 3;
+
+  // blocked_issues lists issues waiting for this decision.
+  repeated RelatedIssue blocked_issues = 4;
+}
+
+// ListActionableCheckpointsRequest selects actionable human decisions.
+message ListActionableCheckpointsRequest {
+  // scope selects one board or the aggregate of all boards.
+  BoardScope scope = 1;
+}
+
+// ListActionableCheckpointsResponse contains checkpoints in domain order.
+message ListActionableCheckpointsResponse {
+  // checkpoints contains currently actionable human decisions.
+  repeated ActionableCheckpoint checkpoints = 1;
+}
+
+// ResolveCheckpointRequest approves or denies one checkpoint.
+message ResolveCheckpointRequest {
+  // issue_id identifies the checkpoint issue.
+  string issue_id = 1;
+
+  // context supplies the identity required to record the decision.
+  MutationContext context = 2;
+
+  // outcome selects approval or denial.
+  CheckpointOutcome outcome = 3;
+
+  // reason records optional Markdown decision rationale.
+  optional string reason = 4;
+}
+
+// ResolveCheckpointResponse reports the decision and any denial cascade.
+message ResolveCheckpointResponse {
+  // decision is the committed checkpoint decision record.
+  CheckpointDecision decision = 1;
+
+  // checkpoint is the authoritative checkpoint after resolution.
+  IssueSummary checkpoint = 2;
+
+  // cancelled_dependents contains issues cancelled by denial.
+  repeated IssueSummary cancelled_dependents = 3;
+}
+
+// CheckpointService exposes actionable checkpoint reads and human decisions on
+// the browser transport.
+service CheckpointService {
+  // ListActionableCheckpoints returns decisions ready for human action.
+  rpc ListActionableCheckpoints(ListActionableCheckpointsRequest) returns (ListActionableCheckpointsResponse);
+
+  // ResolveCheckpoint approves or denies one actionable checkpoint.
+  rpc ResolveCheckpoint(ResolveCheckpointRequest) returns (ResolveCheckpointResponse);
+}

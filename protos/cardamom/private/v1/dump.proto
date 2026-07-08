@@ -1,0 +1,104 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+// WholeBoardDumpSelection selects every issue in one board.
+message WholeBoardDumpSelection {}
+
+// IssueDumpSelection selects named issues with optional containment expansion.
+message IssueDumpSelection {
+  // issue_ids contains the selected issue roots.
+  repeated string issue_ids = 1;
+
+  // include_descendants expands each root through transitive containment.
+  bool include_descendants = 2;
+}
+
+// DumpSelection identifies the issues represented by one dump artifact.
+message DumpSelection {
+  oneof mode {
+    // whole_board selects every issue in the board.
+    WholeBoardDumpSelection whole_board = 1;
+
+    // issues selects named issue roots.
+    IssueDumpSelection issues = 2;
+  }
+}
+
+// RenderDumpRequest selects one board artifact without naming a server path.
+message RenderDumpRequest {
+  // board_id identifies the board to render.
+  string board_id = 1;
+
+  // selection identifies the issues represented by the artifact.
+  DumpSelection selection = 2;
+}
+
+// DumpFileManifest identifies one generated file before its content is sent.
+message DumpFileManifest {
+  // path is the canonical artifact-relative file path.
+  string path = 1;
+
+  // identity remains stable when a generated issue moves between paths.
+  string identity = 2;
+
+  // size_bytes is the complete generated content size.
+  uint64 size_bytes = 3;
+}
+
+// DumpManifest describes the complete deterministic artifact stream.
+message DumpManifest {
+  // project_id identifies the project containing the rendered board.
+  string project_id = 1;
+
+  // project_name is the project name recorded in every generated file.
+  string project_name = 2;
+
+  // board_id identifies the rendered board.
+  string board_id = 3;
+
+  // board_name is the board name recorded in every generated file.
+  string board_name = 4;
+
+  // revision is the canonical source revision represented by every file.
+  uint64 revision = 5;
+
+  // selection is the normalized issue selection represented by the artifact.
+  DumpSelection selection = 6;
+
+  // issue_count is the number of rendered issue pages.
+  uint32 issue_count = 7;
+
+  // files lists every following file frame in stream order.
+  repeated DumpFileManifest files = 8;
+}
+
+// DumpFileChunk contains bounded content from one generated artifact file.
+message DumpFileChunk {
+  // file_index identifies the file in DumpManifest.files.
+  uint32 file_index = 1;
+
+  // offset is the byte offset of content within the generated file.
+  uint64 offset = 2;
+
+  // content is the next non-empty range of generated file content.
+  bytes content = 3;
+}
+
+// RenderDumpResponse carries the manifest first and then bounded file chunks.
+message RenderDumpResponse {
+  oneof frame {
+    // manifest describes the complete stream and is always the first frame.
+    DumpManifest manifest = 1;
+
+    // file_chunk carries bounded file content in manifest order.
+    DumpFileChunk file_chunk = 2;
+  }
+}
+
+// DumpService renders deterministic board artifacts without server filesystem
+// publication.
+service DumpService {
+  // RenderDump streams one manifest followed by bounded file chunks.
+  rpc RenderDump(RenderDumpRequest) returns (stream RenderDumpResponse);
+}

@@ -1,0 +1,407 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/content.proto";
+import "cardamom/private/v1/scope.proto";
+import "google/protobuf/timestamp.proto";
+
+// IssueType identifies the workflow role of an issue.
+enum IssueType {
+  // ISSUE_TYPE_UNSPECIFIED is not a valid persisted issue type.
+  ISSUE_TYPE_UNSPECIFIED = 0;
+
+  // ISSUE_TYPE_WORKSTREAM identifies a finite container of related work.
+  ISSUE_TYPE_WORKSTREAM = 1;
+
+  // ISSUE_TYPE_TASK identifies a bounded executable unit of work.
+  ISSUE_TYPE_TASK = 2;
+
+  // ISSUE_TYPE_CHECKPOINT identifies a human approval gate.
+  ISSUE_TYPE_CHECKPOINT = 3;
+
+  // ISSUE_TYPE_ROUTINE identifies a reusable workstream claimed directly.
+  ISSUE_TYPE_ROUTINE = 4;
+}
+
+// IssueLifecycle is the persisted lifecycle of an issue.
+enum IssueLifecycle {
+  // ISSUE_LIFECYCLE_UNSPECIFIED is not a persisted lifecycle.
+  ISSUE_LIFECYCLE_UNSPECIFIED = 0;
+
+  // ISSUE_LIFECYCLE_OPEN identifies unfinished work.
+  ISSUE_LIFECYCLE_OPEN = 1;
+
+  // ISSUE_LIFECYCLE_CLOSED identifies completed work.
+  ISSUE_LIFECYCLE_CLOSED = 2;
+
+  // ISSUE_LIFECYCLE_CANCELLED identifies work that will not be completed.
+  ISSUE_LIFECYCLE_CANCELLED = 3;
+}
+
+// IssueStatus is the effective status presented by browser views.
+enum IssueStatus {
+  // ISSUE_STATUS_UNSPECIFIED is not an effective issue status.
+  ISSUE_STATUS_UNSPECIFIED = 0;
+
+  // ISSUE_STATUS_READY identifies eligible unfinished work without custody.
+  ISSUE_STATUS_READY = 1;
+
+  // ISSUE_STATUS_BLOCKED identifies unfinished work with open prerequisites.
+  ISSUE_STATUS_BLOCKED = 2;
+
+  // ISSUE_STATUS_IN_PROGRESS identifies unfinished work with active custody.
+  ISSUE_STATUS_IN_PROGRESS = 3;
+
+  // ISSUE_STATUS_WAITING identifies open work excluded from automatic selection.
+  ISSUE_STATUS_WAITING = 4;
+
+  // ISSUE_STATUS_CLOSED identifies completed work.
+  ISSUE_STATUS_CLOSED = 5;
+
+  // ISSUE_STATUS_CANCELLED identifies work that will not be completed.
+  ISSUE_STATUS_CANCELLED = 6;
+}
+
+// IssueSort selects an ordering supported by browser issue collections.
+enum IssueSort {
+  // ISSUE_SORT_UNSPECIFIED selects the server's default issue ordering.
+  ISSUE_SORT_UNSPECIFIED = 0;
+
+  // ISSUE_SORT_PRIORITY orders issues by domain priority.
+  ISSUE_SORT_PRIORITY = 1;
+
+  // ISSUE_SORT_UPDATED_AT orders issues by their latest update time.
+  ISSUE_SORT_UPDATED_AT = 2;
+
+  // ISSUE_SORT_CREATED_AT orders issues by their creation time.
+  ISSUE_SORT_CREATED_AT = 3;
+
+  // ISSUE_SORT_TITLE orders issues by title.
+  ISSUE_SORT_TITLE = 4;
+}
+
+// SortDirection selects ascending or descending collection order.
+enum SortDirection {
+  // SORT_DIRECTION_UNSPECIFIED selects the sort's default direction.
+  SORT_DIRECTION_UNSPECIFIED = 0;
+
+  // SORT_DIRECTION_ASCENDING orders lower values before higher values.
+  SORT_DIRECTION_ASCENDING = 1;
+
+  // SORT_DIRECTION_DESCENDING orders higher values before lower values.
+  SORT_DIRECTION_DESCENDING = 2;
+}
+
+// ActiveClaim describes current issue custody.
+message ActiveClaim {
+  // actor identifies the current custodian.
+  string actor = 1;
+
+  // started_at is the time at which custody was acquired.
+  google.protobuf.Timestamp started_at = 2;
+}
+
+// WaitingState records why open work is excluded from automatic selection.
+message WaitingState {
+  // reason names the directed continuation, acceptance,
+  // or condition required next.
+  string reason = 1;
+
+  // since is the time at which custody was released into waiting state.
+  google.protobuf.Timestamp since = 2;
+}
+
+// CheckpointOutcome is the immutable result of a checkpoint decision.
+enum CheckpointOutcome {
+  // CHECKPOINT_OUTCOME_UNSPECIFIED is not a committed outcome.
+  CHECKPOINT_OUTCOME_UNSPECIFIED = 0;
+
+  // CHECKPOINT_OUTCOME_APPROVED completes a checkpoint successfully.
+  CHECKPOINT_OUTCOME_APPROVED = 1;
+
+  // CHECKPOINT_OUTCOME_DENIED cancels a checkpoint and dependent work.
+  CHECKPOINT_OUTCOME_DENIED = 2;
+}
+
+// CheckpointDecision records one committed checkpoint outcome.
+message CheckpointDecision {
+  // outcome is the committed approval or denial.
+  CheckpointOutcome outcome = 1;
+
+  // reason is the recorded Markdown rationale and may be empty.
+  MarkdownContent reason = 2;
+
+  // decided_at is the transaction decision time.
+  google.protobuf.Timestamp decided_at = 3;
+
+  // revision is the canonical transaction revision.
+  int64 revision = 4;
+}
+
+// IssueSummary is the authoritative record used by issue collections.
+message IssueSummary {
+  // id is the stable issue ID.
+  string id = 1;
+
+  // board_id identifies the board that owns the issue.
+  string board_id = 2;
+
+  // title is the human-readable issue title.
+  string title = 3;
+
+  // type identifies the issue's workflow role.
+  IssueType type = 4;
+
+  // lifecycle is the issue's persisted lifecycle.
+  IssueLifecycle lifecycle = 5;
+
+  // status is the issue's effective browser status.
+  IssueStatus status = 6;
+
+  // priority is the domain ordering priority, where lower values run first.
+  int32 priority = 7;
+
+  // active_claim describes current custody when the issue is claimed.
+  optional ActiveClaim active_claim = 8;
+
+  // created_at is the time at which the issue was created.
+  google.protobuf.Timestamp created_at = 9;
+
+  // updated_at is the time of the issue's latest committed update.
+  google.protobuf.Timestamp updated_at = 10;
+
+  // started_at is the time at which execution first began.
+  google.protobuf.Timestamp started_at = 11;
+
+  // closed_at is the time at which the issue entered closed lifecycle.
+  google.protobuf.Timestamp closed_at = 12;
+
+  // waiting records the reason and time for released waiting work.
+  optional WaitingState waiting = 13;
+
+  // labels contains inert classification labels in canonical order.
+  repeated string labels = 14;
+
+  // blocked reports whether an open prerequisite prevents execution.
+  bool blocked = 15;
+}
+
+// RelatedIssue is the compact issue representation used by relationships.
+message RelatedIssue {
+  // id is the stable issue ID.
+  string id = 1;
+
+  // board_id identifies the board that owns the issue.
+  string board_id = 2;
+
+  // title is the human-readable issue title.
+  string title = 3;
+
+  // type identifies the issue's workflow role.
+  IssueType type = 4;
+
+  // status is the issue's effective browser status.
+  IssueStatus status = 5;
+
+  // priority is the domain ordering priority, where lower values run first.
+  int32 priority = 6;
+}
+
+// AncestorContext carries current context inherited from one ancestor.
+message AncestorContext {
+  // issue identifies the containment ancestor.
+  RelatedIssue issue = 1;
+
+  // summary is the ancestor's concise stable Markdown contract.
+  optional MarkdownContent summary = 2;
+
+  // state is the ancestor's current recovery state.
+  optional MarkdownContent state = 3;
+
+  // log_count is the number of chronological records on the ancestor.
+  uint32 log_count = 4;
+
+  // details_bytes reports expanded stable material available on demand.
+  uint64 details_bytes = 5;
+
+  // next_action is the ancestor's optional current planned transition.
+  optional MarkdownContent next_action = 6;
+}
+
+// DependencyResultContext carries the result of one completed prerequisite.
+message DependencyResultContext {
+  // issue identifies the completed prerequisite.
+  RelatedIssue issue = 1;
+
+  // result is the prerequisite's recorded Markdown outcome.
+  MarkdownContent result = 2;
+}
+
+// IssueContext contains inherited stable context in presentation order.
+message IssueContext {
+  // board_description is the selected board's shared context.
+  optional MarkdownContent board_description = 1;
+
+  // ancestors lists containment context from root to direct parent.
+  repeated AncestorContext ancestors = 2;
+
+  // dependency_results lists completed prerequisite outcomes.
+  repeated DependencyResultContext dependency_results = 3;
+}
+
+// HierarchyNode is one row in a preordered containment projection.
+message HierarchyNode {
+  // issue is the issue represented by the row.
+  RelatedIssue issue = 1;
+
+  // parent_id identifies the direct containment parent when one exists.
+  optional string parent_id = 2;
+
+  // depth is the row's zero-based containment depth.
+  uint32 depth = 3;
+
+  // selected_path reports whether the row belongs to the selected issue path.
+  bool selected_path = 4;
+}
+
+// ContainmentProjection supports the semantic tree and its decorative rail.
+message ContainmentProjection {
+  // nodes contains hierarchy rows in depth-first presentation order.
+  repeated HierarchyNode nodes = 1;
+}
+
+// IssueDetail contains the primary issue and independently loaded context.
+message IssueDetail {
+  // issue is the authoritative issue collection record.
+  IssueSummary issue = 1;
+
+  // summary is the issue's concise stable Markdown contract.
+  optional MarkdownContent summary = 2;
+
+  // state is the issue's current Markdown recovery state.
+  optional MarkdownContent state = 3;
+
+  // result is the issue's recorded Markdown outcome when one exists.
+  optional MarkdownContent result = 4;
+
+  // context contains board, ancestor, and prerequisite context.
+  IssueContext context = 5;
+
+  // containment contains the issue's surrounding hierarchy.
+  ContainmentProjection containment = 6;
+
+  // prerequisites lists direct dependency predecessors.
+  repeated RelatedIssue prerequisites = 7;
+
+  // dependents lists direct dependency successors.
+  repeated RelatedIssue dependents = 8;
+
+  // log_count is the number of chronological issue log entries.
+  uint32 log_count = 9;
+
+  // latest_log_id identifies the newest log entry when one exists.
+  optional string latest_log_id = 10;
+
+  // details is expanded stable Markdown material disclosed on demand.
+  optional MarkdownContent details = 11;
+
+  // checkpoint_decision is present for a resolved checkpoint with a decision.
+  optional CheckpointDecision checkpoint_decision = 12;
+
+  // next_action is the issue's optional current planned transition.
+  optional MarkdownContent next_action = 13;
+}
+
+// LabelFacet reports one label available in the complete selected scope.
+message LabelFacet {
+  // label is the canonical label value.
+  string label = 1;
+
+  // issue_count is the number of selected-scope issues with the label.
+  uint32 issue_count = 2;
+}
+
+// ListIssuesRequest selects and orders one browser issue collection.
+message ListIssuesRequest {
+  // scope selects one board or the aggregate of all boards.
+  BoardScope scope = 1;
+
+  // ancestor_id restricts results to descendants of one workstream.
+  optional string ancestor_id = 2;
+
+  // lifecycles restricts results to the supplied persisted lifecycles.
+  repeated IssueLifecycle lifecycles = 3;
+
+  // statuses restricts results to the supplied effective statuses.
+  repeated IssueStatus statuses = 4;
+
+  // types restricts results to the supplied workflow roles.
+  repeated IssueType types = 5;
+
+  // actor restricts results to issues actively claimed by the actor.
+  optional string actor = 6;
+
+  // labels_all requires every supplied inert classification label.
+  repeated string labels_all = 7;
+
+  // labels_any requires at least one supplied inert classification label.
+  repeated string labels_any = 13;
+
+  // labels_none excludes issues carrying any supplied inert classification label.
+  repeated string labels_none = 14;
+
+  // title_query restricts results by title text.
+  optional string title_query = 8;
+
+  // sort selects the collection ordering field.
+  IssueSort sort = 9;
+
+  // direction selects ascending or descending ordering.
+  SortDirection direction = 10;
+
+  // limit is the maximum number of issues returned in one page.
+  uint32 limit = 11;
+
+  // page_token resumes a prior stable collection page.
+  optional string page_token = 12;
+}
+
+// ListIssuesResponse contains ordered issues and scope-wide label facets.
+message ListIssuesResponse {
+  // issues contains the selected page in requested order.
+  repeated IssueSummary issues = 1;
+
+  // label_facets contains labels from the complete selected scope.
+  repeated LabelFacet label_facets = 2;
+
+  // truncated reports whether another page remains.
+  bool truncated = 3;
+
+  // next_page_token resumes after this page when truncated is true.
+  optional string next_page_token = 4;
+
+  // total_count is the number of issues matching the complete request.
+  uint32 total_count = 5;
+}
+
+// GetIssueRequest identifies one issue by stable ID.
+message GetIssueRequest {
+  // issue_id identifies the issue to read.
+  string issue_id = 1;
+}
+
+// GetIssueResponse contains the primary issue detail record.
+message GetIssueResponse {
+  // issue is the authoritative browser-visible detail record.
+  IssueDetail issue = 1;
+}
+
+// IssueService exposes issue collection and detail reads.
+service IssueService {
+  // ListIssues returns one stable page from a selected issue collection.
+  rpc ListIssues(ListIssuesRequest) returns (ListIssuesResponse);
+
+  // GetIssue returns one issue and its independently loaded context.
+  rpc GetIssue(GetIssueRequest) returns (GetIssueResponse);
+}

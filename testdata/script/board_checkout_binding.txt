@@ -1,0 +1,58 @@
+at 2026-07-15T12:00:00Z
+
+# Git keeps the selection in each worktree's private administrative directory.
+mkdir repo
+exec git -C repo init -b main
+exec sh -c 'printf "initial\n" > repo/README.md'
+exec card --store repo/.git/.cardamom init --prefix git- --board-name 'Default board'
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: git-\n    strategy: sequential\n" > repo/.git/.cardamom/config.yaml'
+exec card --store repo/.git/.cardamom board create 'Second board'
+cmp stdout $WORK/golden/second-board.txt
+exec git -C repo add README.md
+exec git -C repo commit -m initial
+
+cd repo
+exec card board use board_00000000000000000000
+cmp stdout $WORK/golden/use-default.txt
+exists .git/cardamom-board
+exec git worktree add ../linked -b linked
+cd ../linked
+exec card board use board_11111111111111111111
+cmp stdout $WORK/golden/use-second.txt
+exists ../repo/.git/worktrees/linked/cardamom-board
+exec card create 'Linked issue'
+cmp stdout $WORK/golden/linked-issue.txt
+
+cd ../repo
+exec card create 'Primary issue'
+cmp stdout $WORK/golden/primary-issue.txt
+
+# Non-Git selection lives beside the discovered .cardamom entry, not in a child cwd.
+cd ..
+mkdir plain
+exec card --store plain/.cardamom init --prefix plain- --board-name 'Default board'
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: plain-\n    strategy: sequential\n" > plain/.cardamom/config.yaml'
+exec card --store plain/.cardamom board create 'Second board'
+cmp stdout $WORK/golden/second-board.txt
+mkdir plain/a
+mkdir plain/a/b
+cd plain/a/b
+exec card board use board_11111111111111111111
+cmp stdout $WORK/golden/use-second.txt
+exists ../../.cardamom-board
+! exists .cardamom-board
+exec card create 'Nested issue'
+cmp stdout $WORK/golden/nested-issue.txt
+
+-- golden/second-board.txt --
+board_11111111111111111111
+-- golden/use-default.txt --
+using board_00000000000000000000 (Default board)
+-- golden/use-second.txt --
+using board_11111111111111111111 (Second board)
+-- golden/linked-issue.txt --
+git-1
+-- golden/primary-issue.txt --
+git-2
+-- golden/nested-issue.txt --
+plain-1

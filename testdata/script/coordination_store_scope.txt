@@ -1,0 +1,47 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-20T12:00:00Z
+exec card init --prefix scope- --board-name 'Alpha board'
+exec card board create 'Beta board'
+cmp stdout $WORK/golden/beta-board.txt
+
+# Mailboxes and subscriptions span boards in the same store.
+exec card --board board_00000000000000000000 --actor alice mail send bob 'direct across boards'
+cmp stdout $WORK/golden/direct-send.txt
+exec card --board board_11111111111111111111 --actor bob mail recv --peek
+cmp stdout $WORK/golden/direct-recv.txt
+exec card --board board_00000000000000000000 --actor carol mail subscribe 'release.*' --ttl 1h
+cmp stdout $WORK/golden/subscription.txt
+exec card --board board_11111111111111111111 --actor alice mail publish release.ready 'topic across boards'
+cmp stdout $WORK/golden/topic-send.txt
+exec card --board board_11111111111111111111 --actor carol mail recv --peek
+cmp stdout $WORK/golden/topic-recv.txt
+
+# A lease acquired from one board excludes actors working in another board.
+exec card --board board_00000000000000000000 --actor alice lease acquire shared-environment --ttl 30m
+cmp stdout $WORK/golden/lease.txt
+exec card --board board_11111111111111111111 --actor alice lease show shared-environment
+cmp stdout $WORK/golden/lease.txt
+! exec card --board board_11111111111111111111 --actor bob lease acquire shared-environment --ttl 30m
+cmp stderr $WORK/golden/lease-held.txt
+
+-- golden/beta-board.txt --
+board_11111111111111111111
+-- golden/direct-send.txt --
+mail_00000000000000000000000000000001	alice	bob		2026-07-20T12:00:00Z	2026-07-27T12:00:00Z
+direct across boards
+-- golden/direct-recv.txt --
+mail_00000000000000000000000000000001	alice	bob		2026-07-20T12:00:00Z	2026-07-27T12:00:00Z
+direct across boards
+-- golden/subscription.txt --
+carol	release.*	2026-07-20T12:00:00Z	2026-07-20T13:00:00Z
+-- golden/topic-send.txt --
+mail_00000000000000000000000000000002	alice	carol	release.ready	2026-07-20T12:00:00Z	2026-07-27T12:00:00Z
+topic across boards
+-- golden/topic-recv.txt --
+mail_00000000000000000000000000000002	alice	carol	release.ready	2026-07-20T12:00:00Z	2026-07-27T12:00:00Z
+topic across boards
+-- golden/lease.txt --
+shared-environment	alice	2026-07-20T12:00:00Z	2026-07-20T12:30:00Z
+-- golden/lease-held.txt --
+error: lease "shared-environment" is held by "alice" until 2026-07-20T12:30:00Z

@@ -1,0 +1,16 @@
+# Build and release outputs.
+/bin/
+/dist/
+/internal/web/server/static.tar.gz
+
+# Web outputs.
+/web/dist/
+/web/node_modules/
+
+# Private Cardamom state.
+/.cardamom/board.sqlite3
+/.cardamom/board.sqlite3-shm
+/.cardamom/board.sqlite3-wal
+/.cardamom/blobs
+/.cardamom/backups/
+/.cardamom/tmp/

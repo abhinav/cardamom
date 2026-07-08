@@ -1,0 +1,36 @@
+exec git init -b main
+at 2026-07-13T12:00:00Z
+exec card init --prefix board- --board-name 'Default board'
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: board-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card board show
+cmp stdout $WORK/golden/empty.txt
+exec card --json board show
+cmpjson stdout $WORK/golden/empty.json
+
+exec card board edit --description 'Mission context for every issue.'
+cmp stdout $WORK/golden/edit.txt
+exec card --json board show
+cmpjson stdout $WORK/golden/description.json
+
+exec card create 'Context consumer'
+exec card --json show --context board-1
+cmpjson stdout $WORK/golden/context.json
+
+exec card --json board edit --clear-description
+cmpjson stdout $WORK/golden/empty.json
+
+-- golden/empty.json --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Default board","created":1783944000,"description":null}
+-- golden/description.json --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Default board","created":1783944000,"description":"Mission context for every issue."}
+-- golden/context.json --
+{"board":{"description":"Mission context for every issue."},"context":[],"dependency_results":[],"issue":{"id":"board-1","title":"Context consumer","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}}
+-- golden/empty.txt --
+ID:      board_00000000000000000000
+Project: project_00000000000000000000
+Name:    Default board
+Created: 2026-07-13T12:00:00Z
+Description: (none)
+-- golden/edit.txt --
+updated board description

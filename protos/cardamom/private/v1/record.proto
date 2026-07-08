@@ -1,0 +1,317 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "buf/validate/validate.proto";
+import "cardamom/private/v1/content.proto";
+import "cardamom/private/v1/issue.proto";
+import "cardamom/private/v1/mutation.proto";
+import "google/protobuf/timestamp.proto";
+
+// LogPost is one actor-authored immutable Log event.
+message LogPost {
+  // actor identifies the post author.
+  string actor = 1 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+
+  // body contains the stored and rendered Markdown post.
+  MarkdownContent body = 2 [(buf.validate.field).required = true];
+
+  // created_at records when the post was created.
+  google.protobuf.Timestamp created_at = 3 [(buf.validate.field).required = true];
+}
+
+// StateSnapshot is State preserved in immutable Log history.
+message StateSnapshot {
+  // body contains the stored and rendered Markdown State.
+  MarkdownContent body = 1 [(buf.validate.field).required = true];
+
+  // author identifies the State author when known.
+  optional string author = 2 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+
+  // committer identifies who preserved the State when known.
+  optional string committer = 3 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+
+  // created_at records when the State was preserved when known.
+  google.protobuf.Timestamp created_at = 4;
+
+  // next_action contains the optional planned transition preserved with body.
+  MarkdownContent next_action = 5;
+}
+
+// LogEntry is one immutable typed issue record.
+message LogEntry {
+  // id is the durable log entry identity.
+  string id = 1;
+
+  // issue_id identifies the issue that owns the log entry.
+  string issue_id = 2;
+
+  reserved 3, 4, 5, 8;
+  reserved "actor", "created_at", "body", "committer";
+
+  // payload selects the finite Log entry contract.
+  oneof payload {
+    option (buf.validate.oneof).required = true;
+
+    // post marks actor-authored immutable content.
+    LogPost post = 6;
+
+    // state_snapshot marks State preserved by a commit.
+    StateSnapshot state_snapshot = 7;
+  }
+}
+
+// ListLogEntriesRequest identifies one issue's log record.
+message ListLogEntriesRequest {
+  // issue_id identifies the issue that owns the log entries.
+  string issue_id = 1;
+
+  // direction selects chronological or reverse-chronological order.
+  SortDirection direction = 2;
+}
+
+// ListLogEntriesResponse contains log entries in requested order.
+message ListLogEntriesResponse {
+  // log_entries contains immutable issue records in requested order.
+  repeated LogEntry log_entries = 1;
+}
+
+// AddLogEntryRequest appends one attributed Markdown log entry.
+message AddLogEntryRequest {
+  // issue_id identifies the issue that will own the log entry.
+  string issue_id = 1;
+
+  // context supplies the required log entry author.
+  MutationContext context = 2;
+
+  // body_source is the Markdown log entry body.
+  string body_source = 3;
+}
+
+// AddLogEntryResponse contains the complete rendered log entry.
+message AddLogEntryResponse {
+  // log_entry is the immutable recorded log entry.
+  LogEntry log_entry = 1;
+}
+
+// GetStateRequest identifies the issue whose mutable state should be read.
+message GetStateRequest {
+  // issue_id identifies the issue that owns the state.
+  string issue_id = 1;
+}
+
+// StateRecord is one attributed mutable recovery State.
+message StateRecord {
+  // body contains the current stored and rendered Markdown State.
+  MarkdownContent body = 1;
+
+  // actor identifies the last State author when known.
+  optional string actor = 2;
+
+  // updated_at is absent when the State update time is unknown.
+  optional google.protobuf.Timestamp updated_at = 3;
+
+  // snapshot_log_entry_id links matching immutable Log history when present.
+  optional string snapshot_log_entry_id = 4;
+
+  // next_action contains the optional current planned transition.
+  MarkdownContent next_action = 5;
+}
+
+// GetStateResponse contains the current mutable recovery State.
+message GetStateResponse {
+  // issue_id identifies the issue that owns the state.
+  string issue_id = 1;
+
+  // state is absent when the issue has no current recovery State.
+  optional StateRecord state = 2;
+}
+
+// SetStateRequest replaces one mutable recovery state.
+message SetStateRequest {
+  // issue_id identifies the issue whose state is replaced.
+  string issue_id = 1;
+
+  // state_source is the complete replacement Markdown.
+  string state_source = 2;
+
+  // context supplies mutation attribution.
+  MutationContext context = 3;
+
+  // next_action_source is the optional planned transition from state_source.
+  optional string next_action_source = 4 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+}
+
+// AppendStateRequest appends Markdown to one mutable recovery state.
+message AppendStateRequest {
+  // issue_id identifies the issue whose state is extended.
+  string issue_id = 1;
+
+  // state_source is appended after the existing state.
+  string state_source = 2;
+
+  // context supplies mutation attribution.
+  MutationContext context = 3;
+}
+
+// ClearStateRequest clears one mutable recovery state.
+message ClearStateRequest {
+  // issue_id identifies the issue whose state is cleared.
+  string issue_id = 1;
+
+  // context supplies mutation attribution.
+  MutationContext context = 2;
+}
+
+// SetStateResponse contains the issue after state replacement.
+message SetStateResponse {
+  // issue is the canonical issue summary after the state mutation.
+  IssueSummary issue = 1;
+}
+
+// AppendStateResponse contains the issue after state append.
+message AppendStateResponse {
+  // issue is the canonical issue summary after the state mutation.
+  IssueSummary issue = 1;
+}
+
+// ClearStateResponse contains the issue after state removal.
+message ClearStateResponse {
+  // issue is the canonical issue summary after the state mutation.
+  IssueSummary issue = 1;
+}
+
+// RetainCommittedState keeps current State after committing it.
+message RetainCommittedState {}
+
+// ClearCommittedState removes State after committing it.
+message ClearCommittedState {}
+
+// ReplaceCommittedState installs a complete new State after committing.
+message ReplaceCommittedState {
+  // body_source is the nonblank replacement recovery position.
+  string body_source = 1 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+
+  // next_action_source is the optional planned transition from body_source.
+  optional string next_action_source = 2 [(buf.validate.field).string = {
+    min_len: 1
+  }];
+}
+
+// CommitStateRequest preserves changed State and applies one disposition.
+message CommitStateRequest {
+  // issue_id identifies the issue whose State is committed.
+  string issue_id = 1;
+
+  // context supplies the committing actor.
+  MutationContext context = 2;
+
+  reserved 4;
+  reserved "next_state_source";
+
+  // disposition selects the State retained after the commit.
+  oneof disposition {
+    // retain keeps current State.
+    RetainCommittedState retain = 3;
+
+    // clear removes State after preserving it.
+    ClearCommittedState clear = 5;
+
+    // replace installs a complete new State after preserving the current one.
+    ReplaceCommittedState replace = 6;
+  }
+}
+
+// CommitStateResponse reports the resulting State and optional snapshot.
+message CommitStateResponse {
+  // issue is the canonical issue summary after the commit.
+  IssueSummary issue = 1;
+
+  // state is the resulting mutable State when retained or replaced.
+  optional StateRecord state = 2;
+
+  // log_entry is present when the commit created a State snapshot.
+  optional LogEntry log_entry = 3;
+}
+
+// GetResultRequest identifies the issue whose durable result should be read.
+message GetResultRequest {
+  // issue_id identifies the issue that owns the result.
+  string issue_id = 1;
+}
+
+// IssueResult contains one issue's current durable outcome.
+message IssueResult {
+  // issue_id identifies the issue that owns the result.
+  string issue_id = 1;
+
+  // issue_title is the current human-readable issue title.
+  string issue_title = 2;
+
+  // body contains the stored and rendered Markdown outcome.
+  MarkdownContent body = 3;
+}
+
+// GetResultResponse contains one durable issue outcome.
+message GetResultResponse {
+  // result is the current durable issue outcome.
+  IssueResult result = 1;
+}
+
+// SetResultRequest replaces one durable issue outcome.
+message SetResultRequest {
+  // issue_id identifies the issue whose result is replaced.
+  string issue_id = 1;
+
+  // body_source is the nonblank Markdown outcome.
+  string body_source = 2;
+
+  // context supplies mutation attribution.
+  MutationContext context = 3;
+}
+
+// SetResultResponse contains the stored durable outcome.
+message SetResultResponse {
+  // result is the current durable issue outcome.
+  IssueResult result = 1;
+}
+
+// RecordService exposes immutable log entries, mutable state, and durable results.
+service RecordService {
+  // ListLogEntries returns immutable log entries in requested order.
+  rpc ListLogEntries(ListLogEntriesRequest) returns (ListLogEntriesResponse);
+
+  // AddLogEntry appends one immutable attributed log entry.
+  rpc AddLogEntry(AddLogEntryRequest) returns (AddLogEntryResponse);
+
+  // GetState returns one issue's current mutable recovery state.
+  rpc GetState(GetStateRequest) returns (GetStateResponse);
+
+  // SetState replaces one issue's complete mutable recovery state.
+  rpc SetState(SetStateRequest) returns (SetStateResponse);
+
+  // AppendState extends one issue's mutable recovery state.
+  rpc AppendState(AppendStateRequest) returns (AppendStateResponse);
+
+  // ClearState removes one issue's mutable recovery state.
+  rpc ClearState(ClearStateRequest) returns (ClearStateResponse);
+
+  // CommitState preserves changed State and applies one atomic disposition.
+  rpc CommitState(CommitStateRequest) returns (CommitStateResponse);
+
+  // GetResult returns one issue's current durable outcome.
+  rpc GetResult(GetResultRequest) returns (GetResultResponse);
+
+  // SetResult replaces one issue's durable outcome.
+  rpc SetResult(SetResultRequest) returns (SetResultResponse);
+}

@@ -1,0 +1,217 @@
+# Attachment help exposes the complete local file workflow without requiring
+# external skill documentation.
+exec card attachment --help
+cmp stdout $WORK/golden/attachment.txt
+! stderr .
+
+exec card attachment add --help
+cmp stdout $WORK/golden/add.txt
+! stderr .
+
+exec card attachment show --help
+cmp stdout $WORK/golden/show.txt
+! stderr .
+
+exec card attachment list --help
+cmp stdout $WORK/golden/list.txt
+! stderr .
+
+exec card attachment get --help
+cmp stdout $WORK/golden/get.txt
+! stderr .
+
+exec card attachment remove --help
+cmp stdout $WORK/golden/remove.txt
+! stderr .
+
+exec card attachment gc --help
+cmp stdout $WORK/golden/gc.txt
+! stderr .
+
+-- golden/attachment.txt --
+Usage: card attachment <command> [flags]
+
+Add, inspect, download, remove, and collect board attachments.
+
+Add, inspect, download, remove, and collect board attachments. Attachment
+references use attachment:<id> and remain scoped to their board.
+
+Managing attachments
+  attachment add       Upload a file or standard input.
+  attachment show      Show attachment metadata.
+  attachment list      List attachment metadata.
+  attachment get       Download verified attachment content.
+  attachment remove    Permanently tombstone an attachment.
+  attachment gc        Collect expired staging and orphan blob content.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
+  -V, --version        Print version information and exit. This flag must
+                       precede any command.
+-- golden/add.txt --
+Usage: card attachment add <source> [flags]
+
+Upload a file or standard input.
+
+Upload a file or standard input in bounded chunks and publish it as one board
+attachment. Use - to read standard input; --name is required in that form.
+On success, the command prints the attachment ID, canonical Markdown link,
+and canonical Markdown image reference.
+
+Arguments:
+  <source>    File path, or - to read standard input.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
+  -V, --version        Print version information and exit. This flag must
+                       precede any command.
+
+      --name=NAME      Portable attachment filename. Required for standard
+                       input; otherwise defaults to the source basename.
+      --issue=ISSUE    Originating issue ID. The association is organizational
+                       and does not restrict same-board references.
+-- golden/list.txt --
+Usage: card attachment list [flags]
+
+List attachment metadata.
+
+List one stable page of attachment metadata for the selected board. Use --issue
+to restrict the originating issue, --include-removed to include tombstones,
+and --page-token to continue a previous listing.
+
+Flags:
+  -h, --help                Show context-sensitive help.
+      --store=PATH          Physical Cardamom store directory. Overrides
+                            automatic discovery ($CARDAMOM_STORE).
+      --board=BOARD         Coordination board ID or exact name
+                            ($CARDAMOM_BOARD).
+      --actor=ACTOR         Identity that owns active claims and attributes
+                            changes. Defaults to the current OS username
+                            ($CARDAMOM_ACTOR).
+      --json                Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet               Suppress status notices while preserving requested
+                            output and errors.
+  -V, --version             Print version information and exit. This flag must
+                            precede any command.
+
+      --issue=ISSUE         Restrict results to this originating issue.
+      --include-removed     Include permanently tombstoned attachment metadata.
+      --page-size=COUNT     Maximum attachments in this page. Zero selects the
+                            default page size.
+      --page-token=TOKEN    Resume a prior stable page from its opaque next-page
+                            token.
+-- golden/get.txt --
+Usage: card attachment get <id> <output> [flags]
+
+Download verified attachment content.
+
+Write verified attachment content to a new local file. The command verifies the
+complete content before writing it. An existing output file is replaced only
+when --force is supplied.
+
+Arguments:
+  <id>        Attachment ID.
+  <output>    Destination file path.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
+  -V, --version        Print version information and exit. This flag must
+                       precede any command.
+
+      --force          Replace an existing output file instead of requiring a
+                       new path.
+-- golden/gc.txt --
+Usage: card attachment gc [flags]
+
+Collect expired staging and orphan blob content.
+
+Collect expired staging files and unreferenced blobs explicitly. Collection
+is store-wide, reports retained content integrity problems, and never changes
+attachment metadata. Use --dry-run to report what collection would remove
+without deleting bytes.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
+  -V, --version        Print version information and exit. This flag must
+                       precede any command.
+
+      --dry-run        Report what collection would remove without deleting
+                       local content.
+-- golden/show.txt --
+Usage: card attachment show <id>
+
+Show attachment metadata.
+
+Show one attachment's board association, immutable blob descriptor, lifecycle,
+replica-local availability, and mutation attribution.
+
+Arguments:
+  <id>    Attachment ID.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
+  -V, --version        Print version information and exit. This flag must
+                       precede any command.
+-- golden/remove.txt --
+Usage: card attachment remove <id>
+
+Permanently tombstone an attachment.
+
+Permanently tombstone one attachment. Removal is permanent and does not by
+itself delete the retained immutable blob from local storage.
+
+Arguments:
+  <id>    Attachment ID.
+
+Flags:
+  -h, --help           Show context-sensitive help.
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
+  -V, --version        Print version information and exit. This flag must
+                       precede any command.

@@ -1,0 +1,78 @@
+# The process-boundary harness starts in a real Git repository so `card init`
+# exercises the repository-local exclude path used by normal installations.
+
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T12:00:00Z
+exec card init --prefix task-
+cmp stdout $WORK/golden/init.txt
+exists .cardamom/config.yaml
+exists .cardamom/board.sqlite3
+! exists .cardamom/example.json
+cmp .cardamom/config.yaml $WORK/golden/config.yaml
+cmp .git/info/exclude $WORK/golden/git-exclude.txt
+! exec git check-ignore .cardamom/config.yaml
+! stdout .
+
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: task-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card create --priority 1 --summary 'Restore primary power.' 'Repair warp core'
+cmp stdout $WORK/golden/create.txt
+
+exec card --json show task-1
+cmpjson stdout $WORK/golden/show-open.json
+
+exec card --actor geordi claim task-1
+cmp stdout $WORK/golden/claim.txt
+
+exec card close task-1
+cmp stdout $WORK/golden/close.txt
+exec card --json show task-1
+cmpjson stdout $WORK/golden/show-closed.json
+
+-- golden/show-open.json --
+{"id":"task-1","title":"Repair warp core","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"summary":"Restore primary power.","revision":2,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/show-closed.json --
+{"id":"task-1","title":"Repair warp core","type":"task","lifecycle":"closed","status":"closed","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"summary":"Restore primary power.","revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/init.txt --
+initialized .cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/config.yaml --
+# config.yaml contains local overrides for this physical Cardamom store.
+# Missing or commented values inherit built-in, project, or board values.
+# Use card config set --scope store KEY VALUE to set one value.
+# Use card config unset --scope store KEY to restore inheritance.
+#
+# Built-in defaults are shown below.
+version: 1
+issue:
+  id:
+    prefix: task-
+#     strategy: random
+#   summary:
+#     max_bytes: 2048
+# attachment:
+#   max_bytes: 104857600
+-- golden/git-exclude.txt --
+# git ls-files --others --exclude-from=.git/info/exclude
+# Lines that start with '#' are comments.
+# For a project mostly in C, the following would be a good set of
+# exclude patterns (uncomment them if you want to use them):
+# *.[oa]
+# *~
+.cardamom/board.sqlite3*
+.cardamom/blobs/
+-- golden/create.txt --
+task-1
+-- golden/claim.txt --
+Claimed task-1 as geordi.
+Issue task-1
+Title: Repair warp core
+Type: task
+Status: in_progress
+Priority: 1
+Assignee: geordi
+
+Summary
+Restore primary power.
+-- golden/close.txt --
+Closed task-1.

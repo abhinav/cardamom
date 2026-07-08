@@ -1,0 +1,36 @@
+exec git init -b main
+at 2026-07-13T12:00:00Z
+exec card init --prefix edit-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: edit-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create 'Target task'
+exec card create 'Blocking task'
+exec card create 'Contained child'
+
+exec card issue edit edit-3 --parent edit-1
+cmp stdout $WORK/golden/attach.txt
+
+# Every requested metadata and graph change commits under one revision.
+exec card --json issue edit edit-1 --type workstream --priority 1 --summary 'Program contract.' --label core --add-depends-on edit-2
+cmpjson stdout $WORK/golden/edited.json
+
+# A late validation failure rolls back earlier changes in the same request.
+! exec card issue edit edit-1 --label leaked --parent missing
+cmp stderr $WORK/golden/missing-parent.txt
+exec card --json show edit-1
+cmpjson stdout $WORK/golden/shown.json
+
+exec card issue edit edit-3 --clear-parent
+exec card --json show edit-3
+cmpjson stdout $WORK/golden/detached.json
+
+-- golden/edited.json --
+{"id":"edit-1","title":"Target task","type":"workstream","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783944000,"updated":1783944000,"summary":"Program contract.","revision":6,"labels":["core"],"depends_on":["edit-2"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null}
+-- golden/shown.json --
+{"id":"edit-1","title":"Target task","type":"workstream","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783944000,"updated":1783944000,"summary":"Program contract.","revision":6,"labels":["core"],"depends_on":["edit-2"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null,"attachments":[]}
+-- golden/detached.json --
+{"id":"edit-3","title":"Contained child","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"revision":7,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/attach.txt --
+edited edit-3
+-- golden/missing-parent.txt --
+error: parent: issue not found

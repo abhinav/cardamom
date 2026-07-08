@@ -1,0 +1,16 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-22T12:00:00Z
+exec card init --prefix mail-
+
+exec card --actor batch-monitor mail send catalog-worker 'source scan completed'
+
+exec card --actor catalog-worker --json mail recv
+cmp stdout $WORK/golden/read.jsonl
+exec card --actor catalog-worker mail recv
+! stdout .
+exec card --actor catalog-worker --json mail recv --all
+cmp stdout $WORK/golden/read.jsonl
+
+-- golden/read.jsonl --
+{"id":"mail_00000000000000000000000000000001","sender":"batch-monitor","recipient":"catalog-worker","source_topic":null,"body":"source scan completed","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":"2026-07-22T12:00:00Z"}

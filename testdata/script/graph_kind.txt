@@ -1,0 +1,28 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+exec card init --prefix graph-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: graph-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create 'Candidate task'
+cmp stdout $WORK/golden/create-parent.txt
+exec card issue edit graph-1 --type workstream
+cmp stdout $WORK/golden/edit-workstream.txt
+exec card --json show graph-1
+cmpjson stdout $WORK/golden/workstream.json
+
+exec card create 'Child task'
+cmp stdout $WORK/golden/create-child.txt
+exec card issue edit graph-2 --parent graph-1
+exec card --json issue edit graph-1 --type task
+cmpjson stdout $WORK/golden/task.json
+
+-- golden/workstream.json --
+{"id":"graph-1","title":"Candidate task","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/task.json --
+{"id":"graph-1","title":"Candidate task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":6,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/create-parent.txt --
+graph-1
+-- golden/create-child.txt --
+graph-2
+-- golden/edit-workstream.txt --
+edited graph-1

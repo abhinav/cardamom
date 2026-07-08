@@ -1,0 +1,82 @@
+[!webassets] skip 'requires embedded web assets'
+
+exec git init -b main
+at 2026-07-18T12:00:00Z
+exec card init --prefix web-
+
+# Production builds reject development-only syntax before opening a store.
+! exec card web --dev
+! stdout .
+cmp stderr $WORK/golden/dev-error.txt
+
+# Release mode serves Connect and the browser application on one listener.
+exec sh probe-web.sh
+cmp stdout $WORK/golden/probe.txt
+cmpjson bootstrap.json $WORK/golden/bootstrap.json
+cmp missing.status $WORK/golden/missing-status.txt
+cmp missing.body $WORK/golden/missing-body.txt
+
+-- probe-web.sh --
+#!/bin/sh
+set -eu
+
+card web --bind 127.0.0.1 --port 0 --no-browser >web.out 2>web.err &
+pid=$!
+trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+
+i=0
+url=
+while [ "$i" -lt 100 ]; do
+  url=$(sed -n 's/^web application available at //p' web.out | head -n 1)
+  [ -n "$url" ] && break
+  if ! kill -0 "$pid" 2>/dev/null; then
+    cat web.err >&2
+    wait "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+[ -n "$url" ]
+
+i=0
+while [ "$i" -lt 100 ]; do
+  if curl --fail --silent --request POST \
+    --header 'Content-Type: application/json' \
+    --header 'Connect-Protocol-Version: 1' \
+    --data '{}' \
+    "$url/cardamom.private.v1.ProjectService/GetBootstrap" >bootstrap.json; then
+    break
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    cat web.err >&2
+    wait "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+
+curl --fail --silent "$url/" >shell.body
+grep '<div id="app"></div>' shell.body >/dev/null
+curl --fail --silent "$url/issues/web-1" >spa.body
+cmp shell.body spa.body
+
+curl --silent --output missing.body --write-out '%{http_code}\n' \
+  "$url/assets/missing.js" >missing.status
+
+kill -TERM "$pid"
+wait "$pid" 2>/dev/null || true
+trap - EXIT
+echo 'web probe passed'
+
+-- golden/bootstrap.json --
+{"projects":[{"id":"project_00000000000000000000","name":"script-web_startup"}],"boards":[{"id":"board_00000000000000000000","projectId":"project_00000000000000000000","name":"script-web_startup"}],"serverDefaultBoardId":"board_00000000000000000000","issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"idPrefix":"web-","schemaVersion":"20260726181403"}
+-- golden/dev-error.txt --
+error: unknown flag --dev
+-- golden/probe.txt --
+web probe passed
+-- golden/missing-status.txt --
+404
+-- golden/missing-body.txt --
+404 page not found

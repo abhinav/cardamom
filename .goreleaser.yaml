@@ -1,0 +1,61 @@
+version: 2
+project_name: cardamom
+
+release:
+  prerelease: auto
+
+checksum:
+  name_template: checksums.txt
+
+changelog:
+  disable: true
+
+builds:
+  - id: card
+    env:
+      - CGO_ENABLED=0
+    main: ./cmd/card
+    binary: card
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ldflags: >-
+      -s -w -X go.abhg.dev/cardamom/internal/cli.Version={{ .Version }}
+    flags:
+      - -trimpath
+      - -tags=webassets
+
+archives:
+  - ids: [card]
+    formats: tar.gz
+    # Keep archive names compatible with uname output.
+    name_template: >-
+      {{- .ProjectName }}.
+      {{- title .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if (and (eq .Arch "arm64") (eq .Os "linux")) }}aarch64
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
+
+# TODO: uncomment when project is public
+# homebrew_casks:
+#   - repository:
+#       owner: abhinav
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     commit_msg_template: "{{ .ProjectName }}: Update cask to {{ .Tag }}"
+#     commit_author:
+#       name: Abhinav Gupta
+#       email: mail@abhinavg.net
+#     homepage: https://github.com/abhinav/cardamom
+#     description: A local issue tracker for coordinating agent work
+#     license: BSD-3-Clause
+#     skip_upload: auto
+#     binaries: [card]
+#     hooks:
+#       post:
+#         install: |
+#           if OS.mac?
+#             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/card"]
+#           end

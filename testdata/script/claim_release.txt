@@ -1,0 +1,71 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix claim-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: claim-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create --priority 1 'Waiting handoff'
+cmp stdout $WORK/golden/create-waiting.txt
+exec card create 'Ready pool work'
+cmp stdout $WORK/golden/create-ready.txt
+exec card --actor alice --json claim claim-1
+cmpjson stdout $WORK/golden/claimed.json
+
+! exec card --actor bob release claim-1
+cmp stderr $WORK/golden/not-owner.txt
+! exec card --actor alice release --waiting '' claim-1
+cmp stderr $WORK/golden/waiting-reason-required.txt
+exec card show claim-1
+cmp stdout $WORK/golden/show-claimed.txt
+
+exec card --actor alice --json release --waiting 'Awaiting root review' claim-1
+cmpjson stdout $WORK/golden/waiting.json
+exec card --json ready
+cmp stdout $WORK/golden/ready-pool.jsonl
+exec card --actor pool claim
+cmp stdout $WORK/golden/pool-claim.txt
+
+exec card --actor root --json claim claim-1
+cmpjson stdout $WORK/golden/direct-claim.json
+exec card --actor root --json release claim-1
+cmpjson stdout $WORK/golden/released.json
+
+-- golden/create-waiting.txt --
+claim-1
+-- golden/create-ready.txt --
+claim-2
+-- golden/claimed.json --
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"alice","started_at":1783857600},"assignee":"alice","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/not-owner.txt --
+error: active claim belongs to alice
+-- golden/waiting-reason-required.txt --
+error: invalid input: waiting reason required
+-- golden/show-claimed.txt --
+ID: claim-1
+Title: Waiting handoff
+Type: task
+Status: in_progress
+Priority: 1
+Assignee: alice
+Parent: -
+Labels: -
+Depends on: -
+Blocks: -
+Log entries: 0
+Attachments: -
+-- golden/waiting.json --
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"waiting","priority":1,"active_claim":null,"waiting":{"reason":"Awaiting root review","since":1783857600},"created":1783857600,"updated":1783857600,"revision":5,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/ready-pool.jsonl --
+{"id":"claim-2","title":"Ready pool work","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"labels":[],"blocked":false}
+-- golden/pool-claim.txt --
+Claimed claim-2 as pool.
+Issue claim-2
+Title: Ready pool work
+Type: task
+Status: in_progress
+Priority: 2
+Assignee: pool
+-- golden/direct-claim.json --
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"root","started_at":1783857600},"assignee":"root","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":7,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/released.json --
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":8,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}

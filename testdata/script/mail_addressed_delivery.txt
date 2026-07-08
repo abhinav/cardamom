@@ -1,0 +1,18 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-22T12:00:00Z
+exec card init --prefix mail-
+
+exec card --actor intake-router --json mail send case-owner 'case 184 needs classification'
+cmpjson stdout $WORK/golden/sent.json
+exec card --actor intake-router mail recv --peek
+! stdout .
+exec card --actor queue-observer mail recv --peek
+! stdout .
+exec card --actor case-owner --json mail recv --peek
+cmp stdout $WORK/golden/delivered.jsonl
+
+-- golden/sent.json --
+{"id":"mail_00000000000000000000000000000001","sender":"intake-router","recipient":"case-owner","source_topic":null,"body":"case 184 needs classification","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":null}
+-- golden/delivered.jsonl --
+{"id":"mail_00000000000000000000000000000001","sender":"intake-router","recipient":"case-owner","source_topic":null,"body":"case 184 needs classification","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":null}

@@ -1,0 +1,41 @@
+mkdir app-project
+cd app-project
+exec git init -b main
+at 2026-07-12T12:00:00Z
+exec card init --prefix app- --board-name 'Default board'
+# Git owns the pre-existing template, so compare only Cardamom's complete appended entries.
+cmp stdout $WORK/golden/init.txt
+exec sh -c 'tail -n 2 .git/info/exclude >appended-exclude.txt'
+cmp appended-exclude.txt $WORK/golden/appended-exclude.txt
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: app-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+# Info emits typed store information through the requested output mode.
+exec card --json info
+cmpenv stdout $WORK/golden/info.json
+
+# Init JSON preserves the complete public result while using the bootstrap service.
+exec card --json init json-project --prefix json- --board-name 'Default board'
+cmpenv stdout $WORK/golden/init.json
+
+# Quiet suppresses notices while preserving command results and state changes.
+exec card --quiet create 'Quiet issue'
+cmp stdout $WORK/golden/create.txt
+exec card -q close app-1
+! stdout .
+exec card --json show app-1
+cmpjson stdout $WORK/golden/show-closed.json
+
+-- golden/init.txt --
+initialized .cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/appended-exclude.txt --
+.cardamom/board.sqlite3*
+.cardamom/blobs/
+-- golden/info.json --
+{"store":{"directory":"$WORK/app-project/.cardamom","database_path":"$WORK/app-project/.cardamom/board.sqlite3"},"project":{"id":"project_00000000000000000000","name":"app-project"},"board":{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Default board"},"schema":{"database_version":20260726181403,"code_version":20260726181403},"configuration":{"issue":{"id":{"prefix":"app-","strategy":"sequential"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"revision":{"current":1},"issues":{"total":0,"by_status":[{"status":"ready","count":0},{"status":"blocked","count":0},{"status":"in_progress","count":0},{"status":"waiting","count":0},{"status":"closed","count":0},{"status":"cancelled","count":0}]}}
+-- golden/init.json --
+{"dir":"json-project/.cardamom","id_prefix":"json-","id_strategy":"random","schema_version":20260726181403,"config_written":true,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"json-project","board_created":true,"board_id":"board_00000000000000000000","board_name":"Default board","already_initialized":false}
+-- golden/create.txt --
+app-1
+-- golden/show-closed.json --
+{"id":"app-1","title":"Quiet issue","type":"task","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}

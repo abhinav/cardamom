@@ -1,0 +1,34 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+exec card init --prefix graph-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: graph-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create --type workstream 'Parent workstream'
+cmp stdout $WORK/golden/create-parent.txt
+exec card create 'Child task'
+cmp stdout $WORK/golden/create-child.txt
+
+exec card issue edit graph-2 --parent graph-1
+cmp stdout $WORK/golden/attach.txt
+
+# Containment does not create a dependency or block the child.
+exec card --json show graph-2
+cmpjson stdout $WORK/golden/child.json
+
+exec card issue edit graph-2 --clear-parent
+cmp stdout $WORK/golden/detach.txt
+exec card --json show graph-2
+cmpjson stdout $WORK/golden/unparented.json
+
+-- golden/child.json --
+{"id":"graph-2","title":"Child task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"graph-1","attachments":[]}
+-- golden/unparented.json --
+{"id":"graph-2","title":"Child task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":5,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/create-parent.txt --
+graph-1
+-- golden/create-child.txt --
+graph-2
+-- golden/attach.txt --
+edited graph-2
+-- golden/detach.txt --
+edited graph-2

@@ -1,0 +1,206 @@
+exec git init -b main
+at 2026-07-20T12:00:00Z
+exec card init --prefix summary-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: summary-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create --summary 'Keep the contract concise.' --details 'Expanded **design** material.' 'Document summary fields'
+cmp stdout $WORK/golden/create.txt
+
+exec card --json show summary-1
+cmpjson stdout $WORK/golden/show.json
+
+# The configured maximum counts UTF-8 bytes and does not constrain details.
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: summary-\n    strategy: sequential\n  summary:\n    max_bytes: 4\n" > .cardamom/config.yaml'
+! exec card create --summary 'ééé' 'Too many bytes'
+cmp stderr $WORK/golden/utf8-error.txt
+exec sh -c 'details=$(head -c 4096 /dev/zero | tr "\000" x); card create --summary Tiny --details "$details" "Large details"'
+cmp stdout $WORK/golden/create-details.txt
+
+# Every operation that supplies a summary uses the shared domain limit.
+! exec card issue edit summary-1 --summary '12345'
+cmp stderr $WORK/golden/five-byte-error.txt
+! exec card apply oversized.json
+cmp stderr $WORK/golden/apply-error.txt
+! exec card apply oversized-update.json
+cmp stderr $WORK/golden/apply-error.txt
+! exec card apply oversized-group.json
+cmp stderr $WORK/golden/group-error.txt
+
+# A summary accepted under a larger limit remains valid after the limit drops
+# when an unrelated field changes.
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: summary-\n    strategy: sequential\n  summary:\n    max_bytes: 4096\n" > .cardamom/config.yaml'
+exec sh -c 'summary=$(head -c 3000 /dev/zero | tr "\000" x); card create --summary "$summary" "Existing large summary"'
+cmp stdout $WORK/golden/create-existing.txt
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: summary-\n    strategy: sequential\n  summary:\n    max_bytes: 4\n" > .cardamom/config.yaml'
+exec card issue edit summary-3 --priority 1
+cmp stdout $WORK/golden/edit-existing.txt
+
+# Normal editing and apply carry summary and details together.
+exec card issue edit summary-1 --summary 'Edit' --details 'Edited details.'
+cmp stdout $WORK/golden/edit.txt
+exec card apply valid.json
+cmp stdout $WORK/golden/apply.txt
+exec card --json show summary-4
+cmpjson stdout $WORK/golden/applied-show.json
+
+# Human show and claim output disclose selected details. Ancestors inherit only
+# summary and state while advertising expanded details by UTF-8 byte count.
+exec card state set summary-5 'Parent recovery state.'
+exec card create --parent summary-5 --summary 'Leaf' --details 'Leaf details.' 'Leaf issue'
+cmp stdout $WORK/golden/create-leaf.txt
+exec card show summary-1
+cmp stdout $WORK/golden/human-show.txt
+exec card --actor worker claim summary-6 --context
+cmp stdout $WORK/golden/claim.txt
+
+exec card dump dump --issue summary-1 --no-descendants
+cmp dump/issues/summary-1.md $WORK/golden/dump.md
+
+# Skip policy does not validate input that will not replace stored metadata.
+exec card apply oversized-skip.json
+cmp stdout $WORK/golden/apply-skip.txt
+
+-- golden/create.txt --
+summary-1
+-- golden/show.json --
+{"id":"summary-1","title":"Document summary fields","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784548800,"updated":1784548800,"summary":"Keep the contract concise.","details":"Expanded **design** material.","revision":2,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/utf8-error.txt --
+error: invalid input: summary is 6 bytes; maximum is 4 bytes
+-- golden/five-byte-error.txt --
+error: invalid input: summary is 5 bytes; maximum is 4 bytes
+-- golden/apply-error.txt --
+error: issue 1: invalid input: summary is 5 bytes; maximum is 4 bytes
+-- golden/group-error.txt --
+error: issue 1: invalid input: summary is 5 bytes; maximum is 4 bytes
+-- golden/apply-skip.txt --
+applied document: 0 create, 0 update, 1 skip, 0 no change
+0	skip	summary-1
+-- golden/create-details.txt --
+summary-2
+-- golden/create-existing.txt --
+summary-3
+-- golden/edit-existing.txt --
+edited summary-3
+-- golden/edit.txt --
+edited summary-1
+-- golden/apply.txt --
+applied document: 2 create, 0 update, 0 skip, 0 no change
+0	create	summary-4
+1	create	summary-5
+-- golden/applied-show.json --
+{"id":"summary-4","title":"Applied issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784548800,"updated":1784548800,"summary":"Plan","details":"Applied details.","revision":7,"labels":["run:summary-5"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"summary-5","attachments":[]}
+-- golden/create-leaf.txt --
+summary-6
+-- golden/human-show.txt --
+ID: summary-1
+Title: Document summary fields
+Type: task
+Status: ready
+Priority: 2
+Assignee: -
+Parent: -
+Labels: -
+Depends on: -
+Blocks: -
+Log entries: 0
+Attachments: -
+
+Summary:
+Edit
+
+Details:
+Edited details.
+-- golden/claim.txt --
+Claimed summary-6 as worker.
+Ancestor summary-5: Grouped work
+Root
+Current state
+Parent recovery state.
+14 bytes of details available: summary-5
+Log entries: 0
+
+Issue summary-6
+Title: Leaf issue
+Type: task
+Status: in_progress
+Priority: 2
+Assignee: worker
+
+Summary
+Leaf
+
+Details
+Leaf details.
+-- oversized.json --
+{"version":1,"issues":[{"title":"Oversized apply","type":"task","summary":"12345"}]}
+-- oversized-update.json --
+{"version":1,"on_existing":"update","issues":[{"id":"summary-1","summary":"12345"}]}
+-- oversized-skip.json --
+{"version":1,"on_existing":"skip","issues":[{"id":"summary-1","summary":"12345"}]}
+-- oversized-group.json --
+{"version":1,"issues":[{"alias":"group","title":"Grouped work","type":"workstream","summary":"12345"}]}
+-- valid.json --
+{"version":1,"issues":[{"alias":"applied","title":"Applied issue","type":"task","summary":"Plan","details":"Applied details.","labels":{"values":["run:summary-5"]},"parent":{"alias":"group"}},{"alias":"group","title":"Grouped work","type":"workstream","summary":"Root","details":"Group details.","labels":{"values":["run:summary-5"]}}]}
+-- golden/dump.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-summary_details
+  board_id: board_00000000000000000000
+  board_name: script-summary_details
+  generated_identity: issue:summary-1
+  body_sha256: c40735ea7b7e4ff1c41d25c2b33ec508a9d2f4dc6955740da26e2dab2911895a
+---
+
+# summary-1: Document summary fields
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | ready |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-20T12:00:00Z |
+| Updated | 2026-07-20T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 6 |
+| Labels | - |
+## Summary
+
+Edit
+
+## Details
+
+Edited details.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+None.
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.

@@ -1,0 +1,37 @@
+mkdir project
+exec card --store project/.cardamom init --prefix ancestor-
+cmp stdout $WORK/golden/init.txt
+cmp project/.cardamom/config.yaml $WORK/golden/config.yaml
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: ancestor-\n    strategy: sequential\n" > project/.cardamom/config.yaml'
+mkdir project/a/b
+cd project/a/b
+
+# The nearest ancestor .cardamom directory supplies the implicit store.
+exec card create 'ancestor board'
+cmp stdout $WORK/golden/create.txt
+
+-- golden/init.txt --
+initialized project/.cardamom
+Automatic local exclusion failed. Add these patterns to .gitignore:
+.cardamom/board.sqlite3
+.cardamom/board.sqlite3-shm
+.cardamom/board.sqlite3-wal
+.cardamom/blobs/
+-- golden/config.yaml --
+# config.yaml contains local overrides for this physical Cardamom store.
+# Missing or commented values inherit built-in, project, or board values.
+# Use card config set --scope store KEY VALUE to set one value.
+# Use card config unset --scope store KEY to restore inheritance.
+#
+# Built-in defaults are shown below.
+version: 1
+issue:
+  id:
+    prefix: ancestor-
+#     strategy: random
+#   summary:
+#     max_bytes: 2048
+# attachment:
+#   max_bytes: 104857600
+-- golden/create.txt --
+ancestor-1

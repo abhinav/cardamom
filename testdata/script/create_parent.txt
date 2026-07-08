@@ -1,0 +1,39 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T12:00:00Z
+exec card init --prefix parent-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: parent-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create --type workstream 'Parent workstream'
+cmp stdout $WORK/golden/parent.txt
+exec card create --parent parent-1 'Contained task'
+cmp stdout $WORK/golden/child.txt
+exec card --json show parent-2
+cmpjson stdout $WORK/golden/child.json
+
+! exec card create --parent missing 'Rejected task'
+cmp stderr $WORK/golden/missing-parent.txt
+! exec card create --parent parent-3 'Self-parented task'
+cmp stderr $WORK/golden/self-parent.txt
+exec card create 'Next task'
+cmp stdout $WORK/golden/next.txt
+exec card --json show parent-3
+cmpjson stdout $WORK/golden/next.json
+
+exec card create --help
+stdout '--parent=ISSUE'
+
+-- golden/parent.txt --
+parent-1
+-- golden/child.txt --
+parent-2
+-- golden/child.json --
+{"id":"parent-2","title":"Contained task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"parent-1","attachments":[]}
+-- golden/missing-parent.txt --
+error: parent: issue not found
+-- golden/self-parent.txt --
+error: containment would create a cycle
+-- golden/next.txt --
+parent-3
+-- golden/next.json --
+{"id":"parent-3","title":"Next task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}

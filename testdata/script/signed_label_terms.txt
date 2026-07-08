@@ -1,0 +1,50 @@
+exec git init -b main
+at 2026-07-27T12:00:00Z
+exec card init --prefix label-
+exec card config set --scope store issue.id.strategy sequential
+
+# Create accepts unsigned and positive terms, including comma-separated and
+# repeated input, and stores only plain labels.
+exec card create 'Signed labels' --label phase:old,+positive --label repeated
+cmp stdout $WORK/golden/created.txt
+exec card --json show label-1
+cmpjson stdout $WORK/golden/created.json
+
+# Removal terms are invalid during creation.
+! exec card create 'Invalid removal' --label -plain
+cmp stderr $WORK/golden/create-removal-error.txt
+
+# A following long flag remains a missing label value.
+! exec card create 'Missing label' --label --priority 1
+cmp stderr $WORK/golden/missing-label-error.txt
+
+# Edit maps signed terms to one atomic add/remove request.
+exec card issue edit label-1 --label +phase:new --label -phase:old
+cmp stdout $WORK/golden/edited.txt
+exec card --json show label-1
+cmpjson stdout $WORK/golden/edited.json
+
+# One label cannot be both added and removed.
+! exec card issue edit label-1 --label conflict,-conflict
+cmp stderr $WORK/golden/conflict-error.txt
+
+# Apply label sets remain unsigned and reject reserved stored-label prefixes.
+! exec card apply apply-reserved-label.json
+stderr 'label cannot start with \+ or -'
+
+-- apply-reserved-label.json --
+{"version":1,"issues":[{"title":"Apply reserved","type":"task","labels":{"values":["+reserved"]}}]}
+-- golden/created.txt --
+label-1
+-- golden/created.json --
+{"id":"label-1","title":"Signed labels","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785153600,"updated":1785153600,"revision":2,"labels":["phase:old","positive","repeated"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/create-removal-error.txt --
+error: create --label does not accept removal terms
+-- golden/missing-label-error.txt --
+error: --label: expected label value but got "--priority" (long flag)
+-- golden/edited.txt --
+edited label-1
+-- golden/edited.json --
+{"id":"label-1","title":"Signed labels","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785153600,"updated":1785153600,"revision":3,"labels":["phase:new","positive","repeated"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/conflict-error.txt --
+error: invalid input: a label cannot be both added and removed

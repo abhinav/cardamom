@@ -1,0 +1,52 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T12:00:00Z
+exec card init --prefix lease-
+
+exec card --actor worker-a lease acquire staging-db --ttl 30m
+cmp stdout $WORK/golden/active.txt
+! stderr .
+
+! exec card --actor coordinator lease revoke staging-db --owner worker-b --reason 'owner cannot continue'
+! stdout .
+cmp stderr $WORK/golden/held.txt
+exec card lease show staging-db
+cmp stdout $WORK/golden/active.txt
+! stderr .
+
+at 2026-07-12T12:05:00Z
+exec card --actor coordinator --json lease revoke staging-db --owner worker-a --reason 'owner cannot continue'
+cmpjson stdout $WORK/golden/revoked.json
+! stderr .
+! exec card lease show staging-db
+! stdout .
+cmp stderr $WORK/golden/missing.txt
+
+! exec card --actor coordinator lease revoke missing --owner worker-a --reason 'owner cannot continue'
+! stdout .
+cmp stderr $WORK/golden/revoke-missing.txt
+
+exec card --actor worker-a lease acquire expired-slot --ttl 1m
+at 2026-07-12T12:06:00Z
+! exec card --actor coordinator lease revoke expired-slot --owner worker-a --reason 'owner cannot continue'
+! stdout .
+cmp stderr $WORK/golden/revoke-expired.txt
+
+! exec card --actor coordinator lease revoke staging-db --owner worker-a --reason ''
+! stdout .
+cmp stderr $WORK/golden/reason-required.txt
+
+-- golden/active.txt --
+staging-db	worker-a	2026-07-12T12:00:00Z	2026-07-12T12:30:00Z
+-- golden/held.txt --
+error: lease "staging-db" is held by "worker-a" until 2026-07-12T12:30:00Z
+-- golden/revoked.json --
+{"lease":{"name":"staging-db","owner":"worker-a","acquired_at":"2026-07-12T12:00:00Z","expires_at":"2026-07-12T12:30:00Z"},"revoked_by":"coordinator","reason":"owner cannot continue","revoked_at":"2026-07-12T12:05:00Z"}
+-- golden/missing.txt --
+error: read lease "staging-db": lease not found
+-- golden/revoke-missing.txt --
+error: revoke lease "missing": lease not found
+-- golden/revoke-expired.txt --
+error: revoke lease "expired-slot": lease not found
+-- golden/reason-required.txt --
+error: reason required

@@ -1,0 +1,235 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// MailMessage is one persisted delivery in a store-scoped actor mailbox.
+message MailMessage {
+  // id is the durable delivery identity.
+  string id = 1;
+
+  // sender identifies the actor that sent the message.
+  string sender = 2;
+
+  // recipient identifies the mailbox that received this delivery.
+  string recipient = 3;
+
+  // body is the delivered message text.
+  string body = 4;
+
+  // created_at is the delivery time.
+  google.protobuf.Timestamp created_at = 5;
+
+  // expires_at is the exclusive lifetime boundary.
+  google.protobuf.Timestamp expires_at = 6;
+
+  // read_at is the consuming read time when the message has been read.
+  optional google.protobuf.Timestamp read_at = 7;
+
+  // source_topic identifies the publication that created this delivery.
+  // Absence identifies direct actor mail.
+  optional string source_topic = 8;
+}
+
+// SendMailRequest describes one attributed message and its requested lifetime.
+message SendMailRequest {
+  // actor identifies the message sender.
+  string actor = 1;
+
+  // recipient identifies one actor mailbox.
+  string recipient = 2;
+
+  // body is the message text.
+  string body = 3;
+
+  // ttl is the requested lifetime.
+  // Omission selects the domain default.
+  google.protobuf.Duration ttl = 4;
+}
+
+// SendMailResponse contains the direct actor delivery.
+message SendMailResponse {
+  // message is the persisted direct actor delivery.
+  MailMessage message = 1;
+}
+
+// PublishMailRequest describes one attributed topic publication.
+message PublishMailRequest {
+  // actor identifies the publisher.
+  string actor = 1;
+
+  // topic is the literal topic matched against active subscriptions.
+  string topic = 2;
+
+  // body is the published message text.
+  string body = 3;
+
+  // ttl is the requested lifetime.
+  // Omission selects the domain default.
+  google.protobuf.Duration ttl = 4;
+}
+
+// PublishMailResponse contains the subscriber deliveries in local order.
+message PublishMailResponse {
+  // messages contains at most one delivery per matching actor.
+  repeated MailMessage messages = 1;
+}
+
+// ReceiveMailRequest selects one actor mailbox for consuming reads.
+message ReceiveMailRequest {
+  // actor identifies the mailbox owner.
+  string actor = 1;
+
+  // include_read includes messages already consumed by the actor.
+  bool include_read = 2;
+
+  // max_age limits messages to those created within this relative window.
+  // Omission has no age limit.
+  google.protobuf.Duration max_age = 3;
+
+  // limit caps the selected message count.
+  // Zero has no count limit.
+  int32 limit = 4;
+}
+
+// ReceiveMailResponse contains selected messages after their read transition.
+message ReceiveMailResponse {
+  // messages contains selected deliveries in domain order.
+  repeated MailMessage messages = 1;
+}
+
+// PeekMailRequest selects messages without changing read state.
+message PeekMailRequest {
+  // actor identifies one mailbox.
+  // It must be empty when all_recipients is true and non-empty otherwise.
+  string actor = 1;
+
+  // all_recipients selects every mailbox in the store.
+  bool all_recipients = 2;
+
+  // include_read includes messages already consumed by their recipient.
+  bool include_read = 3;
+
+  // max_age limits messages to those created within this relative window.
+  // Omission has no age limit.
+  google.protobuf.Duration max_age = 4;
+
+  // limit caps the selected message count.
+  // Zero has no count limit.
+  int32 limit = 5;
+}
+
+// PeekMailResponse contains selected messages without a read transition.
+message PeekMailResponse {
+  // messages contains selected deliveries in domain order.
+  repeated MailMessage messages = 1;
+}
+
+// ClearMailRequest selects unread messages in one actor mailbox.
+message ClearMailRequest {
+  // actor identifies the mailbox owner.
+  string actor = 1;
+
+  // max_age limits messages to those created within this relative window.
+  // Omission has no age limit.
+  google.protobuf.Duration max_age = 2;
+
+  // limit caps the selected message count.
+  // Zero has no count limit.
+  int32 limit = 3;
+}
+
+// ClearMailResponse reports the completed mailbox read transitions.
+message ClearMailResponse {
+  // cleared is the number of unread messages marked read.
+  int64 cleared = 1;
+}
+
+// Subscription records one actor's temporary interest in a topic pattern.
+message Subscription {
+  // listener identifies the actor receiving matching topic messages.
+  string listener = 1;
+
+  // pattern is the filepath-style topic glob selected by the listener.
+  string pattern = 2;
+
+  // created_at is the initial registration time.
+  google.protobuf.Timestamp created_at = 3;
+
+  // expires_at is the exclusive lifetime boundary.
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+// SubscribeRequest identifies a listener pattern and lifetime.
+message SubscribeRequest {
+  // actor identifies the listener that owns the subscription.
+  string actor = 1;
+
+  // pattern uses Go path.Match syntax.
+  string pattern = 2;
+
+  // ttl is the positive requested lifetime.
+  google.protobuf.Duration ttl = 3;
+}
+
+// SubscribeResponse contains the created or refreshed subscription.
+message SubscribeResponse {
+  // subscription is the active registration.
+  Subscription subscription = 1;
+}
+
+// ListSubscriptionsRequest selects every active store subscription.
+message ListSubscriptionsRequest {}
+
+// ListSubscriptionsResponse contains active subscriptions in domain order.
+message ListSubscriptionsResponse {
+  // subscriptions contains registrations for every listener.
+  repeated Subscription subscriptions = 1;
+}
+
+// RemoveSubscriptionRequest identifies one listener-owned pattern to remove.
+message RemoveSubscriptionRequest {
+  // actor identifies the listener that owns the subscription.
+  string actor = 1;
+
+  // pattern identifies the exact topic pattern to remove.
+  string pattern = 2;
+}
+
+// RemoveSubscriptionResponse reports whether an active subscription existed.
+message RemoveSubscriptionResponse {
+  // pattern is the requested topic pattern.
+  string pattern = 1;
+
+  // removed reports whether an active subscription was removed.
+  bool removed = 2;
+}
+
+// MailService exposes store-scoped mailboxes and topic subscriptions.
+service MailService {
+  // SendMail persists one direct actor delivery.
+  rpc SendMail(SendMailRequest) returns (SendMailResponse);
+
+  // PublishMail snapshots subscribers and persists one delivery per actor.
+  rpc PublishMail(PublishMailRequest) returns (PublishMailResponse);
+
+  // ReceiveMail consumes selected messages in one actor mailbox.
+  rpc ReceiveMail(ReceiveMailRequest) returns (ReceiveMailResponse);
+
+  // PeekMail reads selected messages without changing read state.
+  rpc PeekMail(PeekMailRequest) returns (PeekMailResponse);
+
+  // ClearMail marks selected unread messages read without returning them.
+  rpc ClearMail(ClearMailRequest) returns (ClearMailResponse);
+
+  // Subscribe creates or refreshes one actor-owned registration.
+  rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
+
+  // ListSubscriptions returns active registrations for every listener.
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+
+  // RemoveSubscription removes one actor-owned registration.
+  rpc RemoveSubscription(RemoveSubscriptionRequest) returns (RemoveSubscriptionResponse);
+}

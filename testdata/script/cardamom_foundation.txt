@@ -1,0 +1,19 @@
+exec git init -b main
+
+exec card init
+cmp stdout $WORK/golden/init.txt
+exists .cardamom/config.yaml
+exists .cardamom/board.sqlite3
+
+exec card create 'Foundation issue'
+cmp stdout $WORK/golden/create.txt
+
+exec card --help
+stdout '^Usage: card <command> \[flags\]'
+stdout '^card - a local issue tracker for project boards\.$'
+
+-- golden/init.txt --
+initialized .cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/create.txt --
+cm-aaaa

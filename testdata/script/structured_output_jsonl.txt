@@ -1,0 +1,38 @@
+# Multi-record structured commands emit one JSON object per line.
+
+exec git init -b main
+env TZ=UTC
+at 2026-07-16T12:00:00Z
+exec card init --prefix jsonl-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: jsonl-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+# An empty collection emits no JSON values.
+exec card --json list
+! stdout .
+! stderr .
+
+exec card create 'First issue'
+cmp stdout $WORK/golden/create-first.txt
+
+# A one-record collection emits one JSON value without an array wrapper.
+exec card --json list
+cmp stdout $WORK/golden/list-one.jsonl
+! stderr .
+
+exec card create --priority 1 'Second issue'
+cmp stdout $WORK/golden/create-second.txt
+
+# Record order remains deterministic for a multi-record collection.
+exec card --json list
+cmp stdout $WORK/golden/list-many.jsonl
+! stderr .
+
+-- golden/create-first.txt --
+jsonl-1
+-- golden/create-second.txt --
+jsonl-2
+-- golden/list-one.jsonl --
+{"id":"jsonl-1","title":"First issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":2,"labels":[],"blocked":false}
+-- golden/list-many.jsonl --
+{"id":"jsonl-2","title":"Second issue","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":3,"labels":[],"blocked":false}
+{"id":"jsonl-1","title":"First issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":2,"labels":[],"blocked":false}

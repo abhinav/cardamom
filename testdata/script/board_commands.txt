@@ -1,0 +1,77 @@
+at 2026-07-15T12:00:00Z
+exec card init --prefix cli- --board-name 'Default board'
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: cli-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card --json board list
+cmp stdout $WORK/golden/default-list.jsonl
+exec card --json board show
+cmpjson stdout $WORK/golden/default-show.json
+
+exec card --json board create 'Second board'
+cmpjson stdout $WORK/golden/second-create.json
+exec card --json board list
+cmp stdout $WORK/golden/two-boards.jsonl
+
+# A board-wide mutation cannot guess after the store has two boards.
+! exec card create 'Ambiguous issue'
+! stdout .
+stderr 'board selection is ambiguous'
+! exec card list
+! stdout .
+stderr 'board selection is ambiguous'
+
+exec card --json board use board_11111111111111111111
+cmpjson stdout $WORK/golden/second-use.json
+exec card create 'Second issue'
+cmp stdout $WORK/golden/second-issue.txt
+
+exec card --json board edit --description 'Second board context.'
+cmpjson stdout $WORK/golden/second-description.json
+exec card --json board show
+cmpjson stdout $WORK/golden/second-description.json
+
+# Explicit board selection overrides the checkout binding.
+exec card --board board_00000000000000000000 create 'Default issue'
+cmp stdout $WORK/golden/default-issue.txt
+exec card --json board show board_00000000000000000000
+cmpjson stdout $WORK/golden/default-show.json
+exec card --json board edit board_00000000000000000000 --description 'Default board context.'
+cmpjson stdout $WORK/golden/default-description.json
+
+# The explicit flag wins over CARDAMOM_BOARD, which wins over the binding.
+env CARDAMOM_BOARD=board_00000000000000000000
+exec card create 'Environment issue'
+cmp stdout $WORK/golden/environment-issue.txt
+exec card --board board_11111111111111111111 create 'Flag issue'
+cmp stdout $WORK/golden/flag-issue.txt
+env CARDAMOM_BOARD=
+
+# Board creation rejects an unknown explicit project selector.
+! exec card board create --project missing 'Missing project board'
+cmp stderr $WORK/golden/missing-project.txt
+
+-- golden/default-list.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Default board","created":1784116800}
+-- golden/default-show.json --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Default board","created":1784116800,"description":null}
+-- golden/second-create.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Second board","created":1784116800}
+-- golden/two-boards.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Default board","created":1784116800}
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Second board","created":1784116800}
+-- golden/second-use.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Second board","created":1784116800}
+-- golden/second-issue.txt --
+cli-1
+-- golden/second-description.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Second board","created":1784116800,"description":"Second board context."}
+-- golden/default-issue.txt --
+cli-2
+-- golden/default-description.json --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Default board","created":1784116800,"description":"Default board context."}
+-- golden/environment-issue.txt --
+cli-3
+-- golden/flag-issue.txt --
+cli-4
+-- golden/missing-project.txt --
+error: project "missing" not found

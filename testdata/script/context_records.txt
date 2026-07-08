@@ -1,0 +1,99 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix mem-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: mem-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card apply graph.json
+cmp stdout $WORK/golden/apply.txt
+exec card state set mem-3 'Primary recovery state.'
+cmp stdout $WORK/golden/state-set.txt
+exec card state append mem-3 'Secondary detail.'
+cmp stdout $WORK/golden/state-append.txt
+exec card state show mem-3
+cmp stdout $WORK/golden/state.txt
+
+exec card --actor 'Jean-Luc Picard' log add mem-3 'Workstream log entry.'
+cmp stdout $WORK/golden/log-add.txt
+exec card log list mem-3
+cmp stdout $WORK/golden/log.txt
+
+exec card show --context --context-depth 1 mem-1
+cmp stdout $WORK/golden/show-context.txt
+exec card --actor riker log add mem-2 'Second task historical detail.'
+cmp stdout $WORK/golden/second-log-add.txt
+exec card --actor riker claim --context mem-2
+cmp stdout $WORK/golden/claim-context.txt
+exec card log list mem-2
+cmp stdout $WORK/golden/second-log.txt
+
+exec card close mem-1
+cmp stdout $WORK/golden/close-first.txt
+exec card list --under mem-3 --status closed
+cmp stdout $WORK/golden/closed-descendants.txt
+
+exec card state discard mem-3
+cmp stdout $WORK/golden/state-discard.txt
+
+-- graph.json --
+{"version":1,"issues":[{"alias":"first","title":"First task","type":"task","labels":{"values":["run:mem-3"]},"parent":{"alias":"workstream"}},{"alias":"second","title":"Second task","type":"task","labels":{"values":["run:mem-3"]},"parent":{"alias":"workstream"}},{"alias":"workstream","title":"Workstream","type":"workstream","labels":{"values":["run:mem-3"]}}]}
+-- golden/apply.txt --
+applied document: 3 create, 0 update, 0 skip, 0 no change
+0	create	mem-1
+1	create	mem-2
+2	create	mem-3
+-- golden/state-set.txt --
+Set state on mem-3.
+-- golden/state-append.txt --
+Appended state on mem-3.
+-- golden/state.txt --
+Primary recovery state.
+Secondary detail.
+-- golden/log-add.txt --
+Added log entry log_00000000000000000000000000000001 to mem-3.
+-- golden/second-log-add.txt --
+Added log entry log_00000000000000000000000000000002 to mem-2.
+-- golden/log.txt --
+Post log_00000000000000000000000000000001 by Jean-Luc Picard
+Workstream log entry.
+-- golden/second-log.txt --
+Post log_00000000000000000000000000000002 by riker
+Second task historical detail.
+-- golden/show-context.txt --
+Ancestors:
+- mem-3: Workstream (1 log entries)
+
+ID: mem-1
+Title: First task
+Type: task
+Status: ready
+Priority: 2
+Assignee: -
+Parent: mem-3
+Labels: run:mem-3
+Depends on: -
+Blocks: -
+Log entries: 0
+Attachments: -
+-- golden/claim-context.txt --
+Claimed mem-2 as riker.
+Ancestor mem-3: Workstream
+Current state
+Primary recovery state.
+Secondary detail.
+Log entries: 1
+
+Issue mem-2
+Title: Second task
+Type: task
+Status: in_progress
+Priority: 2
+Assignee: riker
+Labels: run:mem-3
+-- golden/close-first.txt --
+Closed mem-1.
+-- golden/closed-descendants.txt --
+ID     PRI  STATUS  TYPE  TITLE
+mem-1  2    closed  task  First task
+-- golden/state-discard.txt --
+Discarded state on mem-3.

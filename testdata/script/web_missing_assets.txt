@@ -1,0 +1,11 @@
+[webassets] skip 'requires a source-only build'
+
+exec git init -b main
+exec card init --prefix web-
+
+! exec card web --bind 127.0.0.1 --port 0 --no-browser
+! stdout .
+cmp stderr $WORK/golden/error.txt
+
+-- golden/error.txt --
+error: embedded web assets: web assets not found; run an asset-bearing build

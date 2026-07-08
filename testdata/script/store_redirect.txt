@@ -1,0 +1,30 @@
+mkdir project
+mkdir stores
+exec card --store stores/shared init --prefix redirect-
+cmp stdout $WORK/golden/init.txt
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: redirect-\n    strategy: sequential\n" > stores/shared/config.yaml'
+exec sh -c 'printf "../stores/shared\n" > project/.cardamom'
+cd project
+
+# Redirect targets resolve relative to the redirect file.
+exec card create 'redirect board'
+cmp stdout $WORK/golden/create.txt
+
+# A malformed nearest redirect is authoritative and does not fall back.
+cd ..
+mkdir malformed
+exec sh -c 'printf "first\nsecond\n" > malformed/.cardamom'
+cd malformed
+! exec card list
+! stdout .
+stderr 'must contain one path'
+
+-- golden/init.txt --
+initialized stores/shared
+Automatic local exclusion failed. Add these patterns to .gitignore:
+.cardamom/board.sqlite3
+.cardamom/board.sqlite3-shm
+.cardamom/board.sqlite3-wal
+.cardamom/blobs/
+-- golden/create.txt --
+redirect-1

@@ -1,0 +1,48 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-22T12:00:00Z
+exec card init --prefix mail-
+
+exec card --actor alice mail subscribe 'release/*' --ttl 1h
+exec card --actor bob mail subscribe 'release/*' --ttl 1h
+exec card --actor bob mail subscribe 'release/ready' --ttl 1h
+exec card --actor carol mail subscribe 'release/*' --ttl 1h
+exec card --actor dave mail subscribe 'release/*/hot' --ttl 1h
+
+# Publication creates one delivery per matching actor, excluding the publisher.
+exec card --actor alice --json mail publish release/ready 'deploy started'
+cmp stdout $WORK/golden/ready.jsonl
+
+# Go path.Match stars do not cross topic path separators.
+exec card --actor alice --json mail publish release/ready/hot 'deploy escalated'
+cmp stdout $WORK/golden/hot.jsonl
+exec card --actor bob --json mail recv --peek
+cmp stdout $WORK/golden/bob.jsonl
+exec card --actor carol --json mail recv --peek
+cmp stdout $WORK/golden/carol.jsonl
+exec card --actor dave --json mail recv --peek
+cmp stdout $WORK/golden/dave.jsonl
+exec card --actor alice mail recv --peek
+! stdout .
+
+# Removing subscriptions changes the active subscription set.
+exec card --actor bob mail unsubscribe 'release/ready'
+exec card --actor bob mail unsubscribe 'release/*'
+exec card --json mail subscriptions
+cmp stdout $WORK/golden/subscriptions.jsonl
+
+-- golden/ready.jsonl --
+{"id":"mail_00000000000000000000000000000001","sender":"alice","recipient":"bob","source_topic":"release/ready","body":"deploy started","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":null}
+{"id":"mail_00000000000000000000000000000002","sender":"alice","recipient":"carol","source_topic":"release/ready","body":"deploy started","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":null}
+-- golden/hot.jsonl --
+{"id":"mail_00000000000000000000000000000003","sender":"alice","recipient":"dave","source_topic":"release/ready/hot","body":"deploy escalated","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":null}
+-- golden/bob.jsonl --
+{"id":"mail_00000000000000000000000000000001","sender":"alice","recipient":"bob","source_topic":"release/ready","body":"deploy started","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":null}
+-- golden/carol.jsonl --
+{"id":"mail_00000000000000000000000000000002","sender":"alice","recipient":"carol","source_topic":"release/ready","body":"deploy started","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":null}
+-- golden/dave.jsonl --
+{"id":"mail_00000000000000000000000000000003","sender":"alice","recipient":"dave","source_topic":"release/ready/hot","body":"deploy escalated","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":null}
+-- golden/subscriptions.jsonl --
+{"listener":"alice","pattern":"release/*","created":"2026-07-22T12:00:00Z","expires":"2026-07-22T13:00:00Z"}
+{"listener":"carol","pattern":"release/*","created":"2026-07-22T12:00:00Z","expires":"2026-07-22T13:00:00Z"}
+{"listener":"dave","pattern":"release/*/hot","created":"2026-07-22T12:00:00Z","expires":"2026-07-22T13:00:00Z"}

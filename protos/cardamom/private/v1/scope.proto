@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+// AllBoards selects every board visible to the current Cardamom server.
+message AllBoards {}
+
+// BoardScope selects one board or the read-only aggregate of all boards.
+message BoardScope {
+  // selection identifies the board population used by a read or watch.
+  oneof selection {
+    // board_id selects one board by stable ID.
+    string board_id = 1;
+
+    // all_boards selects the aggregate of every visible board.
+    AllBoards all_boards = 2;
+  }
+}

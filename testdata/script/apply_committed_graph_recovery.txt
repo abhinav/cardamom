@@ -1,0 +1,19 @@
+exec git init -b main
+at 2026-07-21T12:00:00Z
+exec card init --prefix graph-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card apply search-repair.json
+cmp stdout $WORK/golden/applied.txt
+exec card --json show graph-3
+cmpjson stdout $WORK/golden/recovered.json
+
+-- search-repair.json --
+{"version":1,"issues":[{"alias":"repair","title":"Restore search index","type":"workstream"},{"alias":"inventory","title":"Inventory missing documents","type":"task","parent":{"alias":"repair"}},{"title":"Rebuild index segments","type":"task","summary":"Rebuild only after the missing-document inventory is recorded.","parent":{"alias":"repair"},"depends_on":{"values":[{"alias":"inventory"}]}}]}
+-- golden/applied.txt --
+applied document: 3 create, 0 update, 0 skip, 0 no change
+0	create	graph-1
+1	create	graph-2
+2	create	graph-3
+-- golden/recovered.json --
+{"id":"graph-3","title":"Rebuild index segments","type":"task","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1784635200,"updated":1784635200,"summary":"Rebuild only after the missing-document inventory is recorded.","revision":2,"labels":[],"depends_on":["graph-2"],"blocks":[],"log_count":0,"blocked":true,"parent_id":"graph-1","attachments":[]}

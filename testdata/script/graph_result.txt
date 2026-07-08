@@ -1,0 +1,21 @@
+exec git init -b main
+exec card init --prefix graph-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: graph-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create 'Result task'
+cmp stdout $WORK/golden/create.txt
+exec card result set graph-1 'Use the task result as durable context.'
+cmp stdout $WORK/golden/set.txt
+exec card result show graph-1
+cmp stdout $WORK/golden/show.txt
+exec card --json result show graph-1
+cmp stdout $WORK/golden/result.json
+
+-- golden/result.json --
+{"issue_id":"graph-1","title":"Result task","body":"Use the task result as durable context."}
+-- golden/create.txt --
+graph-1
+-- golden/set.txt --
+Set result on graph-1.
+-- golden/show.txt --
+Use the task result as durable context.

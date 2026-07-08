@@ -1,0 +1,25 @@
+# cmpjson compares decoded JSON values without expanding environment variables.
+
+env VALUE=expanded
+cmpjson object-actual.json object-expected.json
+cmpjson env-actual.json env-expected.json
+cmpjson large-number-actual.json large-number-expected.json
+! cmpjson object-actual.json different.json
+
+-- object-actual.json --
+{"name":"alpha","count":1}
+-- object-expected.json --
+{
+  "count": 1,
+  "name": "alpha"
+}
+-- env-actual.json --
+{"value":"$VALUE"}
+-- env-expected.json --
+{"value":"$VALUE"}
+-- large-number-actual.json --
+{"value":9007199254740992}
+-- large-number-expected.json --
+{"value":9007199254740993}
+-- different.json --
+{"name":"beta","count":1}

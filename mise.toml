@@ -1,0 +1,269 @@
+[settings]
+experimental = true
+
+[env]
+GOBIN = "{{ config_root }}/bin"
+_.path = ["{{ config_root }}/bin"]
+
+[tools]
+buf = "latest"
+changie = "latest"
+go = "latest"
+node = "latest"
+pnpm = "latest"
+protoc-gen-connect-go = "latest"
+protoc-gen-go = "latest"
+"npm:@bufbuild/protoc-gen-es" = "latest"
+sqlc = "latest"
+golangci-lint = "latest"
+goreleaser = "latest"
+"github:abhinav/requiredfield" = "latest"
+"github:abhinav/stitchmd" = "latest"
+
+[tasks.generate]
+description = "Generate protocol and repository code"
+run = [
+  "buf generate",
+  "sqlc generate",
+]
+
+[tasks."migration:new:sql"]
+description = "Create a timestamped Goose SQL schema migration"
+usage = '''
+arg "<name>" help="Simple name for the migration"
+'''
+run = "go run ./internal/repository/store/cmd/migration sql {{usage.name|quote}}"
+
+[tasks."migration:new:go"]
+description = "Create a timestamped Goose Go data migration"
+usage = '''
+arg "<name>" help="Simple name for the migration"
+'''
+run = "go run ./internal/repository/store/cmd/migration go {{usage.name|quote}}"
+
+[tasks.fmt]
+description = "Format Go source"
+run = "golangci-lint fmt"
+
+[tasks.lint]
+description = "Run Go lint checks"
+depends = ["lint:*"]
+
+[tasks."lint:golangci-lint"]
+description = "Run golangci-lint"
+run = "golangci-lint run"
+
+[tasks."lint:requiredfield"]
+description = "Check required struct fields"
+run = "go vet -vettool=$(command -v requiredfield) ./..."
+
+[tasks."lint:tidy"]
+description = "Ensure Go modules are tidy"
+run = "go mod tidy -diff"
+
+[tasks."lint:gofix"]
+description = "Check for Go source fixes"
+run = "go fix -diff ./..."
+
+[tasks."lint:buf"]
+description = "Lint protobuf schemas"
+run = "buf lint"
+
+[tasks."lint:sqlc"]
+description = "Check generated repository code"
+run = "sqlc diff"
+
+[tasks."lint:docs"]
+description = "Check that generated documentation is up to date"
+run = '''
+readme_diff=$(
+  stitchmd -diff \
+    -o README.md \
+    -preface doc/readme/preface.md \
+    doc/readme/README.md
+)
+guide_diff=$(
+  stitchmd -unsafe -diff \
+    -o USER_GUIDE.md \
+    -preface doc/guide/preface.md \
+    doc/guide/README.md
+)
+
+if [[ -n "$readme_diff" ]]; then
+  printf '%s\n' "$readme_diff"
+fi
+if [[ -n "$guide_diff" ]]; then
+  printf '%s\n' "$guide_diff"
+fi
+if [[ -n "$readme_diff" || -n "$guide_diff" ]]; then
+  exit 1
+fi
+'''
+
+[tasks."lint:cardamom-skill"]
+description = "Check the Cardamom skill discovery link"
+run = '''
+test "$(readlink .agents/skills/cardamom)" = "../../skills/cardamom"
+'''
+
+[tasks.docs]
+description = "Generate README.md and USER_GUIDE.md"
+run = [
+  "stitchmd -o README.md -preface doc/readme/preface.md doc/readme/README.md",
+  "stitchmd -unsafe -o USER_GUIDE.md -preface doc/guide/preface.md doc/guide/README.md",
+]
+
+[tasks.readme]
+description = "Generate reader documentation"
+depends = ["docs"]
+
+[tasks.build]
+description = "Build Cardamom with embedded production web assets"
+depends = ["web:release"]
+run = "go build -tags=webassets -o bin/card ./cmd/card"
+
+[tasks."test:release"]
+description = "Build and inspect production release archives"
+depends = ["web:release"]
+run = '''
+goreleaser release --snapshot --clean --skip=publish
+
+set -- dist/cardamom.*.tar.gz
+if [ "$#" -ne 6 ] || [ ! -e "$1" ]; then
+  printf 'expected 6 Cardamom archives, found %s\n' "$#" >&2
+  exit 1
+fi
+
+for archive do
+  binary=card
+  case "$(basename "$archive")" in
+    *.Windows-*) binary=card.exe ;;
+  esac
+  if ! tar -tzf "$archive" | grep -Fxq "$binary"; then
+    printf '%s does not contain %s\n' "$archive" "$binary" >&2
+    exit 1
+  fi
+done
+
+host_archive="dist/cardamom.$(uname -s)-$(uname -m).tar.gz"
+release_dir=$(mktemp -d)
+server_pid=
+cleanup() {
+  if [[ -n "$server_pid" ]]; then
+    kill -TERM "$server_pid" 2>/dev/null || true
+    wait "$server_pid" 2>/dev/null || true
+  fi
+  rm -rf "$release_dir"
+}
+trap cleanup EXIT
+
+tar -xzf "$host_archive" -C "$release_dir" card
+mkdir "$release_dir/workspace"
+"$release_dir/card" --json init "$release_dir/workspace" --prefix release- \
+  >"$release_dir/init.json"
+"$release_dir/card" \
+  --store "$release_dir/workspace/.cardamom" \
+  --json info \
+  >"$release_dir/info.json"
+
+init_version=$(jq -er '.schema_version' "$release_dir/init.json")
+database_version=$(jq -er '.schema.database_version' "$release_dir/info.json")
+code_version=$(jq -er '.schema.code_version' "$release_dir/info.json")
+if [[ -z "$init_version" ||
+      "$init_version" != "$database_version" ||
+      "$database_version" != "$code_version" ]]; then
+  printf 'release schema versions do not match: init=%s database=%s code=%s\n' \
+    "$init_version" "$database_version" "$code_version" >&2
+  exit 1
+fi
+
+"$release_dir/card" \
+  --store "$release_dir/workspace/.cardamom" \
+  web --bind 127.0.0.1 --port 0 --no-browser \
+  >"$release_dir/web.out" 2>"$release_dir/web.err" &
+server_pid=$!
+
+i=0
+url=
+while [[ "$i" -lt 100 ]]; do
+  url=$(
+    sed -n 's/^web application available at //p' "$release_dir/web.out" |
+      head -n 1
+  )
+  [[ -n "$url" ]] && break
+  if ! kill -0 "$server_pid" 2>/dev/null; then
+    cat "$release_dir/web.err" >&2
+    wait "$server_pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+if [[ -z "$url" ]]; then
+  printf 'release web server did not report its address\n' >&2
+  exit 1
+fi
+curl --fail --silent "$url/" >"$release_dir/shell.html"
+grep -Fq '<div id="app"></div>' "$release_dir/shell.html"
+
+kill -TERM "$server_pid"
+wait "$server_pid" || true
+server_pid=
+'''
+
+[tasks.test]
+description = "Run all Go tests"
+usage = '''
+flag "--race" default="false" help="Enable data race detection"
+'''
+run = "go test -count=1 -race={{usage.race}} ./..."
+
+[tasks."test:dev"]
+description = "Run Go tests with live web development support"
+run = "go test -tags=webdev -count=1 ./..."
+
+[tasks."test:script"]
+description = "Run process-boundary CLI scenarios"
+usage = '''
+flag "--run <script>" default="" help="Regex selecting test scripts"
+flag "--update" default="false" help="Update mismatched cmp fixtures"
+'''
+run = "go test ./cmd/card -run TestScript/{{usage.run|quote}} -count=1 -update={{usage.update}}"
+
+[tasks."test:script:webassets"]
+description = "Run the web startup scenario with embedded release assets"
+depends = ["web:release"]
+run = [
+  "go test -tags=webassets ./internal/cli -count=1",
+  "go test -tags=webassets ./cmd/card -run TestScript/web_startup -count=1",
+]
+
+[tasks."web:release"]
+description = "Build frontend release assets for embedding"
+run = [
+  "CI=true pnpm --dir web install --frozen-lockfile",
+  "pnpm --dir web build",
+  "go run ./internal/web/server/cmd/webarchive -source web/dist -output internal/web/server/static.tar.gz",
+]
+
+[tasks."web:archive"]
+description = "Generate the embedded frontend archive from built assets"
+run = "go run ./internal/web/server/cmd/webarchive -source web/dist -output internal/web/server/static.tar.gz"
+
+[tasks."web:dev"]
+description = "Run Cardamom with the live frontend development server"
+run = "go run -tags=webdev ./cmd/card web --dev"
+
+[tasks.changie]
+description = "Run Changie"
+run = "changie"
+
+[tasks."release:prepare"]
+description = "Prepare a release changelog"
+usage = '''
+arg "<version>" help="Version to prepare, such as v1.2.3"
+'''
+run = [
+  "changie batch {{usage.version|quote}}",
+  "changie merge",
+]

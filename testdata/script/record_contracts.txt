@@ -1,0 +1,29 @@
+exec git init -b main
+at 2026-07-13T12:00:00Z
+exec card init --prefix record-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: record-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card create 'Recover subsystem'
+
+exec card state set record-1 'Current recovery state.'
+exec card state append record-1 'Next action.'
+exec card --json state show record-1
+cmpjson stdout $WORK/golden/state.json
+
+exec card --actor geordi log add record-1 'Observed plasma instability.'
+exec card --actor crusher log add record-1 'Medical review completed.'
+exec card --json log list record-1
+cmp stdout $WORK/golden/log.jsonl
+
+! exec card log edit 1 replacement
+! exec card log remove 1
+
+exec card --json show record-1
+cmpjson stdout $WORK/golden/issue.json
+
+-- golden/state.json --
+{"issue_id":"record-1","body":"Current recovery state.\nNext action.","author":"test-user","updated":1783944000}
+-- golden/log.jsonl --
+{"id":"log_00000000000000000000000000000002","issue_id":"record-1","kind":"post","author":"crusher","committer":"crusher","body":"Medical review completed.","created":1783944000}
+{"id":"log_00000000000000000000000000000001","issue_id":"record-1","kind":"post","author":"geordi","committer":"geordi","body":"Observed plasma instability.","created":1783944000}
+-- golden/issue.json --
+{"id":"record-1","title":"Recover subsystem","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"state":"Current recovery state.\nNext action.","revision":6,"labels":[],"depends_on":[],"blocks":[],"log_count":2,"latest_log_id":"log_00000000000000000000000000000002","blocked":false,"parent_id":null,"attachments":[]}

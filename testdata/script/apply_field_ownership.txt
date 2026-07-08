@@ -1,0 +1,26 @@
+exec git init -b main
+at 2026-07-21T12:00:00Z
+exec card init --prefix owner-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card apply routing-policy.json
+cmp stdout $WORK/golden/created.txt
+exec card apply routing-policy-update.json
+cmp stdout $WORK/golden/updated.txt
+exec card --json show owner-3
+cmpjson stdout $WORK/golden/policy.json
+
+-- routing-policy.json --
+{"version":1,"issues":[{"alias":"program","title":"Rework request routing","type":"workstream"},{"alias":"inventory","title":"Inventory request sources","type":"task"},{"key":"routing-catalog:policy","title":"Draft routing policy","type":"task","priority":1,"summary":"Preserve the policy contract unless the producer supplies a replacement.","details":"Preserve these review notes when an update omits details.","labels":{"values":["routing"]},"parent":{"alias":"program"},"depends_on":{"values":[{"alias":"inventory"}]}}]}
+-- routing-policy-update.json --
+{"version":1,"on_existing":"update","issues":[{"key":"routing-catalog:policy","title":"Accepted routing policy","priority":0,"labels":{"values":[]},"clear_parent":{},"depends_on":{"values":[]}}]}
+-- golden/created.txt --
+applied document: 3 create, 0 update, 0 skip, 0 no change
+0	create	owner-1
+1	create	owner-2
+2	create	owner-3
+-- golden/updated.txt --
+applied document: 0 create, 1 update, 0 skip, 0 no change
+0	update	owner-3
+-- golden/policy.json --
+{"id":"owner-3","title":"Accepted routing policy","type":"task","lifecycle":"open","status":"ready","priority":0,"active_claim":null,"created":1784635200,"updated":1784635200,"summary":"Preserve the policy contract unless the producer supplies a replacement.","details":"Preserve these review notes when an update omits details.","revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}

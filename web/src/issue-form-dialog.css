@@ -1,0 +1,52 @@
+.issue-form-dialog {
+  width: min(46rem, 100%);
+  max-height: calc(100dvh - 2rem);
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr);
+  overflow: hidden;
+  padding: 0;
+}
+
+.issue-form-dialog-header {
+  margin: 0;
+  padding: 1rem 1rem 0.85rem;
+}
+
+.issue-form-dialog-form {
+  min-height: 0;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr) auto;
+}
+
+.issue-form-dialog-body {
+  min-height: 0;
+  padding: 0.15rem 1rem 1rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.issue-form-dialog-actions {
+  margin: 0;
+  padding: 0.85rem 1rem 1rem;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+@media (max-width: 620px) {
+  .issue-form-dialog {
+    max-height: calc(100dvh - 1rem);
+  }
+
+  .issue-form-dialog-header {
+    padding: 0.85rem 0.85rem 0.7rem;
+  }
+
+  .issue-form-dialog-body {
+    padding: 0.15rem 0.85rem 0.85rem;
+  }
+
+  .issue-form-dialog-actions {
+    padding: 0.75rem 0.85rem 0.85rem;
+  }
+}

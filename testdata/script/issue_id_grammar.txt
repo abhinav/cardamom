@@ -1,0 +1,38 @@
+exec git init -b main
+at 2026-07-23T12:00:00Z
+exec card init --prefix issue-
+exec card config set --scope store issue.id.strategy sequential
+
+# Durable IDs use the public issue-ID grammar at the apply boundary.
+! exec card apply invalid-target.json
+! stdout .
+stderr 'issues\[0\].id'
+stderr '\[A-Za-z0-9\]\[A-Za-z0-9-\]\*'
+
+! exec card apply invalid-reference.json
+! stdout .
+stderr 'issues\[0\].depends_on.values\[0\].id'
+stderr '\[A-Za-z0-9\]\[A-Za-z0-9-\]\*'
+
+# Apply-local aliases and external keys retain their separate contracts.
+exec card apply separate-namespaces.json
+cmp stdout $WORK/golden/applied.txt
+exec card --json show issue-1
+cmpjson stdout $WORK/golden/issue.json
+
+# Prefix configuration cannot produce an ID outside the durable grammar.
+! exec card config set --scope board issue.id.prefix -
+! stdout .
+stderr 'start with a letter or digit'
+
+-- invalid-target.json --
+{"version":1,"issues":[{"id":"issue_bad","title":"Bad target","type":"task"}]}
+-- invalid-reference.json --
+{"version":1,"issues":[{"title":"Bad dependency","type":"task","depends_on":{"values":[{"id":"issue/bad"}]}}]}
+-- separate-namespaces.json --
+{"version":1,"issues":[{"alias":"local_alias/path","key":" producer_key/path ","title":"Separate namespaces","type":"task"}]}
+-- golden/applied.txt --
+applied document: 1 create, 0 update, 0 skip, 0 no change
+0	create	issue-1
+-- golden/issue.json --
+{"id":"issue-1","title":"Separate namespaces","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784808000,"updated":1784808000,"revision":2,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}

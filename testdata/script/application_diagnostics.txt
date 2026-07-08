@@ -1,0 +1,7 @@
+exec git init -b main
+exec card init --prefix app-
+
+# Command failures keep requested data off stdout and diagnostics on stderr.
+! exec card show missing
+! stdout .
+stderr 'issue not found'

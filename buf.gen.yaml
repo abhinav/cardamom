@@ -1,0 +1,25 @@
+version: v2
+clean: true
+
+managed:
+  enabled: true
+  disable:
+    - module: buf.build/bufbuild/protovalidate
+  override:
+    - file_option: go_package_prefix
+      value: go.abhg.dev/cardamom/internal/gen
+
+plugins:
+  - local: protoc-gen-go
+    out: internal/gen
+    opt:
+      - paths=source_relative
+  - local: protoc-gen-connect-go
+    out: internal/gen
+    opt:
+      - paths=source_relative
+  - local: protoc-gen-es
+    out: web/src/gen
+    include_imports: true
+    opt:
+      - target=ts

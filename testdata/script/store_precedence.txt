@@ -1,0 +1,47 @@
+mkdir ancestor
+exec card --store ancestor/.cardamom init --prefix ancestor-
+cmp stdout $WORK/golden/ancestor-init.txt
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: ancestor-\n    strategy: sequential\n" > ancestor/.cardamom/config.yaml'
+mkdir ancestor/a/b
+mkdir environment
+mkdir explicit
+exec card --store environment/.cardamom init --prefix env-
+cmp stdout $WORK/golden/environment-init.txt
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: env-\n    strategy: sequential\n" > environment/.cardamom/config.yaml'
+exec card --store explicit/.cardamom init --prefix flag-
+cmp stdout $WORK/golden/explicit-init.txt
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: flag-\n    strategy: sequential\n" > explicit/.cardamom/config.yaml'
+cd ancestor/a/b
+
+# CARDAMOM_STORE overrides ancestor discovery, and --store overrides CARDAMOM_STORE.
+env CARDAMOM_STORE=$WORK/environment/.cardamom
+exec card create 'environment board'
+cmp stdout $WORK/golden/environment-create.txt
+exec card --store $WORK/explicit/.cardamom create 'explicit board'
+cmp stdout $WORK/golden/explicit-create.txt
+
+-- golden/ancestor-init.txt --
+initialized ancestor/.cardamom
+Automatic local exclusion failed. Add these patterns to .gitignore:
+.cardamom/board.sqlite3
+.cardamom/board.sqlite3-shm
+.cardamom/board.sqlite3-wal
+.cardamom/blobs/
+-- golden/environment-init.txt --
+initialized environment/.cardamom
+Automatic local exclusion failed. Add these patterns to .gitignore:
+.cardamom/board.sqlite3
+.cardamom/board.sqlite3-shm
+.cardamom/board.sqlite3-wal
+.cardamom/blobs/
+-- golden/explicit-init.txt --
+initialized explicit/.cardamom
+Automatic local exclusion failed. Add these patterns to .gitignore:
+.cardamom/board.sqlite3
+.cardamom/board.sqlite3-shm
+.cardamom/board.sqlite3-wal
+.cardamom/blobs/
+-- golden/environment-create.txt --
+env-1
+-- golden/explicit-create.txt --
+flag-1

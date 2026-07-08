@@ -1,0 +1,70 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+exec card init --prefix parent-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: parent-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card apply graph.json
+
+# A parent is reported only after its final non-terminal direct child closes.
+exec card close parent-2
+cmp stdout $WORK/golden/close-first.txt
+exec card close parent-3
+cmp stdout $WORK/golden/close-last.txt
+
+# Root issues have no parent outcome.
+exec card close parent-4
+cmp stdout $WORK/golden/close-root.txt
+
+# Cancelled children count as no longer open.
+exec card cancel parent-6
+cmp stdout $WORK/golden/cancel-first.txt
+exec card cancel parent-7
+cmp stdout $WORK/golden/cancel-last.txt
+
+# Both checkpoint terminal paths report their containment parent.
+exec card checkpoint approve parent-9
+cmp stdout $WORK/golden/pass.txt
+exec card checkpoint deny parent-11
+cmp stdout $WORK/golden/fail.txt
+
+# Structured output remains one value and names the additional parent outcome.
+exec card --json close parent-13
+cmpjson stdout $WORK/golden/closed.json
+exec card --json cancel parent-15
+cmpjson stdout $WORK/golden/cancelled.json
+exec card --json checkpoint approve parent-17
+cmpjson stdout $WORK/golden/passed.json
+exec card --json checkpoint deny parent-19
+cmpjson stdout $WORK/golden/failed.json
+
+-- graph.json --
+{"version":1,"issues":[{"alias":"close-parent","title":"Close parent","type":"workstream"},{"alias":"close-first","title":"Close first","type":"task","parent":{"alias":"close-parent"}},{"alias":"close-last","title":"Close last","type":"task","parent":{"alias":"close-parent"}},{"alias":"root","title":"Root issue","type":"task"},{"alias":"cancel-parent","title":"Cancel parent","type":"workstream"},{"alias":"cancel-first","title":"Cancel first","type":"task","parent":{"alias":"cancel-parent"}},{"alias":"cancel-last","title":"Cancel last","type":"task","parent":{"alias":"cancel-parent"}},{"alias":"pass-parent","title":"Pass parent","type":"workstream"},{"alias":"pass-checkpoint","title":"Pass checkpoint","type":"checkpoint","parent":{"alias":"pass-parent"}},{"alias":"fail-parent","title":"Fail parent","type":"workstream"},{"alias":"fail-checkpoint","title":"Fail checkpoint","type":"checkpoint","parent":{"alias":"fail-parent"}},{"alias":"json-parent","title":"JSON parent","type":"workstream"},{"alias":"json-child","title":"JSON child","type":"task","parent":{"alias":"json-parent"}},{"alias":"json-cancel-parent","title":"JSON cancel parent","type":"workstream"},{"alias":"json-cancel-child","title":"JSON cancel child","type":"task","parent":{"alias":"json-cancel-parent"}},{"alias":"json-pass-parent","title":"JSON pass parent","type":"workstream"},{"alias":"json-pass-checkpoint","title":"JSON pass checkpoint","type":"checkpoint","parent":{"alias":"json-pass-parent"}},{"alias":"json-fail-parent","title":"JSON fail parent","type":"workstream"},{"alias":"json-fail-checkpoint","title":"JSON fail checkpoint","type":"checkpoint","parent":{"alias":"json-fail-parent"}}]}
+
+-- golden/closed.json --
+{"issues":[{"id":"parent-13","title":"JSON child","type":"task","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":10,"labels":[],"blocked":false}],"parents_without_open_children":["parent-12"]}
+
+-- golden/cancelled.json --
+{"issues":[{"id":"parent-15","title":"JSON cancel child","type":"task","lifecycle":"cancelled","status":"cancelled","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":11}],"requested":1,"dependents":0,"parents_without_open_children":["parent-14"]}
+
+-- golden/passed.json --
+{"decision":{"outcome":"approved","reason":"","decided_at":1783857600,"revision":12},"issue":{"id":"parent-17","title":"JSON pass checkpoint","type":"checkpoint","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":12},"cancelled":[],"parents_without_open_children":["parent-16"]}
+
+-- golden/failed.json --
+{"decision":{"outcome":"denied","reason":"","decided_at":1783857600,"revision":13},"issue":null,"cancelled":[{"id":"parent-19","title":"JSON fail checkpoint","type":"checkpoint","lifecycle":"cancelled","status":"cancelled","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":13}],"parents_without_open_children":["parent-18"]}
+-- golden/close-first.txt --
+Closed parent-2.
+-- golden/close-last.txt --
+Closed parent-3.
+Parent parent-1 has no open children.
+-- golden/close-root.txt --
+Closed parent-4.
+-- golden/cancel-first.txt --
+Cancelled 1 requested issue and 0 dependent issues.
+-- golden/cancel-last.txt --
+Cancelled 1 requested issue and 0 dependent issues.
+Parent parent-5 has no open children.
+-- golden/pass.txt --
+Approved parent-9.
+Parent parent-8 has no open children.
+-- golden/fail.txt --
+Denied parent-11; cancelled 0 dependent issues.
+Parent parent-10 has no open children.

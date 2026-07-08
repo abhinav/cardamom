@@ -1,0 +1,104 @@
+at 2026-07-15T12:00:00Z
+
+# The first board defaults to the initialized project directory basename.
+mkdir inferred-project
+cd inferred-project
+exec git init -b main
+exec card init --prefix inferred-
+cmp stdout $WORK/golden/inferred-init.txt
+exec card --json board list
+cmp stdout $WORK/golden/inferred-boards.jsonl
+
+# Repeated initialization preserves the existing catalog even when first-init
+# options request a different result.
+exec card --json board create 'Second board'
+cmpjson stdout $WORK/golden/second-board.json
+exec card init --board-name Renamed
+cmp stdout $WORK/golden/repeated-init.txt
+exec card --json init --no-board
+cmpjson stdout $WORK/golden/repeated-init.json
+exec card --json board list
+cmp stdout $WORK/golden/repeated-boards.jsonl
+cd ..
+
+# An external --store path does not become the project naming source.
+mkdir external-store-project
+mkdir external-stores
+cd external-store-project
+exec card --store ../external-stores/arbitrary-name --json init
+cmpjson stdout $WORK/golden/external-store-init.json
+exec card --store ../external-stores/arbitrary-name --json board list
+cmp stdout $WORK/golden/external-store-boards.jsonl
+cd ..
+
+# An explicit first-board name replaces inference.
+mkdir explicit-project
+cd explicit-project
+exec git init -b main
+exec card init --board-name 'Planning board'
+cmp stdout $WORK/golden/explicit-init.txt
+exec card --json board list
+cmp stdout $WORK/golden/explicit-boards.jsonl
+cd ..
+
+# Non-Git projects may initialize with no board. Board creation remains an
+# explicit follow-up operation.
+exec card init no-board --no-board
+cmpenv stdout $WORK/golden/no-board-init.txt
+exec card --store no-board/.cardamom --json board list
+! stdout .
+! exec card --store no-board/.cardamom create 'Needs a board'
+stderr 'board not found'
+exec card --store no-board/.cardamom --json board create 'Later board'
+cmpjson stdout $WORK/golden/later-board.json
+
+# JSON reports the project and board created by this invocation.
+exec card --json init json-project --board-name 'JSON board'
+cmpjson stdout $WORK/golden/json-init.json
+
+# Mutually exclusive and empty board names fail before creating project files.
+! exec card init conflicting --board-name Board --no-board
+cmp stderr $WORK/golden/conflicting-flags.txt
+! exists conflicting/.cardamom
+! exec card init empty-name --board-name '   '
+cmp stderr $WORK/golden/empty-name.txt
+! exists empty-name/.cardamom
+
+-- golden/inferred-init.txt --
+initialized .cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/inferred-boards.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"inferred-project","created":1784116800}
+-- golden/second-board.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Second board","created":1784116800}
+-- golden/repeated-init.txt --
+already initialized: .cardamom; kept existing projects and boards
+-- golden/repeated-init.json --
+{"dir":".cardamom","id_prefix":"inferred-","id_strategy":"random","schema_version":20260726181403,"config_written":false,"db_written":false,"project_created":false,"project_id":null,"project_name":null,"board_created":false,"board_id":null,"board_name":null,"already_initialized":true}
+-- golden/repeated-boards.jsonl --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Second board","created":1784116800}
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"inferred-project","created":1784116800}
+-- golden/external-store-init.json --
+{"dir":"../external-stores/arbitrary-name","id_prefix":"cm-","id_strategy":"random","schema_version":20260726181403,"config_written":true,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"external-store-project","board_created":true,"board_id":"board_00000000000000000000","board_name":"external-store-project","already_initialized":false}
+-- golden/external-store-boards.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"external-store-project","created":1784116800}
+-- golden/explicit-init.txt --
+initialized .cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/explicit-boards.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Planning board","created":1784116800}
+-- golden/no-board-init.txt --
+initialized no-board/.cardamom without a board
+Automatic local exclusion failed. Add these patterns to .gitignore:
+.cardamom/board.sqlite3
+.cardamom/board.sqlite3-shm
+.cardamom/board.sqlite3-wal
+.cardamom/blobs/
+-- golden/later-board.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Later board","created":1784116800}
+-- golden/json-init.json --
+{"dir":"json-project/.cardamom","id_prefix":"cm-","id_strategy":"random","schema_version":20260726181403,"config_written":true,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"json-project","board_created":true,"board_id":"board_00000000000000000000","board_name":"JSON board","already_initialized":false}
+-- golden/conflicting-flags.txt --
+error: init: --board-name and --no-board cannot be combined
+-- golden/empty-name.txt --
+error: init: --board-name: board name required

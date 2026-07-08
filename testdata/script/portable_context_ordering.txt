@@ -1,0 +1,47 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T12:00:00Z
+exec card init --prefix pm-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: pm-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card board edit --description 'Board workstream description.'
+exec card apply graph.json
+exec card issue edit pm-2 --parent pm-1
+exec card issue edit pm-4 --parent pm-2 --add-depends-on pm-3
+exec card result set pm-3 'Dependency result memory.'
+
+# Context is board-first, then broadest-to-nearest containment,
+# then direct dependency results, then the current issue.
+exec card show --context pm-4
+cmp stdout $WORK/golden/context.txt
+exec card --json show --context pm-4
+cmpjson stdout $WORK/golden/context.json
+
+-- graph.json --
+{"version":1,"issues":[{"alias":"program","title":"Program memory","type":"workstream"},{"alias":"parent","title":"Parent memory","type":"workstream"},{"alias":"dependency","title":"Dependency","type":"task"},{"alias":"target","title":"Target","type":"task"}]}
+-- golden/context.txt --
+Board context:
+Board workstream description.
+
+Ancestors:
+- pm-1: Program memory (0 log entries)
+- pm-2: Parent memory (0 log entries)
+
+Dependency results:
+- pm-3: Dependency
+Dependency result memory.
+
+ID: pm-4
+Title: Target
+Type: task
+Status: blocked
+Priority: 2
+Assignee: -
+Parent: pm-2
+Labels: -
+Depends on: pm-3
+Blocks: -
+Log entries: 0
+Attachments: -
+-- golden/context.json --
+{"board":{"description":"Board workstream description."},"context":[{"id":"pm-1","title":"Program memory","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"log_count":0},{"id":"pm-2","title":"Parent memory","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":4,"log_count":0}],"dependency_results":[{"issue_id":"pm-3","title":"Dependency","body":"Dependency result memory."}],"issue":{"id":"pm-4","title":"Target","type":"task","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":5,"labels":[],"depends_on":["pm-3"],"blocks":[],"log_count":0,"blocked":true,"parent_id":"pm-2","attachments":[]}}

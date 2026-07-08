@@ -1,0 +1,229 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/mutation.proto";
+import "google/protobuf/field_mask.proto";
+
+// ConfigurationScope identifies one layer in the configuration hierarchy.
+enum ConfigurationScope {
+  // CONFIGURATION_SCOPE_UNSPECIFIED is not a valid configuration layer.
+  CONFIGURATION_SCOPE_UNSPECIFIED = 0;
+
+  // CONFIGURATION_SCOPE_BUILT_IN identifies compiled defaults.
+  CONFIGURATION_SCOPE_BUILT_IN = 1;
+
+  // CONFIGURATION_SCOPE_STORE identifies local physical-store overrides.
+  CONFIGURATION_SCOPE_STORE = 2;
+
+  // CONFIGURATION_SCOPE_PROJECT identifies synchronized project overrides.
+  CONFIGURATION_SCOPE_PROJECT = 3;
+
+  // CONFIGURATION_SCOPE_BOARD identifies synchronized board overrides.
+  CONFIGURATION_SCOPE_BOARD = 4;
+}
+
+// ConfigurationIssueIDStrategy selects the issue suffix allocation strategy.
+enum ConfigurationIssueIDStrategy {
+  // CONFIGURATION_ISSUE_ID_STRATEGY_UNSPECIFIED is not a valid strategy.
+  CONFIGURATION_ISSUE_ID_STRATEGY_UNSPECIFIED = 0;
+
+  // CONFIGURATION_ISSUE_ID_STRATEGY_RANDOM allocates adaptive random suffixes.
+  CONFIGURATION_ISSUE_ID_STRATEGY_RANDOM = 1;
+
+  // CONFIGURATION_ISSUE_ID_STRATEGY_SEQUENTIAL allocates decimal suffixes.
+  CONFIGURATION_ISSUE_ID_STRATEGY_SEQUENTIAL = 2;
+}
+
+// Configuration contains one fully resolved nested configuration.
+message Configuration {
+  // issue contains issue authoring and identity policy.
+  ConfigurationIssue issue = 1;
+
+  // attachment contains attachment admission policy.
+  ConfigurationAttachment attachment = 2;
+}
+
+// ConfigurationIssue contains fully resolved issue policy.
+message ConfigurationIssue {
+  // id controls issue identity allocation.
+  ConfigurationIssueID id = 1;
+
+  // summary controls summary write admission.
+  ConfigurationSummary summary = 2;
+}
+
+// ConfigurationIssueID contains fully resolved issue identity policy.
+message ConfigurationIssueID {
+  // prefix is prepended to newly allocated issue IDs.
+  string prefix = 1;
+
+  // strategy selects random or sequential suffix allocation.
+  ConfigurationIssueIDStrategy strategy = 2;
+}
+
+// ConfigurationSummary contains fully resolved summary policy.
+message ConfigurationSummary {
+  // max_bytes is the largest accepted summary in bytes.
+  uint64 max_bytes = 1;
+}
+
+// ConfigurationAttachment contains fully resolved attachment policy.
+message ConfigurationAttachment {
+  // max_bytes is the largest attachment admitted for a new upload.
+  uint64 max_bytes = 1;
+}
+
+// ConfigurationOverrides contains one nested layer of optional values.
+message ConfigurationOverrides {
+  // issue contains optional issue policy values.
+  ConfigurationIssueOverrides issue = 1;
+
+  // attachment contains optional attachment policy values.
+  ConfigurationAttachmentOverrides attachment = 2;
+}
+
+// ConfigurationIssueOverrides contains optional issue policy values.
+message ConfigurationIssueOverrides {
+  // id contains optional issue identity values.
+  ConfigurationIssueIDOverrides id = 1;
+
+  // summary contains optional summary policy values.
+  ConfigurationSummaryOverrides summary = 2;
+}
+
+// ConfigurationIssueIDOverrides contains optional identity values.
+message ConfigurationIssueIDOverrides {
+  // prefix overrides the inherited issue ID prefix when present.
+  optional string prefix = 1;
+
+  // strategy overrides the inherited issue ID strategy when present.
+  optional ConfigurationIssueIDStrategy strategy = 2;
+}
+
+// ConfigurationSummaryOverrides contains optional summary policy values.
+message ConfigurationSummaryOverrides {
+  // max_bytes overrides the inherited summary limit when present.
+  optional uint64 max_bytes = 1;
+}
+
+// ConfigurationAttachmentOverrides contains optional attachment policy values.
+message ConfigurationAttachmentOverrides {
+  // max_bytes overrides the inherited attachment limit when present.
+  optional uint64 max_bytes = 1;
+}
+
+// ConfigurationSource identifies a concrete configuration layer.
+message ConfigurationSource {
+  // scope identifies the source layer.
+  ConfigurationScope scope = 1;
+
+  // identity identifies the concrete store, project, or board.
+  string identity = 2;
+}
+
+// ConfigurationLayer contains one layer in precedence order.
+message ConfigurationLayer {
+  // source identifies the layer scope and owner.
+  ConfigurationSource source = 1;
+
+  // overrides contains values explicitly supplied by this layer.
+  ConfigurationOverrides overrides = 2;
+}
+
+// ConfigurationOrigins identifies the source of every effective field.
+message ConfigurationOrigins {
+  // issue contains origins for issue policy.
+  ConfigurationIssueOrigins issue = 1;
+
+  // attachment contains origins for attachment policy.
+  ConfigurationAttachmentOrigins attachment = 2;
+}
+
+// ConfigurationIssueOrigins contains origins for issue policy.
+message ConfigurationIssueOrigins {
+  // id contains origins for issue identity policy.
+  ConfigurationIssueIDOrigins id = 1;
+
+  // summary contains origins for summary policy.
+  ConfigurationSummaryOrigins summary = 2;
+}
+
+// ConfigurationIssueIDOrigins contains origins for identity policy.
+message ConfigurationIssueIDOrigins {
+  // prefix identifies the effective prefix source.
+  ConfigurationSource prefix = 1;
+
+  // strategy identifies the effective strategy source.
+  ConfigurationSource strategy = 2;
+}
+
+// ConfigurationSummaryOrigins contains origins for summary policy.
+message ConfigurationSummaryOrigins {
+  // max_bytes identifies the effective summary-limit source.
+  ConfigurationSource max_bytes = 1;
+}
+
+// ConfigurationAttachmentOrigins contains origins for attachment policy.
+message ConfigurationAttachmentOrigins {
+  // max_bytes identifies the effective attachment-limit source.
+  ConfigurationSource max_bytes = 1;
+}
+
+// ConfigurationView contains all layers and their resolved result.
+message ConfigurationView {
+  // layers lists built-in, store, project, and board values in precedence order.
+  repeated ConfigurationLayer layers = 1;
+
+  // effective contains the highest-precedence value for every field.
+  Configuration effective = 2;
+
+  // origins identifies the source of every effective field.
+  ConfigurationOrigins origins = 3;
+}
+
+// GetConfigurationRequest identifies the board whose configuration is read.
+message GetConfigurationRequest {
+  // board_id identifies the board and its containing project.
+  string board_id = 1;
+}
+
+// GetConfigurationResponse contains the current resolved configuration view.
+message GetConfigurationResponse {
+  // view is resolved from freshly read configuration layers.
+  ConfigurationView view = 1;
+}
+
+// UpdateConfigurationRequest applies one typed patch to one mutable layer.
+message UpdateConfigurationRequest {
+  // board_id identifies the board and its containing project.
+  string board_id = 1;
+
+  // scope selects store, project, or board mutation ownership.
+  ConfigurationScope scope = 2;
+
+  // overrides supplies replacement values for selected fields.
+  ConfigurationOverrides overrides = 3;
+
+  // update_mask selects dotted override paths to replace or clear.
+  // A selected path with no corresponding override value clears that field.
+  google.protobuf.FieldMask update_mask = 4;
+
+  // context supplies attribution for the configuration mutation.
+  MutationContext context = 5;
+}
+
+// UpdateConfigurationResponse contains the resolved post-update view.
+message UpdateConfigurationResponse {
+  // view reflects freshly read layers after the mutation commits.
+  ConfigurationView view = 1;
+}
+
+// ConfigurationService exposes typed configuration reads and mutations.
+service ConfigurationService {
+  // GetConfiguration returns ordered layers, effective values, and origins.
+  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse);
+
+  // UpdateConfiguration applies one finite typed patch and returns its result.
+  rpc UpdateConfiguration(UpdateConfigurationRequest) returns (UpdateConfigurationResponse);
+}

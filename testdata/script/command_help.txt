@@ -1,0 +1,122 @@
+# Root help exposes the retained command families and global scope selectors.
+exec card --help
+stdout 'Run "card <command> --help" for more information'
+stdout '--store=PATH'
+stdout 'Physical Cardamom store directory'
+stdout '--board=BOARD'
+stdout 'Coordination board ID or exact name'
+stdout 'Starting a board'
+stdout 'board create'
+stdout 'board edit'
+stdout 'Planning work'
+stdout 'issue edit'
+stdout 'Inspecting work'
+stdout 'Executing work'
+stdout 'checkpoint approve'
+stdout 'checkpoint deny'
+stdout 'Recording work'
+stdout 'log add'
+stdout 'result set'
+stdout 'Mail and leases'
+stdout 'mail subscribe'
+stdout 'lease acquire'
+stdout 'Running locally'
+stdout 'info'
+stdout 'web'
+
+! exec card history
+stderr 'error: unexpected argument history'
+
+# Planning help names atomic document and relationship boundaries.
+exec card create --help
+stdout 'Create one issue and its labels, prerequisites, and containment parent'
+stdout '--depends-on=ISSUE'
+
+exec card apply --help
+stdout 'Apply one version 1 issue graph atomically'
+stdout 'Input is a strict JSON object with version, issues, and optional on_existing'
+stdout 'Unknown fields are rejected'
+stdout '--dry-run'
+
+exec card issue edit --help
+stdout 'Atomically edit requested scalar fields, labels, prerequisites, and containment'
+stdout '--add-depends-on=ISSUE'
+stdout '--remove-depends-on=ISSUE'
+
+# Execution and record help states the operation each command performs.
+exec card claim --help
+stdout 'Claim ready work or a specific issue'
+stdout 'Routines may be claimed only by ID'
+
+exec card release --help
+stdout 'active claim into ready or waiting status'
+stdout '--waiting=REASON'
+stdout 'plain-text reason'
+
+exec card close --help
+stdout 'Close successfully completed issues'
+stdout 'Checkpoints require approve or deny'
+stdout 'Workstreams and routines require every'
+stdout 'direct child to be terminal'
+
+exec card cancel --help
+stdout 'every non-terminal transitive dependent'
+
+exec card reopen --help
+stdout 'without claiming them or reopening prerequisites'
+
+exec card checkpoint deny --help
+stdout 'Deny a checkpoint and cancel its dependents'
+stdout 'Optional Markdown reason'
+
+exec card log add --help
+stdout 'Append one immutable Markdown log entry attributed to the invocation actor'
+
+exec card state set --help
+stdout 'Replace the complete mutable recovery state'
+
+exec card result set --help
+stdout 'Set a nonblank durable result without closing the issue'
+
+# Coordination and local-process help expose their ownership boundaries.
+exec card mail recv --help
+stdout 'Read unread actor mail by default'
+stdout 'Global observation is always read-only'
+
+exec card lease acquire --help
+stdout 'Acquire an absent or expired resource lease'
+
+exec card web --help
+stdout 'Serve the API and browser application from embedded assets'
+
+exec card board --help
+stdout 'Create, select, and inspect coordination boards'
+stdout 'board list'
+stdout 'board create'
+stdout 'board use'
+stdout 'board show'
+stdout 'board edit'
+
+exec card board create --help
+stdout '--project=PROJECT'
+stdout 'When omitted, use the'
+stdout 'store.s sole project'
+
+exec card board show --help
+stdout 'When omitted, use the root board'
+stdout 'checkout selection'
+stdout 'store.s sole board'
+
+exec card board edit --help
+stdout 'When omitted, use the root board'
+stdout 'checkout selection'
+stdout 'store.s sole board'
+stdout '--description=MARKDOWN'
+stdout 'Replace the board description with Markdown'
+
+exec card init --help
+stdout 'Initialize a physical Cardamom store and project namespace'
+stdout '--board-name'
+stdout '--no-board'
+stdout '--no-config'
+! stdout '--stealth'

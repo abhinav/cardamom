@@ -1,0 +1,111 @@
+exec git init -b main
+at 2026-07-20T12:00:00Z
+env TZ=UTC
+exec card init --prefix attach-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: attach-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card create 'Attachment origin'
+cmp stdout $WORK/golden/create.txt
+
+# Standard input requires a portable presentation filename.
+! exec card attachment add -
+! stdout .
+cmp stderr $WORK/golden/stdin-name-error.txt
+
+# The workflow script retains random attachment handles between process calls.
+exec sh attachment-workflow.sh
+cmp stdout $WORK/golden/workflow.txt
+! stderr .
+
+-- attachment-workflow.sh --
+#!/bin/sh
+set -eu
+
+add_output=$(card attachment add report.txt --issue attach-1)
+attachment_id=$(printf '%s\n' "$add_output" | sed -n '1p')
+case "$attachment_id" in
+  att_[a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7]) ;;
+  *) echo "invalid attachment ID: $attachment_id" >&2; exit 1 ;;
+esac
+[ "$(printf '%s\n' "$add_output" | sed -n '2p')" = "[report.txt](attachment:$attachment_id)" ]
+[ "$(printf '%s\n' "$add_output" | sed -n '3p')" = "![report.txt](attachment:$attachment_id)" ]
+
+card attachment show "$attachment_id" >show.out
+grep -F "Attachment $attachment_id" show.out >/dev/null
+grep -F 'Name: report.txt' show.out >/dev/null
+grep -F 'Lifecycle: active' show.out >/dev/null
+grep -F 'Availability: present_unverified' show.out >/dev/null
+
+card attachment list --issue attach-1 >list.out
+grep -F 'ID' list.out >/dev/null
+grep -F "$attachment_id" list.out >/dev/null
+grep -F 'report.txt' list.out >/dev/null
+
+card attachment get "$attachment_id" downloaded.txt >get.out
+cmp report.txt downloaded.txt
+cmp get.out golden/get.txt
+
+if card attachment get "$attachment_id" downloaded.txt >overwrite.out 2>overwrite.err; then
+  echo 'attachment get unexpectedly overwrote its output' >&2
+  exit 1
+fi
+[ ! -s overwrite.out ]
+cmp overwrite.err golden/overwrite-error.txt
+
+card attachment get "$attachment_id" downloaded.txt --force >force.out
+cmp report.txt downloaded.txt
+cmp force.out golden/get.txt
+
+stdin_output=$(card attachment add - --name stdin.txt <stdin.txt)
+stdin_id=$(printf '%s\n' "$stdin_output" | sed -n '1p')
+case "$stdin_id" in
+  att_[a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7]) ;;
+  *) echo "invalid attachment ID: $stdin_id" >&2; exit 1 ;;
+esac
+[ "$(printf '%s\n' "$stdin_output" | sed -n '2p')" = "[stdin.txt](attachment:$stdin_id)" ]
+[ "$(printf '%s\n' "$stdin_output" | sed -n '3p')" = "![stdin.txt](attachment:$stdin_id)" ]
+card attachment get "$stdin_id" stdin-downloaded.txt >/dev/null
+cmp stdin.txt stdin-downloaded.txt
+
+card attachment remove "$attachment_id" >remove.out
+grep -F "removed $attachment_id" remove.out >/dev/null
+card attachment show "$attachment_id" >removed.out
+grep -F 'Lifecycle: removed' removed.out >/dev/null
+
+card attachment gc --dry-run >gc-dry-run.out
+cmp gc-dry-run.out golden/gc-dry-run.txt
+card attachment gc >gc.out
+cmp gc.out golden/gc.txt
+
+printf '%s\n' \
+  'file upload, metadata, and download passed' \
+  'stdin upload passed' \
+  'overwrite protection and force passed' \
+  'removal and collection passed'
+
+-- report.txt --
+bridge report
+-- stdin.txt --
+sensor log
+-- golden/create.txt --
+attach-1
+-- golden/stdin-name-error.txt --
+error: attachment add: --name is required when reading standard input
+-- golden/get.txt --
+wrote downloaded.txt (14 bytes)
+-- golden/overwrite-error.txt --
+error: write attachment output "downloaded.txt": open downloaded.txt: file exists
+-- golden/gc-dry-run.txt --
+Dry run: true
+Expired staging: 0 items, 0 bytes
+Orphan blobs: 0 items, 0 bytes
+Integrity problems: 0
+-- golden/gc.txt --
+Dry run: false
+Expired staging: 0 items, 0 bytes
+Orphan blobs: 0 items, 0 bytes
+Integrity problems: 0
+-- golden/workflow.txt --
+file upload, metadata, and download passed
+stdin upload passed
+overwrite protection and force passed
+removal and collection passed

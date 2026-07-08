@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/configuration.proto";
+import "cardamom/private/v1/issue.proto";
+import "cardamom/private/v1/project.proto";
+
+// StoreInformation identifies one physical Cardamom persistence boundary.
+message StoreInformation {
+  // directory is the selected Cardamom store directory.
+  string directory = 1;
+
+  // database_path is the SQLite database inside directory.
+  string database_path = 2;
+}
+
+// SchemaInformation identifies persisted and running schema versions.
+message SchemaInformation {
+  // database_version is the latest migration recorded by the store.
+  uint64 database_version = 1;
+
+  // code_version is the latest migration understood by the running program.
+  uint64 code_version = 2;
+}
+
+// RevisionInformation identifies the latest committed logical store change.
+message RevisionInformation {
+  // current is the canonical store revision.
+  uint64 current = 1;
+}
+
+// IssueStatusCount reports one derived issue-status population.
+message IssueStatusCount {
+  // status is the derived issue status being counted.
+  IssueStatus status = 1;
+
+  // count is the number of selected-board issues with status.
+  uint64 count = 2;
+}
+
+// IssueInventory reports the selected board's issue population.
+message IssueInventory {
+  // total is the number of issues in the selected board.
+  uint64 total = 1;
+
+  // by_status reports counts in stable issue-status order.
+  repeated IssueStatusCount by_status = 2;
+}
+
+// GetInformationRequest selects one coordination board.
+message GetInformationRequest {
+  // board_id identifies the board whose information is requested.
+  string board_id = 1;
+}
+
+// GetInformationResponse contains typed store identity and inventory.
+message GetInformationResponse {
+  // store identifies the physical persistence boundary.
+  StoreInformation store = 1;
+
+  // project identifies the project containing board.
+  Project project = 2;
+
+  // board identifies the selected coordination board.
+  BoardSummary board = 3;
+
+  // schema identifies persisted and running schema versions.
+  SchemaInformation schema = 4;
+
+  // configuration is the selected board's effective configuration.
+  Configuration configuration = 5;
+
+  // revision identifies the canonical store revision.
+  RevisionInformation revision = 6;
+
+  // issues reports the selected board's issue population.
+  IssueInventory issues = 7;
+}
+
+// InformationService exposes typed store identity and inventory.
+service InformationService {
+  // GetInformation returns information for one explicitly selected board.
+  rpc GetInformation(GetInformationRequest) returns (GetInformationResponse);
+}

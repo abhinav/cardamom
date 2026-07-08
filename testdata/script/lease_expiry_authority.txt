@@ -1,0 +1,37 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T12:00:00Z
+exec card init --prefix lease-
+
+exec card --actor cache-primer lease acquire search-cache-segment --ttl 2m
+cmp stdout $WORK/golden/active.txt
+! stderr .
+
+at 2026-07-12T12:01:59Z
+exec card lease show search-cache-segment
+cmp stdout $WORK/golden/active.txt
+! stderr .
+
+at 2026-07-12T12:02:00Z
+exec card lease list
+cmp stdout $WORK/golden/empty.txt
+! stderr .
+! exec card lease show search-cache-segment
+! stdout .
+cmp stderr $WORK/golden/show-missing.txt
+! exec card --actor cache-primer lease release search-cache-segment
+! stdout .
+cmp stderr $WORK/golden/release-missing.txt
+! exec card --actor cache-primer lease renew search-cache-segment --ttl 7m
+! stdout .
+cmp stderr $WORK/golden/renew-missing.txt
+
+-- golden/active.txt --
+search-cache-segment	cache-primer	2026-07-12T12:00:00Z	2026-07-12T12:02:00Z
+-- golden/show-missing.txt --
+error: read lease "search-cache-segment": lease not found
+-- golden/release-missing.txt --
+error: release lease "search-cache-segment": lease not found
+-- golden/renew-missing.txt --
+error: renew lease "search-cache-segment": lease not found
+-- golden/empty.txt --
