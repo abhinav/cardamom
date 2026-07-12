@@ -1,0 +1,24 @@
+{
+  "title": "clu",
+  "pages": [
+    "index",
+    "---Get started---",
+    "getting-started",
+    "multi-agent",
+    "workflows",
+    "dynamic-workflows",
+    "import",
+    "recipes",
+    "---Reference---",
+    "commands",
+    "storage",
+    "sync",
+    "web",
+    "---Background---",
+    "agents",
+    "design",
+    "vs-beads",
+    "comparison",
+    "faq"
+  ]
+}

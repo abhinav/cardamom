@@ -1,0 +1,107 @@
+name: scaffold-spa
+description: Scaffold a single-page app, wire CI, ship to preview + prod
+spec: |
+  ## Project context
+
+  Project: {{project}}
+  Framework: {{framework}}
+  Deploy target: Cloudflare Pages (project name: {{project}})
+  GitHub repo: {{repo}}
+
+  ## Conventions
+
+  - Kebab-case file names. tsconfig strict on. Prettier + ESLint defaults.
+  - Commits use Conventional Commits (feat:, fix:, chore:, …).
+  - Each step closes by posting a final comment summarizing what changed
+    and where downstream steps can find their inputs (paths, URLs).
+  - If you hit any prerequisite that wasn't installed, add it to the
+    scaffold step's notes so the next run picks it up.
+
+vars:
+  project:
+    required: true
+    label: "Project name (kebab-case)"
+    pattern: '^[a-z][a-z0-9-]*$'
+  framework:
+    required: true
+    label: "Framework"
+    pattern: '^(vite-react|tanstack-start|next|astro)$'
+  repo:
+    required: true
+    label: "GitHub repo (org/name)"
+    pattern: '^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$'
+  cloudflare_account:
+    default: ""
+    label: "Cloudflare account ID (blank to skip CF deploy)"
+
+steps:
+  - id: scaffold
+    title: "Scaffold {{project}} ({{framework}})"
+    priority: 1
+    description: |
+      Initialise a new {{framework}} project at ./{{project}}/.
+      Install dependencies. Commit the result as `chore: scaffold`.
+      Acceptance: `pnpm install && pnpm dev` runs and serves a working
+      starter at http://localhost:5173.
+      On close, post a comment with the project path and the dev URL.
+
+  - id: configure
+    title: "Configure tooling for {{project}}"
+    needs: [scaffold]
+    description: |
+      Add Prettier, ESLint, and a strict tsconfig if missing. Wire
+      `pnpm lint` and `pnpm format`. Add a `.editorconfig`.
+      Acceptance: `pnpm lint && pnpm format --check` both pass.
+
+  - id: ci
+    title: "Add CI for {{project}}"
+    needs: [configure]
+    description: |
+      Add .github/workflows/ci.yml: install, typecheck, lint, build on
+      every push and PR. Use pnpm/action-setup + actions/setup-node.
+      Acceptance: workflow file syntactically valid (act it locally),
+      named jobs visible in the GitHub Actions UI after first push.
+
+  - id: github
+    title: "Push {{project}} to {{repo}}"
+    needs: [ci]
+    description: |
+      Create the repo at github.com/{{repo}} if it doesn't exist (via
+      `gh repo create`). Push the local branch. Verify CI runs.
+      Acceptance: first CI run goes green on main.
+      On close, post the repo URL as a comment.
+
+  - id: review
+    type: checkpoint
+    title: "Review scaffold for {{project}}"
+    wait: { manual: true }
+    needs: [github]
+    description: |
+      Manual review gate. Confirm the scaffold matches conventions,
+      tests pass, and the repo looks right. Use `clu approve <id>` to
+      release the deploy step.
+
+  - id: preview-deploy
+    title: "Deploy {{project}} to Cloudflare Pages (preview)"
+    needs: [review]
+    description: |
+      Create a Cloudflare Pages project named {{project}} under
+      account {{cloudflare_account}}. Connect to {{repo}}. Trigger
+      the first preview build.
+      Acceptance: preview URL returns 200.
+      On close, post the preview URL as a comment.
+
+  - id: prod-approve
+    type: checkpoint
+    title: "Approve production deploy of {{project}}"
+    wait: { manual: true }
+    needs: [preview-deploy]
+
+  - id: prod-deploy
+    title: "Promote {{project}} to production"
+    needs: [prod-approve]
+    description: |
+      Promote the latest preview to production in Cloudflare Pages.
+      Acceptance: production URL serves the new build, lighthouse
+      perf score ≥ 90. On close, post the prod URL and Lighthouse
+      summary as a comment.

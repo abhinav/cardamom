@@ -1,0 +1,40 @@
+---
+title: Quickstart
+description: Run the core clu loop end-to-end in under a minute.
+---
+
+```bash
+mkdir my-project && cd my-project
+clu init                                              # creates .clu/ with DB + config
+clu create -p 1 "fix the login redirect"              # → clu-a3f8
+clu create -d clu-a3f8 "add tests for the redirect"   # wires the dep atomically
+
+clu ready                                              # what's unblocked?
+clu claim                                              # atomically take the next one
+clu close clu-a3f8                                     # done → unblocks dependents
+clu ready                                              # the tests issue is now ready
+```
+
+That's the whole core loop. See [`demo.sh`](https://github.com/arjia-labs/clu/blob/main/demo.sh)
+in the repo for the same exercise driven end-to-end against a scratch directory.
+
+## From inside an agent session
+
+```bash
+clu brief
+```
+
+`clu brief` prints the agent guide plus the project's declared agents and who's
+currently live. Pipe it into your agent at session start so it knows the rules
+of the game without having to re-derive them from the help text.
+
+## --json everywhere
+
+Every write command emits the affected record(s) as JSON, every read command
+emits a typed object or array — exactly one JSON value per invocation, no
+narrative noise:
+
+```bash
+clu create --json "investigate the deadlock" | jq '.id'
+clu ready --json | jq -r '.[] | .id'
+```

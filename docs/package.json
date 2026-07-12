@@ -1,0 +1,36 @@
+{
+  "name": "clu-docs",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev --turbo --port 3108",
+    "build": "next build",
+    "start": "next start --port 3108",
+    "postinstall": "fumadocs-mdx"
+  },
+  "dependencies": {
+    "@fumadocs/ui": "16.5.0",
+    "fumadocs-core": "16.9.1",
+    "fumadocs-mdx": "15.0.8",
+    "fumadocs-ui": "16.9.1",
+    "next": "16.2.6",
+    "react": "19.2.6",
+    "react-dom": "19.2.6",
+    "shiki": "4.1.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "4.3.0",
+    "@types/node": "25.9.1",
+    "@types/react": "19.2.15",
+    "@types/react-dom": "19.2.3",
+    "tailwindcss": "4.3.0",
+    "typescript": "6.0.3"
+  },
+  "pnpm": {
+    "peerDependencyRules": {
+      "allowedVersions": {
+        "@fumadocs/ui>fumadocs-core": "16.9.x"
+      }
+    }
+  }
+}

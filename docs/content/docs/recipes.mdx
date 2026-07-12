@@ -1,0 +1,163 @@
+---
+title: Recipes
+description: Common clu workflows end-to-end — solo loop, two agents, capability routing, gated releases, bulk import, and push-style delivery.
+---
+
+Short, copy-pasteable patterns for the things people actually do with `clu`.
+Each one is self-contained.
+
+## Solo loop
+
+One person (or one agent) working a backlog. Create with dependencies, let
+`ready` surface what's unblocked, claim, close.
+
+```bash
+clu init
+a=$(clu create --json -p 1 "design the API" | jq -r .id)
+clu create -d "$a" "implement the API"        # blocked until design closes
+clu create -d "$a" "write the API docs"
+
+clu ready          # → just "design the API"
+clu claim          # take it
+clu close "$a"     # closing it unblocks both dependents
+clu ready          # → implement + docs, both now ready
+```
+
+## Two agents, no collisions
+
+The point of atomic claim: two sessions pulling from the same pool never get
+the same issue.
+
+```bash
+# terminal 1
+clu claim -a alice --wait      # blocks until something is ready, then takes it
+# terminal 2
+clu claim -a bob --wait        # gets a *different* issue, guaranteed
+```
+
+`--wait` blocks until work appears; add `--heartbeat` so `clu agent ls` shows
+the session as live while it waits.
+
+## Route work by capability
+
+Tag issues with a capability instead of a name, and they flow to whichever
+agent advertises that skill. Declare capabilities in `.clu/config.yaml`:
+
+```yaml
+agents:
+  reviewer:
+    capabilities: [go-review]
+```
+
+```bash
+clu create --capability go-review "review the auth PR"
+clu claim -a reviewer          # reviewer's lane includes cap:go-review work
+```
+
+Capability-tagged issues are hidden from a bare `clu ready` and only surface
+for an agent with the matching capability. See [multi-agent](/docs/multi-agent).
+
+## Push-style task delivery (no polling)
+
+Inside Claude Code, point the Monitor tool at a `--watch` invocation. `clu`
+suppresses unchanged ticks, so each *new* state becomes one notification — no
+`while true`, no diffing against a seen-set.
+
+```
+Monitor: clu ready --watch -a reviewer
+```
+
+## A release gated on human approval
+
+A checkpoint is a manual gate: downstream work stays blocked until someone
+runs `clu approve`. Build the chain with [`clu batch`](/docs/import) or a
+[workflow template](/docs/workflows).
+
+```bash
+echo '[
+  {"alias":"build","title":"Build 1.4.0"},
+  {"alias":"stage","title":"Deploy to staging","needs":["build"]},
+  {"alias":"gate","title":"Approve for prod","needs":["stage"],"checkpoint":{"approvers":["alice"]}},
+  {"alias":"prod","title":"Deploy to prod","needs":["gate"]}
+]' | clu batch --group "Release 1.4.0"
+
+clu ready                       # build → stage, then it stops at the gate
+clu approve -a alice clu-gateid # clears the checkpoint; prod becomes ready
+```
+
+Failing the gate cascade-cancels the tail:
+`clu checkpoint fail -a alice <id>`.
+
+## Phased migration
+
+When work must happen in strict stages, a `milestone` between phases
+auto-closes once its phase completes and unblocks the next — no human gate.
+The [`migrate.js`](https://github.com/arjia-labs/clu/blob/main/examples/generators/migrate.js)
+generator emits exactly this shape:
+
+```bash
+node examples/generators/migrate.js solid api ui store \
+  | clu batch --group "React→Solid"
+
+clu ready                       # only phase-1 (inventory) tasks
+# …close them, and phase-2 (analysis) unblocks automatically
+```
+
+## Bulk-import from another tracker
+
+Generate a JSON graph and pipe it in. A stable `key` per issue makes re-runs
+idempotent. Full detail in [Importing & bulk graphs](/docs/import).
+
+```bash
+linear issue query --state unstarted --json \
+  | node examples/generators/linear-todo.js \
+  | clu batch --on-existing update
+```
+
+## Coordinate a shared resource with a lock
+
+When two agents must not touch the same thing at once (a deploy slot, a build
+dir), wrap the critical section in a TTL'd named lock:
+
+```bash
+clu lock deploy-prod -- ./deploy.sh     # others block on "deploy-prod" until done
+clu locks                                # see what's held
+```
+
+## Fire-and-forget messages
+
+`clu ping` drops a TTL'd note in another agent's mailbox without polluting the
+work log; `clu inbox` reads yours.
+
+```bash
+clu ping reviewer "auth PR is ready for review"
+clu inbox -a reviewer                    # reads + marks read (--peek to leave unread)
+```
+
+## Schedule recurring work
+
+`clu cron` records recurring invocations; drive them from OS cron / launchd.
+
+```bash
+clu cron add nightly-triage "0 9 * * *" -- clu doctor
+clu cron ls
+```
+
+## See the shape of the work
+
+When the backlog gets big, the [web UI](/docs/web) is the fastest way to spot
+what's stuck or piling up:
+
+```bash
+clu web        # board + list + approvals on http://localhost:5757
+```
+
+## Back up / move a tracker
+
+`export` dumps everything as JSONL; `import` restores it verbatim (IDs
+preserved) into another `.clu`.
+
+```bash
+clu export -o backup.jsonl
+clu import backup.jsonl
+```

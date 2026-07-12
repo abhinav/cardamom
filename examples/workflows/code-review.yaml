@@ -1,0 +1,57 @@
+# PR workflow with parallel review + automated checks, then human gate.
+#
+# Pattern: fan-out / fan-in. After the author drafts, two independent
+# agents work in parallel — a reviewer reads the code, a test-runner
+# runs the suite. Both must finish before the human approval gate
+# becomes ready. The maintainer then merges.
+#
+#       draft  ────┐
+#                  ├──► review (reviewer-agent) ──┐
+#                  └──► tests  (test-agent)      ──┤
+#                                                  └──► approve (human) ──► merge
+#
+# Try:
+#   cli run code-review --var pr=PR-42 --var author=alice
+#   cli ready -a author-agent     # only draft is ready
+#   cli close <draft-id>
+#   cli ready -a reviewer-agent   # review is ready
+#   cli ready -a test-agent       # tests are ready (in parallel)
+#   # both close →
+#   cli approve <approve-id>
+#   cli ready -a maintainer-agent # merge is ready
+name: code-review
+description: Draft → (review || tests) → approve → merge
+
+vars:
+  pr:
+    required: true
+    pattern: '^[A-Z0-9-]+$'
+  author:
+    required: true
+
+steps:
+  - id: draft
+    title: "{{pr}}: draft changes ({{author}})"
+    agent: author-agent
+    priority: 1
+
+  - id: review
+    title: "{{pr}}: code review"
+    agent: reviewer-agent
+    needs: [draft]
+
+  - id: tests
+    title: "{{pr}}: run test suite"
+    agent: test-agent
+    needs: [draft]
+
+  - id: approve
+    type: checkpoint
+    title: "{{pr}}: approve for merge"
+    wait: { manual: true }
+    needs: [review, tests]
+
+  - id: merge
+    title: "{{pr}}: merge to main"
+    agent: maintainer-agent
+    needs: [approve]

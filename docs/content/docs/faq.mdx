@@ -1,0 +1,47 @@
+---
+title: FAQ
+description: Common questions, mostly about what clu deliberately doesn't do.
+---
+
+### Why not just use GitHub Issues / Linear / Jira?
+
+Because trackers integrate with each other badly, and a hosted tracker isn't a
+useful place to coordinate ephemeral agent work that happens many times a
+second. `clu` is fast, local, and scoped to *this checkout of this repo* — it
+deletes cleanly when you `rm -rf .clu/`.
+
+Pulling work *in* from a hosted tracker is supported, though: pipe its export
+through [`clu batch`](/docs/import) (a stable `key` per issue keeps re-runs
+idempotent). Pushing back *out* is a one-way sync from a script — `clu list
+--json` is the seam.
+
+### Can two machines share a `clu` tracker?
+
+Copy the file. There is no built-in cross-machine sync layer; that's a much
+bigger problem and not one this tool tries to solve. `data.sqlite` is a
+self-contained SQLite database — `scp` it, commit it (don't), or layer
+something on top.
+
+### Does `clu` talk to the network?
+
+No. No telemetry, no update checks, no cloud, no nothing. The only network
+activity is whatever your shell or agent does around it.
+
+### Can I use `clu` for non-agent work?
+
+Yes — there's nothing agent-specific about creating issues, depending one on
+another, claiming, and closing. The multi-agent bits (capability routing,
+`--heartbeat`, watch) are opt-in.
+
+### What's *not* in scope?
+
+`clu` is deliberately small. It doesn't try to be:
+
+- a cross-machine sync layer
+- a generic project-management tool (sprints, OKRs)
+- a *live, two-way* bridge to GitHub / Linear / Jira / Notion / ADO (one-way **import** via [`clu batch`](/docs/import) is supported)
+- an agent runtime
+- a memory system
+
+For how clu compares to nearby tools, see [vs beads](/docs/vs-beads) and
+[vs Claude workflows](/docs/comparison).

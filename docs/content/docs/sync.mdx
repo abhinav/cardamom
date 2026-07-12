@@ -1,0 +1,177 @@
+---
+title: Sync (git ref)
+description: Store issue state on a dedicated, branch-independent git ref so any checkout — or any machine sharing a remote — sees the same issues, with no merge conflicts on your code branches.
+---
+
+<Callout type="warn">
+**Experimental.** `clu sync` is a working prototype with deliberate
+simplifications (see [Known limitations](#known-limitations)). The on-disk
+format and reconciliation rules may change. For a single machine it's optional;
+its real job is moving issue state **between clones** without committing the
+database to your code branches.
+</Callout>
+
+`clu sync` stores the whole tracker on a dedicated git ref — `refs/clu/store` —
+as JSONL. SQLite stays the working copy and query engine; the ref is the
+durable, shareable log. Because the ref lives *outside* `refs/heads/*`, writing
+it never touches your working tree, your index, or any code branch — and any
+checkout sees the same issues.
+
+```bash
+clu sync push                 # serialize the DB onto refs/clu/store
+clu sync pull                 # reconcile the ref back into the DB
+clu sync status               # compare the ref to the local DB
+clu sync flush                # pull then push — the full round-trip
+```
+
+Add `--remote origin` to any of them to also push/fetch the ref over a git
+remote.
+
+## Why a git ref
+
+`.clu/data.sqlite` is local and gitignored, so it never travels with the repo —
+a fresh clone has zero issues. Committing it onto a branch would be worse: issue
+edits would collide with code commits and fork per branch. The ref threads that
+needle:
+
+- **Branch-independent.** `refs/clu/store` is one ref for the whole repo. Switch
+  branches, make a worktree — same issues. Issue history is its own commit line,
+  completely disjoint from your code history (no shared commits, no merge-base).
+- **No conflicts with code.** Writes only ever touch this ref. `git status`
+  stays clean across a `clu sync push`; the push uses pure git plumbing
+  (`hash-object → mktree → commit-tree → update-ref`) and never checks anything
+  out.
+- **Durable.** The commits live in the same object store as your code, so
+  `git gc`, `clone --mirror`, and your git host all preserve them. Blow away the
+  SQLite file and `clu sync pull` rebuilds it.
+
+This is the same bet [beads-rs](https://github.com/delightful-ai/beads-rs)
+makes; clu differs by keeping SQLite as the working copy (the ref is a sync
+format, not the primary store) and by using a non-branch ref namespace (see
+[GitHub visibility](#github-visibility)).
+
+## Across machines
+
+Each machine has its own gitignored SQLite DB; the ref carries state between them
+over any shared git remote:
+
+```bash
+# machine A
+clu sync push --remote origin     # git push origin refs/clu/store
+
+# machine B (fresh clone — no .clu/ yet)
+clu sync pull --remote origin     # fetch the ref + reconcile into B's DB
+```
+
+On a fresh clone you don't need to `clu init` first: `sync pull` creates and
+migrates the local DB if it's missing, then fills it from the ref. The same is
+true after deleting `data.sqlite` — a plain `clu sync pull` rebuilds it.
+
+The **DB is the source of truth on each box; the ref is just transport.** Pull
+reconciles incoming records into SQLite with last-writer-wins by `updated`, and
+applies tombstones so deletes propagate.
+
+**Concurrent pushes are lossless.** If A and B both branch from the same ref
+commit and both push, the second push is rejected (non-fast-forward — clu does
+not force-push). The loser runs `clu sync flush` (pull then push): the fetch
+brings in the winner's commit, reconcile merges it into the local DB, and the
+re-push re-serializes the full local state on top. Nothing is lost, because the
+data lives in SQLite, not only in the ref.
+
+<Callout type="info">
+`refs/clu/*` is **not** in git's default fetch refspec, so a plain `git clone` /
+`git fetch` won't bring it — use `clu sync pull --remote origin`. To make stock
+`git fetch` carry it, add to `.git/config`:
+
+```ini
+[remote "origin"]
+    fetch = +refs/clu/store:refs/clu/store
+```
+</Callout>
+
+## Worktrees
+
+On one machine, worktrees **don't need sync to coordinate** — they already share
+state. Git refs live in the common `.git` dir, so every linked worktree sees the
+same `refs/clu/store`; and clu already resolves a secondary worktree's `--dir`
+to the **main** worktree's `.clu/`, so they share one `data.sqlite` too. A
+`clu sync status` from a linked worktree shows `0 local-ahead, 0 ref-ahead`.
+
+Sync matters for worktrees only when they live on **different machines** (each
+its own clone) — then it's the cross-machine story above.
+
+## How reconciliation works
+
+`clu sync pull` reads the ref's `state.jsonl` + `tombstones.jsonl` and merges
+them into SQLite in a single transaction:
+
+| record | merge rule |
+|---|---|
+| issues | **last-writer-wins** on `updated`; an older snapshot never clobbers a newer local edit |
+| labels | replaced to match the winning issue revision (removals propagate) |
+| deps / comments | additive upsert (by edge / by id) |
+| kv | last-sync-wins (no timestamp) |
+| tombstones | delete the local issue **unless** it's newer than the tombstone (resurrection wins) |
+
+IDs are safe to merge as-is: clu IDs are random (`clu-a3f8…`, repo-scoped
+prefix), so two machines never generate the same ID — the same property
+beads-rs relies on.
+
+### Tombstones
+
+clu hard-deletes are rare (you usually `clu cancel`), but when an issue *is*
+removed, `clu sync push` derives a tombstone by diffing the previous snapshot's
+IDs against the current DB, carries it forward in `tombstones.jsonl`, and drops
+it if the ID ever reappears. On pull, a tombstone removes the issue locally
+unless the local copy is newer.
+
+## Anatomy of the ref
+
+The ref points at a commit whose tree is a clean two-file root — it does **not**
+contain your code:
+
+```bash
+$ git ls-tree --name-only refs/clu/store
+state.jsonl        # issues, deps, labels, comments, kv, cron (the clu export format)
+tombstones.jsonl   # {id, deleted, actor} per removed issue
+```
+
+`state.jsonl` is exactly what [`clu export`](/docs/import#backup--restore)
+produces, so the ref is inspectable with ordinary git:
+
+```bash
+git cat-file -p refs/clu/store:state.jsonl | head
+```
+
+## GitHub visibility
+
+Because `refs/clu/store` is **not** a branch (`refs/heads/*`) or tag, GitHub's
+web UI does not render it: it won't appear in the branch dropdown, branch count,
+tags, code browser, or pull requests, and it won't trigger `on: push` Actions
+(so syncing issues never burns CI minutes). The push still succeeds, the objects
+are stored and GC-safe, and the ref is reachable via the API
+(`GET /repos/{owner}/{repo}/git/refs/clu/store`) or by commit SHA.
+
+If you'd rather see `state.jsonl` in the GitHub file browser and have it
+auto-fetch on clone, you can store it on a branch instead (`refs/heads/clu/store`)
+— at the cost of a phantom branch in every listing. clu defaults to the
+invisible namespace to keep your branch list clean.
+
+## Known limitations
+
+`clu sync` is a prototype. The deliberate gaps:
+
+- **Second-granularity LWW ties.** `updated` is unix *seconds*; two edits to the
+  *same* issue on two machines within the same second tie, and ties keep the
+  local copy — non-commutative across clones. A production version would widen
+  the timestamp and break ties by actor.
+- **No daemon.** Sync is manual (`push` / `pull` / `flush`). There's no
+  background auto-push.
+- **Additive dep/comment merges.** Issue *removals* propagate via tombstones,
+  but dep/comment *removals* do not yet; KV is last-sync-wins.
+- **Manual refspec.** Cross-machine onboarding needs `clu sync pull --remote`
+  (or the `.git/config` refspec above); a bare `git clone` won't carry issues.
+
+For a single local machine you rarely need any of this — the DB is already
+shared across worktrees. Reach for `clu sync` when issue state has to cross a
+machine boundary and you want it to ride along in git rather than out-of-band.

@@ -1,0 +1,55 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    name: go (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: gofmt
+        # gofmt -l prints any file that's not formatted; non-empty = fail.
+        # The web/clu-web subtree is JS/TS — exclude.
+        run: |
+          unformatted=$(gofmt -l $(find . -name '*.go' -not -path './web/*'))
+          if [ -n "$unformatted" ]; then
+            echo "::error::these files are not gofmt-clean:"
+            echo "$unformatted"
+            exit 1
+          fi
+
+      - name: go vet
+        run: go vet ./...
+
+      - name: golangci-lint
+        # The repo's .golangci.yml is v2-format, so we need golangci-lint v2
+        # (action v7+). Pin a build made with Go >= the go.mod target —
+        # golangci-lint refuses to run if its build Go minor is lower than
+        # the module's (v1.64.8 / go1.24 < go 1.26 → "can't load config").
+        uses: golangci/golangci-lint-action@v9
+        with:
+          version: v2.12.2
+
+      - name: build
+        run: go build ./...
+
+      - name: test
+        run: go test -race -count=1 ./...

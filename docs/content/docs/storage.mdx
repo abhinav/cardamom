@@ -1,0 +1,56 @@
+---
+title: Storage
+description: What lives in .clu/ — SQLite schema, config, templates.
+---
+
+`clu` stores everything for a project in the `.clu/` directory at the project
+root:
+
+```
+.clu/
+├── data.sqlite       # the database (gitignore this)
+├── config.yaml       # agent declarations, id_prefix (commit this)
+└── templates/        # workflow templates (commit these)
+    └── release.yaml
+```
+
+Override the location with the `CLU_DIR` environment variable.
+
+The database is local and gitignored, so it never travels with the repo. To
+share issue state across clones or machines without committing the DB to a code
+branch, see [Sync (git ref)](/docs/sync) — it stores the tracker on a dedicated,
+branch-independent `refs/clu/store` ref.
+
+## config.yaml
+
+```yaml
+id_prefix: clu-
+agents:
+  code-reviewer:
+    description: "Reviews Go code for correctness and security"
+    capabilities: [go-review, security-review]
+```
+
+`id_prefix` is per-project and shows up in every issue ID (`clu-a3f8`). Pick
+something short and project-specific if you'll be moving issues between repos.
+
+## Schema
+
+The schema upgrades itself in place on first run (gated by SQLite's
+`user_version`) and is forward-only, so a newer clu opens an older database
+without rewriting or discarding your data. The core tables:
+
+| table | what it holds |
+|---|---|
+| `issues` | id, title, description, status, priority, assignee, `started_at`, timestamps |
+| `deps` | edges: `from → to` (the `to` issue blocks until `from` is closed) |
+| `labels` | many-to-many string labels on issues |
+| `comments` | per-issue append-only log; author is an agent name |
+| `events` | append-only audit log (one row per write); powers `clu history` / `clu log` |
+| `kv` | namespaced key/value scratch space (checkpoints use `cp:*`, batch idempotency uses `extkey:*`) |
+| `agents` | declared agents (synced from config.yaml) + last-heartbeat |
+| `locks` | named TTL'd locks for cross-cutting coordination |
+
+It's an ordinary SQLite file — `clu sql "select …"` queries it directly (and
+`--write` lets you run DML when you really need to), but the CLI is the safe
+path: it knows about labels, the KV side tables, and the cascade walk.

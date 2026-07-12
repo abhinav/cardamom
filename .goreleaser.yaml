@@ -1,0 +1,68 @@
+# goreleaser config — see https://goreleaser.com/customization
+#
+# Triggered on tag pushes by .github/workflows/release.yml.
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - id: clu
+    main: ./cmd/clu
+    binary: clu
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      # Embed the version into the binary so `clu version` reports the
+      # released tag rather than "dev".
+      - -s -w
+      - -X github.com/arjia-labs/clu/internal/cli.Version={{.Version}}
+
+archives:
+  - id: clu
+    formats: [tar.gz]
+    name_template: >-
+      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
+    files:
+      - README.md
+      - AGENTS.md
+      - LICENSE*
+      - examples/templates/**
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  version_template: '{{ incpatch .Version }}-dev'
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^chore:'
+      - 'Merge pull request'
+
+release:
+  draft: false
+  prerelease: auto
+  header: |
+    ## clu {{.Tag}}
+
+    Install:
+
+    ```bash
+    go install github.com/arjia-labs/clu/cmd/clu@{{.Tag}}
+    ```
+
+    Or grab a prebuilt binary from the assets below.

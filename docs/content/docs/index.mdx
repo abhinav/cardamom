@@ -1,0 +1,50 @@
+---
+title: Welcome
+description: A SQLite-backed issue tracker for coordinating AI coding agents on a single machine.
+---
+
+![Agents coordinating around a shared dependency graph](/img/hero-orchestration.png)
+
+`clu` is a small, fast, single-binary CLI for tracking work across multiple AI
+coding agents running on the same project. It's backed by a local SQLite
+database — no daemon, no server, no account, no network.
+
+It exists for one reason: when you run more than one AI coding session against
+the same repo, they need a shared, durable place to:
+
+- pick up work without stepping on each other (atomic claim),
+- record what they tried, what worked, what didn't,
+- gate risky steps behind human approval,
+- surface what's unblocked vs. waiting on something else.
+
+## At a glance
+
+| | |
+|---|---|
+| **Single binary, pure Go** | SQLite via `modernc.org/sqlite` — no CGo, no system libs. |
+| **Local-first** | One file: `.clu/data.sqlite`. Commit `config.yaml`, gitignore the DB. |
+| **Atomic claim** | `UPDATE … RETURNING` with subquery — racing agents get different issues. |
+| **Capability routing** | Agents declare capabilities in `config.yaml`; `cap:foo` labels flow to matching agents. |
+| **Cascading cancel** | `clu cancel <id>` walks the dep graph forward and cancels the whole tail. |
+| **Bulk graph instantiation** | `clu batch` turns one JSON doc into a whole validated graph (thousands of issues + deps) in one transaction. |
+| **Workflow templates** | YAML graphs of issues + deps with optional human-approval checkpoints. |
+| **JSON everywhere** | Every command takes `--json` and emits exactly one JSON value to stdout. |
+| **No network** | No telemetry, no sync, no cloud. Share a tracker? Copy the file. |
+
+## Next
+
+- [Install](/docs/getting-started/install) — get the binary.
+- [Quickstart](/docs/getting-started/quickstart) — run the core loop.
+- [Multi-agent setup](/docs/multi-agent) — declare agents, route work.
+- [Workflows](/docs/workflows) — YAML templates for repeatable graphs.
+- [Importing & bulk graphs](/docs/import) — `clu batch` + piping from Linear / Notion.
+- [Recipes](/docs/recipes) — common end-to-end patterns.
+
+## Not in scope
+
+`clu` is deliberately small. It does **not** try to be:
+
+- a cross-machine sync layer — copy the file or layer something on top
+- a generic project-management tool — no sprints, OKRs
+- a *live* bridge to GitHub / Linear / Jira — there's no two-way sync (though you can **import** from anything by piping a generated graph to [`clu batch`](/docs/import))
+- an agent runtime — *you* are the agent; `clu` just gives you somewhere to put the work
