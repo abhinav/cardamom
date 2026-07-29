@@ -60,7 +60,7 @@ func (i *IssueInspector) ReadIssue(
 	if err != nil {
 		return IssueView{}, err
 	}
-	issueID, err := issue.NewID(request.IssueID)
+	issueID, err := issue.NewID(view.Detail.Issue.ID)
 	if err != nil {
 		return IssueView{}, fmt.Errorf("parse inspected issue ID: %w", err)
 	}
@@ -74,7 +74,7 @@ func (i *IssueInspector) ReadIssue(
 		if err != nil {
 			return IssueView{}, fmt.Errorf(
 				"list attachments for issue %q: %w",
-				request.IssueID,
+				issueID,
 				err,
 			)
 		}

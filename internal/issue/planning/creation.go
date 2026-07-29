@@ -32,6 +32,8 @@ type CreateIssue struct {
 	Summary string
 	// Details is optional expanded stable material.
 	Details string
+	// ExternalKey is the optional exact producer identity to bind.
+	ExternalKey *ExternalKey
 }
 
 // CreateSnapshot contains the state required to create one issue.
@@ -44,6 +46,9 @@ type CreateSnapshot struct {
 	AllocatedID issue.ID
 	// ExistingIDs contains every durable issue identity in the selected board.
 	ExistingIDs []issue.ID
+	// ExternalKeyOwner is the current owner of CreateIssue.ExternalKey.
+	// Nil means the requested key is unassociated or no key was requested.
+	ExternalKeyOwner *ExternalKeyOwner
 	// OccurredAt timestamps the new issue.
 	OccurredAt time.Time
 }
@@ -62,6 +67,8 @@ type IssueCreated struct {
 	// Parent is the containment parent committed with Issue.
 	// Nil means the issue has no containment parent.
 	Parent *issue.ID
+	// ExternalKey is the producer identity committed with Issue.
+	ExternalKey *ExternalKey
 
 	CommittedRevision
 }
@@ -92,6 +99,8 @@ type CreateIssueRequest struct {
 	Summary string
 	// Details is optional expanded stable material.
 	Details string
+	// Key is an optional exact producer identity.
+	Key *string
 }
 
 // LoadCreate validates snapshot and loads policy state for create.
@@ -135,6 +144,23 @@ func (p *CreatePolicy) CreateIssue(command CreateIssue) (IssueCreated, error) {
 	if err != nil {
 		return IssueCreated{}, err
 	}
+	var externalKey *ExternalKey
+	owner, err := ownerForExternalKey(command.ExternalKey, p.snapshot.ExternalKeyOwner)
+	if err != nil {
+		return IssueCreated{}, err
+	}
+	if command.ExternalKey != nil {
+		key := *command.ExternalKey
+		if owner != nil {
+			return IssueCreated{}, errkind.Errorf(
+				errkind.Conflict,
+				"external key %q belongs to issue %q",
+				key,
+				*owner,
+			)
+		}
+		externalKey = &key
+	}
 	state, err := issue.Load(issue.Snapshot{
 		ID:        p.snapshot.AllocatedID,
 		Title:     title,
@@ -150,10 +176,11 @@ func (p *CreatePolicy) CreateIssue(command CreateIssue) (IssueCreated, error) {
 		return IssueCreated{}, err
 	}
 	return IssueCreated{
-		Issue:     state,
-		Labels:    labels,
-		DependsOn: dependencies,
-		Parent:    parent,
+		Issue:       state,
+		Labels:      labels,
+		DependsOn:   dependencies,
+		Parent:      parent,
+		ExternalKey: externalKey,
 	}, nil
 }
 
@@ -213,15 +240,24 @@ func createIssueCommand(
 		}
 		parent = &value
 	}
+	var externalKey *ExternalKey
+	if req.Key != nil {
+		value, err := NewExternalKey(*req.Key)
+		if err != nil {
+			return CreateIssue{}, err
+		}
+		externalKey = &value
+	}
 	return CreateIssue{
-		Title:     req.Title,
-		Kind:      kind,
-		Priority:  priority,
-		Labels:    issueLabels,
-		DependsOn: dependencies,
-		Parent:    parent,
-		Summary:   req.Summary,
-		Details:   req.Details,
+		Title:       req.Title,
+		Kind:        kind,
+		Priority:    priority,
+		Labels:      issueLabels,
+		DependsOn:   dependencies,
+		Parent:      parent,
+		Summary:     req.Summary,
+		Details:     req.Details,
+		ExternalKey: externalKey,
 	}, nil
 }
 

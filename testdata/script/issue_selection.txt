@@ -54,7 +54,7 @@ cat claim.out
 cat claim.err >&2
 
 -- golden/edited.json --
-{"id":"sel-2","title":"Document system","type":"task","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"summary":"Child context.","revision":6,"labels":["docs","reviewed"],"depends_on":["sel-1"],"blocks":[],"log_count":0,"blocked":true,"parent_id":"sel-1","attachments":[]}
+{"id":"sel-2","title":"Document system","type":"task","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"summary":"Child context.","revision":6,"keys":[],"labels":["docs","reviewed"],"depends_on":["sel-1"],"blocks":[],"log_count":0,"blocked":true,"parent_id":"sel-1","attachments":[]}
 -- golden/create-program.txt --
 sel-1
 -- golden/create-document.txt --

@@ -25,7 +25,7 @@ cmpjson stdout $WORK/golden/empty.json
 -- golden/description.json --
 {"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Default board","created":1783944000,"description":"Mission context for every issue."}
 -- golden/context.json --
-{"board":{"description":"Mission context for every issue."},"context":[],"dependency_results":[],"issue":{"id":"board-1","title":"Context consumer","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}}
+{"board":{"description":"Mission context for every issue."},"context":[],"dependency_results":[],"issue":{"id":"board-1","title":"Context consumer","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"revision":3,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}}
 -- golden/empty.txt --
 ID:      board_00000000000000000000
 Project: project_00000000000000000000

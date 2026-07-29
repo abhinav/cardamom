@@ -35,4 +35,4 @@ stderr 'start with a letter or digit'
 applied document: 1 create, 0 update, 0 skip, 0 no change
 0	create	issue-1
 -- golden/issue.json --
-{"id":"issue-1","title":"Separate namespaces","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784808000,"updated":1784808000,"revision":2,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"issue-1","title":"Separate namespaces","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784808000,"updated":1784808000,"revision":2,"keys":[" producer_key/path "],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}

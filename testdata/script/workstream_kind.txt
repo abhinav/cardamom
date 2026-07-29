@@ -67,7 +67,7 @@ workstream-1
 -- golden/edit.txt --
 edited workstream-1
 -- golden/workstream.json --
-{"id":"workstream-1","title":"Release workstream","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"workstream-1","title":"Release workstream","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":4,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/applied.txt --
 applied document: 6 create, 0 update, 0 skip, 0 no change
 0	create	workstream-2
@@ -87,11 +87,11 @@ error: --type must be one of "workstream","task","checkpoint","routine" but got 
 -- golden/generic-list.jsonl --
 {"id":"workstream-7","title":"Generic child","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":5,"labels":["team"],"blocked":false}
 -- golden/workstream-claim.json --
-{"id":"workstream-1","title":"Release workstream","type":"workstream","lifecycle":"open","status":"in_progress","priority":2,"active_claim":{"actor":"root-worker","started_at":1783857600},"assignee":"root-worker","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":6,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"workstream-1","title":"Release workstream","type":"workstream","lifecycle":"open","status":"in_progress","priority":2,"active_claim":{"actor":"root-worker","started_at":1783857600},"assignee":"root-worker","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":6,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/descendant-claim.json --
-{"id":"workstream-3","title":"Workstream task","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"geordi","started_at":1783857600},"assignee":"geordi","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":7,"labels":["team"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"workstream-2"}
+{"id":"workstream-3","title":"Workstream task","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"geordi","started_at":1783857600},"assignee":"geordi","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":7,"keys":[],"labels":["team"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"workstream-2"}
 -- golden/generic-claim.json --
-{"id":"workstream-7","title":"Generic child","type":"task","lifecycle":"open","status":"in_progress","priority":2,"active_claim":{"actor":"data","started_at":1783857600},"assignee":"data","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":8,"labels":["team"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"workstream-6"}
+{"id":"workstream-7","title":"Generic child","type":"task","lifecycle":"open","status":"in_progress","priority":2,"active_claim":{"actor":"data","started_at":1783857600},"assignee":"data","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":8,"keys":[],"labels":["team"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"workstream-6"}
 -- golden/open-children-error.txt --
 error: workstream-1: workstream has open children
 -- golden/close-nested-task.txt --

@@ -76,6 +76,7 @@ type createCommand struct {
 	Parent    string     `name:"parent" placeholder:"ISSUE" help:"Containment parent issue ID."`
 	Summary   string     `name:"summary" placeholder:"MARKDOWN" help:"Concise Markdown issue summary."`
 	Details   string     `name:"details" placeholder:"MARKDOWN" help:"Expanded Markdown issue details."`
+	Key       *string    `name:"key" placeholder:"KEY" help:"Exact producer key to bind."`
 }
 
 func (*createCommand) Help() string {
@@ -98,6 +99,7 @@ func (c *createCommand) Run(inv *Invocation, operation CreateIssueOperation) err
 		Title: c.Title, Type: c.Type, Priority: c.Priority,
 		Labels: c.Labels.add, DependsOn: c.DependsOn, Parent: c.Parent,
 		Summary: c.Summary, Details: c.Details,
+		Key: c.Key,
 	})
 	if err != nil {
 		return err
@@ -422,6 +424,7 @@ type issueEditCommand struct {
 	Parent       *string         `name:"parent" placeholder:"ISSUE" help:"Replacement containment parent issue ID. Use an empty value to clear it."`
 	Dependencies dependencyTerms `name:"depends-on" placeholder:"TERM" help:"Prerequisite term. No prefix or + adds; - removes. Repeat for multiple issues."`
 	Labels       labelTerms      `name:"label" placeholder:"TERM" help:"Label term. No prefix or + adds; - removes. Repeat for multiple labels."`
+	Key          *string         `name:"key" placeholder:"KEY" help:"Exact producer key to bind."`
 }
 
 func (c *issueEditCommand) referencedIssueIDs() []string { return []string{c.ID} }
@@ -450,6 +453,7 @@ func (c *issueEditCommand) Run(inv *Invocation, operation EditIssueOperation) er
 		Parent: parent, ParentSet: c.Parent != nil,
 		AddDependencies: c.Dependencies.add, RemoveDependencies: c.Dependencies.remove,
 		AddLabels: c.Labels.add, RemoveLabels: c.Labels.remove,
+		Key: c.Key,
 	})
 	if err != nil {
 		return err

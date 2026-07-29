@@ -120,6 +120,7 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 				Summary: &summary, Revision: 6,
 			},
 			Labels: []string{"area:cli"}, DependsOn: []issue.Reference{{ID: "an-dep"}},
+			Keys:     []string{"source:a", "source:z"},
 			ParentID: new("an-parent"), Blocked: true,
 			LogSummary: issue.LogSummary{Count: 2, LatestID: &latestLogID},
 		},
@@ -164,11 +165,34 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 			"lifecycle":"open","status":"ready","priority":2,
 			"active_claim":null,"created":20,"updated":21,
 			"summary":"Current summary","revision":6,
+			"keys":["source:a","source:z"],
 			"labels":["area:cli"],"depends_on":["an-dep"],"blocks":[],"attachments":[],
 			"log_count":2,"latest_log_id":"cmt_77777777777777777777777777777777","parent_id":"an-parent",
 			"blocked":true
 		}
 	}`, stdout.String())
+	assert.Empty(t, stderr.String())
+}
+
+func TestShowCommandTreatsPositionalArgumentAsKey(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	operation := &inspectionOperation{readResult: issue.View{
+		Detail: issue.Detail{
+			Issue: issue.Issue{
+				ID: "an-current", Title: "Current", Type: "task", Lifecycle: "open",
+				Status: "ready", Priority: 2, Created: 20, Updated: 21, Revision: 6,
+			},
+			Keys: []string{"source:current"},
+		},
+	}}
+	app := newInspectionApplication(t, testConfig(&stdout, &stderr), operation)
+
+	exitCode := app.Run(t.Context(), []string{"show", "--key", "source:current"})
+
+	assert.Equal(t, ExitSuccess, exitCode)
+	assert.Equal(t, issue.ReadRequest{Key: "source:current"}, operation.readRequest)
+	assert.Empty(t, (&showCommand{ID: "source:current", Key: true}).referencedIssueIDs())
+	assert.Contains(t, stdout.String(), "Keys: source:current\n")
 	assert.Empty(t, stderr.String())
 }
 

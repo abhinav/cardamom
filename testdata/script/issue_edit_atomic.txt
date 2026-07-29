@@ -25,11 +25,11 @@ exec card --json show edit-3
 cmpjson stdout $WORK/golden/detached.json
 
 -- golden/edited.json --
-{"id":"edit-1","title":"Target task","type":"workstream","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783944000,"updated":1783944000,"summary":"Program contract.","revision":6,"labels":["core"],"depends_on":["edit-2"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null}
+{"id":"edit-1","title":"Target task","type":"workstream","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783944000,"updated":1783944000,"summary":"Program contract.","revision":6,"keys":[],"labels":["core"],"depends_on":["edit-2"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null}
 -- golden/shown.json --
-{"id":"edit-1","title":"Target task","type":"workstream","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783944000,"updated":1783944000,"summary":"Program contract.","revision":6,"labels":["core"],"depends_on":["edit-2"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null,"attachments":[]}
+{"id":"edit-1","title":"Target task","type":"workstream","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783944000,"updated":1783944000,"summary":"Program contract.","revision":6,"keys":[],"labels":["core"],"depends_on":["edit-2"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null,"attachments":[]}
 -- golden/detached.json --
-{"id":"edit-3","title":"Contained child","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"revision":7,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"edit-3","title":"Contained child","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"revision":7,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/attach.txt --
 edited edit-3
 -- golden/missing-parent.txt --

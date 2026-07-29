@@ -39,6 +39,11 @@ func (r *Repository) EditIssue(
 	if err := r.updateIssue(ctx, mutation, out.Issue); err != nil {
 		return out, err
 	}
+	if out.ExternalKey != nil {
+		if err := r.insertExternalKey(ctx, mutation, out.Issue.ID(), *out.ExternalKey); err != nil {
+			return out, err
+		}
+	}
 	if err := r.replaceLabels(ctx, mutation, out.Issue.ID(), out.Labels); err != nil {
 		return out, err
 	}
@@ -100,6 +105,14 @@ func (r *Repository) editSnapshot(
 	if err != nil {
 		return planning.EditSnapshot{}, err
 	}
+	externalKeyOwner, err := r.readExternalKeyOwner(
+		ctx,
+		mutation.change,
+		command.ExternalKey,
+	)
+	if err != nil {
+		return planning.EditSnapshot{}, err
+	}
 	dependencyAncestors := make(map[issue.ID][]issue.ID, len(command.AddDependencies))
 	for _, dependency := range command.AddDependencies {
 		dependencyAncestors[dependency], err = r.dependencyAncestors(ctx, mutation.change, dependency)
@@ -118,6 +131,7 @@ func (r *Repository) editSnapshot(
 		BoardID: r.boardID, Revision: mutation.current, Issue: state,
 		DirectChildren: children, Labels: labels, Dependencies: dependencies,
 		Parent: parent, ExistingIDs: existingIDs,
+		ExternalKeyOwner:     externalKeyOwner,
 		DependencyAncestors:  dependencyAncestors,
 		ContainmentAncestors: containmentAncestors,
 		OccurredAt:           mutation.occurredAt,

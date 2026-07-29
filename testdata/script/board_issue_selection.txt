@@ -59,7 +59,7 @@ sel-3
 -- golden/use-second.txt --
 using board_11111111111111111111 (Second board)
 -- golden/default-parent.json --
-{"id":"sel-1","title":"Default parent","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784116800,"updated":1784116800,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"sel-1","title":"Default parent","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784116800,"updated":1784116800,"revision":3,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/default-descendants.jsonl --
 {"id":"sel-2","title":"Default child","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784116800,"updated":1784116800,"revision":5,"labels":[],"blocked":false}
 -- golden/edited.txt --

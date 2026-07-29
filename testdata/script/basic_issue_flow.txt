@@ -30,9 +30,9 @@ exec card --json show task-1
 cmpjson stdout $WORK/golden/show-closed.json
 
 -- golden/show-open.json --
-{"id":"task-1","title":"Repair warp core","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"summary":"Restore primary power.","revision":2,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"task-1","title":"Repair warp core","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"summary":"Restore primary power.","revision":2,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/show-closed.json --
-{"id":"task-1","title":"Repair warp core","type":"task","lifecycle":"closed","status":"closed","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"summary":"Restore primary power.","revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"task-1","title":"Repair warp core","type":"task","lifecycle":"closed","status":"closed","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"summary":"Restore primary power.","revision":4,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/init.txt --
 initialized .cardamom
 This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.

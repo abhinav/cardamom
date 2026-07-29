@@ -55,6 +55,29 @@ func TestIssueInspector_ReadIssue_listsEveryAssociatedAttachmentPage(t *testing.
 	}, attachments.requests[1])
 }
 
+func TestIssueInspector_ReadIssue_usesResolvedIssueForKeyRequest(t *testing.T) {
+	t.Parallel()
+
+	boardID, err := board.NewID("board-test")
+	require.NoError(t, err)
+	issueID := issue.MustID("an-1")
+	issues := &issueViewReaderStub{
+		view: issue.View{Detail: issue.Detail{Issue: issue.Issue{ID: issueID.String()}}},
+	}
+	attachments := &issueAttachmentListerStub{pages: []Page{{Attachments: []Attachment{}}}}
+	inspector := NewIssueInspector(boardID, issues, attachments)
+
+	view, err := inspector.ReadIssue(t.Context(), issue.ReadRequest{Key: "source:one"})
+
+	require.NoError(t, err)
+	assert.Equal(t, issueID.String(), view.Issue.Detail.Issue.ID)
+	assert.Equal(t, issue.ReadRequest{Key: "source:one"}, issues.request)
+	require.Len(t, attachments.requests, 1)
+	assert.Equal(t, ListRequest{
+		BoardID: boardID, OriginIssueID: &issueID,
+	}, attachments.requests[0])
+}
+
 type issueViewReaderStub struct {
 	request issue.ReadRequest
 	view    issue.View

@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
+	"go.abhg.dev/cardamom/internal/errkind"
 	issuekernel "go.abhg.dev/cardamom/internal/issue"
 )
 
@@ -154,6 +155,34 @@ func TestCreateIssueNormalizesParentAtApplicationBoundary(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, changes.createIssue.Parent)
 	assert.Equal(t, issuekernel.MustID("an-parent"), *changes.createIssue.Parent)
+}
+
+func TestPlannerNormalizesDirectExternalKeys(t *testing.T) {
+	t.Parallel()
+
+	changes := &fakeChanges{}
+	planner := newTestPlanner(t, changes)
+
+	_, err := planner.CreateIssue(t.Context(), issuekernel.NewInvocation("planner"), CreateIssueRequest{
+		Title: "Produced task", Type: "task", Priority: 1, Key: new(" source:task "),
+	})
+	require.NoError(t, err)
+	require.NotNil(t, changes.createIssue.ExternalKey)
+	assert.Equal(t, ExternalKey(" source:task "), *changes.createIssue.ExternalKey)
+
+	key := " source:other "
+	_, err = planner.EditIssue(t.Context(), issuekernel.NewInvocation("planner"), EditIssueRequest{
+		ID: "an-1", Key: &key,
+	})
+	require.NoError(t, err)
+	require.NotNil(t, changes.editIssue.ExternalKey)
+	assert.Equal(t, ExternalKey(" source:other "), *changes.editIssue.ExternalKey)
+
+	empty := ""
+	_, err = planner.CreateIssue(t.Context(), issuekernel.NewInvocation("planner"), CreateIssueRequest{
+		Title: "Rejected task", Type: "task", Priority: 1, Key: &empty,
+	})
+	assert.Equal(t, errkind.InvalidInput, errkind.Of(err))
 }
 
 func TestApplyDocumentPublishesRepositoryReceipt(t *testing.T) {

@@ -28,7 +28,7 @@ parent-1
 -- golden/child.txt --
 parent-2
 -- golden/child.json --
-{"id":"parent-2","title":"Contained task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"parent-1","attachments":[]}
+{"id":"parent-2","title":"Contained task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"parent-1","attachments":[]}
 -- golden/missing-parent.txt --
 error: parent: issue not found
 -- golden/self-parent.txt --
@@ -36,4 +36,4 @@ error: containment would create a cycle
 -- golden/next.txt --
 parent-3
 -- golden/next.json --
-{"id":"parent-3","title":"Next task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"parent-3","title":"Next task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":4,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}

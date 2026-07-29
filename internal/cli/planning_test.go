@@ -27,7 +27,7 @@ func TestCreateCommandBuildsAtomicRequestAndPrintsID(t *testing.T) {
 		"--type", "workstream", "--priority", "1",
 		"--label", "area:cli,+phase:one", "--label", "delivery",
 		"--depends-on", "an-dep", "--parent", "an-parent",
-		"--summary", "Durable scope",
+		"--summary", "Durable scope", "--key", "source:adapter",
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
@@ -35,7 +35,7 @@ func TestCreateCommandBuildsAtomicRequestAndPrintsID(t *testing.T) {
 	assert.Equal(t, planning.CreateIssueRequest{
 		Title: " Build adapter ", Type: "workstream", Priority: 1,
 		Labels: []string{"area:cli", "phase:one", "delivery"}, DependsOn: []string{"an-dep"},
-		Parent: "an-parent", Summary: "Durable scope",
+		Parent: "an-parent", Summary: "Durable scope", Key: new("source:adapter"),
 	}, operation.createRequest)
 	assert.Equal(t, "an-created\n", stdout.String())
 	assert.Empty(t, stderr.String())
@@ -284,6 +284,7 @@ func TestEditCommandPreservesRequestedEditDimensions(t *testing.T) {
 		"edit", "an-edit", "--title", "Changed",
 		"--type", "workstream", "--priority", "0",
 		"--summary=", "--parent=",
+		"--key", "source:edit",
 		"--depends-on", "an-add", "--depends-on", "+an-other,-an-remove",
 		"--label", "new", "--label", "-old",
 	})
@@ -292,7 +293,7 @@ func TestEditCommandPreservesRequestedEditDimensions(t *testing.T) {
 	assert.Equal(t, planning.EditIssueRequest{
 		ID: "an-edit", Title: new("Changed"), Type: new("workstream"),
 		Priority: new(0), Summary: new(""), SummarySet: true,
-		ParentSet:       true,
+		ParentSet: true, Key: new("source:edit"),
 		AddDependencies: []string{"an-add", "an-other"}, RemoveDependencies: []string{"an-remove"},
 		AddLabels: []string{"new"}, RemoveLabels: []string{"old"},
 	}, operation.editRequest)

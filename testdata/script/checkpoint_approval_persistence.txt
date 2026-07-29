@@ -25,7 +25,7 @@ applied document: 2 create, 0 update, 0 skip, 0 no change
 -- golden/approved.json --
 {"decision":{"outcome":"approved","reason":"Rollback limits accepted.","decided_at":1783857600,"revision":3},"issue":{"id":"decision-1","title":"Approve retention limits","type":"checkpoint","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3},"cancelled":[],"parents_without_open_children":[]}
 -- golden/closed.json --
-{"id":"decision-1","title":"Approve retention limits","type":"checkpoint","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3,"labels":[],"depends_on":[],"blocks":["decision-2"],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"decision-1","title":"Approve retention limits","type":"checkpoint","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3,"keys":[],"labels":[],"depends_on":[],"blocks":["decision-2"],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/already-resolved.txt --
 error: checkpoint already resolved
 -- golden/ready.jsonl --

@@ -54,6 +54,25 @@ func (q *Queries) BoardGetIssueContextDescription(ctx context.Context, boardID s
 	return description, err
 }
 
+const boardGetIssueIDByExternalKey = `-- name: BoardGetIssueIDByExternalKey :one
+SELECT issue_id
+FROM issue_external_keys
+WHERE board_id = ?1
+    AND external_key = ?2
+`
+
+type BoardGetIssueIDByExternalKeyParams struct {
+	BoardID     string
+	ExternalKey string
+}
+
+func (q *Queries) BoardGetIssueIDByExternalKey(ctx context.Context, arg BoardGetIssueIDByExternalKeyParams) (string, error) {
+	row := q.db.QueryRowContext(ctx, boardGetIssueIDByExternalKey, arg.BoardID, arg.ExternalKey)
+	var issue_id string
+	err := row.Scan(&issue_id)
+	return issue_id, err
+}
+
 const boardGetIssueLogSummary = `-- name: BoardGetIssueLogSummary :one
 SELECT
     COUNT(*) AS log_count,
@@ -104,4 +123,40 @@ func (q *Queries) BoardGetIssueResultBody(ctx context.Context, arg BoardGetIssue
 	var body string
 	err := row.Scan(&body)
 	return body, err
+}
+
+const boardListIssueExternalKeys = `-- name: BoardListIssueExternalKeys :many
+SELECT external_key
+FROM issue_external_keys
+WHERE board_id = ?1
+    AND issue_id = ?2
+ORDER BY external_key
+`
+
+type BoardListIssueExternalKeysParams struct {
+	BoardID string
+	IssueID string
+}
+
+func (q *Queries) BoardListIssueExternalKeys(ctx context.Context, arg BoardListIssueExternalKeysParams) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, boardListIssueExternalKeys, arg.BoardID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var external_key string
+		if err := rows.Scan(&external_key); err != nil {
+			return nil, err
+		}
+		items = append(items, external_key)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

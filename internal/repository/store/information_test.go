@@ -25,7 +25,7 @@ func TestView_ReadInformationReportsSchemaAndRevision(t *testing.T) {
 
 	view, err := persistence.View(t.Context())
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, view.Done()) })
+	defer func() { assert.NoError(t, view.Done()) }()
 
 	information, err := view.ReadInformation(t.Context())
 	require.NoError(t, err)

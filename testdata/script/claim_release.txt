@@ -35,7 +35,7 @@ claim-1
 -- golden/create-ready.txt --
 claim-2
 -- golden/claimed.json --
-{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"alice","started_at":1783857600},"assignee":"alice","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"alice","started_at":1783857600},"assignee":"alice","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":4,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/not-owner.txt --
 error: active claim belongs to alice
 -- golden/waiting-reason-required.txt --
@@ -54,7 +54,7 @@ Blocks: -
 Log entries: 0
 Attachments: -
 -- golden/waiting.json --
-{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"waiting","priority":1,"active_claim":null,"waiting":{"reason":"Awaiting root review","since":1783857600},"created":1783857600,"updated":1783857600,"revision":5,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"waiting","priority":1,"active_claim":null,"waiting":{"reason":"Awaiting root review","since":1783857600},"created":1783857600,"updated":1783857600,"revision":5,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/ready-pool.jsonl --
 {"id":"claim-2","title":"Ready pool work","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"labels":[],"blocked":false}
 -- golden/pool-claim.txt --
@@ -66,6 +66,6 @@ Status: in_progress
 Priority: 2
 Assignee: pool
 -- golden/direct-claim.json --
-{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"root","started_at":1783857600},"assignee":"root","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":7,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"root","started_at":1783857600},"assignee":"root","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":7,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/released.json --
-{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":8,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":8,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}

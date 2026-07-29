@@ -23,4 +23,4 @@ applied document: 3 create, 0 update, 0 skip, 0 no change
 applied document: 0 create, 1 update, 0 skip, 0 no change
 0	update	owner-3
 -- golden/policy.json --
-{"id":"owner-3","title":"Accepted routing policy","type":"task","lifecycle":"open","status":"ready","priority":0,"active_claim":null,"created":1784635200,"updated":1784635200,"summary":"Preserve the policy contract unless the producer supplies a replacement.","details":"Preserve these review notes when an update omits details.","revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"owner-3","title":"Accepted routing policy","type":"task","lifecycle":"open","status":"ready","priority":0,"active_claim":null,"created":1784635200,"updated":1784635200,"summary":"Preserve the policy contract unless the producer supplies a replacement.","details":"Preserve these review notes when an update omits details.","revision":3,"keys":["routing-catalog:policy"],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
