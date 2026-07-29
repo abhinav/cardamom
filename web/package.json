@@ -2,7 +2,7 @@
   "name": "cardamom-web",
   "private": true,
   "type": "module",
-  "packageManager": "pnpm@10.33.2",
+  "packageManager": "pnpm@11.17.0",
   "scripts": {
     "build": "pnpm run typecheck && vite build",
     "dev": "vite",
@@ -11,7 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@bufbuild/protobuf": "^2.12.1",
+    "@bufbuild/protobuf": "^2.13.0",
     "@connectrpc/connect": "^2.1.1",
     "@connectrpc/connect-query": "^2.2.0",
     "@connectrpc/connect-web": "^2.1.1",
@@ -22,6 +22,7 @@
     "react-router": "^8.3.0"
   },
   "devDependencies": {
+    "@bufbuild/protoc-gen-es": "2.13.0",
     "@types/react": "^19.2.17",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.3",
