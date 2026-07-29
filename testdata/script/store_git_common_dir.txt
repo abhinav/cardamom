@@ -90,7 +90,7 @@ Project:  project_00000000000000000000
 Board:    board_00000000000000000000
 
 KEY                      VALUE       ORIGIN
-issue.id.prefix          common-     store ($WORK/repo/.git/.cardamom)
+issue.id.prefix          common-     project (project_00000000000000000000)
 issue.id.strategy        sequential  store ($WORK/repo/.git/.cardamom)
 issue.summary.max_bytes  2048        built_in (built-in)
 attachment.max_bytes     104857600   built_in (built-in)
@@ -138,7 +138,7 @@ Project:  project_00000000000000000000
 Board:    board_00000000000000000000
 
 KEY                      VALUE       ORIGIN
-issue.id.prefix          nested-     store ($WORK/linked/nested/.cardamom)
+issue.id.prefix          nested-     project (project_00000000000000000000)
 issue.id.strategy        sequential  store ($WORK/linked/nested/.cardamom)
 issue.summary.max_bytes  2048        built_in (built-in)
 attachment.max_bytes     104857600   built_in (built-in)

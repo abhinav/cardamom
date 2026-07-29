@@ -9,6 +9,8 @@ exec card --json config show
 cmpenv stdout $WORK/golden/default.json
 exec card config show
 cmpenv stdout $WORK/golden/default.txt
+exec card --json config unset --scope project issue.id.prefix
+cmpenv stdout $WORK/golden/cleared-default.json
 
 # A scoped read exposes only values explicitly stored at that layer.
 exec card --json config show --scope store
@@ -126,18 +128,20 @@ stdout 'attachment.max_bytes'
 # attachment:
 #   max_bytes: 104857600
 -- golden/default.json --
-{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"cm-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"built_in","identity":"built-in"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"script-config-c-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
 -- golden/default.txt --
 Scope:    effective
 Store:    $WORK/.cardamom
 Project:  project_00000000000000000000
 Board:    board_00000000000000000000
 
-KEY                      VALUE      ORIGIN
-issue.id.prefix          cm-        built_in (built-in)
-issue.id.strategy        random     built_in (built-in)
-issue.summary.max_bytes  2048       built_in (built-in)
-attachment.max_bytes     104857600  built_in (built-in)
+KEY                      VALUE             ORIGIN
+issue.id.prefix          script-config-c-  project (project_00000000000000000000)
+issue.id.strategy        random            built_in (built-in)
+issue.summary.max_bytes  2048              built_in (built-in)
+attachment.max_bytes     104857600         built_in (built-in)
+-- golden/cleared-default.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"cm-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"built_in","identity":"built-in"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
 -- golden/empty-store.json --
 {"scope":"store","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":null,"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}},"origins":{"issue":{"id":{"prefix":null,"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}}}
 -- golden/store-prefix.json --

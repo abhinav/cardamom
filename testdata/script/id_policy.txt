@@ -29,10 +29,10 @@ This checkout now excludes Cardamom's local database and attachment blob files. 
 # Use card config unset --scope store KEY to restore inheritance.
 #
 # Built-in defaults are shown below.
-version: 1
-issue:
-  id:
-    prefix: issue-
+# version: 1
+# issue:
+#   id:
+#     prefix: cm-
 #     strategy: random
 #   summary:
 #     max_bytes: 2048

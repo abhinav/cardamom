@@ -49,13 +49,13 @@ func (i *initializer) Initialize(
 	}
 	settings, err := i.ensureSettings(
 		directory,
+		projectName,
 		request.IDPrefix,
 		request.ConfigMode,
 	)
 	if err != nil {
 		return cli.InitResult{}, err
 	}
-	effective := storeConfiguration(settings.effective)
 	var boardName *string
 	if !request.NoBoard {
 		name := projectName
@@ -69,10 +69,22 @@ func (i *initializer) Initialize(
 	})
 	initialized, err := storeInitializer.InitializeStore(ctx, project.StoreInitializationRequest{
 		Dir: directory, ProjectName: projectName, BoardName: boardName,
-		ProjectIDPrefix: settings.projectIDPrefix,
+		FreshProjectIDPrefix:    prefixString(settings.prefix.FreshProject),
+		RetainedProjectIDPrefix: prefixString(settings.prefix.RetainedProject),
 	})
 	if err != nil {
 		return cli.InitResult{}, err
+	}
+	effective := storeConfiguration(settings.store)
+	if initialized.ProjectIDPrefix != nil {
+		prefix, err := configuration.NewPrefix(*initialized.ProjectIDPrefix)
+		if err != nil {
+			return cli.InitResult{}, fmt.Errorf(
+				"load initialized project prefix: %w",
+				err,
+			)
+		}
+		effective.Issue.ID.Prefix = prefix
 	}
 
 	result := cli.InitResult{
@@ -101,15 +113,14 @@ func (i *initializer) Initialize(
 	return result, nil
 }
 
-// initializationSettings routes initialization configuration to the store
-// file or initial project row while retaining one effective result.
+// initializationSettings carries initialization configuration across store-file
+// and project-database publication.
 type initializationSettings struct {
-	// effective contains the overrides applied by this initialization.
-	effective configuration.Overrides
+	// store contains the active physical-store overrides.
+	store configuration.Overrides
 
-	// projectIDPrefix persists a requested prefix when config.yaml stays
-	// absent.
-	projectIDPrefix *string
+	// prefix contains the selected effective prefix and project-layer writes.
+	prefix configuration.InitializationPrefix
 
 	// configWritten reports that this invocation published config.yaml.
 	configWritten bool
@@ -117,6 +128,7 @@ type initializationSettings struct {
 
 func (i *initializer) ensureSettings(
 	directory string,
+	projectName string,
 	requested *string,
 	mode cli.InitConfigMode,
 ) (initializationSettings, error) {
@@ -125,42 +137,47 @@ func (i *initializer) ensureSettings(
 	if err != nil {
 		return initializationSettings{}, err
 	}
-	if _, statErr := os.Stat(path); statErr == nil {
-		return initializationSettings{effective: overrides}, nil
-	} else if !errors.Is(statErr, os.ErrNotExist) {
+	_, statErr := os.Stat(path)
+	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
 		return initializationSettings{}, fmt.Errorf("stat %q: %w", path, statErr)
 	}
-	overrides = configuration.Overrides{}
-	if requested != nil {
-		prefix, err := configuration.NewPrefix(*requested)
-		if err != nil {
-			return initializationSettings{}, err
-		}
-		overrides.Issue.ID.Prefix = &prefix
+	if errors.Is(statErr, os.ErrNotExist) {
+		overrides = configuration.Overrides{}
+	}
+	prefix, err := configuration.SelectInitializationPrefix(
+		projectName,
+		requested,
+		overrides,
+	)
+	if err != nil {
+		return initializationSettings{}, err
+	}
+	settings := initializationSettings{store: overrides, prefix: prefix}
+	if statErr == nil {
+		return settings, nil
 	}
 	switch mode {
 	case cli.InitConfigWriteMissing:
 		if err := writeSettings(path, overrides); err != nil {
 			return initializationSettings{}, err
 		}
-		return initializationSettings{
-			effective: overrides, configWritten: true,
-		}, nil
+		settings.configWritten = true
+		return settings, nil
 	case cli.InitConfigSkipMissing:
-		var projectIDPrefix *string
-		if overrides.Issue.ID.Prefix != nil {
-			projectIDPrefix = new(overrides.Issue.ID.Prefix.String())
-		}
-		return initializationSettings{
-			effective:       overrides,
-			projectIDPrefix: projectIDPrefix,
-		}, nil
+		return settings, nil
 	default:
 		return initializationSettings{}, fmt.Errorf(
 			"unsupported initialization config mode %d",
 			mode,
 		)
 	}
+}
+
+func prefixString(prefix *configuration.Prefix) *string {
+	if prefix == nil {
+		return nil
+	}
+	return new(prefix.String())
 }
 
 func configureGitIgnore(projectDirectory, storeDirectory string) cli.InitIgnoreOutcome {

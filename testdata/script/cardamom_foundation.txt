@@ -16,4 +16,4 @@ stdout '^card - a local issue tracker for project boards\.$'
 initialized .cardamom
 This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
 -- golden/create.txt --
-cm-aaaa
+script-cardamom-aaaa

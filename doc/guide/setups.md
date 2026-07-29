@@ -24,6 +24,12 @@ without merging their issue graphs.
 It also creates the project namespace and a first board named after the project
 directory unless `--board-name` overrides the name
 or `--no-board` skips board creation.
+The project issue prefix defaults to a normalized form of the project directory
+basename.
+An active store prefix takes precedence over inference,
+and `--prefix` sets a project override.
+Repeated initialization keeps the existing project prefix
+unless `--prefix` explicitly replaces it.
 
 ```bash
 card --actor coordinator init

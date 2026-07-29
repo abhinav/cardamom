@@ -80,6 +80,59 @@ func TestNewPrefixCannotGenerateInvalidIssueIDs(t *testing.T) {
 	assert.ErrorContains(t, err, "start with a letter or digit")
 }
 
+func TestInferredPrefix(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		give string
+		want string
+	}{
+		{name: "Lowercase", give: "Cardamom", want: "cardamom-"},
+		{name: "Separators", give: "mission__control", want: "mission-control-"},
+		{
+			name: "LengthLimit",
+			give: "1234__An Extremely Long Project",
+			want: "1234-an-extreme-",
+		},
+		{name: "Fallback", give: "---___", want: "cm-"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.want, InferredPrefix(tt.give).String())
+		})
+	}
+}
+
+func TestSelectInitializationPrefix(t *testing.T) {
+	t.Parallel()
+
+	storePrefix := mustPrefix(t, "store-")
+	explicit := "explicit-"
+
+	inferred, err := SelectInitializationPrefix("Project Name", nil, Overrides{})
+	require.NoError(t, err)
+	require.NotNil(t, inferred.FreshProject)
+	assert.Equal(t, "project-name-", inferred.FreshProject.String())
+	assert.Nil(t, inferred.RetainedProject)
+
+	inherited, err := SelectInitializationPrefix("Project Name", nil, Overrides{
+		Issue: IssueOverrides{ID: IssueIDOverrides{Prefix: &storePrefix}},
+	})
+	require.NoError(t, err)
+	assert.Nil(t, inherited.FreshProject)
+	assert.Nil(t, inherited.RetainedProject)
+
+	overridden, err := SelectInitializationPrefix("Project Name", &explicit, Overrides{
+		Issue: IssueOverrides{ID: IssueIDOverrides{Prefix: &storePrefix}},
+	})
+	require.NoError(t, err)
+	require.NotNil(t, overridden.FreshProject)
+	require.NotNil(t, overridden.RetainedProject)
+	assert.Equal(t, explicit, overridden.FreshProject.String())
+	assert.Equal(t, explicit, overridden.RetainedProject.String())
+}
+
 type recordingStore struct {
 	overrides Overrides
 	reads     int

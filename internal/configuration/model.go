@@ -1,6 +1,7 @@
 package configuration
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,9 +9,12 @@ import (
 	"strings"
 
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.abhg.dev/cardamom/internal/must"
 )
 
 const (
+	maxPrefixLength = 16
+
 	// DefaultSummaryMaxBytes is the built-in issue summary admission limit.
 	DefaultSummaryMaxBytes uint64 = 2048
 
@@ -25,7 +29,7 @@ type Prefix string
 func NewPrefix(value string) (Prefix, error) {
 	_, idErr := issue.NewID(value)
 	if idErr != nil ||
-		len(value) > 16 ||
+		len(value) > maxPrefixLength ||
 		value != strings.ToLower(value) ||
 		!strings.HasSuffix(value, "-") {
 		return "", fmt.Errorf(
@@ -34,6 +38,74 @@ func NewPrefix(value string) (Prefix, error) {
 		)
 	}
 	return Prefix(value), nil
+}
+
+// InferredPrefix derives a valid issue prefix from a project name.
+func InferredPrefix(projectName string) Prefix {
+	body := make([]byte, 0, len(projectName))
+	separate := false
+	for _, character := range projectName {
+		if character >= 'A' && character <= 'Z' {
+			character += 'a' - 'A'
+		}
+		if (character >= 'a' && character <= 'z') ||
+			(character >= '0' && character <= '9') {
+			if separate && len(body) > 0 {
+				body = append(body, '-')
+			}
+			body = append(body, byte(character))
+			separate = false
+			continue
+		}
+		separate = len(body) > 0
+	}
+	if len(body) >= maxPrefixLength {
+		body = body[:maxPrefixLength-1]
+	}
+	body = bytes.TrimRight(body, "-")
+	if len(body) == 0 {
+		return Defaults().Issue.ID.Prefix
+	}
+	body = append(body, '-')
+	prefix, err := NewPrefix(string(body))
+	must.NotErrorf(err, "inferred issue prefix %q must be valid", body)
+	return prefix
+}
+
+// InitializationPrefix contains the project-layer writes selected for one
+// initialization request.
+type InitializationPrefix struct {
+	// FreshProject is persisted when initialization creates the project.
+	FreshProject *Prefix
+
+	// RetainedProject is persisted when initialization retains the project.
+	RetainedProject *Prefix
+}
+
+// SelectInitializationPrefix applies explicit, store, and inferred prefix
+// precedence for one initialization request.
+func SelectInitializationPrefix(
+	projectName string,
+	requested *string,
+	store Overrides,
+) (InitializationPrefix, error) {
+	if requested != nil {
+		prefix, err := NewPrefix(*requested)
+		if err != nil {
+			return InitializationPrefix{}, err
+		}
+		return InitializationPrefix{
+			FreshProject:    &prefix,
+			RetainedProject: &prefix,
+		}, nil
+	}
+	if prefix := store.Issue.ID.Prefix; prefix != nil {
+		return InitializationPrefix{}, nil
+	}
+	prefix := InferredPrefix(projectName)
+	return InitializationPrefix{
+		FreshProject: &prefix,
+	}, nil
 }
 
 // String returns the configured issue ID prefix.
