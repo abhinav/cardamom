@@ -9,12 +9,24 @@
 }
 
 .issue-detail-id {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
   margin: 0 0 0.35rem;
 }
 
 .issue-detail-id .clipboard-pill {
+  max-width: 100%;
   font-size: 0.8rem;
   font-weight: 750;
+}
+
+.metadata-chip.issue-external-key {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: break-spaces;
 }
 
 .issue-detail-header h1,

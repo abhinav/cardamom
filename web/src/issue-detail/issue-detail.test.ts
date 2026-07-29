@@ -56,12 +56,32 @@ describe("issue detail presentation", () => {
           id: "cm-43px",
           title: "Summary backend",
         }),
+        externalKeys: [],
       }),
     );
 
     expect(markup).toContain("%cm-43px");
     expect(markup).toContain('aria-label="Copy issue ID %cm-43px"');
     expect(markup).not.toContain(">cm-43px<");
+  });
+
+  it("renders distinct producer keys in supplied order as noninteractive metadata", () => {
+    const longKey = `producer:${"a".repeat(96)}`;
+    const markup = renderToStaticMarkup(
+      IssueHeader({
+        summary: create(IssueSummarySchema, {
+          id: "cm-43px",
+          title: "Summary backend",
+        }),
+        externalKeys: [" producer:z ", longKey],
+      }),
+    );
+
+    expect(markup).toContain(
+      '<span class="metadata-chip issue-external-key"> producer:z </span>' +
+        `<span class="metadata-chip issue-external-key">${longKey}</span>`,
+    );
+    expect(markup).not.toContain("Copy producer key");
   });
 
   it("renders summary and details from the renamed protocol shape", () => {

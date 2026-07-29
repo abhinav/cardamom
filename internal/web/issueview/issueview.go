@@ -134,7 +134,8 @@ func (e *Encoder) Detail(
 	converted := &privatev1.IssueDetail{
 		Issue: summary, Summary: summaryContent, Details: details,
 		State: state, NextAction: nextAction, Result: result,
-		Context: contextValue, Containment: containment,
+		ExternalKeys: detail.Keys,
+		Context:      contextValue, Containment: containment,
 		Prerequisites: prerequisites, Dependents: dependents,
 		LogCount:           uint32(detail.LogSummary.Count),
 		LatestLogId:        latestLogID,

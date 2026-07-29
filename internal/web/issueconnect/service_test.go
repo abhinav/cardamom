@@ -289,6 +289,7 @@ func TestServiceGetIssue(t *testing.T) {
 						Summary: new("**Summary**"), Details: new("Expanded details"),
 						State: new("_Current state_"),
 					},
+					Keys:    []string{" producer:z ", "producer:a"},
 					Labels:  []string{"area:web"},
 					Blocked: true,
 					DependsOn: []issue.Reference{
@@ -361,6 +362,7 @@ func TestServiceGetIssue(t *testing.T) {
 	detail := response.Msg.GetIssue()
 	assert.Equal(t, "board-1", detail.GetIssue().GetBoardId())
 	assert.Equal(t, privatev1.IssueStatus_ISSUE_STATUS_BLOCKED, detail.GetIssue().GetStatus())
+	assert.Equal(t, []string{" producer:z ", "producer:a"}, detail.GetExternalKeys())
 	assert.Contains(t, detail.GetSummary().GetRenderedHtml(), "<strong>Summary</strong>")
 	assert.Equal(t, "Expanded details", detail.GetDetails().GetSource())
 	assert.Contains(t, detail.GetState().GetRenderedHtml(), "<em>Current state</em>")

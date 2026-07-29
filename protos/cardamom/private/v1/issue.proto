@@ -311,6 +311,9 @@ message IssueDetail {
 
   // next_action is the issue's optional current planned transition.
   optional MarkdownContent next_action = 13;
+
+  // external_keys contains every exact producer identity in supplied order.
+  repeated string external_keys = 14;
 }
 
 // LabelFacet reports one label available in the complete selected scope.

@@ -456,7 +456,10 @@ export function IssueDetailPage({
     <article className="issue-detail-page" aria-labelledby="issue-title">
       <RequestRefreshError request={issueRequest} recordName="issue" />
       <RequestRefreshError request={stateRequest} recordName="state" />
-      <IssueHeader summary={detail.issue} />
+      <IssueHeader
+        summary={detail.issue}
+        externalKeys={detail.externalKeys}
+      />
       <IssueActions
         actor={actor}
         pending={mutation.status === "pending"}
@@ -533,7 +536,13 @@ type MutationState =
   | { status: "success"; message: string }
   | { status: "error"; message: string };
 
-export function IssueHeader({ summary }: { summary: IssueSummary }) {
+export function IssueHeader({
+  summary,
+  externalKeys,
+}: {
+  summary: IssueSummary;
+  externalKeys: string[];
+}) {
   const issueReference = `%${summary.id}`;
   return (
     <header className="issue-detail-header">
@@ -544,6 +553,14 @@ export function IssueHeader({ summary }: { summary: IssueSummary }) {
         >
           <span>{issueReference}</span>
         </ClipboardPill>
+        {externalKeys.map((externalKey) => (
+          <span
+            className="metadata-chip issue-external-key"
+            key={externalKey}
+          >
+            {externalKey}
+          </span>
+        ))}
       </div>
       <h1 id="issue-title">{summary.title}</h1>
       <div className="issue-detail-badges" aria-label="Issue classification">

@@ -1180,7 +1180,9 @@ type IssueDetail struct {
 	// checkpoint_decision is present for a resolved checkpoint with a decision.
 	CheckpointDecision *CheckpointDecision `protobuf:"bytes,12,opt,name=checkpoint_decision,json=checkpointDecision,proto3,oneof" json:"checkpoint_decision,omitempty"`
 	// next_action is the issue's optional current planned transition.
-	NextAction    *MarkdownContent `protobuf:"bytes,13,opt,name=next_action,json=nextAction,proto3,oneof" json:"next_action,omitempty"`
+	NextAction *MarkdownContent `protobuf:"bytes,13,opt,name=next_action,json=nextAction,proto3,oneof" json:"next_action,omitempty"`
+	// external_keys contains every exact producer identity in supplied order.
+	ExternalKeys  []string `protobuf:"bytes,14,rep,name=external_keys,json=externalKeys,proto3" json:"external_keys,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1302,6 +1304,13 @@ func (x *IssueDetail) GetCheckpointDecision() *CheckpointDecision {
 func (x *IssueDetail) GetNextAction() *MarkdownContent {
 	if x != nil {
 		return x.NextAction
+	}
+	return nil
+}
+
+func (x *IssueDetail) GetExternalKeys() []string {
+	if x != nil {
+		return x.ExternalKeys
 	}
 	return nil
 }
@@ -1774,7 +1783,7 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\n" +
 	"_parent_id\"Q\n" +
 	"\x15ContainmentProjection\x128\n" +
-	"\x05nodes\x18\x01 \x03(\v2\".cardamom.private.v1.HierarchyNodeR\x05nodes\"\xc3\a\n" +
+	"\x05nodes\x18\x01 \x03(\v2\".cardamom.private.v1.HierarchyNodeR\x05nodes\"\xe8\a\n" +
 	"\vIssueDetail\x127\n" +
 	"\x05issue\x18\x01 \x01(\v2!.cardamom.private.v1.IssueSummaryR\x05issue\x12C\n" +
 	"\asummary\x18\x02 \x01(\v2$.cardamom.private.v1.MarkdownContentH\x00R\asummary\x88\x01\x01\x12?\n" +
@@ -1792,7 +1801,8 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\adetails\x18\v \x01(\v2$.cardamom.private.v1.MarkdownContentH\x04R\adetails\x88\x01\x01\x12]\n" +
 	"\x13checkpoint_decision\x18\f \x01(\v2'.cardamom.private.v1.CheckpointDecisionH\x05R\x12checkpointDecision\x88\x01\x01\x12J\n" +
 	"\vnext_action\x18\r \x01(\v2$.cardamom.private.v1.MarkdownContentH\x06R\n" +
-	"nextAction\x88\x01\x01B\n" +
+	"nextAction\x88\x01\x01\x12#\n" +
+	"\rexternal_keys\x18\x0e \x03(\tR\fexternalKeysB\n" +
 	"\n" +
 	"\b_summaryB\b\n" +
 	"\x06_stateB\t\n" +
