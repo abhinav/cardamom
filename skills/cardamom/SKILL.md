@@ -113,6 +113,12 @@ Keep supporting rationale and evidence in details or log entries.
 
 ## Author object references
 
+When a State, Log, or Result cites a published external artifact needed for
+inspection or continuation,
+use its full navigable URL as the durable reference.
+Resolve the URL when only local shorthand is available;
+the shorthand may remain as link text.
+
 Use a Cardamom reference when navigation helps the record's intended reader:
 
 | Target | Markdown form | Use |
