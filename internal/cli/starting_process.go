@@ -256,6 +256,18 @@ type boardCreateCommand struct {
 	Project string `name:"project" predictor:"projects" placeholder:"PROJECT" help:"Project ID or exact name. When omitted, use the store's sole project."`
 }
 
+// Help explains board ownership and the persisted name contract.
+func (*boardCreateCommand) Help() string {
+	return `Create one board in a project.
+
+A project is a repository or product namespace.
+A board is a non-nested shared coordination context within one project.
+
+NAME is trimmed and must contain a non-whitespace character.
+Board names need not be unique; duplicate exact names make name selection
+ambiguous, so use the board ID when selecting one.`
+}
+
 // Run resolves the containing project and creates one board.
 func (c *boardCreateCommand) Run(
 	invocation *Invocation,
@@ -337,16 +349,16 @@ func (c *boardShowCommand) Run(invocation *Invocation, resolver *selection.Resol
 }
 
 type boardEditCommand struct {
-	Selector         string  `arg:"" optional:"" name:"board" predictor:"boards" help:"Board ID or exact name. When omitted, use the root board selection, checkout selection, or store's sole board."`
-	Name             *string `name:"name" placeholder:"NAME" help:"Replace the board name."`
-	Description      *string `name:"description" placeholder:"MARKDOWN" help:"Replace the board description with Markdown. Use - to read standard input."`
-	ClearDescription bool    `name:"clear-description" help:"Remove the board description."`
+	Selector    string  `arg:"" optional:"" name:"board" predictor:"boards" help:"Board ID or exact name. When omitted, use the root board selection, checkout selection, or store's sole board."`
+	Name        *string `name:"name" placeholder:"NAME" help:"Replace the board name."`
+	Description *string `name:"description" placeholder:"MARKDOWN" help:"Replace the board description with Markdown. An empty value clears it. Use - to read standard input."`
 }
 
 // Help describes atomic board settings.
 func (*boardEditCommand) Help() string {
 	return `Edit one board's name, Markdown description, or both.
-Name and description settings change atomically.`
+Name and description settings change atomically. An empty --description value
+clears the board description.`
 }
 
 // Run parses one board settings edit and delegates the atomic mutation.
@@ -356,10 +368,7 @@ func (c *boardEditCommand) Run(
 	resolver *selection.Resolver,
 	markdown *MarkdownInput,
 ) error {
-	if c.Description != nil && c.ClearDescription {
-		return UsageErrorf("board edit: --description and --clear-description cannot be combined")
-	}
-	if c.Name == nil && c.Description == nil && !c.ClearDescription {
+	if c.Name == nil && c.Description == nil {
 		return UsageErrorf("board edit: at least one setting is required")
 	}
 
@@ -373,9 +382,11 @@ func (c *boardEditCommand) Run(
 		if err != nil {
 			return err
 		}
-		settings.Description = board.ReplaceDescription(&description)
-	} else if c.ClearDescription {
-		settings.Description = board.ReplaceDescription(nil)
+		var replacement *string
+		if description != "" {
+			replacement = &description
+		}
+		settings.Description = board.ReplaceDescription(replacement)
 	}
 	edited, err := boards.EditSettings(invocation.Context, board.NewInvocation(invocation.Actor), board.EditRequest{
 		BoardID: selected.ID(), Settings: settings,
@@ -390,7 +401,7 @@ func (c *boardEditCommand) Run(
 	message := "updated board settings"
 	if c.Name == nil {
 		message = "updated board description"
-	} else if c.Description == nil && !c.ClearDescription {
+	} else if c.Description == nil {
 		message = "updated board name"
 	}
 	return invocation.Output.Noticef("%s", message)

@@ -204,6 +204,25 @@ func TestBoardCommandsDelegateNamespaceRulesAndRenderResults(t *testing.T) {
 		assert.Equal(t, catalog.edited, applied)
 		assert.Equal(t, "updated board settings\n", stdout.String())
 	})
+
+	t.Run("EditEmptyDescriptionClears", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		empty := ""
+		invocation := testInvocation(t, &stdout, &stderr)
+		catalog.edited = testBoard(
+			t, "board-two", "project-one", secondary.Name(), nil,
+		)
+
+		err := (&boardEditCommand{
+			Description: &empty,
+		}).Run(invocation, boards, resolver, &invocation.Markdown)
+		require.NoError(t, err)
+
+		applied, applyErr := secondary.EditSettings(catalog.editRequest.Settings)
+		require.NoError(t, applyErr)
+		assert.Nil(t, applied.Description())
+		assert.Equal(t, "updated board description\n", stdout.String())
+	})
 }
 
 func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {

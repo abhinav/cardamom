@@ -99,6 +99,11 @@ stdout 'board show'
 stdout 'board edit'
 
 exec card board create --help
+stdout 'Create one board in a project'
+stdout 'A project is a repository or product namespace. A board is a non-nested shared'
+stdout 'coordination context within one project'
+stdout 'NAME is trimmed and must contain a non-whitespace character. Board names need'
+stdout 'not be unique; duplicate exact names make name selection ambiguous'
 stdout '--project=PROJECT'
 stdout 'When omitted, use the'
 stdout 'store.s sole project'
@@ -114,6 +119,8 @@ stdout 'checkout selection'
 stdout 'store.s sole board'
 stdout '--description=MARKDOWN'
 stdout 'Replace the board description with Markdown'
+stdout 'An empty --description value clears the board'
+! stdout '--clear-description'
 
 exec card init --help
 stdout 'Initialize a physical Cardamom store and project namespace'
