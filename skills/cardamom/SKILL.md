@@ -139,15 +139,17 @@ use `![alt](attachment:<id>)`.
 Load [attachments.md](references/attachments.md)
 when preserving or recovering attachment bytes.
 
-Choose a shell form that preserves the intended record bytes:
+Classify each durable body by its intended rendered value,
+not by a serialized draft.
 
-| Input | Command form | Important behavior |
+| Body shape | Shell form | Important behavior |
 | --- | --- | --- |
-| Simple one-line text | One single-quoted argument | Shell metacharacters remain literal |
-| Multiline or Markdown-rich text | Single-quoted heredoc, passed directly or through one quoted variable | Real line breaks, dollar signs, backticks, and backslashes are preserved |
+| One line | Single-quoted scalar argument | Safe default that preserves shell metacharacters |
+| Multiline State, Log, Result, Summary, Details, mail, or analogous text | Single-quoted heredoc (required) | Real line breaks, dollar signs, backticks, and backslashes are preserved |
 
-`card` does not interpret escape sequences in text arguments.
-Quoted `\n` remains two bytes rather than becoming a line break.
+`card` does not interpret escape sequences.
+A quoted `\n` remains two bytes,
+so replace serialized line-break tokens with real lines in the required heredoc.
 
 ## Preserve custody and decisions
 
