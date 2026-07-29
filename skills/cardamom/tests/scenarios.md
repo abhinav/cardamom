@@ -791,6 +791,55 @@ A one-line record intentionally documents the two characters backslash and `n`.
 - Allows a direct single-quoted argument.
 - Preserves the intentional backslash-plus-n sequence.
 
+## Scannable Markdown records
+
+### Prompt
+
+Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Do not execute commands or modify state.
+
+A coordinator is preparing one workstream.
+Its Details must preserve these independent sections:
+the accepted protocol boundary,
+three implementation constraints,
+and two acceptance checks.
+During execution,
+the worker's State must preserve the selected package boundary,
+the reproduced failure,
+the files currently changing,
+and one unresolved migration question.
+
+Draft both Markdown bodies.
+The records will be read on a phone during recovery.
+
+### Expectations
+
+- Uses small domain-specific headings for the distinct Details sections.
+- Uses bullets or short paragraphs for independent constraints and checks.
+- Uses bullets, short paragraphs, or domain-specific headings
+    for the independent State facts.
+- Separates paragraphs and sections with blank lines.
+- Does not rely on single line breaks to separate rendered paragraphs.
+- Does not add generic `Current state`, `State`, or `Next action` headings.
+- Keeps connected prose together instead of turning every sentence
+    into a separate bullet.
+
+### Pressure variant
+
+The source notes already exist as one paragraph,
+the work starts in five minutes,
+and the coordinator says formatting can wait until final handoff.
+
+- Structures both records before dependent work relies on them.
+- Does not preserve the dense paragraph merely to save one tracker update.
+
+### Adjacent valid case
+
+The State contains one connected two-sentence observation.
+
+- Keeps the observation as one short paragraph.
+- Does not add headings or bullets that make the record harder to read.
+
 ## Claim and durable records
 
 ### Prompt
@@ -817,8 +866,9 @@ Do not execute commands.
     otherwise records recovery state and releases it.
 - Treats State as the mutable recovery truth and first durable execution record.
 - Commits State at durable checkpoints during active execution.
-- Uses standalone Log posts only for replay-worthy material not represented by
-    a State snapshot.
+- Uses standalone Log posts for material design, strategy, or policy choices
+    whose rationale must remain replayable,
+    plus other replay-worthy material that does not belong in State.
 - Replaces the State body with active recovery facts before work
     and omits `--next` when starting work consumes the planned transition.
 - Does not treat the initial intent state as sufficient after execution advances.
@@ -837,6 +887,8 @@ Do not execute commands.
 - Reads and preserves still-operative body content before replacing State.
 - Authors body prose without generic `Current state` or `Next action` wrapper
     headings.
+- Structures multi-fact State and Details with short paragraphs,
+    bullets, tables, or domain-specific headings instead of dense prose.
 - Uses the result for the concise outcome before handoff.
 - Relies on release to preserve changed State automatically
     rather than committing State solely for handoff.
@@ -871,9 +923,10 @@ ready for handoff.
 - Replaces the State body immediately with the established position,
     supplies the concrete transition with `--next`,
     then commits that checkpoint before implementation depends on it.
-- Adds only design reasoning not represented by the State snapshot as a
-    standalone Log post.
-- Does not duplicate the checkpoint across State and a standalone Log post.
+- Adds one standalone Log post preserving the material design rationale,
+    rejected workaround, and downstream consequence.
+- Repeats only enough of the selected design to orient the Log post
+    without copying the complete State or planned next action.
 - Does not wait for branch completion or final handoff.
 - Does not add log entries for routine commands or inconsequential steps.
 
@@ -890,8 +943,8 @@ coordination bookkeeping.
 - Replaces the State body with the established shape,
     supplies the next dependent action with `--next`,
     then commits that checkpoint before repository or command work relies on it.
-- Adds only replay-worthy reasoning not represented by the State snapshot as a
-    standalone Log post.
+- Adds one standalone Log post preserving the storage decision's evidence,
+    rejected alternative, and downstream consequence.
 - Does not treat all implementation across several boundaries as one phase
     when later work already depends on an unrecorded outcome.
 
@@ -947,7 +1000,8 @@ Do not execute the commands.
 
 - Evaluation mode: conformance.
 - The strategy checkpoint makes State the current recovery truth
-    and preserves it without duplicating the same material in a standalone post.
+    and preserves it without copying the complete recovery record
+    into a standalone post.
 - The standalone Log body lets a later reader reconstruct how the named
     regression supports the strategy,
     why the alternative was rejected,
@@ -963,8 +1017,9 @@ Do not execute the commands.
     then runs `state commit` before implementation depends on that checkpoint.
 - Authors the State body as recovery prose without generic
     `Current state` or `Next action` wrapper headings.
-- Uses `log post` only for useful rationale about the rejected alternative that
-    the State snapshot does not represent.
+- Uses short paragraphs or bullets when the State contains independent facts.
+- Uses `log post` for the material strategy rationale,
+    including the rejected alternative and downstream consequence.
 - Writes the standalone Log body in a concise, self-contained,
     reference-first form.
 - Names `scanner/quoted_input_test.go:TestMalformedEscape`,
@@ -1144,9 +1199,10 @@ State your next concrete actions in order.
     supplies the next dependent action with `--next`,
     then commits that durable checkpoint before the proposed implementation
     relies on it.
-- Adds a standalone Log post only for material reasoning not represented by the
-    State snapshot.
-- Does not duplicate State content in a standalone Log post.
+- Adds a standalone Log post for each material choice whose rationale,
+    rejected alternatives, or consequence must remain replayable.
+- Repeats only enough of the selected position to orient each post
+    without copying the complete State or planned next action.
 - Does not defer any of the three records until implementation completion or
     handoff.
 - Keeps the test, edit, generation, formatting,
