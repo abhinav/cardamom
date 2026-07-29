@@ -7,13 +7,13 @@ _.path = ["{{ config_root }}/bin"]
 
 [tools]
 buf = "latest"
-changie = "latest"
 go = "latest"
 node = "latest"
 pnpm = "latest"
 "aqua:sqlc-dev/sqlc" = "latest"
 "aqua:golangci/golangci-lint" = "latest"
 "aqua:goreleaser/goreleaser" = "latest"
+"aqua:miniscruff/changie" = "latest"
 "github:abhinav/requiredfield" = "latest"
 "github:abhinav/stitchmd" = "latest"
 

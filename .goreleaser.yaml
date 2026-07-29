@@ -38,24 +38,23 @@ archives:
       - LICENSE
       - README.md
 
-# TODO: uncomment when project is public
-# homebrew_casks:
-#   - repository:
-#       owner: abhinav
-#       name: homebrew-tap
-#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
-#     commit_msg_template: "{{ .ProjectName }}: Update cask to {{ .Tag }}"
-#     commit_author:
-#       name: Abhinav Gupta
-#       email: mail@abhinavg.net
-#     homepage: https://github.com/abhinav/cardamom
-#     description: A local issue tracker for coordinating agent work
-#     license: BSD-3-Clause
-#     skip_upload: auto
-#     binaries: [card]
-#     hooks:
-#       post:
-#         install: |
-#           if OS.mac?
-#             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/card"]
-#           end
+homebrew_casks:
+  - repository:
+      owner: abhinav
+      name: homebrew-tap
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+    commit_msg_template: "{{ .ProjectName }}: Update cask to {{ .Tag }}"
+    commit_author:
+      name: Abhinav Gupta
+      email: mail@abhinavg.net
+    homepage: https://github.com/abhinav/cardamom
+    description: A local issue tracker for coordinating agent work
+    license: BSD-3-Clause
+    skip_upload: auto
+    binaries: [card]
+    hooks:
+      post:
+        install: |
+          if OS.mac?
+            system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/card"]
+          end

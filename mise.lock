@@ -92,6 +92,45 @@ url = "https://github.com/goreleaser/goreleaser/releases/download/v2.17.1/gorele
 url_api = "https://api.github.com/repos/goreleaser/goreleaser/releases/assets/490565847"
 provenance = "github-attestations"
 
+[[tools."aqua:miniscruff/changie"]]
+version = "1.25.1"
+backend = "aqua:miniscruff/changie"
+
+[tools."aqua:miniscruff/changie"."platforms.linux-arm64"]
+checksum = "sha256:115b255d2f5da1a1d50ffcd7853a2616d87a40487679d46f95a39c3956b9b618"
+url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293100"
+
+[tools."aqua:miniscruff/changie"."platforms.linux-arm64-musl"]
+checksum = "sha256:115b255d2f5da1a1d50ffcd7853a2616d87a40487679d46f95a39c3956b9b618"
+url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_linux_arm64.tar.gz"
+url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293100"
+
+[tools."aqua:miniscruff/changie"."platforms.linux-x64"]
+checksum = "sha256:90b90b459b345335ef5715e4e03c354cde99070729939cbab004ac37e5966630"
+url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293086"
+
+[tools."aqua:miniscruff/changie"."platforms.linux-x64-musl"]
+checksum = "sha256:90b90b459b345335ef5715e4e03c354cde99070729939cbab004ac37e5966630"
+url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_linux_amd64.tar.gz"
+url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293086"
+
+[tools."aqua:miniscruff/changie"."platforms.macos-arm64"]
+checksum = "sha256:dc2ee4184ab6cd4153bb223dd6b631837b62ce477ae4294098a8eaf1a685243a"
+url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_darwin_arm64.tar.gz"
+url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293087"
+
+[tools."aqua:miniscruff/changie"."platforms.macos-x64"]
+checksum = "sha256:08bd7afb9ff1ee8c1130e46f5924e55673878d8a3e7ada722abd29e050da281f"
+url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_darwin_amd64.tar.gz"
+url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293109"
+
+[tools."aqua:miniscruff/changie"."platforms.windows-x64"]
+checksum = "sha256:d61212e4e54f4d4d1655db478de7d522dbdc4115fddf4b109b7aa3594cc678ca"
+url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_windows_amd64.zip"
+url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293103"
+
 [[tools."aqua:sqlc-dev/sqlc"]]
 version = "1.31.1"
 backend = "aqua:sqlc-dev/sqlc"
@@ -163,45 +202,6 @@ checksum = "sha256:0332d8d1bf062c95a0418081b7e574551032ee72064af05e304e3a1454f8c
 url = "https://github.com/bufbuild/buf/releases/download/v1.72.0/buf-Windows-x86_64.zip"
 url_api = "https://api.github.com/repos/bufbuild/buf/releases/assets/480772631"
 provenance = "minisign"
-
-[[tools.changie]]
-version = "1.25.1"
-backend = "github:miniscruff/changie"
-
-[tools.changie."platforms.linux-arm64"]
-checksum = "sha256:115b255d2f5da1a1d50ffcd7853a2616d87a40487679d46f95a39c3956b9b618"
-url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293100"
-
-[tools.changie."platforms.linux-arm64-musl"]
-checksum = "sha256:115b255d2f5da1a1d50ffcd7853a2616d87a40487679d46f95a39c3956b9b618"
-url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_linux_arm64.tar.gz"
-url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293100"
-
-[tools.changie."platforms.linux-x64"]
-checksum = "sha256:90b90b459b345335ef5715e4e03c354cde99070729939cbab004ac37e5966630"
-url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293086"
-
-[tools.changie."platforms.linux-x64-musl"]
-checksum = "sha256:90b90b459b345335ef5715e4e03c354cde99070729939cbab004ac37e5966630"
-url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_linux_amd64.tar.gz"
-url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293086"
-
-[tools.changie."platforms.macos-arm64"]
-checksum = "sha256:dc2ee4184ab6cd4153bb223dd6b631837b62ce477ae4294098a8eaf1a685243a"
-url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_darwin_arm64.tar.gz"
-url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293087"
-
-[tools.changie."platforms.macos-x64"]
-checksum = "sha256:08bd7afb9ff1ee8c1130e46f5924e55673878d8a3e7ada722abd29e050da281f"
-url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_darwin_amd64.tar.gz"
-url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293109"
-
-[tools.changie."platforms.windows-x64"]
-checksum = "sha256:d61212e4e54f4d4d1655db478de7d522dbdc4115fddf4b109b7aa3594cc678ca"
-url = "https://github.com/miniscruff/changie/releases/download/v1.25.1/changie_1.25.1_windows_amd64.zip"
-url_api = "https://api.github.com/repos/miniscruff/changie/releases/assets/483293103"
 
 [[tools."github:abhinav/requiredfield"]]
 version = "0.9.0"
