@@ -183,17 +183,36 @@ interface AttachmentPanelProps {
   issueId?: string;
 }
 
-/** AttachmentPanel owns attachment observation and one-at-a-time browser uploads. */
+/** AttachmentPanel composes attachment reading and one-at-a-time browser uploads. */
 export function AttachmentPanel({
   actor,
   boardId,
   client,
   issueId,
 }: AttachmentPanelProps) {
-  const queryClient = useQueryClient();
-  const [file, setFile] = useState<File>();
-  const [fileInputKey, setFileInputKey] = useState(0);
-  const [upload, setUpload] = useState<AttachmentUploadState>({ kind: "idle" });
+  return (
+    <>
+      <AttachmentRecords boardId={boardId} issueId={issueId} />
+      <AttachmentUploadPanel
+        actor={actor}
+        boardId={boardId}
+        client={client}
+        issueId={issueId}
+      />
+    </>
+  );
+}
+
+interface AttachmentRecordsProps {
+  boardId: string;
+  issueId?: string;
+}
+
+/** AttachmentRecords renders one owner's stable records when any exist. */
+export function AttachmentRecords({
+  boardId,
+  issueId,
+}: AttachmentRecordsProps) {
   const request = useInfiniteQuery(
     AttachmentService.method.listAttachments,
     attachmentListInput(boardId, issueId),
@@ -221,6 +240,49 @@ export function AttachmentPanel({
     request.data === undefined || request.hasNextPage || request.isFetchingNextPage
       ? undefined
       : attachmentsFromPages(request.data.pages);
+  if (attachments?.length === 0) {
+    return null;
+  }
+
+  return (
+    <section className="attachment-panel" aria-labelledby={`attachments-${issueId ?? boardId}`}>
+      <div className="attachment-heading">
+        <h2 id={`attachments-${issueId ?? boardId}`}>Attachments</h2>
+        <span>{attachments?.length ?? 0}</span>
+      </div>
+      {request.isFetching && attachments === undefined && !request.isError && (
+        <p className="attachment-state" role="status">Loading attachments...</p>
+      )}
+      {request.isError && attachments === undefined && (
+        <div className="attachment-state" role="alert">
+          <span>{request.error.message}</span>
+          <button type="button" onClick={() => void request.refetch()}>
+            Retry
+          </button>
+        </div>
+      )}
+      {attachments !== undefined && (
+        <AttachmentList
+          attachments={attachments}
+          boardId={boardId}
+          showIssue={issueId === undefined}
+        />
+      )}
+    </section>
+  );
+}
+
+/** AttachmentUploadPanel owns one-at-a-time browser uploads for one owner. */
+export function AttachmentUploadPanel({
+  actor,
+  boardId,
+  client,
+  issueId,
+}: AttachmentPanelProps) {
+  const queryClient = useQueryClient();
+  const [file, setFile] = useState<File>();
+  const [fileInputKey, setFileInputKey] = useState(0);
+  const [upload, setUpload] = useState<AttachmentUploadState>({ kind: "idle" });
   const actorMissing = actor.trim() === "";
   const uploading = upload.kind === "uploading";
 
@@ -254,29 +316,7 @@ export function AttachmentPanel({
   };
 
   return (
-    <section className="attachment-panel" aria-labelledby={`attachments-${issueId ?? boardId}`}>
-      <div className="attachment-heading">
-        <h2 id={`attachments-${issueId ?? boardId}`}>Attachments</h2>
-        <span>{attachments?.length ?? 0}</span>
-      </div>
-      {request.isFetching && attachments === undefined && !request.isError && (
-        <p className="attachment-state" role="status">Loading attachments...</p>
-      )}
-      {request.isError && attachments === undefined && (
-        <div className="attachment-state" role="alert">
-          <span>{request.error.message}</span>
-          <button type="button" onClick={() => void request.refetch()}>
-            Retry
-          </button>
-        </div>
-      )}
-      {attachments !== undefined && (
-        <AttachmentList
-          attachments={attachments}
-          boardId={boardId}
-          showIssue={issueId === undefined}
-        />
-      )}
+    <section className="attachment-upload-panel" aria-label="Attachment controls">
       <form className="attachment-upload" onSubmit={(event) => void submit(event)}>
         <label>
           <span>Add a file</span>

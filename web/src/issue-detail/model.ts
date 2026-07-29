@@ -82,7 +82,7 @@ export function currentIssueState(
   return issue.lifecycle === IssueLifecycle.OPEN ? state : undefined;
 }
 
-/** visibleIssueLogEntries omits State already pinned above the Log. */
+/** visibleIssueLogEntries preserves service order and omits pinned State. */
 export function visibleIssueLogEntries(
   entries: readonly LogEntry[] | undefined,
   state: StateRecord | undefined,

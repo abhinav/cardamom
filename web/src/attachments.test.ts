@@ -73,6 +73,48 @@ describe("attachment web workflow", () => {
     expect(markup).not.toContain("attachment:");
   });
 
+  it("omits an empty Attachments section without removing upload controls", async () => {
+    const transport = createRouterTransport(({ service }) => {
+      service(AttachmentService, {
+        listAttachments: () => ({ attachments: [] }),
+      });
+    });
+    const queryClient = new QueryClient();
+    await queryClient.fetchInfiniteQuery(
+      createInfiniteQueryOptions(
+        AttachmentService.method.listAttachments,
+        attachmentListInput("board-1", "cm-empty"),
+        {
+          transport,
+          pageParamKey: "pageToken",
+          getNextPageParam: nextAttachmentPageToken,
+        },
+      ),
+    );
+
+    const markup = renderToStaticMarkup(
+      createElement(
+        TransportProvider,
+        { transport },
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(AttachmentPanel, {
+            actor: "browser-actor",
+            boardId: "board-1",
+            client: {} as AttachmentClient,
+            issueId: "cm-empty",
+          }),
+        ),
+      ),
+    );
+
+    expect(markup).not.toContain(">Attachments</h2>");
+    expect(markup).not.toContain("No attachments.");
+    expect(markup).toContain('aria-label="Attachment controls"');
+    expect(markup).toContain("Add a file");
+  });
+
   it("selects and combines every issue-associated metadata page", () => {
     const first = attachment("one.txt");
     const second = attachment("two.txt");

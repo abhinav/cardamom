@@ -4,6 +4,7 @@ import {
   defaultPreferences,
   loadPreferences,
   savePreferences,
+  setIssueDetailsCollapsed,
   type PreferencesStorage,
 } from "./preferences.ts";
 import { defaultBoardView, defaultListView } from "./issue-collection.ts";
@@ -20,6 +21,7 @@ describe("preferences", () => {
         grouping: "type" as const,
         filters: { ...defaultBoardView.filters, label: "urgent" },
       },
+      collapsedIssueDetailsBoardIds: ["board-1"],
       listView: {
         ...defaultListView,
         sort: "title" as const,
@@ -60,8 +62,31 @@ describe("preferences", () => {
       theme: "light",
       boardScope: { kind: "board", boardId: "board-1" },
       boardView: defaultBoardView,
+      collapsedIssueDetailsBoardIds: [],
       listView: defaultListView,
     });
+  });
+
+  it("shares Details disclosure by board without changing other boards", () => {
+    const boardOneCollapsed = setIssueDetailsCollapsed(
+      defaultPreferences,
+      "board-1",
+      true,
+    );
+    const bothCollapsed = setIssueDetailsCollapsed(
+      boardOneCollapsed,
+      "board-2",
+      true,
+    );
+
+    expect(bothCollapsed.collapsedIssueDetailsBoardIds).toEqual([
+      "board-1",
+      "board-2",
+    ]);
+    expect(
+      setIssueDetailsCollapsed(bothCollapsed, "board-1", false)
+        .collapsedIssueDetailsBoardIds,
+    ).toEqual(["board-2"]);
   });
 
   it("recovers defaults from malformed or unsupported persisted data", () => {

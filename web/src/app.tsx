@@ -44,6 +44,7 @@ import {
 import {
   loadPreferences,
   savePreferences,
+  setIssueDetailsCollapsed,
   type Preferences,
   type PreferencesStorage,
   type ThemePreference,
@@ -498,6 +499,7 @@ function RouteContent({
             attachmentClient={attachmentClient}
             preferences={preferences}
             selectLabel={selectLabel}
+            updatePreferences={updatePreferences}
           />
         }
       />
@@ -558,10 +560,12 @@ function IssuePage({
   attachmentClient,
   preferences,
   selectLabel,
+  updatePreferences,
 }: {
   attachmentClient: AttachmentClient;
   preferences: Preferences;
   selectLabel: (label: string) => void;
+  updatePreferences: (preferences: Preferences) => void;
 }) {
   const { issueId } = useParams<"issueId">();
   if (issueId === undefined) {
@@ -572,8 +576,14 @@ function IssuePage({
       key={issueId}
       actor={preferences.actor}
       attachmentClient={attachmentClient}
+      collapsedDetailsBoardIds={preferences.collapsedIssueDetailsBoardIds}
       issueId={issueId}
       selectLabel={selectLabel}
+      setDetailsCollapsed={(boardId, collapsed) =>
+        updatePreferences(
+          setIssueDetailsCollapsed(preferences, boardId, collapsed),
+        )
+      }
     />
   );
 }
