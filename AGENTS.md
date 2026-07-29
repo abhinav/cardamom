@@ -35,7 +35,7 @@ and preserve unrelated dirty, staged, and untracked files.
 | Build the production binary and web assets | `mise run build` |
 | Run all tests | `mise run test` |
 | Run all tests with race detection | `mise run test --race` |
-| Run one test script | `go test ./cmd/card -run 'TestScript/$name' -count=1` |
+| Run one test script | `go test ./cmd/card -run 'TestScript/claim_labels' -count=1` |
 | Generate reader documentation | `mise run docs` |
 | Run live web development | `mise run web:dev` |
 

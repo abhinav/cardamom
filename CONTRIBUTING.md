@@ -51,8 +51,10 @@ and the web unit tests.
 Run one process-boundary scenario directly with:
 
 ```bash
-go test ./cmd/card -run 'TestScript/<name>' -count=1
+go test ./cmd/card -run 'TestScript/claim_labels' -count=1
 ```
+
+Replace `claim_labels` with the scenario filename without its `.txt` suffix.
 
 ## Develop migrations safely
 

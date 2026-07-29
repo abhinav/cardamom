@@ -143,9 +143,9 @@ Everything after a marker belongs to that file
 until the next marker or end of script.
 Keep golden output limited to behavior the scenario intends to protect.
 
-Testscript `-update`, exposed by `mise run test:script --update`,
-rewrites mismatched txtar supporting files used as the expected operand of
-ordinary `cmp` assertions.
+Testscript `-update`, passed directly to the Go test binary,
+rewrites mismatched txtar supporting files used as the expected operand
+of ordinary `cmp` assertions.
 Review every rewritten fixture before accepting it.
 The custom `cmpjson` command and testscript's `cmpenv` command do not support
 `-update`, so update those expected fixtures manually.
@@ -157,20 +157,21 @@ expectation.
 Run one scenario while developing:
 
 ```bash
-mise run test:script --run claim_labels
+go test ./cmd/card -run 'TestScript/claim_labels' -count=1
 ```
 
 Rewrite ordinary `cmp` supporting files for one scenario:
 
 ```bash
-mise run test:script --run claim_labels --update
+go test ./cmd/card -run 'TestScript/claim_labels' -count=1 -update
 ```
 
 This update mode does not rewrite `cmpenv` expectations;
 update them manually.
 
-Run the complete integration script suite before handoff:
+Run the consolidated repository test suite before handoff.
+It includes every process-boundary scenario:
 
 ```bash
-mise run test:script
+mise run test
 ```
