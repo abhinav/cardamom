@@ -444,6 +444,15 @@ func newBoardDetailOut(board *board.State) boardDetailOut {
 	}
 }
 
+type versionCommand struct {
+	value string
+}
+
+// Run prints the process build version.
+func (c *versionCommand) Run(invocation *Invocation) error {
+	return invocation.Output.WriteString(c.value + "\n")
+}
+
 type infoCommand struct{}
 
 // InfoRequest carries process-level store and board selectors to the

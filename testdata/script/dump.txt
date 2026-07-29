@@ -1168,23 +1168,21 @@ Arguments:
 
 Flags:
   -h, --help               Show context-sensitive help.
-      --store=PATH         Physical Cardamom store directory. Overrides
-                           automatic discovery ($CARDAMOM_STORE).
-      --board=BOARD        Coordination board ID or exact name
-                           ($CARDAMOM_BOARD).
-      --actor=ACTOR        Identity that owns active claims and attributes
-                           changes. Defaults to the current OS username
-                           ($CARDAMOM_ACTOR).
-      --json               Emit machine-readable JSON or JSON Lines output.
-  -q, --quiet              Suppress status notices while preserving requested
-                           output and errors.
-  -V, --version            Print version information and exit. This flag must
-                           precede any command.
 
       --issue=ISSUE,...    Issue root to publish. Repeat for multiple roots.
       --no-descendants     Publish only named issues, without containment
                            descendants.
       --force              Replace recognized generated files modified after
                            publication.
+
+Global flags
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
 -- golden/invalid-error.txt --
 error: --no-descendants requires --issue

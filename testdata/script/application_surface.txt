@@ -3,7 +3,7 @@ exec card --help
 stdout '^Usage: card <command> \[flags\]'
 exec card -h
 stdout '^Usage: card <command> \[flags\]'
-exec card -V
+exec card version
 cmp stdout $WORK/golden/version.txt
 
 # Explicit store selection remains lazy through help and parse failures.

@@ -1,0 +1,14 @@
+# Version is a store-independent command.
+exec card version
+cmp stdout $WORK/golden/version.txt
+
+# Version is no longer an inherited flag.
+exec card --help
+! stdout '--version'
+exec card create --help
+! stdout '--version'
+! exec card --version
+stderr 'unknown flag --version'
+
+-- golden/version.txt --
+dev go1.26.5

@@ -45,7 +45,9 @@ Managing attachments
   attachment gc        Collect expired staging and orphan blob content.
 
 Flags:
-  -h, --help           Show context-sensitive help.
+  -h, --help    Show context-sensitive help.
+
+Global flags
       --store=PATH     Physical Cardamom store directory. Overrides automatic
                        discovery ($CARDAMOM_STORE).
       --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
@@ -54,8 +56,6 @@ Flags:
       --json           Emit machine-readable JSON or JSON Lines output.
   -q, --quiet          Suppress status notices while preserving requested output
                        and errors.
-  -V, --version        Print version information and exit. This flag must
-                       precede any command.
 -- golden/add.txt --
 Usage: card attachment add <source> [flags]
 
@@ -71,6 +71,13 @@ Arguments:
 
 Flags:
   -h, --help           Show context-sensitive help.
+
+      --name=NAME      Portable attachment filename. Required for standard
+                       input; otherwise defaults to the source basename.
+      --issue=ISSUE    Originating issue ID. The association is organizational
+                       and does not restrict same-board references.
+
+Global flags
       --store=PATH     Physical Cardamom store directory. Overrides automatic
                        discovery ($CARDAMOM_STORE).
       --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
@@ -79,13 +86,6 @@ Flags:
       --json           Emit machine-readable JSON or JSON Lines output.
   -q, --quiet          Suppress status notices while preserving requested output
                        and errors.
-  -V, --version        Print version information and exit. This flag must
-                       precede any command.
-
-      --name=NAME      Portable attachment filename. Required for standard
-                       input; otherwise defaults to the source basename.
-      --issue=ISSUE    Originating issue ID. The association is organizational
-                       and does not restrict same-board references.
 -- golden/list.txt --
 Usage: card attachment list [flags]
 
@@ -97,18 +97,6 @@ and --page-token to continue a previous listing.
 
 Flags:
   -h, --help                Show context-sensitive help.
-      --store=PATH          Physical Cardamom store directory. Overrides
-                            automatic discovery ($CARDAMOM_STORE).
-      --board=BOARD         Coordination board ID or exact name
-                            ($CARDAMOM_BOARD).
-      --actor=ACTOR         Identity that owns active claims and attributes
-                            changes. Defaults to the current OS username
-                            ($CARDAMOM_ACTOR).
-      --json                Emit machine-readable JSON or JSON Lines output.
-  -q, --quiet               Suppress status notices while preserving requested
-                            output and errors.
-  -V, --version             Print version information and exit. This flag must
-                            precede any command.
 
       --issue=ISSUE         Restrict results to this originating issue.
       --include-removed     Include permanently tombstoned attachment metadata.
@@ -116,6 +104,16 @@ Flags:
                             default page size.
       --page-token=TOKEN    Resume a prior stable page from its opaque next-page
                             token.
+
+Global flags
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
 -- golden/get.txt --
 Usage: card attachment get <id> <output> [flags]
 
@@ -130,7 +128,12 @@ Arguments:
   <output>    Destination file path.
 
 Flags:
-  -h, --help           Show context-sensitive help.
+  -h, --help     Show context-sensitive help.
+
+      --force    Replace an existing output file instead of requiring a new
+                 path.
+
+Global flags
       --store=PATH     Physical Cardamom store directory. Overrides automatic
                        discovery ($CARDAMOM_STORE).
       --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
@@ -139,11 +142,6 @@ Flags:
       --json           Emit machine-readable JSON or JSON Lines output.
   -q, --quiet          Suppress status notices while preserving requested output
                        and errors.
-  -V, --version        Print version information and exit. This flag must
-                       precede any command.
-
-      --force          Replace an existing output file instead of requiring a
-                       new path.
 -- golden/gc.txt --
 Usage: card attachment gc [flags]
 
@@ -155,7 +153,12 @@ attachment metadata. Use --dry-run to report what collection would remove
 without deleting bytes.
 
 Flags:
-  -h, --help           Show context-sensitive help.
+  -h, --help       Show context-sensitive help.
+
+      --dry-run    Report what collection would remove without deleting local
+                   content.
+
+Global flags
       --store=PATH     Physical Cardamom store directory. Overrides automatic
                        discovery ($CARDAMOM_STORE).
       --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
@@ -164,11 +167,6 @@ Flags:
       --json           Emit machine-readable JSON or JSON Lines output.
   -q, --quiet          Suppress status notices while preserving requested output
                        and errors.
-  -V, --version        Print version information and exit. This flag must
-                       precede any command.
-
-      --dry-run        Report what collection would remove without deleting
-                       local content.
 -- golden/show.txt --
 Usage: card attachment show <id>
 
@@ -181,7 +179,9 @@ Arguments:
   <id>    Attachment ID.
 
 Flags:
-  -h, --help           Show context-sensitive help.
+  -h, --help    Show context-sensitive help.
+
+Global flags
       --store=PATH     Physical Cardamom store directory. Overrides automatic
                        discovery ($CARDAMOM_STORE).
       --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
@@ -190,8 +190,6 @@ Flags:
       --json           Emit machine-readable JSON or JSON Lines output.
   -q, --quiet          Suppress status notices while preserving requested output
                        and errors.
-  -V, --version        Print version information and exit. This flag must
-                       precede any command.
 -- golden/remove.txt --
 Usage: card attachment remove <id>
 
@@ -204,7 +202,9 @@ Arguments:
   <id>    Attachment ID.
 
 Flags:
-  -h, --help           Show context-sensitive help.
+  -h, --help    Show context-sensitive help.
+
+Global flags
       --store=PATH     Physical Cardamom store directory. Overrides automatic
                        discovery ($CARDAMOM_STORE).
       --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
@@ -213,5 +213,3 @@ Flags:
       --json           Emit machine-readable JSON or JSON Lines output.
   -q, --quiet          Suppress status notices while preserving requested output
                        and errors.
-  -V, --version        Print version information and exit. This flag must
-                       precede any command.
