@@ -16,7 +16,7 @@ import (
 
 type initCommand struct {
 	Path      string  `arg:"" optional:"" name:"path" help:"Project directory."`
-	Prefix    *string `name:"prefix" placeholder:"PREFIX" help:"Lowercase issue ID prefix ending in a dash."`
+	Prefix    *string `name:"prefix" placeholder:"PREFIX" help:"Project issue ID prefix ending in a dash."`
 	BoardName *string `name:"board-name" placeholder:"NAME" help:"Name for the first board."`
 	NoBoard   bool    `name:"no-board" help:"Initialize the project without a first board."`
 	NoConfig  bool    `name:"no-config" help:"Do not create a missing config.yaml."`
@@ -35,15 +35,20 @@ project name and inferred first-board name.
 The first board name defaults to the basename of <path> without --store.
 Use --board-name to override it or --no-board to skip board creation.
 
-Omit --prefix to use cm- for a fresh store. An explicit --prefix remains an
-explicit configuration request when the store already exists.
+For a fresh project, omit --prefix to inherit an active store prefix or infer a
+project prefix from the selected directory basename. Inference lowercases and
+normalizes the basename within the 16-character prefix limit, with cm- as the
+fallback.
+
+An explicit --prefix establishes a project-level override for a fresh or
+retained project.
 
 Use --no-config to leave a missing config.yaml absent. An existing config.yaml
-remains active. With --no-config, an explicit --prefix is stored in the
-initialized project.
+remains active.
 
 Repeated initialization preserves existing projects and boards; first-init
-board options never add or rename them.
+board options never add or rename them, and omitted --prefix never infers a new
+project prefix.
 
 Set CARDAMOM_NO_GITIGNORE to any non-empty value to prevent initialization from
 changing Git's local exclude file.`
@@ -73,8 +78,8 @@ type InitRequest struct {
 	// ProjectPath is the optional project directory argument.
 	ProjectPath string
 
-	// IDPrefix is the explicitly requested issue prefix. Nil lets process
-	// composition use cm- when writing fresh store configuration.
+	// IDPrefix is the explicitly requested project issue prefix. Nil lets
+	// initialization apply store inheritance or basename inference.
 	IDPrefix *string
 
 	// BoardName overrides first-board name inference when non-nil.

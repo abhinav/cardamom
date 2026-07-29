@@ -60,62 +60,98 @@ func (i *Initializer) InitializeStore(
 	}
 	if initialized.DatabaseWritten {
 		result.Namespace = &namespace
+		result.ProjectIDPrefix = request.FreshProjectIDPrefix
 		return result, nil
 	}
-	if request.ProjectIDPrefix != nil {
-		err = i.persistExistingProjectIDPrefix(
-			ctx,
-			request.Dir,
-			*request.ProjectIDPrefix,
-		)
+	result.ProjectIDPrefix, err = i.retainedProjectIDPrefix(
+		ctx,
+		request.Dir,
+		request.RetainedProjectIDPrefix,
+	)
+	if err != nil {
+		return result, err
 	}
-	return result, err
+	return result, nil
 }
 
-// persistExistingProjectIDPrefix applies a repeated initialization request to
-// the sole retained project through the normal configuration mutation path.
-func (i *Initializer) persistExistingProjectIDPrefix(
+// retainedProjectIDPrefix reads the sole retained project's prefix after
+// applying an optional explicit update through configuration mutation.
+func (i *Initializer) retainedProjectIDPrefix(
 	ctx context.Context,
 	directory string,
-	value string,
-) (err error) {
-	prefix, err := configuration.NewPrefix(value)
-	if err != nil {
-		return err
-	}
+	requested *string,
+) (out *string, err error) {
 	persistence, err := store.Open(ctx, store.Config{
 		Path: storelocation.DatabasePath(directory),
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	defer func() { err = errors.Join(err, persistence.Close()) }()
 
 	repository := New(persistence, i.config)
-	namespace, err := project.NewService(repository).Resolve(ctx, nil)
+	catalog := project.NewService(repository)
+	projects, err := catalog.List(ctx)
 	if err != nil {
-		return fmt.Errorf("resolve retained project: %w", err)
+		return nil, fmt.Errorf("list retained projects: %w", err)
 	}
-	_, err = repository.UpdateProjectConfiguration(
-		ctx,
-		namespace.ID(),
-		configuration.Patch{
-			Fields: []configuration.Field{
-				configuration.FieldIssueIDPrefix,
-			},
-			Overrides: configuration.Overrides{
-				Issue: configuration.IssueOverrides{
-					ID: configuration.IssueIDOverrides{
-						Prefix: &prefix,
+	if len(projects) != 1 {
+		if requested == nil {
+			return nil, nil
+		}
+		_, err := catalog.Resolve(ctx, nil)
+		return nil, fmt.Errorf("resolve retained project: %w", err)
+	}
+	namespace := projects[0]
+	if requested != nil {
+		prefix, err := configuration.NewPrefix(*requested)
+		if err != nil {
+			return nil, err
+		}
+		overrides, err := repository.UpdateProjectConfiguration(
+			ctx,
+			namespace.ID(),
+			configuration.Patch{
+				Fields: []configuration.Field{
+					configuration.FieldIssueIDPrefix,
+				},
+				Overrides: configuration.Overrides{
+					Issue: configuration.IssueOverrides{
+						ID: configuration.IssueIDOverrides{
+							Prefix: &prefix,
+						},
 					},
 				},
 			},
-		},
+		)
+		if err != nil {
+			return nil, fmt.Errorf(
+				"update retained project configuration: %w",
+				err,
+			)
+		}
+		return nullablePrefix(overrides.Issue.ID.Prefix), nil
+	}
+	view, err := persistence.View(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, view.Done()) }()
+	row, err := query.New(view).ProjectGetProjectConfiguration(
+		ctx,
+		namespace.ID().String(),
 	)
 	if err != nil {
-		return fmt.Errorf("update retained project configuration: %w", err)
+		return nil, fmt.Errorf("read retained project configuration: %w", err)
 	}
-	return nil
+	if row.IssueIDPrefix == nil {
+		return nil, nil
+	}
+	prefix, err := configuration.NewPrefix(*row.IssueIDPrefix)
+	if err != nil {
+		return nil, fmt.Errorf("load retained project prefix: %w", err)
+	}
+	return new(prefix.String()), nil
 }
 
 // initializeFreshProject validates and commits the complete initial namespace
@@ -173,7 +209,7 @@ func initializeFreshProject(
 				ID:            namespace.ID().String(),
 				Name:          namespace.Name(),
 				CreatedAt:     namespace.Created(),
-				IssueIDPrefix: request.ProjectIDPrefix,
+				IssueIDPrefix: request.FreshProjectIDPrefix,
 			},
 		); err != nil {
 			return fmt.Errorf("create initial project: %w", err)

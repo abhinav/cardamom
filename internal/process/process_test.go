@@ -136,6 +136,24 @@ func TestProviderOptionsPassEntropyToMailPersistence(t *testing.T) {
 
 func TestNamespaceRuntimeResolvesConfigurationForEachIssueOperation(t *testing.T) {
 	cfg := testConfig(t)
+	directory := filepath.Join(cfg.CWD, ".cardamom")
+	require.NoError(t, os.MkdirAll(directory, 0o755))
+	firstPrefix, err := configuration.NewPrefix("first-")
+	require.NoError(t, err)
+	firstSummaryLimit, err := configuration.NewByteLimit(4)
+	require.NoError(t, err)
+	strategy := configuration.IDStrategySequential
+	require.NoError(t, writeSettings(
+		settingsPath(directory),
+		configuration.Overrides{
+			Issue: configuration.IssueOverrides{
+				ID: configuration.IssueIDOverrides{
+					Prefix: &firstPrefix, Strategy: &strategy,
+				},
+				Summary: configuration.SummaryOverrides{MaxBytes: &firstSummaryLimit},
+			},
+		},
+	))
 	initialized := execute(t, cfg, "--json", "init", "--board-name", "Bridge")
 	require.Equal(t, cli.ExitSuccess, initialized.code, initialized.stderr)
 	var namespace cli.InitResult
@@ -154,22 +172,6 @@ func TestNamespaceRuntimeResolvesConfigurationForEachIssueOperation(t *testing.T
 	planner, err := runtime.issuePlanner(boardID)
 	require.NoError(t, err)
 
-	firstPrefix, err := configuration.NewPrefix("first-")
-	require.NoError(t, err)
-	firstSummaryLimit, err := configuration.NewByteLimit(4)
-	require.NoError(t, err)
-	strategy := configuration.IDStrategySequential
-	require.NoError(t, writeSettings(
-		settingsPath(runtime.directory),
-		configuration.Overrides{
-			Issue: configuration.IssueOverrides{
-				ID: configuration.IssueIDOverrides{
-					Prefix: &firstPrefix, Strategy: &strategy,
-				},
-				Summary: configuration.SummaryOverrides{MaxBytes: &firstSummaryLimit},
-			},
-		},
-	))
 	created, err := planner.CreateIssue(
 		t.Context(),
 		issue.NewInvocation("tester"),

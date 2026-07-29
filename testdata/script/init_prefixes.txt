@@ -1,0 +1,132 @@
+at 2026-07-29T12:00:00Z
+
+# Fresh initialization normalizes the selected project directory basename,
+# limits the prefix to 16 characters, and persists it at project scope.
+mkdir '1234__An Extremely Long Project'
+cd '1234__An Extremely Long Project'
+exec git init -b main
+exec card --json init
+cmpjson stdout $WORK/golden/normalized-init.json
+exec card --json config show
+cmpenv stdout $WORK/golden/normalized-effective.json
+exec card --json config show --scope project
+cmpenv stdout $WORK/golden/normalized-project.json
+cd ..
+
+# A basename without usable prefix characters falls back to cm- at project
+# scope.
+mkdir ./---___
+cd ./---___
+exec git init -b main
+exec card --json init
+cmpjson stdout $WORK/golden/fallback-init.json
+exec card --json config show
+cmpenv stdout $WORK/golden/fallback-effective.json
+cd ..
+
+# An active store prefix suppresses basename inference and remains the reported
+# store-owned effective value.
+mkdir inherited-project
+cd inherited-project
+exec git init -b main
+mkdir .cardamom
+cp $WORK/golden/inherited-config.yaml .cardamom/config.yaml
+exec card --json init
+cmpjson stdout $WORK/golden/inherited-init.json
+exec card --json config show
+cmpenv stdout $WORK/golden/inherited-effective.json
+exec card --json config show --scope project
+cmpenv stdout $WORK/golden/inherited-project.json
+cd ..
+
+# An explicit prefix is a project override even when initialization creates
+# config.yaml.
+mkdir explicit-project
+cd explicit-project
+exec git init -b main
+exec card --json init --prefix explicit-
+cmpjson stdout $WORK/golden/explicit-init.json
+cmp .cardamom/config.yaml $WORK/golden/default-config.yaml
+exec card --json config show
+cmpenv stdout $WORK/golden/explicit-effective.json
+exec card --json config show --scope project
+cmpenv stdout $WORK/golden/explicit-project.json
+cd ..
+
+# Repeated initialization from another project directory neither infers nor
+# mutates a retained project prefix. An explicit prefix still updates it.
+mkdir retained-alpha
+mkdir retained-beta
+mkdir retained-store
+cd retained-alpha
+exec card --store ../retained-store --json init
+cmpjson stdout $WORK/golden/retained-first-init.json
+cd ../retained-beta
+exec card --store ../retained-store --json init
+cmpjson stdout $WORK/golden/retained-repeat-init.json
+exec card --store ../retained-store --json config show
+cmpenv stdout $WORK/golden/retained-effective.json
+exec card --store ../retained-store --json init --prefix chosen-
+cmpjson stdout $WORK/golden/retained-explicit-init.json
+exec card --store ../retained-store --json config show
+cmpenv stdout $WORK/golden/retained-explicit-effective.json
+
+# Help describes inferred defaults, store inheritance, and project ownership.
+exec card init --help
+stdout 'basename'
+stdout 'active store prefix'
+stdout 'project-level override'
+
+-- golden/normalized-init.json --
+{"dir":".cardamom","id_prefix":"1234-an-extreme-","id_strategy":"random","schema_version":20260729090000,"config_written":true,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"1234__An Extremely Long Project","board_created":true,"board_id":"board_00000000000000000000","board_name":"1234__An Extremely Long Project","already_initialized":false}
+-- golden/normalized-effective.json --
+{"scope":"effective","store":"$WORK/1234__An Extremely Long Project/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"1234-an-extreme-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/normalized-project.json --
+{"scope":"project","store":"$WORK/1234__An Extremely Long Project/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"1234-an-extreme-","strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}}}
+-- golden/fallback-init.json --
+{"dir":".cardamom","id_prefix":"cm-","id_strategy":"random","schema_version":20260729090000,"config_written":true,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"---___","board_created":true,"board_id":"board_00000000000000000000","board_name":"---___","already_initialized":false}
+-- golden/fallback-effective.json --
+{"scope":"effective","store":"$WORK/---___/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"cm-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/inherited-config.yaml --
+version: 1
+issue:
+  id:
+    prefix: inherited-
+-- golden/inherited-init.json --
+{"dir":".cardamom","id_prefix":"inherited-","id_strategy":"random","schema_version":20260729090000,"config_written":false,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"inherited-project","board_created":true,"board_id":"board_00000000000000000000","board_name":"inherited-project","already_initialized":false}
+-- golden/inherited-effective.json --
+{"scope":"effective","store":"$WORK/inherited-project/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"inherited-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"store","identity":"$WORK/inherited-project/.cardamom"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/inherited-project.json --
+{"scope":"project","store":"$WORK/inherited-project/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":null,"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}},"origins":{"issue":{"id":{"prefix":null,"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}}}
+-- golden/default-config.yaml --
+# config.yaml contains local overrides for this physical Cardamom store.
+# Missing or commented values inherit built-in, project, or board values.
+# Use card config set --scope store KEY VALUE to set one value.
+# Use card config unset --scope store KEY to restore inheritance.
+#
+# Built-in defaults are shown below.
+# version: 1
+# issue:
+#   id:
+#     prefix: cm-
+#     strategy: random
+#   summary:
+#     max_bytes: 2048
+# attachment:
+#   max_bytes: 104857600
+-- golden/explicit-init.json --
+{"dir":".cardamom","id_prefix":"explicit-","id_strategy":"random","schema_version":20260729090000,"config_written":true,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"explicit-project","board_created":true,"board_id":"board_00000000000000000000","board_name":"explicit-project","already_initialized":false}
+-- golden/explicit-effective.json --
+{"scope":"effective","store":"$WORK/explicit-project/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"explicit-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/explicit-project.json --
+{"scope":"project","store":"$WORK/explicit-project/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"explicit-","strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}}}
+-- golden/retained-first-init.json --
+{"dir":"../retained-store","id_prefix":"retained-alpha-","id_strategy":"random","schema_version":20260729090000,"config_written":true,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"retained-alpha","board_created":true,"board_id":"board_00000000000000000000","board_name":"retained-alpha","already_initialized":false}
+-- golden/retained-repeat-init.json --
+{"dir":"../retained-store","id_prefix":"retained-alpha-","id_strategy":"random","schema_version":20260729090000,"config_written":false,"db_written":false,"project_created":false,"project_id":null,"project_name":null,"board_created":false,"board_id":null,"board_name":null,"already_initialized":true}
+-- golden/retained-effective.json --
+{"scope":"effective","store":"$WORK/retained-store","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"retained-alpha-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/retained-explicit-init.json --
+{"dir":"../retained-store","id_prefix":"chosen-","id_strategy":"random","schema_version":20260729090000,"config_written":false,"db_written":false,"project_created":false,"project_id":null,"project_name":null,"board_created":false,"board_id":null,"board_name":null,"already_initialized":true}
+-- golden/retained-explicit-effective.json --
+{"scope":"effective","store":"$WORK/retained-store","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"chosen-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}

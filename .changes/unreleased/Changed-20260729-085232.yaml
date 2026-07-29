@@ -1,0 +1,6 @@
+kind: Changed
+body: >-
+  Fresh `card init` projects infer an issue ID prefix from the selected
+  directory when no store prefix is active.
+  Use `--prefix` to set a project override.
+time: 2026-07-29T08:52:32.608662-07:00

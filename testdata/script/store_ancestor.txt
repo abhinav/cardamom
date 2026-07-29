@@ -24,10 +24,10 @@ Automatic local exclusion failed. Add these patterns to .gitignore:
 # Use card config unset --scope store KEY to restore inheritance.
 #
 # Built-in defaults are shown below.
-version: 1
-issue:
-  id:
-    prefix: ancestor-
+# version: 1
+# issue:
+#   id:
+#     prefix: cm-
 #     strategy: random
 #   summary:
 #     max_bytes: 2048

@@ -71,9 +71,13 @@ type StoreInitializationRequest struct {
 	// BoardName is the initial user-visible board name. Nil creates no board.
 	BoardName *string
 
-	// ProjectIDPrefix is the optional validated project-level issue prefix
-	// persisted for the initialized or retained namespace.
-	ProjectIDPrefix *string
+	// FreshProjectIDPrefix is the optional validated project-level issue prefix
+	// persisted only when this invocation creates the project.
+	FreshProjectIDPrefix *string
+
+	// RetainedProjectIDPrefix is the optional validated project-level issue
+	// prefix persisted only when this invocation retains the existing project.
+	RetainedProjectIDPrefix *string
 }
 
 // InitializedNamespace identifies the project and optional board established
@@ -98,6 +102,10 @@ type StoreInitialization struct {
 	// Namespace identifies the project and optional board created with a fresh
 	// database.
 	Namespace *InitializedNamespace
+
+	// ProjectIDPrefix is the optional project-level prefix override after
+	// initialization for the created or retained project.
+	ProjectIDPrefix *string
 }
 
 // StoreInitializer creates or migrates one physical store and completes its
