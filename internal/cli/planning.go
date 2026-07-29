@@ -119,8 +119,47 @@ func (*applyCommand) Help() string {
 Input is a strict JSON object with version, issues, and optional on_existing.
 Unknown fields are rejected.
 
-Durable issue IDs match [A-Za-z0-9][A-Za-z0-9-]*. Apply-local aliases and
-external producer keys have separate contracts.`
+Top-level fields:
+  version: required integer; must be 1.
+  issues: required non-empty array of issue objects.
+  on_existing: optional string: error, skip, or update; defaults to error.
+
+error rejects existing targets, skip preserves them, and update reconciles
+present fields.
+
+Issue object fields:
+  alias: optional local reference token; trimmed, unique, and has no whitespace.
+  id: optional existing issue ID matching [A-Za-z0-9][A-Za-z0-9-]*.
+  key: optional non-empty exact producer string; unique in the document and
+       scoped to the selected board.
+  title: optional string; trimmed and nonblank when present.
+  type: optional string: workstream, task, checkpoint, or routine.
+  priority: optional integer from 0 through 4.
+  summary: optional string; the configured summary byte limit applies.
+  details: optional string.
+  labels: optional {"values":[STRING, ...]}; replaces every label.
+  parent: optional issue reference; replaces containment.
+  clear_parent: optional {}; removes containment and cannot appear with parent.
+  depends_on: optional {"values":[REFERENCE, ...]}; replaces all prerequisites.
+
+Label strings are trimmed, nonempty, and cannot start with + or -.
+
+An issue reference contains exactly one string field:
+  {"alias":"TOKEN"} selects an entry's document-local alias.
+  {"id":"ISSUE"} selects a durable issue in the selected board.
+  {"key":"STRING"} selects an exact board-scoped producer key.
+
+New issues require title and type. Omitted priority defaults to 2; omitted
+labels and depends_on are empty, and an omitted parent leaves no containment.
+
+With on_existing update, present editable fields replace current values.
+
+Omitted fields are preserved. Empty summary or details strings clear those
+fields.
+
+Empty labels.values and depends_on.values arrays clear those sets.
+parent replaces containment; clear_parent removes it; omitting both preserves
+containment. Updates require an open, unclaimed issue.`
 }
 
 // ApplyDocumentOperation validates or persists one canonical apply document.
