@@ -53,6 +53,7 @@ func TestApplyActionString(t *testing.T) {
 func TestCreateIssueNormalizesInput(t *testing.T) {
 	t.Parallel()
 
+	key := ExternalKey("source:build")
 	board, err := LoadCreate(CreateSnapshot{
 		BoardID:     mustBoardID(t, "board"),
 		Revision:    domainboard.Revision(4),
@@ -64,18 +65,43 @@ func TestCreateIssueNormalizesInput(t *testing.T) {
 
 	parent := issuekernel.MustID("an-1")
 	out, err := board.CreateIssue(CreateIssue{
-		Title:     "  Build boundary  ",
-		Kind:      issuekernel.KindTask,
-		Priority:  issuekernel.PriorityHigh,
-		Labels:    []issuekernel.Label{issuekernel.MustLabel("arch"), issuekernel.MustLabel("arch")},
-		DependsOn: []issuekernel.ID{issuekernel.MustID("an-1")},
-		Parent:    &parent,
+		Title:       "  Build boundary  ",
+		Kind:        issuekernel.KindTask,
+		Priority:    issuekernel.PriorityHigh,
+		Labels:      []issuekernel.Label{issuekernel.MustLabel("arch"), issuekernel.MustLabel("arch")},
+		DependsOn:   []issuekernel.ID{issuekernel.MustID("an-1")},
+		Parent:      &parent,
+		ExternalKey: &key,
 	})
 	require.NoError(t, err)
 	assert.Equal(t, "Build boundary", out.Issue.Title())
 	assert.Equal(t, []issuekernel.Label{issuekernel.MustLabel("arch")}, out.Labels)
 	require.NotNil(t, out.Parent)
 	assert.Equal(t, issuekernel.MustID("an-1"), *out.Parent)
+	assert.Equal(t, &key, out.ExternalKey)
+}
+
+func TestCreateIssueRejectsBoundExternalKey(t *testing.T) {
+	t.Parallel()
+
+	key := ExternalKey("source:build")
+	board, err := LoadCreate(CreateSnapshot{
+		BoardID:     mustBoardID(t, "board"),
+		Revision:    domainboard.Revision(4),
+		AllocatedID: issuekernel.MustID("an-7"),
+		ExternalKeyOwner: &ExternalKeyOwner{
+			Key: key, IssueID: issuekernel.MustID("an-1"),
+		},
+		OccurredAt: time.Unix(10, 0).UTC(),
+	})
+	require.NoError(t, err)
+
+	_, err = board.CreateIssue(CreateIssue{
+		Title: "Build boundary", Kind: issuekernel.KindTask,
+		Priority: issuekernel.PriorityNormal, ExternalKey: &key,
+	})
+	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+	assert.EqualError(t, err, `external key "source:build" belongs to issue "an-1"`)
 }
 
 func TestCreateIssueRejectsMissingParent(t *testing.T) {
@@ -217,6 +243,56 @@ func TestEditIssueOwnsScalarAndKindTransitionPolicy(t *testing.T) {
 	out, err = board.EditIssue(EditIssue{IssueID: issue.ID(), Kind: &kind})
 	require.NoError(t, err)
 	assert.Equal(t, issuekernel.KindWorkstream, out.Issue.Kind())
+}
+
+func TestEditIssueBindsExternalKeyIdempotently(t *testing.T) {
+	t.Parallel()
+
+	now := time.Unix(20, 0).UTC()
+	current := loadIssue(t, "an-task", issuekernel.KindTask, issuekernel.StatusReady)
+	key := ExternalKey("source:task")
+
+	board, err := LoadEdit(EditSnapshot{
+		BoardID: mustBoardID(t, "board"), Revision: 3, Issue: current,
+		OccurredAt: now,
+	})
+	require.NoError(t, err)
+	out, err := board.EditIssue(EditIssue{IssueID: current.ID(), ExternalKey: &key})
+	require.NoError(t, err)
+	assert.True(t, out.Changed)
+	assert.Equal(t, now, out.Issue.Updated())
+	assert.Equal(t, &key, out.ExternalKey)
+
+	board, err = LoadEdit(EditSnapshot{
+		BoardID: mustBoardID(t, "board"), Revision: 3, Issue: current,
+		ExternalKeyOwner: &ExternalKeyOwner{Key: key, IssueID: current.ID()},
+		OccurredAt:       now,
+	})
+	require.NoError(t, err)
+	out, err = board.EditIssue(EditIssue{IssueID: current.ID(), ExternalKey: &key})
+	require.NoError(t, err)
+	assert.False(t, out.Changed)
+	assert.Nil(t, out.ExternalKey)
+	assert.Equal(t, current.Updated(), out.Issue.Updated())
+}
+
+func TestEditIssueRejectsExternalKeyOwnedByAnotherIssue(t *testing.T) {
+	t.Parallel()
+
+	current := loadIssue(t, "an-task", issuekernel.KindTask, issuekernel.StatusReady)
+	key := ExternalKey("source:task")
+	board, err := LoadEdit(EditSnapshot{
+		BoardID: mustBoardID(t, "board"), Revision: 3, Issue: current,
+		ExternalKeyOwner: &ExternalKeyOwner{
+			Key: key, IssueID: issuekernel.MustID("an-other"),
+		},
+		OccurredAt: time.Unix(20, 0).UTC(),
+	})
+	require.NoError(t, err)
+
+	_, err = board.EditIssue(EditIssue{IssueID: current.ID(), ExternalKey: &key})
+	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+	assert.EqualError(t, err, `external key "source:task" belongs to issue "an-other"`)
 }
 
 func TestEditIssueAllowsRoutineExecutableKindTransitions(t *testing.T) {

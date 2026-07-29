@@ -37,7 +37,7 @@ cmp empty-human.want empty-human.out
 
 card --actor tester --json show show-2 >empty-json.out
 printf '%s\n' \
-  '{"id":"show-2","title":"Other issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784635200,"updated":1784635200,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}' >empty-json.want
+  '{"id":"show-2","title":"Other issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784635200,"updated":1784635200,"revision":3,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}' >empty-json.want
 cmp empty-json.want empty-json.out
 
 card --actor tester attachment add other.txt --issue show-2 >/dev/null
@@ -61,7 +61,7 @@ cmp human.want human.out
 
 card --actor tester --json show show-1 >json.out
 printf '%s\n' \
-  "{\"id\":\"show-1\",\"title\":\"Attachment origin\",\"type\":\"task\",\"lifecycle\":\"open\",\"status\":\"ready\",\"priority\":2,\"active_claim\":null,\"created\":1784635200,\"updated\":1784635200,\"revision\":4,\"labels\":[],\"depends_on\":[],\"blocks\":[],\"log_count\":0,\"blocked\":false,\"parent_id\":null,\"attachments\":[{\"id\":\"$attachment_id\",\"board_id\":\"board_00000000000000000000\",\"origin_issue_id\":\"show-1\",\"filename\":\"report.txt\",\"media_type\":\"text/plain; charset=utf-8\",\"digest\":\"sha256:e8d95d85d63087a2e60b4f189b38a03c10759143f6e01f5363b5ee6ce7ea3841\",\"size_bytes\":14,\"lifecycle\":\"active\",\"availability\":\"present_unverified\",\"created\":{\"actor\":\"tester\",\"at\":\"2026-07-21T12:00:00Z\",\"revision\":4},\"removed\":null}]}" >json.want
+  "{\"id\":\"show-1\",\"title\":\"Attachment origin\",\"type\":\"task\",\"lifecycle\":\"open\",\"status\":\"ready\",\"priority\":2,\"active_claim\":null,\"created\":1784635200,\"updated\":1784635200,\"revision\":4,\"keys\":[],\"labels\":[],\"depends_on\":[],\"blocks\":[],\"log_count\":0,\"blocked\":false,\"parent_id\":null,\"attachments\":[{\"id\":\"$attachment_id\",\"board_id\":\"board_00000000000000000000\",\"origin_issue_id\":\"show-1\",\"filename\":\"report.txt\",\"media_type\":\"text/plain; charset=utf-8\",\"digest\":\"sha256:e8d95d85d63087a2e60b4f189b38a03c10759143f6e01f5363b5ee6ce7ea3841\",\"size_bytes\":14,\"lifecycle\":\"active\",\"availability\":\"present_unverified\",\"created\":{\"actor\":\"tester\",\"at\":\"2026-07-21T12:00:00Z\",\"revision\":4},\"removed\":null}]}" >json.want
 if ! cmp json.want json.out; then
   diff -u json.want json.out
   exit 1

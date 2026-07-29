@@ -63,7 +63,7 @@ cmp stdout $WORK/golden/apply-skip.txt
 -- golden/create.txt --
 summary-1
 -- golden/show.json --
-{"id":"summary-1","title":"Document summary fields","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784548800,"updated":1784548800,"summary":"Keep the contract concise.","details":"Expanded **design** material.","revision":2,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"summary-1","title":"Document summary fields","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784548800,"updated":1784548800,"summary":"Keep the contract concise.","details":"Expanded **design** material.","revision":2,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/utf8-error.txt --
 error: invalid input: summary is 6 bytes; maximum is 4 bytes
 -- golden/five-byte-error.txt --
@@ -88,7 +88,7 @@ applied document: 2 create, 0 update, 0 skip, 0 no change
 0	create	summary-4
 1	create	summary-5
 -- golden/applied-show.json --
-{"id":"summary-4","title":"Applied issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784548800,"updated":1784548800,"summary":"Plan","details":"Applied details.","revision":7,"labels":["run:summary-5"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"summary-5","attachments":[]}
+{"id":"summary-4","title":"Applied issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784548800,"updated":1784548800,"summary":"Plan","details":"Applied details.","revision":7,"keys":[],"labels":["run:summary-5"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"summary-5","attachments":[]}
 -- golden/create-leaf.txt --
 summary-6
 -- golden/human-show.txt --

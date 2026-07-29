@@ -180,11 +180,12 @@ type ListReadyRequest struct{ Limit int }
 // ListBlockedRequest limits blocked issue results.
 type ListBlockedRequest struct{ Limit int }
 
-// ReadRequest identifies one issue and optionally requests inherited
-// current context. A nil depth omits inherited context; zero requests complete
-// ancestry.
+// ReadRequest identifies one issue by ID or exact board-scoped producer key
+// and optionally requests inherited current context.
+// A nil depth omits inherited context; zero requests complete ancestry.
 type ReadRequest struct {
 	IssueID      string
+	Key          string
 	ContextDepth *int
 }
 
@@ -317,7 +318,10 @@ type LogSummary struct {
 
 // Detail is one issue and its current relationships and records.
 type Detail struct {
-	Issue  Issue
+	Issue Issue
+	// Keys contains every exact producer identity associated with Issue
+	// in lexical order.
+	Keys   []string
 	Labels []string
 	// State is the complete attributed mutable recovery record.
 	State *RecoveryState

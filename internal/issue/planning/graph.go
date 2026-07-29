@@ -45,6 +45,27 @@ func NewExternalKey(value string) (ExternalKey, error) {
 // String returns the exact textual representation of an external key.
 func (k ExternalKey) String() string { return string(k) }
 
+// ExternalKeyOwner identifies the issue currently associated with one key.
+type ExternalKeyOwner struct {
+	// Key is the requested producer-owned key.
+	Key ExternalKey // required
+	// IssueID identifies Key's current owner within the selected board.
+	IssueID issue.ID // required
+}
+
+func ownerForExternalKey(
+	key *ExternalKey,
+	owner *ExternalKeyOwner,
+) (*issue.ID, error) {
+	if owner == nil {
+		return nil, nil
+	}
+	if key == nil || owner.Key != *key {
+		return nil, ErrIncompleteSnapshot
+	}
+	return &owner.IssueID, nil
+}
+
 // ApplyExistingPolicy selects how an apply document treats existing targets.
 type ApplyExistingPolicy uint8
 

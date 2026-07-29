@@ -80,15 +80,15 @@ routine-4
 {"id":"routine-2","title":"Periodic review","type":"routine","lifecycle":"open","status":"ready","priority":0,"active_claim":null,"created":1784203200,"updated":1784203200,"summary":"Repeat this procedure.","revision":3,"labels":[],"blocked":false}
 {"id":"routine-4","title":"Blocked routine","type":"routine","lifecycle":"open","status":"blocked","priority":0,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":5,"labels":[],"blocked":true}
 -- golden/ordinary-claim.json --
-{"id":"routine-1","title":"Ordinary task","type":"task","lifecycle":"open","status":"in_progress","priority":1,"assignee":"worker","active_claim":{"actor":"worker","started_at":1784203200},"created":1784203200,"updated":1784203200,"started_at":1784203200,"revision":6,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"routine-1","title":"Ordinary task","type":"task","lifecycle":"open","status":"in_progress","priority":1,"assignee":"worker","active_claim":{"actor":"worker","started_at":1784203200},"created":1784203200,"updated":1784203200,"started_at":1784203200,"revision":6,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/ordinary-release.txt --
 Released routine-1 as ready.
 -- golden/routine-claim.json --
-{"id":"routine-2","title":"Periodic review","type":"routine","lifecycle":"open","status":"in_progress","priority":0,"assignee":"caretaker","active_claim":{"actor":"caretaker","started_at":1784203200},"created":1784203200,"updated":1784203200,"started_at":1784203200,"summary":"Repeat this procedure.","revision":8,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"routine-2","title":"Periodic review","type":"routine","lifecycle":"open","status":"in_progress","priority":0,"assignee":"caretaker","active_claim":{"actor":"caretaker","started_at":1784203200},"created":1784203200,"updated":1784203200,"started_at":1784203200,"summary":"Repeat this procedure.","revision":8,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/routine-release.txt --
 Released routine-2 as ready.
 -- golden/edited.json --
-{"id":"routine-1","title":"Ordinary task","type":"routine","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":10,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"routine-1","title":"Ordinary task","type":"routine","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":10,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/dump.txt --
 published 1 issues to $WORK/routine-dump (1 written, 0 unchanged, 0 removed)
 -- golden/routine-5.md --

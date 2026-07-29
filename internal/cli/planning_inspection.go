@@ -29,6 +29,7 @@ func newIssueSummaryOutput(summary issue.Summary) issueSummaryOutput {
 // commands instead of expanding every issue response.
 type issueDetailOutput struct {
 	issue.Issue
+	Keys        []string     `json:"keys"`
 	Labels      []string     `json:"labels"`
 	DependsOn   []string     `json:"depends_on"`
 	Blocks      []string     `json:"blocks"`
@@ -54,6 +55,7 @@ type issueResultOutput struct {
 func newIssueDetailOutput(detail issue.Detail) issueDetailOutput {
 	return issueDetailOutput{
 		Issue:       detail.Issue,
+		Keys:        nonNilStrings(detail.Keys),
 		Labels:      nonNilStrings(detail.Labels),
 		DependsOn:   issueReferenceIDs(detail.DependsOn),
 		Blocks:      issueReferenceIDs(detail.Blocks),
@@ -195,12 +197,23 @@ func writeIssueDetail(
 		{name: "Priority", value: strconv.Itoa(detail.Issue.Priority)},
 		{name: "Assignee", value: assignee},
 		{name: "Parent", value: parent},
+	}
+	if len(detail.Keys) > 0 {
+		fields = append(fields, struct {
+			name  string
+			value string
+		}{name: "Keys", value: strings.Join(detail.Keys, ", ")})
+	}
+	fields = append(fields, []struct {
+		name  string
+		value string
+	}{
 		{name: "Labels", value: joinedOrDash(detail.Labels)},
 		{name: "Depends on", value: joinedOrDash(issueReferenceIDs(detail.DependsOn))},
 		{name: "Blocks", value: joinedOrDash(issueReferenceIDs(detail.Blocks))},
 		{name: "Log entries", value: strconv.Itoa(detail.LogSummary.Count)},
 		{name: "Attachments", value: joinedOrDash(attachmentValues)},
-	}
+	}...)
 	for _, field := range fields {
 		if err := output.WriteString(field.name + ": " + field.value + "\n"); err != nil {
 			return err

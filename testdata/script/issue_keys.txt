@@ -1,0 +1,60 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-28T12:00:00Z
+exec card init --prefix key-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card create --key source:z 'First issue'
+cmp stdout $WORK/golden/create-first.txt
+! exec card create --key= 'Empty key'
+cmp stderr $WORK/golden/empty-key.txt
+! exec card edit key-1 --key=
+cmp stderr $WORK/golden/empty-key.txt
+exec card edit key-1 --key source:a
+cmp stdout $WORK/golden/edit-first.txt
+exec card edit key-1 --key source:a
+cmp stdout $WORK/golden/edit-first.txt
+
+exec card create --key source:other 'Second issue'
+cmp stdout $WORK/golden/create-second.txt
+! exec card edit key-2 --key source:a
+cmp stderr $WORK/golden/key-conflict.txt
+! exec card create --key source:a 'Rejected issue'
+cmp stderr $WORK/golden/key-conflict.txt
+
+exec card create 'Third issue'
+cmp stdout $WORK/golden/create-third.txt
+
+exec card --json show --key source:z
+cmpjson stdout $WORK/golden/show.json
+exec card show --key source:a
+cmp stdout $WORK/golden/show.txt
+
+-- golden/create-first.txt --
+key-1
+-- golden/edit-first.txt --
+edited key-1
+-- golden/create-second.txt --
+key-2
+-- golden/create-third.txt --
+key-3
+-- golden/key-conflict.txt --
+error: external key "source:a" belongs to issue "key-1"
+-- golden/empty-key.txt --
+error: invalid input: external key required
+-- golden/show.json --
+{"id":"key-1","title":"First issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785240000,"updated":1785240000,"revision":3,"keys":["source:a","source:z"],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/show.txt --
+ID: key-1
+Title: First issue
+Type: task
+Status: ready
+Priority: 2
+Assignee: -
+Parent: -
+Keys: source:a, source:z
+Labels: -
+Depends on: -
+Blocks: -
+Log entries: 0
+Attachments: -

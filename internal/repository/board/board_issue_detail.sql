@@ -1,3 +1,16 @@
+-- name: BoardGetIssueIDByExternalKey :one
+SELECT issue_id
+FROM issue_external_keys
+WHERE board_id = sqlc.arg(board_id)
+    AND external_key = sqlc.arg(external_key);
+
+-- name: BoardListIssueExternalKeys :many
+SELECT external_key
+FROM issue_external_keys
+WHERE board_id = sqlc.arg(board_id)
+    AND issue_id = sqlc.arg(issue_id)
+ORDER BY external_key;
+
 -- name: BoardGetIssueLogSummary :one
 SELECT
     COUNT(*) AS log_count,

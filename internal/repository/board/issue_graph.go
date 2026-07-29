@@ -122,13 +122,11 @@ func (r *Repository) ApplyDocument(
 			}
 		}
 		if applied.ExternalKey != nil {
-			if err := query.New(mutation.change).BoardInsertIssueExternalKey(
+			if err := r.insertExternalKey(
 				ctx,
-				query.BoardInsertIssueExternalKeyParams{
-					BoardID:     r.boardID.String(),
-					ExternalKey: applied.ExternalKey.String(),
-					IssueID:     applied.Issue.ID().String(),
-				},
+				mutation,
+				applied.Issue.ID(),
+				*applied.ExternalKey,
 			); err != nil {
 				return out, err
 			}
@@ -257,21 +255,6 @@ func (r *Repository) applySnapshot(
 		BoardID: r.boardID, Revision: revision, IssueIDs: ids, Issues: issues,
 		ForeignIssueBoards: foreignBoards, ExternalKeys: externalKeys,
 	}, nil
-}
-
-func (r *Repository) readExternalKeys(
-	ctx context.Context,
-	scope queryScope,
-) (out map[planning.ExternalKey]issue.ID, err error) {
-	rows, err := query.New(scope).BoardListApplyExternalKeys(ctx, r.boardID.String())
-	if err != nil {
-		return nil, err
-	}
-	values := make(map[planning.ExternalKey]issue.ID)
-	for _, row := range rows {
-		values[planning.ExternalKey(row.ExternalKey)] = issue.ID(row.IssueID)
-	}
-	return values, nil
 }
 
 func (r *Repository) readForeignIssueBoards(

@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	domainboard "go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/issue/planning"
@@ -120,6 +121,97 @@ func TestRepositoryCreatesAndReadsBoardIssues(t *testing.T) {
 	require.NotNil(t, view.Context)
 	require.Len(t, view.Context.Ancestors, 1)
 	assert.Equal(t, "task-1", view.Context.Ancestors[0].Issue.ID)
+}
+
+func TestRepositoryBindsAndReadsDirectIssueKeys(t *testing.T) {
+	repository := openBoardRepository(t, Config{
+		BoardID: mustBoardID(t, "board-test"), IDPrefix: "task-", IDStrategy: "sequential",
+	})
+	planner := planning.NewPlanner(repository, repository, nil)
+
+	first, err := planner.CreateIssue(t.Context(), issue.NewInvocation("captain"), planning.CreateIssueRequest{
+		Title: "First", Type: "task", Priority: 2, Key: new("source:z"),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"source:z"}, first.Issue.Keys)
+
+	key := "source:a"
+	edited, err := planner.EditIssue(t.Context(), issue.NewInvocation("captain"), planning.EditIssueRequest{
+		ID: "task-1", Key: &key,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"source:a", "source:z"}, edited.Issue.Keys)
+	boundRevision := edited.Issue.Issue.Revision
+
+	edited, err = planner.EditIssue(t.Context(), issue.NewInvocation("captain"), planning.EditIssueRequest{
+		ID: "task-1", Key: &key,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, boundRevision, edited.Issue.Issue.Revision)
+
+	view, err := repository.ReadIssue(t.Context(), issue.ReadRequest{Key: "source:z"})
+	require.NoError(t, err)
+	assert.Equal(t, "task-1", view.Detail.Issue.ID)
+	assert.Equal(t, []string{"source:a", "source:z"}, view.Detail.Keys)
+
+	_, err = planner.CreateIssue(t.Context(), issue.NewInvocation("captain"), planning.CreateIssueRequest{
+		Title: "Second", Type: "task", Priority: 2, Key: new("source:other"),
+	})
+	require.NoError(t, err)
+	otherKey := "source:a"
+	_, err = planner.EditIssue(t.Context(), issue.NewInvocation("captain"), planning.EditIssueRequest{
+		ID: "task-2", Key: &otherKey,
+	})
+	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+
+	_, err = planner.CreateIssue(t.Context(), issue.NewInvocation("captain"), planning.CreateIssueRequest{
+		Title: "Rejected", Type: "task", Priority: 2, Key: new("source:a"),
+	})
+	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+	third, err := planner.CreateIssue(t.Context(), issue.NewInvocation("captain"), planning.CreateIssueRequest{
+		Title: "Third", Type: "task", Priority: 2,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, "task-3", third.Issue.Issue.ID)
+}
+
+func TestRepositoryReadsOnlyRequestedExternalKeyOwner(t *testing.T) {
+	repository := openBoardRepository(t, Config{
+		BoardID: mustBoardID(t, "board-test"), IDPrefix: "task-", IDStrategy: "sequential",
+	})
+	planner := planning.NewPlanner(repository, repository, nil)
+	_, err := planner.CreateIssue(t.Context(), issue.NewInvocation("captain"), planning.CreateIssueRequest{
+		Title: "First", Type: "task", Priority: 2, Key: new("source:first"),
+	})
+	require.NoError(t, err)
+	_, err = planner.CreateIssue(t.Context(), issue.NewInvocation("captain"), planning.CreateIssueRequest{
+		Title: "Second", Type: "task", Priority: 2, Key: new("source:second"),
+	})
+	require.NoError(t, err)
+
+	view, err := repository.store.View(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, view.Done()) }()
+	scope := &countingQueryScope{queryScope: view}
+
+	owner, err := repository.readExternalKeyOwner(t.Context(), scope, nil)
+	require.NoError(t, err)
+	assert.Nil(t, owner)
+	assert.Zero(t, scope.calls)
+
+	key := planning.ExternalKey("source:first")
+	owner, err = repository.readExternalKeyOwner(t.Context(), scope, &key)
+	require.NoError(t, err)
+	assert.Equal(t, &planning.ExternalKeyOwner{
+		Key: key, IssueID: issue.MustID("task-1"),
+	}, owner)
+	assert.Equal(t, 1, scope.calls)
+
+	missing := planning.ExternalKey("source:missing")
+	owner, err = repository.readExternalKeyOwner(t.Context(), scope, &missing)
+	require.NoError(t, err)
+	assert.Nil(t, owner)
+	assert.Equal(t, 2, scope.calls)
 }
 
 func TestRepositoryListIssueQueryCountDoesNotGrowWithBoardSize(t *testing.T) {

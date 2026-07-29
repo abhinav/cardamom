@@ -98,6 +98,8 @@ type EditIssue struct {
 	// ReplaceLabels, when non-nil, replaces the complete label set. It cannot
 	// be combined with AddLabels or RemoveLabels.
 	ReplaceLabels *[]issue.Label
+	// ExternalKey is the optional exact producer identity to bind.
+	ExternalKey *ExternalKey
 }
 
 // EditSnapshot contains current issue, graph, and label state needed for one
@@ -118,6 +120,9 @@ type EditSnapshot struct {
 	Parent *issue.ID
 	// ExistingIDs contains every durable issue identity in the selected board.
 	ExistingIDs []issue.ID
+	// ExternalKeyOwner is the current owner of EditIssue.ExternalKey.
+	// Nil means the requested key is unassociated or no key was requested.
+	ExternalKeyOwner *ExternalKeyOwner
 	// DependencyAncestors is keyed by each proposed prerequisite.
 	DependencyAncestors map[issue.ID][]issue.ID
 	// ContainmentAncestors is the ancestor chain of the proposed parent.
@@ -140,6 +145,9 @@ type IssueEdited struct {
 	Parent *issue.ID
 	// Changed reports whether persistence must replace the returned projections.
 	Changed bool
+	// ExternalKey is a new producer identity to persist.
+	// Nil means no key association changes.
+	ExternalKey *ExternalKey
 	CommittedRevision
 }
 
@@ -179,6 +187,8 @@ type EditIssueRequest struct {
 	// Labels, when non-nil, replaces the complete issue label set. It cannot
 	// be combined with AddLabels or RemoveLabels.
 	Labels *[]string
+	// Key is an optional exact producer identity to bind.
+	Key *string
 }
 
 // LoadEdit validates snapshot and loads policy state for edit.
@@ -261,7 +271,27 @@ func (p *EditPolicy) EditIssue(command EditIssue) (IssueEdited, error) {
 	if err != nil {
 		return IssueEdited{}, err
 	}
-	changed = changed || labelChanged || dependencyChanged || parentChanged
+	var externalKey *ExternalKey
+	owner, err := ownerForExternalKey(command.ExternalKey, p.snapshot.ExternalKeyOwner)
+	if err != nil {
+		return IssueEdited{}, err
+	}
+	if command.ExternalKey != nil {
+		key := *command.ExternalKey
+		if owner != nil {
+			if *owner != command.IssueID {
+				return IssueEdited{}, errkind.Errorf(
+					errkind.Conflict,
+					"external key %q belongs to issue %q",
+					key,
+					*owner,
+				)
+			}
+		} else {
+			externalKey = &key
+		}
+	}
+	changed = changed || labelChanged || dependencyChanged || parentChanged || externalKey != nil
 	if !changed {
 		return IssueEdited{
 			Issue: state, Labels: labels, DependsOn: dependencies, Parent: parent,
@@ -274,7 +304,7 @@ func (p *EditPolicy) EditIssue(command EditIssue) (IssueEdited, error) {
 	}
 	return IssueEdited{
 		Issue: state, Labels: labels, DependsOn: dependencies, Parent: parent,
-		Changed: true,
+		Changed: true, ExternalKey: externalKey,
 	}, nil
 }
 
@@ -445,6 +475,13 @@ func editIssueCommand(
 			return EditIssue{}, err
 		}
 		command.ReplaceLabels = &values
+	}
+	if req.Key != nil {
+		key, err := NewExternalKey(*req.Key)
+		if err != nil {
+			return EditIssue{}, err
+		}
+		command.ExternalKey = &key
 	}
 	return command, nil
 }

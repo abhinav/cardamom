@@ -172,9 +172,15 @@ type showCommand struct {
 	ID           string `arg:"" name:"id" predictor:"issues" help:"Issue ID."`
 	Context      bool   `name:"context" help:"Include board, ancestor, and direct-dependency context."`
 	ContextDepth int    `name:"context-depth" placeholder:"DEPTH" help:"Maximum ancestor count. Zero includes every ancestor."`
+	Key          bool   `name:"key" help:"Treat the positional argument as an exact producer key."`
 }
 
-func (c *showCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *showCommand) referencedIssueIDs() []string {
+	if c.Key {
+		return nil
+	}
+	return []string{c.ID}
+}
 
 func (*showCommand) Help() string {
 	return "Show one issue's current metadata, relationships, records, and optional inherited context."
@@ -197,9 +203,12 @@ func (c *showCommand) Run(inv *Invocation, operation ReadIssueOperation) error {
 	if c.Context {
 		depth = &c.ContextDepth
 	}
-	result, err := operation.ReadIssue(inv.Context, issue.ReadRequest{
-		IssueID: c.ID, ContextDepth: depth,
-	})
+	request := issue.ReadRequest{IssueID: c.ID, ContextDepth: depth}
+	if c.Key {
+		request.IssueID = ""
+		request.Key = c.ID
+	}
+	result, err := operation.ReadIssue(inv.Context, request)
 	if err != nil {
 		return err
 	}

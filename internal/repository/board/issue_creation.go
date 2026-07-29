@@ -28,10 +28,19 @@ func (r *Repository) CreateIssue(
 	if err != nil {
 		return out, err
 	}
+	externalKeyOwner, err := r.readExternalKeyOwner(
+		ctx,
+		mutation.change,
+		command.ExternalKey,
+	)
+	if err != nil {
+		return out, err
+	}
 	board, err := planning.LoadCreate(planning.CreateSnapshot{
 		BoardID: r.boardID, Revision: mutation.current,
 		AllocatedID: allocatedID, ExistingIDs: existingIDs,
-		OccurredAt: mutation.occurredAt,
+		ExternalKeyOwner: externalKeyOwner,
+		OccurredAt:       mutation.occurredAt,
 	})
 	if err != nil {
 		return out, err
@@ -45,6 +54,11 @@ func (r *Repository) CreateIssue(
 	}
 	if err := r.insertIssue(ctx, mutation, out.Issue); err != nil {
 		return out, err
+	}
+	if out.ExternalKey != nil {
+		if err := r.insertExternalKey(ctx, mutation, out.Issue.ID(), *out.ExternalKey); err != nil {
+			return out, err
+		}
 	}
 	if err := r.replaceLabels(ctx, mutation, out.Issue.ID(), out.Labels); err != nil {
 		return out, err

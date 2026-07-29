@@ -50,6 +50,7 @@ func TestClaimCommand_directIssueIncludesActorAndContext(t *testing.T) {
 			"created": 0,
 			"updated": 0,
 			"revision": 7,
+			"keys": [],
 			"labels": ["area:cli"],
 			"depends_on": [],
 			"blocks": [],

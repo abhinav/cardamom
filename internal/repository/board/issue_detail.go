@@ -8,6 +8,7 @@ import (
 
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.abhg.dev/cardamom/internal/issue/planning"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
@@ -22,7 +23,7 @@ func (r *Repository) ReadIssue(
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
 
-	id, err := issue.NewID(request.IssueID)
+	id, err := r.resolveIssueReadID(ctx, view, request)
 	if err != nil {
 		return out, err
 	}
@@ -40,6 +41,43 @@ func (r *Repository) ReadIssue(
 	return out, err
 }
 
+func (r *Repository) resolveIssueReadID(
+	ctx context.Context,
+	scope queryScope,
+	request issue.ReadRequest,
+) (issue.ID, error) {
+	if request.IssueID != "" && request.Key != "" {
+		return "", errkind.Errorf(
+			errkind.InvalidInput,
+			"invalid input: issue ID and external key cannot both be set",
+		)
+	}
+	if request.Key == "" {
+		return issue.NewID(request.IssueID)
+	}
+	key, err := planning.NewExternalKey(request.Key)
+	if err != nil {
+		return "", err
+	}
+	id, err := query.New(scope).BoardGetIssueIDByExternalKey(
+		ctx,
+		query.BoardGetIssueIDByExternalKeyParams{
+			BoardID: r.boardID.String(), ExternalKey: key.String(),
+		},
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return "", errkind.Errorf(
+			errkind.NotFound,
+			"issue not found: external key %q",
+			key,
+		)
+	}
+	if err != nil {
+		return "", err
+	}
+	return issue.ID(id), nil
+}
+
 func (r *Repository) readIssueDetail(
 	ctx context.Context,
 	scope queryScope,
@@ -51,6 +89,15 @@ func (r *Repository) readIssueDetail(
 		return issue.Detail{}, errkind.Errorf(errkind.NotFound, "issue not found: %s", id)
 	}
 	summary := index.summary(id)
+	keys, err := query.New(scope).BoardListIssueExternalKeys(
+		ctx,
+		query.BoardListIssueExternalKeysParams{
+			BoardID: r.boardID.String(), IssueID: id.String(),
+		},
+	)
+	if err != nil {
+		return issue.Detail{}, err
+	}
 	dependsOnIDs, err := query.New(scope).BoardListPrerequisiteIDs(
 		ctx,
 		query.BoardListPrerequisiteIDsParams{
@@ -100,7 +147,7 @@ func (r *Repository) readIssueDetail(
 		return issue.Detail{}, err
 	}
 	return issue.Detail{
-		Issue: summary.Issue, Labels: summary.Labels,
+		Issue: summary.Issue, Keys: keys, Labels: summary.Labels,
 		State:     selected.state.RecoveryStateRecord(),
 		DependsOn: dependsOn, Blocks: blocks, LogSummary: logSummary,
 		ParentID: parent, CurrentResult: result, CheckpointDecision: decision,

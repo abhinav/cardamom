@@ -38,4 +38,4 @@ This checkout now excludes Cardamom's local database and attachment blob files. 
 -- golden/create.txt --
 app-1
 -- golden/show-closed.json --
-{"id":"app-1","title":"Quiet issue","type":"task","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"app-1","title":"Quiet issue","type":"task","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}

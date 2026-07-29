@@ -29,10 +29,10 @@ applied document: 1 create, 0 update, 0 skip, 0 no change
 -- golden/rejected.txt --
 error: issue 1: existing issue "producer-1" rejected by on_existing error
 -- golden/source.json --
-{"id":"producer-1","title":"Catalog source seven","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784635200,"updated":1784635200,"summary":"Track the source owned by the intake catalog.","revision":2,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"producer-1","title":"Catalog source seven","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784635200,"updated":1784635200,"summary":"Track the source owned by the intake catalog.","revision":2,"keys":["intake-catalog:source-7"],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/resumed.txt --
 applied document: 1 create, 0 update, 1 skip, 0 no change
 0	skip	producer-1
 1	create	producer-2
 -- golden/verification.json --
-{"id":"producer-2","title":"Verify catalog source","type":"task","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1784635200,"updated":1784635200,"revision":3,"labels":[],"depends_on":["producer-1"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null,"attachments":[]}
+{"id":"producer-2","title":"Verify catalog source","type":"task","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1784635200,"updated":1784635200,"revision":3,"keys":[],"labels":[],"depends_on":["producer-1"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null,"attachments":[]}

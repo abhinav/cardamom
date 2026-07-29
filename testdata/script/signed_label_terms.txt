@@ -37,7 +37,7 @@ stderr 'label cannot start with \+ or -'
 -- golden/created.txt --
 label-1
 -- golden/created.json --
-{"id":"label-1","title":"Signed labels","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785153600,"updated":1785153600,"revision":2,"labels":["phase:old","positive","repeated"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"label-1","title":"Signed labels","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785153600,"updated":1785153600,"revision":2,"keys":[],"labels":["phase:old","positive","repeated"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/create-removal-error.txt --
 error: create --label does not accept removal terms
 -- golden/missing-label-error.txt --
@@ -45,6 +45,6 @@ error: --label: expected label value but got "--priority" (long flag)
 -- golden/edited.txt --
 edited label-1
 -- golden/edited.json --
-{"id":"label-1","title":"Signed labels","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785153600,"updated":1785153600,"revision":3,"labels":["phase:new","positive","repeated"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"label-1","title":"Signed labels","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785153600,"updated":1785153600,"revision":3,"keys":[],"labels":["phase:new","positive","repeated"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/conflict-error.txt --
 error: invalid input: a label cannot be both added and removed

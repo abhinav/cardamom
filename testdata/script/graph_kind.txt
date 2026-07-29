@@ -17,9 +17,9 @@ exec card --json edit graph-1 --type task
 cmpjson stdout $WORK/golden/task.json
 
 -- golden/workstream.json --
-{"id":"graph-1","title":"Candidate task","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+{"id":"graph-1","title":"Candidate task","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/task.json --
-{"id":"graph-1","title":"Candidate task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":6,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+{"id":"graph-1","title":"Candidate task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":6,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/create-parent.txt --
 graph-1
 -- golden/create-child.txt --

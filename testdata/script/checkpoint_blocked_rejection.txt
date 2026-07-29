@@ -23,4 +23,4 @@ applied document: 2 create, 0 update, 0 skip, 0 no change
 -- golden/unresolved.txt --
 error: checkpoint resolution requires all dependencies to be closed
 -- golden/unchanged.json --
-{"id":"blocked-2","title":"Approve credential cleanup","type":"checkpoint","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":2,"labels":[],"depends_on":["blocked-1"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null,"attachments":[]}
+{"id":"blocked-2","title":"Approve credential cleanup","type":"checkpoint","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":2,"keys":[],"labels":[],"depends_on":["blocked-1"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null,"attachments":[]}
