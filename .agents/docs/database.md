@@ -35,6 +35,17 @@ Authored SQL and SQL fixtures remain inside the owning repository package.
 Only `_test.sql` fixtures may inspect several table families for a test-only
 contract.
 
+Author every new stable production repository query in an owner-scoped
+`.sql` file consumed by the shared sqlc target.
+Call the generated query method from repository Go code.
+Repository ownership establishes where SQL belongs;
+it is not permission to embed a stable query in a runtime Go string.
+
+Keep handwritten production SQL only when the statement shape is genuinely
+dynamic or sqlc cannot represent the required low-level operation.
+Document the reason beside each retained handwritten statement,
+and keep its dynamic inputs constrained to the finite repository operation.
+
 ## Migrations
 
 Timestamped SQL files under `internal/repository/store/migrations` define the

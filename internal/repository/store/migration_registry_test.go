@@ -249,7 +249,8 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 	require.NoError(t, err)
 	results, err := provider.Up(t.Context())
 	require.NoError(t, err)
-	assert.Empty(t, results)
+	require.Len(t, results, 1)
+	assert.Equal(t, int64(20260729090000), results[0].Source.Version)
 
 	var appliedVersions int
 	require.NoError(t, db.QueryRow(`
@@ -259,10 +260,50 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 			AND version_id IN (
 				20260723150000,
 				20260726143816,
-				20260726181403
+				20260726181403,
+				20260729090000
 			)
 	`).Scan(&appliedVersions))
-	assert.Equal(t, 3, appliedVersions)
+	assert.Equal(t, 4, appliedVersions)
+}
+
+func TestBoardCopyMigrationPreservesBaselineStore(t *testing.T) {
+	db := openMigrationTestDatabase(t)
+	baseline, err := migrationFiles.ReadFile(
+		"migrations/20260726181403_baseline.sql",
+	)
+	require.NoError(t, err)
+	legacy, err := newMigrationProvider(db, fstest.MapFS{
+		"20260726181403_baseline.sql": {Data: baseline},
+	})
+	require.NoError(t, err)
+	_, err = legacy.Up(t.Context())
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `
+INSERT INTO projects (id, name, created_at)
+VALUES ('project-existing', 'Existing project', 1000);
+INSERT INTO boards (id, project_id, name, created_at)
+VALUES ('board-existing', 'project-existing', 'Existing board', 1000)`)
+	require.NoError(t, err)
+
+	current, err := newStoreMigrationProvider(db)
+	require.NoError(t, err)
+	results, err := current.Up(t.Context())
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+
+	var projectName, boardName, lineage string
+	require.NoError(t, db.QueryRowContext(t.Context(), `
+SELECT project.name, board.name, lineage.id
+FROM projects AS project
+JOIN boards AS board ON board.project_id = project.id
+CROSS JOIN store_lineage AS lineage
+WHERE project.id = 'project-existing'
+    AND lineage.singleton = 1`,
+	).Scan(&projectName, &boardName, &lineage))
+	assert.Equal(t, "Existing project", projectName)
+	assert.Equal(t, "Existing board", boardName)
+	assert.Regexp(t, `^store_[0-9a-f]{32}$`, lineage)
 }
 
 func gooseSQL(statements string) []byte {

@@ -1,14 +1,13 @@
 # Store schema
 
-`20260726181403_baseline.sql` defines the complete application schema and seed
-state for a fresh store.
-Goose owns migration history and applies the baseline before `Store` is
+`20260726181403_baseline.sql` defines the original application schema and seed
+state.
+Later timestamped migrations extend that schema without changing the baseline.
+Goose owns migration history and applies every migration before `Store` is
 published.
 
-The baseline is the sqlc schema source and therefore contains every current
-table, index, trigger, constraint, and seed row directly.
-It does not retain superseded schema shapes or data-repair transitions from
-pre-release development.
+The migration sequence is the sqlc schema source and therefore defines every
+current table, index, trigger, constraint, and seed row.
 
 ## Authoring migrations
 
@@ -61,6 +60,21 @@ in the same SQLite transaction as its projection changes.
 `next_issue_number` is a positive, store-wide sequence.
 Sequential issue creation reserves and advances it inside the same write
 transaction as the new issue.
+
+### Store lineage and board-copy receipts
+
+`store_lineage` assigns one persistent random lineage to a physical store
+history.
+A filesystem clone retains the lineage because the value lives in SQLite.
+
+`board_copy_receipts` records the source lineage, board, semantic snapshot,
+destination options, destination board, and destination revision for each
+successful copy.
+Separate mapping tables retain every issue, Log, and attachment identity
+decision.
+The schema permits several snapshot receipts for one source board;
+first-release changed-snapshot rejection is command policy rather than a
+schema constraint.
 
 ### Project catalog
 

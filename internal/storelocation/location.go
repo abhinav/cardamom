@@ -108,6 +108,20 @@ func DatabasePath(storeDir string) string {
 	return filepath.Join(storeDir, databaseName)
 }
 
+// SamePhysicalStore reports whether two resolved directories name the same
+// database file through aliases such as symbolic links.
+func SamePhysicalStore(left, right string) (bool, error) {
+	leftInfo, err := os.Stat(DatabasePath(left))
+	if err != nil {
+		return false, fmt.Errorf("inspect source store database: %w", err)
+	}
+	rightInfo, err := os.Stat(DatabasePath(right))
+	if err != nil {
+		return false, fmt.Errorf("inspect destination store database: %w", err)
+	}
+	return os.SameFile(leftInfo, rightInfo), nil
+}
+
 // resolveStorePath accepts either a store directory or a redirect file that
 // contains one path.
 // Relative redirect targets use the redirect file's directory as their base.

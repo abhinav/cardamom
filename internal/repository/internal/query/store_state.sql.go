@@ -10,6 +10,18 @@ import (
 	"database/sql"
 )
 
+const storeAdvanceNextIssueNumber = `-- name: StoreAdvanceNextIssueNumber :exec
+UPDATE store_state
+SET next_issue_number = ?1
+WHERE singleton = 1
+    AND next_issue_number < ?1
+`
+
+func (q *Queries) StoreAdvanceNextIssueNumber(ctx context.Context, nextIssueNumber int64) error {
+	_, err := q.db.ExecContext(ctx, storeAdvanceNextIssueNumber, nextIssueNumber)
+	return err
+}
+
 const storeGetCanonicalRevision = `-- name: StoreGetCanonicalRevision :one
 SELECT current_revision
 FROM store_state
