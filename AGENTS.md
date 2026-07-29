@@ -29,14 +29,13 @@ and preserve unrelated dirty, staged, and untracked files.
 
 | Operation | Command |
 | --- | --- |
-| Generate Connect protocol code | `mise run generate` |
+| Generate protocol and repository code | `mise run generate` |
 | Format source | `mise run fmt` |
 | Run every lint check | `mise run lint` |
 | Build the production binary and web assets | `mise run build` |
 | Run all tests | `mise run test` |
 | Run all tests with race detection | `mise run test --race` |
-| Run all test scripts | `mise run test:script` |
-| Run one test script | `mise run test:script --run $name` |
+| Run one test script | `go test ./cmd/card -run 'TestScript/$name' -count=1` |
 | Generate reader documentation | `mise run docs` |
 | Run live web development | `mise run web:dev` |
 
