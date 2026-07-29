@@ -34,7 +34,7 @@ exec card --actor caretaker release routine-2
 cmp stdout $WORK/golden/routine-release.txt
 
 # Existing generic mutation and batch surfaces accept routine.
-exec card --json issue edit routine-1 --type routine
+exec card --json edit routine-1 --type routine
 cmpjson stdout $WORK/golden/edited.json
 exec card apply graph.json
 cmp stdout $WORK/golden/applied.txt
@@ -52,7 +52,7 @@ cmpjson stdout $WORK/golden/closed.json
 # routine-specific commands.
 exec card create --help
 stdout 'routine'
-exec card issue edit --help
+exec card edit --help
 stdout 'routine'
 exec card list --help
 stdout 'routine'

@@ -19,13 +19,13 @@ cmp stderr $WORK/golden/create-removal-error.txt
 cmp stderr $WORK/golden/missing-label-error.txt
 
 # Edit maps signed terms to one atomic add/remove request.
-exec card issue edit label-1 --label +phase:new --label -phase:old
+exec card edit label-1 --label +phase:new --label -phase:old
 cmp stdout $WORK/golden/edited.txt
 exec card --json show label-1
 cmpjson stdout $WORK/golden/edited.json
 
 # One label cannot be both added and removed.
-! exec card issue edit label-1 --label conflict,-conflict
+! exec card edit label-1 --label conflict,-conflict
 cmp stderr $WORK/golden/conflict-error.txt
 
 # Apply label sets remain unsigned and reject reserved stored-label prefixes.

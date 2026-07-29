@@ -106,7 +106,7 @@ Choose the planning command by mutation scope:
 | Need | Command |
 | --- | --- |
 | Create one issue with its initial parent, dependencies, and labels | `card create` |
-| Change an existing issue or its relationships | `card issue edit` |
+| Change an existing issue or its relationships | `card edit` |
 | Create or reconcile several issues atomically from structured input | [`card apply`](apply.md) |
 
 ## Revise an existing plan
@@ -116,14 +116,14 @@ Record the evidence for a material graph change before mutating the graph,
 then make the complete related edit atomically:
 
 ```bash
-card --actor coordinator issue edit <issue-id> \
+card --actor coordinator edit <issue-id> \
   --parent <workstream-id> \
-  --add-depends-on <schema-id> \
+  --depends-on <schema-id> \
   --label +integration
 ```
 
-Use `--remove-depends-on`, `--label -integration`,
-or `--clear-parent` for removals.
+Use `--depends-on -<schema-id>` or `--label -integration` for removals.
+Use `--parent=` to remove containment.
 Inspect the affected ready and blocked issues before dispatch resumes.
 
 ## Put an approval gate in the graph
@@ -138,8 +138,8 @@ checkpoint_id=$(card --actor coordinator create \
   --summary "Approve only after the policy owner accepts the queue mapping and rollback plan." \
   "Approve support taxonomy")
 
-card --actor coordinator issue edit <taxonomy-migration-id> \
-  --add-depends-on "$checkpoint_id"
+card --actor coordinator edit <taxonomy-migration-id> \
+  --depends-on "$checkpoint_id"
 ```
 
 Obtain the authority decision outside `card`,

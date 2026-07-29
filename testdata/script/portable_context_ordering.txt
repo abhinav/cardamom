@@ -6,8 +6,8 @@ exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: pm-\n    strategy: se
 
 exec card board edit --description 'Board workstream description.'
 exec card apply graph.json
-exec card issue edit pm-2 --parent pm-1
-exec card issue edit pm-4 --parent pm-2 --add-depends-on pm-3
+exec card edit pm-2 --parent pm-1
+exec card edit pm-4 --parent pm-2 --depends-on pm-3
 exec card result set pm-3 'Dependency result memory.'
 
 # Context is board-first, then broadest-to-nearest containment,

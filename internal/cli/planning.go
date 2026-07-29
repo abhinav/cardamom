@@ -2,7 +2,6 @@ package cli
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -31,20 +30,25 @@ type labelTerms struct {
 // A term with no prefix or a leading plus is an addition. A leading minus is a
 // removal. Repeated flags append to the same normalized edit.
 func (l *labelTerms) Decode(ctx *kong.DecodeContext) error {
+	return l.decode(ctx, "label")
+}
+
+func (l *labelTerms) decode(ctx *kong.DecodeContext, kind string) error {
 	token := ctx.Scan.Pop()
 	if token.IsEOL() {
-		return errors.New(`missing value, expecting "<label>"`)
+		return fmt.Errorf(`missing value, expecting "<%s>"`, kind)
 	}
 	if token.InferredType() == kong.FlagToken {
 		return fmt.Errorf(
-			"expected label value but got %q (%s)",
+			"expected %s value but got %q (%s)",
+			kind,
 			token.String(),
 			token.InferredType(),
 		)
 	}
 	value, ok := token.Value.(string)
 	if !ok {
-		return fmt.Errorf("expected label value but got %q", token.Value)
+		return fmt.Errorf("expected %s value but got %q", kind, token.Value)
 	}
 	for _, term := range kong.SplitEscaped(value, ctx.Value.Tag.Sep) {
 		if label, ok := strings.CutPrefix(term, "-"); ok {
@@ -54,6 +58,13 @@ func (l *labelTerms) Decode(ctx *kong.DecodeContext) error {
 		l.add = append(l.add, strings.TrimPrefix(term, "+"))
 	}
 	return nil
+}
+
+// dependencyTerms maps signed CLI terms into dependency additions and removals.
+type dependencyTerms labelTerms
+
+func (d *dependencyTerms) Decode(ctx *kong.DecodeContext) error {
+	return (*labelTerms)(d).decode(ctx, "dependency")
 }
 
 type createCommand struct {
@@ -362,26 +373,16 @@ func applyReceiptMessage(value planning.ApplyReceipt) *cardamomv1.ApplyReceipt {
 	}
 }
 
-type issueCommand struct {
-	Edit issueEditCommand `cmd:"" help:"Edit issue metadata and graph relationships."`
-}
-
-func (*issueCommand) Help() string {
-	return "Change issue metadata and graph relationships through atomic operations."
-}
-
 type issueEditCommand struct {
-	ID                 string     `arg:"" name:"id" predictor:"issues" help:"Issue ID."`
-	Title              *string    `name:"title" placeholder:"TITLE" help:"Replacement title."`
-	Type               *string    `name:"type" enum:"workstream,task,routine" placeholder:"TYPE" help:"Replacement executable issue type."`
-	Priority           *int       `name:"priority" placeholder:"PRIORITY" help:"Replacement priority from 0 through 4."`
-	Summary            *string    `name:"summary" placeholder:"MARKDOWN" help:"Replacement Markdown summary. Use an empty value to clear it."`
-	Details            *string    `name:"details" placeholder:"MARKDOWN" help:"Replacement Markdown details. Use an empty value to clear it."`
-	Parent             *string    `name:"parent" placeholder:"ISSUE" help:"Replacement containment parent issue ID."`
-	ClearParent        bool       `name:"clear-parent" help:"Remove the containment parent."`
-	AddDependencies    []string   `name:"add-depends-on" placeholder:"ISSUE" help:"Prerequisite issue ID to add. Repeat for multiple IDs."`
-	RemoveDependencies []string   `name:"remove-depends-on" placeholder:"ISSUE" help:"Prerequisite issue ID to remove. Repeat for multiple IDs."`
-	Labels             labelTerms `name:"label" placeholder:"TERM" help:"Label term. No prefix or + adds; - removes. Repeat for multiple labels."`
+	ID           string          `arg:"" name:"id" predictor:"issues" help:"Issue ID."`
+	Title        *string         `name:"title" placeholder:"TITLE" help:"Replacement title."`
+	Type         *string         `name:"type" enum:"workstream,task,routine" placeholder:"TYPE" help:"Replacement executable issue type."`
+	Priority     *int            `name:"priority" placeholder:"PRIORITY" help:"Replacement priority from 0 through 4."`
+	Summary      *string         `name:"summary" placeholder:"MARKDOWN" help:"Replacement Markdown summary. Use an empty value to clear it."`
+	Details      *string         `name:"details" placeholder:"MARKDOWN" help:"Replacement Markdown details. Use an empty value to clear it."`
+	Parent       *string         `name:"parent" placeholder:"ISSUE" help:"Replacement containment parent issue ID. Use an empty value to clear it."`
+	Dependencies dependencyTerms `name:"depends-on" placeholder:"TERM" help:"Prerequisite term. No prefix or + adds; - removes. Repeat for multiple issues."`
+	Labels       labelTerms      `name:"label" placeholder:"TERM" help:"Label term. No prefix or + adds; - removes. Repeat for multiple labels."`
 }
 
 func (c *issueEditCommand) referencedIssueIDs() []string { return []string{c.ID} }
@@ -399,15 +400,16 @@ type EditIssueOperation interface {
 }
 
 func (c *issueEditCommand) Run(inv *Invocation, operation EditIssueOperation) error {
-	if c.Parent != nil && c.ClearParent {
-		return UsageErrorf("--parent and --clear-parent cannot be combined")
+	parent := c.Parent
+	if parent != nil && *parent == "" {
+		parent = nil
 	}
 	result, err := operation.EditIssue(inv.Context, issue.NewInvocation(inv.Actor), planning.EditIssueRequest{
 		ID: c.ID, Title: c.Title, Type: c.Type, Priority: c.Priority,
 		Summary: c.Summary, SummarySet: c.Summary != nil,
 		Details: c.Details, DetailsSet: c.Details != nil,
-		Parent: c.Parent, ParentSet: c.Parent != nil || c.ClearParent,
-		AddDependencies: c.AddDependencies, RemoveDependencies: c.RemoveDependencies,
+		Parent: parent, ParentSet: c.Parent != nil,
+		AddDependencies: c.Dependencies.add, RemoveDependencies: c.Dependencies.remove,
 		AddLabels: c.Labels.add, RemoveLabels: c.Labels.remove,
 	})
 	if err != nil {

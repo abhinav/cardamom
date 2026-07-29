@@ -7,9 +7,9 @@ exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: workstream-\n    stra
 # workstream/task transition.
 exec card create --type workstream 'Release workstream'
 cmp stdout $WORK/golden/create.txt
-exec card issue edit workstream-1 --type task
+exec card edit workstream-1 --type task
 cmp stdout $WORK/golden/edit.txt
-exec card --json issue edit workstream-1 --type workstream
+exec card --json edit workstream-1 --type workstream
 cmpjson stdout $WORK/golden/workstream.json
 
 # Apply accepts workstream as a first-class type and builds nested containment.

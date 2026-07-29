@@ -14,11 +14,11 @@ exec card create --summary 'Abandoned release task.' 'Abandoned task'
 cmp stdout $WORK/golden/create-4.txt
 exec card create --summary 'Approve the release.' 'Release approval'
 cmp stdout $WORK/golden/create-5.txt
-exec card issue edit dump-2 --parent dump-1 --add-depends-on dump-5
+exec card edit dump-2 --parent dump-1 --depends-on dump-5
 cmp stdout $WORK/golden/edit-2.txt
-exec card issue edit dump-3 --parent dump-1
+exec card edit dump-3 --parent dump-1
 cmp stdout $WORK/golden/edit-3.txt
-exec card issue edit dump-4 --parent dump-1
+exec card edit dump-4 --parent dump-1
 cmp stdout $WORK/golden/edit-4.txt
 exec card close dump-3
 cmp stdout $WORK/golden/close-3.txt
@@ -92,7 +92,7 @@ cmpenv stdout $WORK/golden/dump-6-workstream.txt
 cmp board-dump/issues/dump-6.md $WORK/golden/board-dump-6-workstream.md
 exec sh -c 'printf "local edit\n" >> board-dump/issues/dump-6.md'
 exec sh -c 'printf "unowned\n" > board-dump/local.md'
-exec card issue edit dump-6 --type task
+exec card edit dump-6 --type task
 cmp stdout $WORK/golden/edit-6.txt
 ! exec card --json dump board-dump --issue dump-6
 ! stdout .

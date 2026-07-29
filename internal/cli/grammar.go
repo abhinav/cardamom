@@ -16,9 +16,9 @@ type commandTree struct {
 	Board  boardCommand         `cmd:"" group:"starting" help:"Create, select, and inspect coordination boards."`
 	Config configurationCommand `cmd:"" group:"configuration" help:"Inspect and update typed configuration."`
 
-	Create createCommand `cmd:"" group:"planning" help:"Create a board-scoped issue."`
-	Apply  applyCommand  `cmd:"" group:"planning" help:"Apply an issue graph from JSON."`
-	Issue  issueCommand  `cmd:"" group:"planning" help:"Edit issue metadata and graph relationships."`
+	Create createCommand    `cmd:"" group:"planning" help:"Create a board-scoped issue."`
+	Apply  applyCommand     `cmd:"" group:"planning" help:"Apply an issue graph from JSON."`
+	Edit   issueEditCommand `cmd:"" group:"planning" help:"Edit issue metadata and graph relationships."`
 
 	List    listCommand    `cmd:"" group:"inspection" help:"List issues."`
 	Ready   readyCommand   `cmd:"" group:"inspection" help:"List issues that are ready to work on."`

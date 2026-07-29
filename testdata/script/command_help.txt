@@ -9,7 +9,7 @@ stdout 'Starting a board'
 stdout 'board create'
 stdout 'board edit'
 stdout 'Planning work'
-stdout 'issue edit'
+stdout 'edit'
 stdout 'Inspecting work'
 stdout 'Executing work'
 stdout 'checkpoint approve'
@@ -39,10 +39,10 @@ stdout 'Input is a strict JSON object with version, issues, and optional on_exis
 stdout 'Unknown fields are rejected'
 stdout '--dry-run'
 
-exec card issue edit --help
+exec card edit --help
 stdout 'Atomically edit requested scalar fields, labels, prerequisites, and containment'
-stdout '--add-depends-on=ISSUE'
-stdout '--remove-depends-on=ISSUE'
+stdout '--depends-on=TERM'
+stdout 'No prefix or \+ adds; - removes'
 
 # Execution and record help states the operation each command performs.
 exec card claim --help

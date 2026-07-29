@@ -273,7 +273,7 @@ func TestApplyCommandPreservesOmittedRelationshipFields(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
-func TestIssueEditCommandPreservesRequestedEditDimensions(t *testing.T) {
+func TestEditCommandPreservesRequestedEditDimensions(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	operation := &planningOperation{
 		editResult: planning.EditIssueResult{Issue: testIssueDetail("an-edit", "Changed")},
@@ -281,10 +281,10 @@ func TestIssueEditCommandPreservesRequestedEditDimensions(t *testing.T) {
 	app := newPlanningApplication(t, testConfig(&stdout, &stderr), operation)
 
 	exitCode := app.Run(t.Context(), []string{
-		"issue", "edit", "an-edit", "--title", "Changed",
+		"edit", "an-edit", "--title", "Changed",
 		"--type", "workstream", "--priority", "0",
-		"--summary=", "--clear-parent",
-		"--add-depends-on", "an-add", "--remove-depends-on", "an-remove",
+		"--summary=", "--parent=",
+		"--depends-on", "an-add", "--depends-on", "+an-other,-an-remove",
 		"--label", "new", "--label", "-old",
 	})
 
@@ -293,14 +293,14 @@ func TestIssueEditCommandPreservesRequestedEditDimensions(t *testing.T) {
 		ID: "an-edit", Title: new("Changed"), Type: new("workstream"),
 		Priority: new(0), Summary: new(""), SummarySet: true,
 		ParentSet:       true,
-		AddDependencies: []string{"an-add"}, RemoveDependencies: []string{"an-remove"},
+		AddDependencies: []string{"an-add", "an-other"}, RemoveDependencies: []string{"an-remove"},
 		AddLabels: []string{"new"}, RemoveLabels: []string{"old"},
 	}, operation.editRequest)
 	assert.Equal(t, "edited an-edit\n", stdout.String())
 	assert.Empty(t, stderr.String())
 }
 
-func TestIssueEditCommandParsesSignedLabelTerms(t *testing.T) {
+func TestEditCommandParsesSignedLabelTerms(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	operation := &planningOperation{
 		editResult: planning.EditIssueResult{Issue: testIssueDetail("an-edit", "Changed")},
@@ -308,7 +308,7 @@ func TestIssueEditCommandParsesSignedLabelTerms(t *testing.T) {
 	app := newPlanningApplication(t, testConfig(&stdout, &stderr), operation)
 
 	exitCode := app.Run(t.Context(), []string{
-		"issue", "edit", "an-edit",
+		"edit", "an-edit",
 		"--label", "+new,-old", "--label", "plain",
 	})
 

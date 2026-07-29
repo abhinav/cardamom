@@ -41,7 +41,7 @@ stdout 'one --label-any match'
 ! stdout '--add-label'
 ! stdout '--remove-label'
 
-exec card issue edit --help
+exec card edit --help
 stdout '--type=TYPE'
 stdout '--priority=PRIORITY'
 stdout '--summary=MARKDOWN'
@@ -49,7 +49,14 @@ stdout '--label=TERM'
 stdout 'No prefix or \+ adds; - removes'
 ! stdout '--add-label'
 ! stdout '--remove-label'
-stdout '--clear-parent'
+stdout '--depends-on=TERM'
+stdout 'No prefix or \+ adds; - removes'
+stdout '--parent=ISSUE'
+stdout 'Replacement containment parent issue ID'
+stdout 'empty value to clear it'
+! stdout '--clear-parent'
+! stdout '--add-depends-on'
+! stdout '--remove-depends-on'
 
 exec card checkpoint approve --help
 stdout 'Checkpoint to approve'

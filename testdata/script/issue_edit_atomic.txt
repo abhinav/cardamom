@@ -7,20 +7,20 @@ exec card create 'Target task'
 exec card create 'Blocking task'
 exec card create 'Contained child'
 
-exec card issue edit edit-3 --parent edit-1
+exec card edit edit-3 --parent edit-1
 cmp stdout $WORK/golden/attach.txt
 
 # Every requested metadata and graph change commits under one revision.
-exec card --json issue edit edit-1 --type workstream --priority 1 --summary 'Program contract.' --label core --add-depends-on edit-2
+exec card --json edit edit-1 --type workstream --priority 1 --summary 'Program contract.' --label core --depends-on edit-2
 cmpjson stdout $WORK/golden/edited.json
 
 # A late validation failure rolls back earlier changes in the same request.
-! exec card issue edit edit-1 --label leaked --parent missing
+! exec card edit edit-1 --label leaked --parent missing
 cmp stderr $WORK/golden/missing-parent.txt
 exec card --json show edit-1
 cmpjson stdout $WORK/golden/shown.json
 
-exec card issue edit edit-3 --clear-parent
+exec card edit edit-3 --parent=
 exec card --json show edit-3
 cmpjson stdout $WORK/golden/detached.json
 

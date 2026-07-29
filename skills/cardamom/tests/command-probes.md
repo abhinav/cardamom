@@ -328,8 +328,8 @@ checkpoint="$(
 implementation="$(
   "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" create 'Implement retry'
 )"
-"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" issue edit "$implementation" \
-  --add-depends-on "$checkpoint"
+"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" edit "$implementation" \
+  --depends-on "$checkpoint"
 decision="$("$CARDAMOM_BIN" --actor decision-recorder --json \
   checkpoint approve "$checkpoint" \
   --reason 'External authority accepted the recorded evidence.')"

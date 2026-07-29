@@ -324,7 +324,7 @@ Do not modify state.
 - The plan uses one current phase label for human and coordinator visibility
     and automatic worker routing.
 - At least two routing transitions use atomic signed
-    `issue edit --label` terms.
+    `edit --label` terms.
 - Routing, waiting, and routine custody retain their distinct
     Cardamom meanings.
 - Label selection details remain limited to what this workflow needs.
@@ -1199,7 +1199,7 @@ Do not execute commands.
     sibling relies on it.
 - Pauses dispatch during graph mutation and verifies ready and blocked state
     afterward.
-- Uses `issue edit --add-depends-on` only once the prerequisite is real.
+- Uses `edit --depends-on` only once the prerequisite is real.
 
 ## Checkpoint graph
 
