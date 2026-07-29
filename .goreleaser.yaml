@@ -7,9 +7,6 @@ release:
 checksum:
   name_template: checksums.txt
 
-changelog:
-  disable: true
-
 builds:
   - id: card
     env:
