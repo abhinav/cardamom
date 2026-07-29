@@ -75,8 +75,15 @@ Each issue record serves one reader task:
 | Summary | Concise stable Markdown inherited by descendants: outcome, constraints, acceptance criteria, and conclusions children must know |
 | Details | Expanded stable Markdown retrieved on demand: rationale, procedure, examples, and supporting context |
 | State | Mutable recovery facts and an optional planned next action |
-| Log | Committed State snapshots and replay-worthy standalone material not represented by a snapshot |
+| Log | Committed State snapshots plus standalone decisions, reasoning, and evidence needed to replay the work |
 | Result | Durable outcome and validation evidence for acceptors and dependent work |
+
+Structure Markdown records for the reader's scanning task.
+Use short paragraphs for one connected thought,
+bullets or tables for independent facts,
+and small domain-specific headings when a record has several sections.
+Separate paragraphs with blank lines;
+single line breaks still render as one paragraph.
 
 Treat State as the first recovery surface.
 When execution establishes a materially new position,
@@ -88,8 +95,10 @@ Structure the body around the work's domain concepts,
 without generic `Current state` or `Next action` wrapper headings.
 During active execution,
 use `state commit` at durable checkpoints to preserve current State in the Log.
-Use `log post` only for replay-worthy reasoning, evidence, or handoff material
-that the State snapshot does not represent.
+Use `log post` for material design, strategy, or policy choices
+whose evidence, rationale, alternatives, or consequences help replay the work.
+Use it also for other replay-worthy evidence or handoff material
+that does not belong in current State.
 Release and terminal lifecycle operations preserve changed State automatically.
 Keep Result separate from both State and Log:
 Result holds the completed outcome and validation,
@@ -156,9 +165,14 @@ The acceptor inspects with `result show`,
 records the decision with `log post`,
 and runs `close` without claiming unless more execution is required.
 
-Record each material choice in State before dependent work begins or resumes.
-Commit State at a durable checkpoint during active execution,
-then add only replay-worthy material the snapshot does not already preserve.
+Record the selected position of each material choice in State
+before dependent work begins or resumes,
+then commit State at a durable checkpoint during active execution.
+When a design, strategy, or policy choice constrains later work,
+also write one standalone Log post with the material evidence,
+rationale, rejected alternatives, and downstream consequence.
+Repeat only enough of the selected position to orient that reasoning;
+do not copy the complete State or planned next action.
 Do not record command-by-command narration when several operations only carry
 out a choice already recorded.
 

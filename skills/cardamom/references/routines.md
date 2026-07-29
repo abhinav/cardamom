@@ -12,7 +12,7 @@ Apply the canonical record roles to routine-specific information:
 | Details | Expanded stable procedure and examples retrieved on demand |
 | State body | Cursor, current targets, active run, and partial progress |
 | Next action | Optional transition for the next awakening |
-| Log | Committed run snapshots and replay-worthy material not represented by them |
+| Log | Committed run snapshots plus standalone policy decisions and other replay-worthy material |
 
 ```bash
 summary=$(cat <<'MARKDOWN'
@@ -147,8 +147,9 @@ card --actor routine-worker release <routine-id>
 
 The explicit commit preserves the completed run boundary and outcome.
 Release then preserves the changed next-run State automatically.
-Use a standalone Log post only for replay-worthy material not represented by
-either snapshot.
+Use a standalone Log post when the run establishes a material policy choice
+whose rationale later runs may need,
+or for other replay-worthy material that does not belong in either snapshot.
 
 After partial or failed work,
 advance a cursor only through successfully assessed input.

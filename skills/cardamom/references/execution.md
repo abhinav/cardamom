@@ -89,7 +89,8 @@ Update them at these execution boundaries:
 | A material investigation or change begins and interruption would leave intent ambiguous | Put active recovery facts in the State body and consume a started next action | Starting that work |
 | A reproduction, strategy choice, implementation outcome, validation result, blocker, or planned transition changes | Replace the State body and optional next action | Dependent work |
 | Current State reaches a durable checkpoint during active execution | Commit State | Dependent work that should rely on the checkpoint |
-| Replay-worthy reasoning or evidence is not represented by the committed State | Add one standalone Log post | Dependent work that needs the material |
+| A material design, strategy, or policy choice establishes rationale that later work may need to replay | Add one standalone Log post | Dependent work that relies on the choice |
+| Other replay-worthy evidence does not belong in current State | Add one standalone Log post | Dependent work that needs the material |
 | A conclusion becomes necessary for child tasks | Promote the concise conclusion to the containing summary | Dispatching dependent children |
 | An acceptor needs the finished outcome | Set the result | Releasing for acceptance |
 
@@ -100,14 +101,23 @@ so retain every still-operative fact in the body
 and pass an established transition with `--next`.
 When work begins that transition,
 omit `--next` from the replacement until another action is established.
-Use headings that name domain material when they aid scanning;
-the command output supplies State and next-action labels.
+When State contains several independent facts or recovery dimensions,
+use bullets, short paragraphs, or small domain-specific headings
+instead of one dense paragraph.
+The command output supplies State and next-action labels,
+so do not add generic wrapper headings for those fields.
 Commit current State at a durable checkpoint while execution remains active.
 Do not wait for final handoff when dependent work already relies on that
 checkpoint.
 
-Use `log post` for replay-worthy reasoning, evidence, surprises,
-or handoff material that would not belong in current recovery truth.
+Use `log post` for a material design, strategy, or policy choice
+when later work may need its evidence, rationale, rejected alternatives,
+or downstream consequence.
+The State body should still name the selected position as current recovery truth.
+The standalone post may repeat that position briefly to orient its reasoning,
+but must not copy the complete State or planned next action.
+Use `log post` also for replay-worthy evidence, surprises,
+or handoff material that does not belong in current recovery truth.
 Write a standalone post reference-first:
 name the stable referents and evidence that support its observation, decision,
 or conclusion,
@@ -195,8 +205,8 @@ and use its optional next action to identify continuation,
 including the responsible actor or external trigger when relevant.
 Release preserves changed State in the Log automatically.
 Do not run `state commit` solely to prepare for release.
-Add a standalone Log post only when the handoff has replay-worthy material
-that the State snapshot does not represent.
+Add a standalone Log post when the handoff introduces a material choice
+or other replay-worthy material that deserves its own reasoning record.
 Use an ordinary release when the issue should return to automatic claim pools,
 whether the work is new or partially complete:
 
