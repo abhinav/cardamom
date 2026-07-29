@@ -33,7 +33,7 @@ type commandTree struct {
 	Reopen     reopenCommand     `cmd:"" group:"execution" help:"Reopen terminal issues without claiming them."`
 	Checkpoint checkpointCommand `cmd:"" group:"execution" help:"Approve or deny a checkpoint."`
 
-	Log    logCommand    `cmd:"" group:"records" help:"Append and list durable issue log entries."`
+	Log    logCommand    `cmd:"" group:"records" help:"Post and show durable issue log entries."`
 	State  stateCommand  `cmd:"" group:"records" help:"Manage mutable issue recovery state."`
 	Result resultCommand `cmd:"" group:"records" help:"Manage an issue result."`
 

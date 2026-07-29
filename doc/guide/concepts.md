@@ -93,7 +93,7 @@ card --actor worker-a state commit "$issue"
 
 The commit preserves a State snapshot in the Log
 while retaining the current State.
-Use `log add` only for additional replay-worthy reasoning or evidence
+Use `log post` only for additional replay-worthy reasoning or evidence
 that the State snapshot does not represent.
 
 Mail is expiring communication,

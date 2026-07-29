@@ -140,7 +140,7 @@ next_state=$(cat <<'STATE'
 STATE
 )
 card --actor routine-worker state commit <routine-id> \
-  --replace "$next_state" \
+  --set "$next_state" \
   --next "Recheck pull request 124 before advancing the cursor."
 card --actor routine-worker release <routine-id>
 ```
@@ -185,7 +185,7 @@ The signing service must recover before assessment resumes.
 STATE
 )
 card --actor routine-worker state commit <routine-id> \
-  --replace "$next_state" \
+  --set "$next_state" \
   --next "Resume assessment after the signing service is restored."
 card --actor routine-worker release <routine-id> \
   --waiting "signing service is restored"
@@ -206,7 +206,7 @@ card --actor coordinator --json show <routine-id> --context
 card --actor coordinator --json list \
   --under <routine-id> \
   --status ready,blocked,in_progress,waiting,closed,cancelled --limit 0
-card --actor coordinator log add <routine-id> \
+card --actor coordinator log post <routine-id> \
   "Retiring this routine because its operating contract no longer applies."
 card --actor coordinator close <routine-id>
 ```

@@ -9,9 +9,9 @@ exec card state append record-1 'Next action.'
 exec card --json state show record-1
 cmpjson stdout $WORK/golden/state.json
 
-exec card --actor geordi log add record-1 'Observed plasma instability.'
-exec card --actor crusher log add record-1 'Medical review completed.'
-exec card --json log list record-1
+exec card --actor geordi log post record-1 'Observed plasma instability.'
+exec card --actor crusher log post record-1 'Medical review completed.'
+exec card --json log show record-1
 cmp stdout $WORK/golden/log.jsonl
 
 ! exec card log edit 1 replacement

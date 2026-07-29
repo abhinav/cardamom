@@ -27,7 +27,7 @@ artifact=$(
 )
 artifact_id=$(printf '%s\n' "$artifact" | jq -r .id)
 artifact_ref="%$artifact_id"
-card --actor worker-a log add <issue-id> \
+card --actor worker-a log post <issue-id> \
   "Validation report: $artifact_ref"
 ```
 

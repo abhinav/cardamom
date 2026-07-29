@@ -292,7 +292,7 @@ func TestCheckpointCommandsMapPublicVerbsAndPreserveReasonMarkdown(t *testing.T)
 }
 
 func TestLogEntryCommandsSelectMarkdownAndEmitJSONLines(t *testing.T) {
-	t.Run("AddFromDash", func(t *testing.T) {
+	t.Run("PostFromDash", func(t *testing.T) {
 		operations := &logOperationsRecorder{
 			addResult: record.AddLogEntryResult{LogEntry: issue.LogEntry{
 				ID: "log_41414141414141414141414141414141", IssueID: "an-1",
@@ -305,7 +305,7 @@ func TestLogEntryCommandsSelectMarkdownAndEmitJSONLines(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{
-			"--actor", "worker", "--json", "log", "add", "an-1", "-",
+			"--actor", "worker", "--json", "log", "post", "an-1", "-",
 		}))
 		assert.Equal(t, "worker", operations.invocation.Actor())
 		assert.Equal(t, record.AddLogEntryRequest{IssueID: "an-1", Body: "one\n\ntwo\n"}, operations.addRequest)
@@ -321,7 +321,7 @@ func TestLogEntryCommandsSelectMarkdownAndEmitJSONLines(t *testing.T) {
 		assert.Empty(t, stderr.String())
 	})
 
-	t.Run("List", func(t *testing.T) {
+	t.Run("Show", func(t *testing.T) {
 		operations := &logOperationsRecorder{
 			entries: []issue.LogEntry{
 				{
@@ -341,7 +341,7 @@ func TestLogEntryCommandsSelectMarkdownAndEmitJSONLines(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{
-			"--json", "log", "list", "an-1", "--limit", "2",
+			"--json", "log", "show", "an-1", "--limit", "2",
 		}))
 		assert.Equal(t, issue.LogListRequest{IssueID: "an-1", Reverse: true, Limit: 2}, operations.listRequest)
 		assert.Equal(t, strings.Join([]string{
@@ -352,7 +352,7 @@ func TestLogEntryCommandsSelectMarkdownAndEmitJSONLines(t *testing.T) {
 		assert.Empty(t, stderr.String())
 	})
 
-	t.Run("ListOldestFirstHuman", func(t *testing.T) {
+	t.Run("ShowOldestFirstHuman", func(t *testing.T) {
 		operations := &logOperationsRecorder{
 			entries: []issue.LogEntry{
 				{
@@ -372,7 +372,7 @@ func TestLogEntryCommandsSelectMarkdownAndEmitJSONLines(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{
-			"log", "list", "an-1", "--oldest-first",
+			"log", "show", "an-1", "--oldest-first",
 		}))
 		assert.Equal(t, issue.LogListRequest{IssueID: "an-1"}, operations.listRequest)
 		assert.Equal(t, strings.Join([]string{
@@ -453,18 +453,18 @@ func TestStateCommandsKeepMutableStateSeparateFromLogEntries(t *testing.T) {
 		assert.Empty(t, stderr.String())
 	})
 
-	t.Run("Discard", func(t *testing.T) {
+	t.Run("SetEmpty", func(t *testing.T) {
 		stdout, stderr, app := executionTestApplication(t, strings.NewReader(""), true,
 			kong.BindTo(operations, (*StateWriteOperations)(nil)),
 		)
 
-		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"state", "discard", "an-1"}))
-		assert.Equal(t, record.ClearStateRequest{IssueID: "an-1"}, operations.clearRequest)
-		assert.Equal(t, "Discarded state on an-1.\n", stdout.String())
+		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"state", "set", "an-1", ""}))
+		assert.Equal(t, record.SetStateRequest{IssueID: "an-1"}, operations.setRequest)
+		assert.Equal(t, "Set state on an-1.\n", stdout.String())
 		assert.Empty(t, stderr.String())
 	})
 
-	t.Run("CommitNextFromDash", func(t *testing.T) {
+	t.Run("CommitSetFromDash", func(t *testing.T) {
 		stdout, stderr, app := executionTestApplication(
 			t,
 			strings.NewReader("next\n\n- inspect coils\n"),
@@ -474,7 +474,7 @@ func TestStateCommandsKeepMutableStateSeparateFromLogEntries(t *testing.T) {
 
 		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{
 			"--actor", "worker", "--json", "state", "commit", "an-1",
-			"--replace", "-", "--next", "Report coil status.",
+			"--set", "-", "--next", "Report coil status.",
 		}))
 		assert.Equal(t, record.CommitStateRequest{
 			IssueID: "an-1", Disposition: record.CommitStateReplace,
@@ -505,7 +505,7 @@ func TestStateCommandsKeepMutableStateSeparateFromLogEntries(t *testing.T) {
 		assert.Empty(t, stderr.String())
 	})
 
-	t.Run("CommitClear", func(t *testing.T) {
+	t.Run("CommitEmptySet", func(t *testing.T) {
 		operations.commitResult = record.CommitStateResult{
 			Issue: issue.Issue{ID: "an-1"},
 		}
@@ -514,7 +514,7 @@ func TestStateCommandsKeepMutableStateSeparateFromLogEntries(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{
-			"state", "commit", "an-1", "--clear",
+			"state", "commit", "an-1", "--set", "",
 		}))
 		assert.Equal(t, record.CommitStateRequest{
 			IssueID: "an-1", Disposition: record.CommitStateClear,
@@ -663,7 +663,6 @@ func (o *logOperationsRecorder) ListLogEntries(_ context.Context, req issue.LogL
 type stateOperationsRecorder struct {
 	setRequest    record.SetStateRequest
 	appendRequest record.SetStateRequest
-	clearRequest  record.ClearStateRequest
 	commitRequest record.CommitStateRequest
 	readRequest   record.GetStateRequest
 	stateResult   record.StateResult
@@ -678,11 +677,6 @@ func (o *stateOperationsRecorder) SetState(_ context.Context, _ issue.Invocation
 
 func (o *stateOperationsRecorder) AppendState(_ context.Context, _ issue.Invocation, req record.SetStateRequest) (record.StateResult, error) {
 	o.appendRequest = req
-	return o.stateResult, nil
-}
-
-func (o *stateOperationsRecorder) ClearState(_ context.Context, _ issue.Invocation, req record.ClearStateRequest) (record.StateResult, error) {
-	o.clearRequest = req
 	return o.stateResult, nil
 }
 

@@ -61,7 +61,7 @@ card --actor worker-a state set <issue-id> \
   "Migration validation requires exclusive use of staging-db." \
   --next "Acquire staging-db for migration validation."
 card --actor worker-a lease acquire staging-db --ttl 30m
-card --actor worker-a log add <issue-id> \
+card --actor worker-a log post <issue-id> \
   "Acquired lease staging-db for migration validation."
 card --actor worker-a state set <issue-id> \
   "Lease staging-db is active. Inspect it before release during recovery." \

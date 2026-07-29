@@ -24,7 +24,7 @@ exec card close dump-3
 cmp stdout $WORK/golden/close-3.txt
 exec card cancel dump-4
 cmp stdout $WORK/golden/cancel-4.txt
-exec card --actor operator log add dump-2 'Build log captured.'
+exec card --actor operator log post dump-2 'Build log captured.'
 cmp stdout $WORK/golden/log-2.txt
 exec card state set dump-2 'Next: publish artifacts.'
 cmp stdout $WORK/golden/state-2.txt
@@ -144,7 +144,7 @@ Closed dump-3.
 -- golden/cancel-4.txt --
 Cancelled 1 requested issue and 0 dependent issues.
 -- golden/log-2.txt --
-Added log entry log_00000000000000000000000000000001 to dump-2.
+Posted log entry log_00000000000000000000000000000001 to dump-2.
 -- golden/state-2.txt --
 Set state on dump-2.
 -- golden/result-5.txt --

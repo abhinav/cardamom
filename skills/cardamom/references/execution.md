@@ -106,7 +106,7 @@ Commit current State at a durable checkpoint while execution remains active.
 Do not wait for final handoff when dependent work already relies on that
 checkpoint.
 
-Use `log add` for replay-worthy reasoning, evidence, surprises,
+Use `log post` for replay-worthy reasoning, evidence, surprises,
 or handoff material that would not belong in current recovery truth.
 Write a standalone post reference-first:
 name the stable referents and evidence that support its observation, decision,
@@ -141,7 +141,7 @@ If the rejected alternative remains useful for later replay,
 record a concise standalone explanation:
 
 ```bash
-card --actor worker-a log add <issue-id> - <<'LOG'
+card --actor worker-a log post <issue-id> - <<'LOG'
 `scanner/quoted_input_test.go:TestMalformedEscape` distinguishes a valid `\"`
 from malformed `\q`.
 Preserving escape state in `scanQuoted` keeps that evidence available through
@@ -171,13 +171,13 @@ State should say that execution is complete and direct the acceptor to Result.
 Do not copy the completed outcome or validation evidence from Result into State.
 
 When temporary State should be removed without entering history,
-discard it intentionally:
+set it to an explicitly empty body:
 
 ```bash
-card --actor worker-a state discard <issue-id>
+card --actor worker-a state set <issue-id> ''
 ```
 
-Use discard for intentional unsnapshotted removal,
+Use an empty `state set` for intentional unsnapshotted removal,
 not for ordinary phase advancement, handoff, or completion.
 
 ## Preserve produced artifacts
@@ -272,7 +272,7 @@ outcomes, records acceptance in a log entry, and closes the issue:
 
 ```bash
 card --actor coordinator --json result show <issue-id>
-card --actor coordinator log add <issue-id> - <<'LOG'
+card --actor coordinator log post <issue-id> - <<'LOG'
 ## Acceptance
 
 The recorded outcome satisfies the workstream criteria.

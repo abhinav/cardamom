@@ -6,21 +6,22 @@ exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: log-\n    strategy: s
 
 exec card create 'Long recovery trail'
 cmp stdout $WORK/golden/create.txt
-exec card --actor geordi log add log-1 'First observation.'
-exec card --actor geordi log add log-1 'Second observation.'
-exec card --actor geordi log add log-1 'Third observation.'
-exec card --actor geordi log add log-1 'Fourth observation.'
+exec card --actor geordi log post log-1 'First observation.'
+stdout 'Posted log entry'
+exec card --actor geordi log post log-1 'Second observation.'
+exec card --actor geordi log post log-1 'Third observation.'
+exec card --actor geordi log post log-1 'Fourth observation.'
 
-exec card log list log-1 --limit 2
+exec card log show log-1 --limit 2
 cmp stdout $WORK/golden/newest-two.txt
-exec card --json log list log-1 --oldest-first --limit 2
+exec card --json log show log-1 --oldest-first --limit 2
 cmp stdout $WORK/golden/oldest-two.jsonl
 
-! exec card log list log-1 --reverse
+! exec card log show log-1 --reverse
 stderr 'unknown flag --reverse'
 
-exec card log list --help
-stdout 'Newest entries are listed first'
+exec card log show --help
+stdout 'Newest entries are shown first'
 stdout '--oldest-first'
 stdout 'Maximum entries after ordering'
 

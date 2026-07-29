@@ -88,14 +88,15 @@ Structure the body around the work's domain concepts,
 without generic `Current state` or `Next action` wrapper headings.
 During active execution,
 use `state commit` at durable checkpoints to preserve current State in the Log.
-Use `log add` only for replay-worthy reasoning, evidence, or handoff material
+Use `log post` only for replay-worthy reasoning, evidence, or handoff material
 that the State snapshot does not represent.
 Release and terminal lifecycle operations preserve changed State automatically.
 Keep Result separate from both State and Log:
 Result holds the completed outcome and validation,
 while the final State body names the acceptance position
 and its next action directs acceptance.
-Use `state discard` when intentionally removing State without preserving it.
+Use `state set <issue-id> ''` when intentionally removing State without
+preserving it.
 
 When a conclusion becomes materially necessary for child tasks,
 promote a concise version into the containing issue's summary.
@@ -152,7 +153,7 @@ The next executor claims waiting work explicitly by issue ID with `--context`.
 For acceptance,
 the executor records a useful outcome with `result set` before release.
 The acceptor inspects with `result show`,
-records the decision with `log add`,
+records the decision with `log post`,
 and runs `close` without claiming unless more execution is required.
 
 Record each material choice in State before dependent work begins or resumes.
@@ -202,7 +203,7 @@ Structured output uses these framing contracts:
 | --- | --- | --- |
 | Scalar issue ID | Plain `create` | Capture the complete output as one opaque ID |
 | One JSON value | Single-record commands | Parse one value directly |
-| JSON Lines | `board list`, `list`, `ready`, `blocked`, `log list`, `mail publish`, `mail recv`, `mail subscriptions`, `lease list` | Stream records or use `jq -s` for an array |
+| JSON Lines | `board list`, `list`, `ready`, `blocked`, `log show`, `mail publish`, `mail recv`, `mail subscriptions`, `lease list` | Stream records or use `jq -s` for an array |
 | Collection envelope | `attachment list` | Read the fields documented by its workflow or help |
 
 ## Tests

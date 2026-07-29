@@ -8,7 +8,7 @@ exec card create 'Recover drive section'
 exec card --actor geordi state set state-1 'Current recovery State.' --next 'Inspect the primary plasma conduit.'
 exec card --actor geordi state append state-1 'Secondary diagnostic.'
 stdin replacement-state.md
-exec card --actor data --json state commit state-1 --replace - --next 'Inspect the secondary plasma conduit.'
+exec card --actor data --json state commit state-1 --set - --next 'Inspect the secondary plasma conduit.'
 cmpjson stdout $WORK/golden/commit-next.json
 
 exec card --json state show state-1
@@ -19,25 +19,26 @@ cmpjson stdout $WORK/golden/commit-retain.json
 exec card --actor data --json state commit state-1
 cmpjson stdout $WORK/golden/commit-no-op.json
 
-exec card --actor data --json state commit state-1 --clear
+exec card --actor geordi state set state-1 'Final uncommitted State.'
+exec card --actor data --json state commit state-1 --set ''
 cmpjson stdout $WORK/golden/commit-clear.json
 exec card --json state show state-1
 cmpjson stdout $WORK/golden/absent-state.json
 
 exec card --actor geordi state set state-1 'Uncommitted diagnostic.'
-exec card state discard state-1
-exec card --json log list state-1 --oldest-first
+exec card state set state-1 ''
+exec card --json log show state-1 --oldest-first
 cmp stdout $WORK/golden/snapshots.jsonl
 
-! exec card state clear state-1
-stderr 'unexpected argument clear'
-! exec card state commit state-1 --replace replacement --clear
-stderr '--replace and --clear'
 ! exec card state commit state-1 --next action
-stderr '--next.*requires.*--replace'
+stderr '--next.*requires.*non-empty --set'
+! exec card state commit state-1 --set '' --next action
+stderr '--next.*requires.*non-empty --set'
 
 ! exec card state set state-1 '   '
 stderr 'state body must not be blank'
+! exec card state set state-1 '' --next action
+stderr '--next.*requires.*non-empty state'
 ! exec card state set state-1 replacement --next '   '
 stderr 'next action must not be blank'
 ! exec card state append state-1 '   '
@@ -47,22 +48,19 @@ stdin two-values.md
 ! exec card state set state-1 - --next -
 stderr 'only one value may read from standard input'
 stdin two-values.md
-! exec card state commit state-1 --replace - --next -
+! exec card state commit state-1 --set - --next -
 stderr 'only one value may read from standard input'
 
 exec card state --help
 stdout 'show'
 stdout 'set'
 stdout 'append'
-stdout 'discard'
 stdout 'commit'
-! stdout 'clear'
 exec card state commit --help
-stdout '--replace=MARKDOWN'
+stdout '--set=MARKDOWN'
 stdout '--next=ACTION'
 stdout 'Use - to read'
 stdout 'standard input\.'
-stdout '--clear'
 stdout 'Retain current State by default'
 exec card state set --help
 stdout '--next=ACTION'
@@ -80,9 +78,10 @@ Only one value can consume this input.
 -- golden/commit-no-op.json --
 {"issue_id":"state-1","snapshot_created":false,"state":{"body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","author":"data","updated":1784030400,"snapshot_log_entry_id":"log_00000000000000000000000000000002"}}
 -- golden/commit-clear.json --
-{"issue_id":"state-1","snapshot_created":false,"state":null}
+{"issue_id":"state-1","snapshot_created":true,"state":null,"log_entry":{"id":"log_00000000000000000000000000000003","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Final uncommitted State.","created":1784030400}}
 -- golden/absent-state.json --
 {"issue_id":"state-1","body":null}
 -- golden/snapshots.jsonl --
 {"id":"log_00000000000000000000000000000001","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Current recovery State.\nSecondary diagnostic.","next_action":"Inspect the primary plasma conduit.","created":1784030400}
 {"id":"log_00000000000000000000000000000002","issue_id":"state-1","kind":"state_snapshot","author":"data","committer":"data","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","created":1784030400}
+{"id":"log_00000000000000000000000000000003","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Final uncommitted State.","created":1784030400}

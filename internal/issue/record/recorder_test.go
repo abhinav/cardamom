@@ -173,6 +173,22 @@ func TestPolicyAppendsToExistingState(t *testing.T) {
 	)
 }
 
+func TestPolicySetState_emptyBodyClearsState(t *testing.T) {
+	t.Parallel()
+
+	state := testIssueState(t, "an-state", "temporary")
+	policy, err := Load(Snapshot{
+		BoardID: testBoardID(t), Revision: 3,
+		Issue: state, OccurredAt: time.Unix(4, 0).UTC(),
+	})
+	require.NoError(t, err)
+
+	out, err := policy.SetState(SetState{IssueID: state.ID()})
+	require.NoError(t, err)
+	assert.Empty(t, out.State)
+	assert.Nil(t, out.Issue.RecoveryStateRecord())
+}
+
 func TestPolicyCommitsStateWithSeparateAttribution(t *testing.T) {
 	t.Parallel()
 

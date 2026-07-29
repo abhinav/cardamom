@@ -15,7 +15,7 @@ stdout 'Executing work'
 stdout 'checkpoint approve'
 stdout 'checkpoint deny'
 stdout 'Recording work'
-stdout 'log add'
+stdout 'log post'
 stdout 'result set'
 stdout '^Mail$'
 stdout 'mail subscribe'
@@ -70,11 +70,12 @@ exec card checkpoint deny --help
 stdout 'Deny a checkpoint and cancel its dependents'
 stdout 'Optional Markdown reason'
 
-exec card log add --help
-stdout 'Append one immutable Markdown log entry attributed to the invocation actor'
+exec card log post --help
+stdout 'Post one immutable Markdown log entry attributed to the invocation actor'
 
 exec card state set --help
-stdout 'Replace the complete mutable recovery state'
+stdout 'Set the complete mutable recovery State'
+stdout 'explicitly empty body clears it'
 
 exec card result set --help
 stdout 'Set a nonblank durable result without closing the issue'
