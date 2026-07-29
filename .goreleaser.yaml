@@ -1,68 +1,61 @@
-# goreleaser config — see https://goreleaser.com/customization
-#
-# Triggered on tag pushes by .github/workflows/release.yml.
-
 version: 2
-
-before:
-  hooks:
-    - go mod tidy
-
-builds:
-  - id: clu
-    main: ./cmd/clu
-    binary: clu
-    env:
-      - CGO_ENABLED=0
-    goos:
-      - linux
-      - darwin
-    goarch:
-      - amd64
-      - arm64
-    ldflags:
-      # Embed the version into the binary so `clu version` reports the
-      # released tag rather than "dev".
-      - -s -w
-      - -X github.com/arjia-labs/clu/internal/cli.Version={{.Version}}
-
-archives:
-  - id: clu
-    formats: [tar.gz]
-    name_template: >-
-      {{ .ProjectName }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}
-    files:
-      - README.md
-      - AGENTS.md
-      - LICENSE*
-      - examples/templates/**
-
-checksum:
-  name_template: 'checksums.txt'
-
-snapshot:
-  version_template: '{{ incpatch .Version }}-dev'
-
-changelog:
-  sort: asc
-  use: github
-  filters:
-    exclude:
-      - '^docs:'
-      - '^test:'
-      - '^chore:'
-      - 'Merge pull request'
+project_name: cardamom
 
 release:
-  draft: false
   prerelease: auto
-  header: |
-    ## clu {{.Tag}}
 
-    Install:
+checksum:
+  name_template: checksums.txt
 
-    ```bash
-    go install github.com/arjia-labs/clu/cmd/clu@{{.Tag}}
-    ```
+changelog:
+  disable: true
 
-    Or grab a prebuilt binary from the assets below.
+builds:
+  - id: card
+    env:
+      - CGO_ENABLED=0
+    main: ./cmd/card
+    binary: card
+    goos: [darwin, linux, windows]
+    goarch: [amd64, arm64]
+    ldflags: >-
+      -s -w -X go.abhg.dev/cardamom/internal/cli.Version={{ .Version }}
+    flags:
+      - -trimpath
+      - -tags=webassets
+
+archives:
+  - ids: [card]
+    formats: tar.gz
+    # Keep archive names compatible with uname output.
+    name_template: >-
+      {{- .ProjectName }}.
+      {{- title .Os }}-
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if (and (eq .Arch "arm64") (eq .Os "linux")) }}aarch64
+      {{- else }}{{ .Arch }}{{ end }}
+    files:
+      - LICENSE
+      - README.md
+
+# TODO: uncomment when project is public
+# homebrew_casks:
+#   - repository:
+#       owner: abhinav
+#       name: homebrew-tap
+#       token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
+#     commit_msg_template: "{{ .ProjectName }}: Update cask to {{ .Tag }}"
+#     commit_author:
+#       name: Abhinav Gupta
+#       email: mail@abhinavg.net
+#     homepage: https://github.com/abhinav/cardamom
+#     description: A local issue tracker for coordinating agent work
+#     license: BSD-3-Clause
+#     skip_upload: auto
+#     binaries: [card]
+#     hooks:
+#       post:
+#         install: |
+#           if OS.mac?
+#             system_command "/usr/bin/xattr", args: ["-dr", "com.apple.quarantine", "#{staged_path}/card"]
+#           end

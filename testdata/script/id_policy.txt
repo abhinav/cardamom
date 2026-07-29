@@ -1,0 +1,46 @@
+exec git init -b main
+exec card init --prefix issue-
+cmp stdout $WORK/golden/init.txt
+cmp .cardamom/config.yaml $WORK/golden/random-config.yaml
+
+exec card create 'random issue'
+cmp stdout $WORK/golden/random.txt
+
+# Strategy selection is committed board configuration, not a CLI knob.
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: issue-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card create 'first sequential issue'
+cmp stdout $WORK/golden/first.txt
+exec card create 'second sequential issue'
+cmp stdout $WORK/golden/second.txt
+
+# Unknown strategies fail at the configuration boundary.
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: issue-\n    strategy: uuid\n" > .cardamom/config.yaml'
+! exec card create 'invalid strategy'
+! stdout .
+stderr 'invalid issue ID strategy "uuid"'
+
+-- golden/init.txt --
+initialized .cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/random-config.yaml --
+# config.yaml contains local overrides for this physical Cardamom store.
+# Missing or commented values inherit built-in, project, or board values.
+# Use card config set --scope store KEY VALUE to set one value.
+# Use card config unset --scope store KEY to restore inheritance.
+#
+# Built-in defaults are shown below.
+version: 1
+issue:
+  id:
+    prefix: issue-
+#     strategy: random
+#   summary:
+#     max_bytes: 2048
+# attachment:
+#   max_bytes: 104857600
+-- golden/random.txt --
+issue-aaaa
+-- golden/first.txt --
+issue-1
+-- golden/second.txt --
+issue-2

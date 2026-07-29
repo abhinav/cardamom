@@ -1,0 +1,66 @@
+exec git init -b main
+at 2026-07-27T12:00:00Z
+env TZ=UTC
+exec card init --prefix label-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card create --priority 0 --label team,ready,paused,phase:a 'paused high priority'
+cmp stdout $WORK/golden/create-first.txt
+exec card create --priority 1 --label team,ready,phase:a 'first eligible'
+cmp stdout $WORK/golden/create-second.txt
+exec card create --priority 1 --label team,ready,phase:b 'second eligible'
+cmp stdout $WORK/golden/create-third.txt
+exec card create --priority 0 --label team,phase:b 'missing required label'
+cmp stdout $WORK/golden/create-fourth.txt
+exec card create --priority 2 --label team,ready,phase:c 'no alternative label'
+cmp stdout $WORK/golden/create-fifth.txt
+
+# List requires every positive term and excludes every negative term.
+exec card list --status ready --label team --label ready --label -paused --limit 0
+cmp stdout $WORK/golden/list.txt
+
+# Automatic claim applies the same all/none groups plus one any-of group
+# without changing priority and creation order.
+exec card --actor geordi claim --label team --label ready --label -paused --label-any phase:b --label-any phase:a
+cmp stdout $WORK/golden/claim.txt
+
+# Every automatic selector is invalid with a direct issue ID.
+! exec card --actor data claim label-3 --under label-1
+! stdout .
+cmp stderr $WORK/golden/direct-selector-error.txt
+! exec card --actor data claim label-3 --label -paused
+! stdout .
+cmp stderr $WORK/golden/direct-selector-error.txt
+! exec card --actor data claim label-3 --label-any phase:b
+! stdout .
+cmp stderr $WORK/golden/direct-selector-error.txt
+! exec card --actor data claim label-3 --watch
+! stdout .
+cmp stderr $WORK/golden/direct-selector-error.txt
+
+-- golden/create-first.txt --
+label-1
+-- golden/create-second.txt --
+label-2
+-- golden/create-third.txt --
+label-3
+-- golden/create-fourth.txt --
+label-4
+-- golden/create-fifth.txt --
+label-5
+-- golden/list.txt --
+ID       PRI  STATUS  TYPE  TITLE
+label-2  1    ready   task  first eligible
+label-3  1    ready   task  second eligible
+label-5  2    ready   task  no alternative label
+-- golden/claim.txt --
+Claimed label-2 as geordi.
+Issue label-2
+Title: first eligible
+Type: task
+Status: in_progress
+Priority: 1
+Assignee: geordi
+Labels: phase:a, ready, team
+-- golden/direct-selector-error.txt --
+error: --under, --label, --label-any, and --watch require automatic claim selection without an ID

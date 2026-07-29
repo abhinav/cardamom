@@ -1,0 +1,30 @@
+# card init PATH creates PATH/.cardamom without requiring prior discovery.
+mkdir init-project
+exec card init init-project --prefix init-
+cmp stdout $WORK/golden/init.txt
+exists init-project/.cardamom/board.sqlite3
+cmp init-project/.cardamom/config.yaml $WORK/golden/config.yaml
+
+-- golden/init.txt --
+initialized init-project/.cardamom
+Automatic local exclusion failed. Add these patterns to .gitignore:
+.cardamom/board.sqlite3
+.cardamom/board.sqlite3-shm
+.cardamom/board.sqlite3-wal
+.cardamom/blobs/
+-- golden/config.yaml --
+# config.yaml contains local overrides for this physical Cardamom store.
+# Missing or commented values inherit built-in, project, or board values.
+# Use card config set --scope store KEY VALUE to set one value.
+# Use card config unset --scope store KEY to restore inheritance.
+#
+# Built-in defaults are shown below.
+version: 1
+issue:
+  id:
+    prefix: init-
+#     strategy: random
+#   summary:
+#     max_bytes: 2048
+# attachment:
+#   max_bytes: 104857600

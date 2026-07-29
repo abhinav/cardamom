@@ -1,0 +1,37 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix log-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: log-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create 'Long recovery trail'
+cmp stdout $WORK/golden/create.txt
+exec card --actor geordi log add log-1 'First observation.'
+exec card --actor geordi log add log-1 'Second observation.'
+exec card --actor geordi log add log-1 'Third observation.'
+exec card --actor geordi log add log-1 'Fourth observation.'
+
+exec card log list log-1 --limit 2
+cmp stdout $WORK/golden/newest-two.txt
+exec card --json log list log-1 --oldest-first --limit 2
+cmp stdout $WORK/golden/oldest-two.jsonl
+
+! exec card log list log-1 --reverse
+stderr 'unknown flag --reverse'
+
+exec card log list --help
+stdout 'Newest entries are listed first'
+stdout '--oldest-first'
+stdout 'Maximum entries after ordering'
+
+-- golden/create.txt --
+log-1
+-- golden/newest-two.txt --
+Post log_00000000000000000000000000000004 by geordi
+Fourth observation.
+
+Post log_00000000000000000000000000000003 by geordi
+Third observation.
+-- golden/oldest-two.jsonl --
+{"id":"log_00000000000000000000000000000001","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"First observation.","created":1783857600}
+{"id":"log_00000000000000000000000000000002","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"Second observation.","created":1783857600}

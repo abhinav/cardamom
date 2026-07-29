@@ -1,0 +1,1190 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+exec card init --prefix dump-
+cmp stdout $WORK/golden/init.txt
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: dump-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+exec card create --type workstream --summary 'Coordinate the release.' 'Release workstream'
+cmp stdout $WORK/golden/create-1.txt
+exec card create --summary 'Build the release.' 'Build artifacts'
+cmp stdout $WORK/golden/create-2.txt
+exec card create --summary 'Published release notes.' 'Published notes'
+cmp stdout $WORK/golden/create-3.txt
+exec card create --summary 'Abandoned release task.' 'Abandoned task'
+cmp stdout $WORK/golden/create-4.txt
+exec card create --summary 'Approve the release.' 'Release approval'
+cmp stdout $WORK/golden/create-5.txt
+exec card issue edit dump-2 --parent dump-1 --add-depends-on dump-5
+cmp stdout $WORK/golden/edit-2.txt
+exec card issue edit dump-3 --parent dump-1
+cmp stdout $WORK/golden/edit-3.txt
+exec card issue edit dump-4 --parent dump-1
+cmp stdout $WORK/golden/edit-4.txt
+exec card close dump-3
+cmp stdout $WORK/golden/close-3.txt
+exec card cancel dump-4
+cmp stdout $WORK/golden/cancel-4.txt
+exec card --actor operator log add dump-2 'Build log captured.'
+cmp stdout $WORK/golden/log-2.txt
+exec card state set dump-2 'Next: publish artifacts.'
+cmp stdout $WORK/golden/state-2.txt
+exec card result set dump-5 'Approved.'
+cmp stdout $WORK/golden/result-5.txt
+
+# A whole-board dump publishes linked Markdown and reports every managed file.
+exec card dump board-dump
+cmpenv stdout $WORK/golden/dump-all.txt
+cmp board-dump/README.md $WORK/golden/board-README.md
+cmp board-dump/issues/dump-1.md $WORK/golden/board-dump-1.md
+cmp board-dump/issues/dump-2.md $WORK/golden/board-dump-2.md
+cmp board-dump/issues/dump-3.md $WORK/golden/board-dump-3.md
+cmp board-dump/issues/dump-4.md $WORK/golden/board-dump-4.md
+cmp board-dump/issues/dump-5.md $WORK/golden/board-dump-5.md
+
+# Identical reruns preserve every generated file, while quiet suppresses notice.
+exec card --quiet dump board-dump
+! stdout .
+! stderr .
+exec card dump board-dump
+cmpenv stdout $WORK/golden/dump-unchanged.txt
+
+# A changed record rewrites generated output without changing stable paths.
+exec card state set dump-2 'Next: verify artifacts.'
+cmp stdout $WORK/golden/state-2.txt
+exec card dump board-dump
+cmpenv stdout $WORK/golden/dump-changed.txt
+cmp board-dump/issues/dump-2.md $WORK/golden/board-dump-2-updated.md
+
+# Issue selection includes containment descendants, not dependencies. Overlapping
+# roots normalize to the root that already covers the other selected issue.
+exec card dump selected-dump --issue dump-2,dump-1 --issue dump-1
+cmpenv stdout $WORK/golden/dump-selected.txt
+! exists selected-dump/README.md
+cmp selected-dump/issues/dump-1.md $WORK/golden/selected-dump-1.md
+cmp selected-dump/issues/dump-2.md $WORK/golden/selected-dump-2.md
+cmp selected-dump/issues/dump-3.md $WORK/golden/selected-dump-3.md
+cmp selected-dump/issues/dump-4.md $WORK/golden/selected-dump-4.md
+! exists selected-dump/issues/dump-5.md
+
+# --no-descendants selects only the normalized named issues.
+exec card dump named-dump --issue dump-3,dump-1 --issue dump-1 --no-descendants
+cmpenv stdout $WORK/golden/dump-named.txt
+! exists named-dump/README.md
+cmp named-dump/issues/dump-1.md $WORK/golden/named-dump-1.md
+cmp named-dump/issues/dump-3.md $WORK/golden/named-dump-3.md
+! exists named-dump/issues/dump-2.md
+! exists named-dump/issues/dump-4.md
+! exists named-dump/issues/dump-5.md
+
+# Issue-selected updates are additive: README and unselected issue pages remain.
+cp board-dump/README.md board-readme.before
+cp board-dump/issues/dump-5.md dump-5.before
+exec card dump board-dump --issue dump-1
+cmpenv stdout $WORK/golden/dump-additive.txt
+cmp board-dump/README.md board-readme.before
+cmp board-dump/issues/dump-5.md dump-5.before
+
+# A modified generated page blocks a kind rewrite without force.
+exec card create --type workstream --summary 'Track a standalone rollout.' 'Standalone rollout'
+cmp stdout $WORK/golden/create-6.txt
+exec card dump board-dump --issue dump-6
+cmpenv stdout $WORK/golden/dump-6-workstream.txt
+cmp board-dump/issues/dump-6.md $WORK/golden/board-dump-6-workstream.md
+exec sh -c 'printf "local edit\n" >> board-dump/issues/dump-6.md'
+exec sh -c 'printf "unowned\n" > board-dump/local.md'
+exec card issue edit dump-6 --type task
+cmp stdout $WORK/golden/edit-6.txt
+! exec card --json dump board-dump --issue dump-6
+! stdout .
+cmp stderr $WORK/golden/modified-error.txt
+cmp board-dump/local.md $WORK/golden/unowned.txt
+
+# --force repairs the recognized generated counterpart and preserves unowned files.
+exec card dump board-dump --issue dump-6 --force
+cmpenv stdout $WORK/golden/dump-6-force.txt
+cmp board-dump/issues/dump-6.md $WORK/golden/board-dump-6-task.md
+cmp board-dump/local.md $WORK/golden/unowned.txt
+
+# Unknown selectors fail without publishing a destination.
+! exec card dump unknown-dump --issue dump-missing
+! stdout .
+stderr 'issue not found'
+! exists unknown-dump
+
+# Help states the one-way presentation contract and no longer exposes --subtree.
+exec card dump --help
+cmp stdout $WORK/golden/help.txt
+! stderr .
+! exec card dump invalid-dump --no-descendants
+! stdout .
+cmp stderr $WORK/golden/invalid-error.txt
+! exists invalid-dump
+
+-- golden/init.txt --
+initialized .cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/create-1.txt --
+dump-1
+-- golden/create-2.txt --
+dump-2
+-- golden/create-3.txt --
+dump-3
+-- golden/create-4.txt --
+dump-4
+-- golden/create-5.txt --
+dump-5
+-- golden/edit-2.txt --
+edited dump-2
+-- golden/edit-3.txt --
+edited dump-3
+-- golden/edit-4.txt --
+edited dump-4
+-- golden/close-3.txt --
+Closed dump-3.
+-- golden/cancel-4.txt --
+Cancelled 1 requested issue and 0 dependent issues.
+-- golden/log-2.txt --
+Added log entry log_00000000000000000000000000000001 to dump-2.
+-- golden/state-2.txt --
+Set state on dump-2.
+-- golden/result-5.txt --
+Set result on dump-5.
+-- golden/dump-all.txt --
+published 5 issues to $WORK/board-dump (6 written, 0 unchanged, 0 removed)
+-- golden/board-README.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: board
+  body_sha256: f7e0e99eadd90cbcbacaffc37fc016e3111d0ca950261d737733a10bb91b2e84
+---
+
+# Cardamom board dump
+
+This file is generated by `card dump`.
+
+## Provenance
+
+| Field | Value |
+| --- | --- |
+| Board ID | `board_00000000000000000000` |
+| Canonical revision | 14 |
+| Selection | whole-board |
+
+## Board description
+
+No board description.
+
+## Lifecycle summary
+
+| Status | Issues |
+| --- | ---: |
+| Ready | 2 |
+| Blocked | 1 |
+| In progress | 0 |
+| Waiting | 0 |
+| Closed | 1 |
+| Cancelled | 1 |
+
+## Containment
+
+- [dump-1: Release workstream](issues/dump-1.md)
+  - [dump-2: Build artifacts](issues/dump-2.md)
+  - [dump-3: Published notes](issues/dump-3.md)
+  - [dump-4: Abandoned task](issues/dump-4.md)
+- [dump-5: Release approval](issues/dump-5.md)
+
+## Issue index
+
+| ID | Title | Type | Status | Priority | Assignee |
+| --- | --- | --- | --- | ---: | --- |
+| [dump-1](issues/dump-1.md) | Release workstream | workstream | ready | 2 | - |
+| [dump-2](issues/dump-2.md) | Build artifacts | task | blocked | 2 | - |
+| [dump-3](issues/dump-3.md) | Published notes | task | closed | 2 | - |
+| [dump-4](issues/dump-4.md) | Abandoned task | task | cancelled | 2 | - |
+| [dump-5](issues/dump-5.md) | Release approval | task | ready | 2 | - |
+-- golden/board-dump-1.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-1
+  body_sha256: 8cd27722ca214123e92de101099edf5ef3a8dd9f59a164c9afbc0830fbd4dff2
+---
+
+[Board dump](../README.md)
+
+# dump-1: Release workstream
+
+| Field | Value |
+| --- | --- |
+| Type | workstream |
+| Status | ready |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 2 |
+| Labels | - |
+## Summary
+
+Coordinate the release.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+None.
+
+### Containment children
+
+- [dump-2: Build artifacts](../issues/dump-2.md)
+- [dump-3: Published notes](../issues/dump-3.md)
+- [dump-4: Abandoned task](../issues/dump-4.md)
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/board-dump-2.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-2
+  body_sha256: eeffe22293c8fed12018b327c58fc70faa812917909e19d764e35c9c1c1b1756
+---
+
+[Board dump](../README.md)
+
+# dump-2: Build artifacts
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | blocked |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 13 |
+| Labels | - |
+## Summary
+
+Build the release.
+
+## Details
+
+None.
+
+## Current state
+
+Next: publish artifacts.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+- [dump-1: Release workstream](../issues/dump-1.md)
+
+### Containment children
+
+None.
+
+### Depends on
+
+- [dump-5: Release approval](../issues/dump-5.md)
+
+### Blocks
+
+None.
+
+## Log
+
+<a id="log_00000000000000000000000000000001"></a>
+### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000001)
+
+Build log captured.
+-- golden/board-dump-3.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-3
+  body_sha256: ab9bc28824b2afe0e3d368c60f962fd2ff96a8e8a2615883569172baf8b611ae
+---
+
+[Board dump](../README.md)
+
+# dump-3: Published notes
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | closed |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | 2026-07-12T12:00:00Z |
+| Revision | 10 |
+| Labels | - |
+## Summary
+
+Published release notes.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+- [dump-1: Release workstream](../issues/dump-1.md)
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/board-dump-4.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-4
+  body_sha256: 1ff28bacc9ec8660ed2d6e8dfb607fd191fef9a3d4d8438de24acda86d009deb
+---
+
+[Board dump](../README.md)
+
+# dump-4: Abandoned task
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | cancelled |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | 2026-07-12T12:00:00Z |
+| Revision | 11 |
+| Labels | - |
+## Summary
+
+Abandoned release task.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+- [dump-1: Release workstream](../issues/dump-1.md)
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/board-dump-5.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-5
+  body_sha256: 9e9319c2a3e7be133ddc4c5047c80a265e6e2e043414ff0e5ecb4a00d8400d3a
+---
+
+[Board dump](../README.md)
+
+# dump-5: Release approval
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | ready |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 14 |
+| Labels | - |
+## Summary
+
+Approve the release.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+Approved.
+
+## Graph context
+
+### Containment parent
+
+None.
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+- [dump-2: Build artifacts](../issues/dump-2.md)
+
+## Log
+
+No log entries.
+-- golden/dump-unchanged.txt --
+published 5 issues to $WORK/board-dump (0 written, 6 unchanged, 0 removed)
+-- golden/dump-changed.txt --
+published 5 issues to $WORK/board-dump (2 written, 4 unchanged, 0 removed)
+-- golden/board-dump-2-updated.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-2
+  body_sha256: 963eb5bacbb3085141bea3c87d54e3a9924b44215816107985c85f44aa12699a
+---
+
+[Board dump](../README.md)
+
+# dump-2: Build artifacts
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | blocked |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 15 |
+| Labels | - |
+## Summary
+
+Build the release.
+
+## Details
+
+None.
+
+## Current state
+
+Next: verify artifacts.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+- [dump-1: Release workstream](../issues/dump-1.md)
+
+### Containment children
+
+None.
+
+### Depends on
+
+- [dump-5: Release approval](../issues/dump-5.md)
+
+### Blocks
+
+None.
+
+## Log
+
+<a id="log_00000000000000000000000000000001"></a>
+### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000001)
+
+Build log captured.
+-- golden/dump-selected.txt --
+published 4 issues to $WORK/selected-dump (4 written, 0 unchanged, 0 removed)
+-- golden/selected-dump-1.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-1
+  body_sha256: fcd361a494e75316814dec966b4a186a84c0373c967b775a41113ae11b5209cc
+---
+
+# dump-1: Release workstream
+
+| Field | Value |
+| --- | --- |
+| Type | workstream |
+| Status | ready |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 2 |
+| Labels | - |
+## Summary
+
+Coordinate the release.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+None.
+
+### Containment children
+
+- [dump-2: Build artifacts](../issues/dump-2.md)
+- [dump-3: Published notes](../issues/dump-3.md)
+- [dump-4: Abandoned task](../issues/dump-4.md)
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Descendant lifecycle summary
+
+| Status | Issues |
+| --- | ---: |
+| Ready | 0 |
+| Blocked | 1 |
+| In progress | 0 |
+| Waiting | 0 |
+| Closed | 1 |
+| Cancelled | 1 |
+
+## Descendant containment tree
+
+- [dump-2: Build artifacts](../issues/dump-2.md)
+- [dump-3: Published notes](../issues/dump-3.md)
+- [dump-4: Abandoned task](../issues/dump-4.md)
+
+## Log
+
+No log entries.
+-- golden/selected-dump-2.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-2
+  body_sha256: 5491b7cb8c1b05cad557e58dca2da2d9c69277071e0f758c0109cc7c6ffe00f1
+---
+
+# dump-2: Build artifacts
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | blocked |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 15 |
+| Labels | - |
+## Summary
+
+Build the release.
+
+## Details
+
+None.
+
+## Current state
+
+Next: verify artifacts.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+- [dump-1: Release workstream](../issues/dump-1.md)
+
+### Containment children
+
+None.
+
+### Depends on
+
+- `dump-5` (not included in this dump)
+
+### Blocks
+
+None.
+
+## Log
+
+<a id="log_00000000000000000000000000000001"></a>
+### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000001)
+
+Build log captured.
+-- golden/selected-dump-3.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-3
+  body_sha256: 4dd77bf01b98f6aee3804c8145ba9f958f2789f6045fc2d5a3ad0c7f5da40b40
+---
+
+# dump-3: Published notes
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | closed |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | 2026-07-12T12:00:00Z |
+| Revision | 10 |
+| Labels | - |
+## Summary
+
+Published release notes.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+- [dump-1: Release workstream](../issues/dump-1.md)
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/selected-dump-4.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-4
+  body_sha256: b05fb074e4e0e726b7a54e75127d820dd8eb611ed693a1e24a7bd51fc4271d6f
+---
+
+# dump-4: Abandoned task
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | cancelled |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | 2026-07-12T12:00:00Z |
+| Revision | 11 |
+| Labels | - |
+## Summary
+
+Abandoned release task.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+- [dump-1: Release workstream](../issues/dump-1.md)
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/dump-named.txt --
+published 2 issues to $WORK/named-dump (2 written, 0 unchanged, 0 removed)
+-- golden/named-dump-1.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-1
+  body_sha256: 3e615aedeb450f97facd1f16c961d71fffa8648f1d4fdfe69ead8c8ef1f4450e
+---
+
+# dump-1: Release workstream
+
+| Field | Value |
+| --- | --- |
+| Type | workstream |
+| Status | ready |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 2 |
+| Labels | - |
+## Summary
+
+Coordinate the release.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+None.
+
+### Containment children
+
+- `dump-2` (not included in this dump)
+- [dump-3: Published notes](../issues/dump-3.md)
+- `dump-4` (not included in this dump)
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/named-dump-3.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-3
+  body_sha256: 4dd77bf01b98f6aee3804c8145ba9f958f2789f6045fc2d5a3ad0c7f5da40b40
+---
+
+# dump-3: Published notes
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | closed |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | 2026-07-12T12:00:00Z |
+| Revision | 10 |
+| Labels | - |
+## Summary
+
+Published release notes.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+- [dump-1: Release workstream](../issues/dump-1.md)
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/dump-additive.txt --
+published 4 issues to $WORK/board-dump (4 written, 0 unchanged, 0 removed)
+-- golden/create-6.txt --
+dump-6
+-- golden/dump-6-workstream.txt --
+published 1 issues to $WORK/board-dump (1 written, 0 unchanged, 0 removed)
+-- golden/board-dump-6-workstream.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-6
+  body_sha256: 72fc9e61bebf7754f7844596e8d02cf5d375df674bd6d3d5ba8ff5d86f528f22
+---
+
+# dump-6: Standalone rollout
+
+| Field | Value |
+| --- | --- |
+| Type | workstream |
+| Status | ready |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 16 |
+| Labels | - |
+## Summary
+
+Track a standalone rollout.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+None.
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/edit-6.txt --
+edited dump-6
+-- golden/modified-error.txt --
+error: publish dump: generated file "issues/dump-6.md" was modified after generation
+-- golden/unowned.txt --
+unowned
+-- golden/dump-6-force.txt --
+published 1 issues to $WORK/board-dump (1 written, 0 unchanged, 0 removed)
+-- golden/board-dump-6-task.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-dump
+  board_id: board_00000000000000000000
+  board_name: script-dump
+  generated_identity: issue:dump-6
+  body_sha256: 7fdb6d07dec642e72a9da17425bf65ffeebf11a2f760a24cb54a2da026fb8904
+---
+
+# dump-6: Standalone rollout
+
+| Field | Value |
+| --- | --- |
+| Type | task |
+| Status | ready |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-12T12:00:00Z |
+| Updated | 2026-07-12T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 17 |
+| Labels | - |
+## Summary
+
+Track a standalone rollout.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+None.
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/help.txt --
+Usage: card dump <directory> [flags]
+
+Publish a human-readable Markdown dump.
+
+Publish a deterministic Markdown view of a board or selected containment
+subtrees.
+
+Arguments:
+  <directory>    Directory to create or update.
+
+Flags:
+  -h, --help               Show context-sensitive help.
+      --store=PATH         Physical Cardamom store directory. Overrides
+                           automatic discovery ($CARDAMOM_STORE).
+      --board=BOARD        Coordination board ID or exact name
+                           ($CARDAMOM_BOARD).
+      --actor=ACTOR        Identity that owns active claims and attributes
+                           changes. Defaults to the current OS username
+                           ($CARDAMOM_ACTOR).
+      --json               Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet              Suppress status notices while preserving requested
+                           output and errors.
+  -V, --version            Print version information and exit. This flag must
+                           precede any command.
+
+      --issue=ISSUE,...    Issue root to publish. Repeat for multiple roots.
+      --no-descendants     Publish only named issues, without containment
+                           descendants.
+      --force              Replace recognized generated files modified after
+                           publication.
+-- golden/invalid-error.txt --
+error: --no-descendants requires --issue

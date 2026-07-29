@@ -1,0 +1,32 @@
+{
+  "name": "cardamom-web",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@10.33.2",
+  "scripts": {
+    "build": "pnpm run typecheck && vite build",
+    "dev": "vite",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@bufbuild/protobuf": "^2.12.1",
+    "@connectrpc/connect": "^2.1.1",
+    "@connectrpc/connect-query": "^2.2.0",
+    "@connectrpc/connect-web": "^2.1.1",
+    "@tanstack/react-query": "^5.101.4",
+    "lucide-react": "^1.25.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router": "^8.3.0"
+  },
+  "devDependencies": {
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.3",
+    "typescript": "^5.9.3",
+    "vite": "^8.1.5",
+    "vitest": "^4.0.18"
+  }
+}

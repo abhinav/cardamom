@@ -1,0 +1,69 @@
+at 2026-07-15T12:00:00Z
+exec card init --prefix settings- --board-name 'Primary board'
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: settings-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card --json board create 'Secondary board'
+cmpjson stdout $WORK/golden/secondary-create.json
+exec card --json board use board_11111111111111111111
+cmpjson stdout $WORK/golden/secondary-create.json
+
+# The selected board accepts individual name and description changes.
+exec card --json board edit --name 'Secondary renamed'
+cmpjson stdout $WORK/golden/secondary-renamed.json
+exec card --json board edit --description '# Secondary context'
+cmpjson stdout $WORK/golden/secondary-described.json
+stdin stdin-description.md
+exec card --json board edit --description -
+cmpjson stdout $WORK/golden/secondary-stdin.json
+
+# One invocation changes both settings and repeating it is a no-op.
+exec card --json board edit --name 'Secondary delivery' --description '# Delivery context'
+cmpjson stdout $WORK/golden/secondary-delivery.json
+exec card --json dump no-op-check
+cmpenv stdout $WORK/golden/initial-dump.json
+exec card --json board edit --name 'Secondary delivery' --description '# Delivery context'
+cmpjson stdout $WORK/golden/secondary-delivery.json
+exec card --json dump no-op-check
+cmpenv stdout $WORK/golden/unchanged-dump.json
+
+# Invalid combined input does not apply the otherwise-valid description.
+! exec card --json board edit --name ' ' --description '# Must not persist'
+cmp stderr $WORK/golden/invalid-name.txt
+exec card --json board show
+cmpjson stdout $WORK/golden/secondary-delivery.json
+
+# Clearing removes only the selected board's description.
+exec card --json board edit --clear-description
+cmpjson stdout $WORK/golden/secondary-cleared.json
+
+# An explicit board edit does not change the checkout selection or another board.
+exec card --json board edit board_00000000000000000000 --name 'Primary renamed' --description '# Primary context'
+cmpjson stdout $WORK/golden/primary-edited.json
+exec card --json board show board_00000000000000000000
+cmpjson stdout $WORK/golden/primary-edited.json
+exec card --json board show
+cmpjson stdout $WORK/golden/secondary-cleared.json
+
+-- golden/secondary-create.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Secondary board","created":1784116800}
+-- golden/secondary-renamed.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Secondary renamed","created":1784116800,"description":null}
+-- golden/secondary-described.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Secondary renamed","created":1784116800,"description":"# Secondary context"}
+-- golden/secondary-stdin.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Secondary renamed","created":1784116800,"description":"# Secondary context from stdin\n\n- Durable Markdown.\n"}
+-- golden/secondary-delivery.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Secondary delivery","created":1784116800,"description":"# Delivery context"}
+-- golden/initial-dump.json --
+{"destination":"$WORK/no-op-check","board_id":"board_11111111111111111111","revision":6,"selection":{"mode":"whole-board","issue_ids":[],"include_descendants":false},"issues":0,"written":1,"unchanged":0,"removed":0}
+-- golden/unchanged-dump.json --
+{"destination":"$WORK/no-op-check","board_id":"board_11111111111111111111","revision":6,"selection":{"mode":"whole-board","issue_ids":[],"include_descendants":false},"issues":0,"written":0,"unchanged":1,"removed":0}
+-- golden/invalid-name.txt --
+error: invalid project namespace: board name required
+-- golden/secondary-cleared.json --
+{"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Secondary delivery","created":1784116800,"description":null}
+-- golden/primary-edited.json --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Primary renamed","created":1784116800,"description":"# Primary context"}
+-- stdin-description.md --
+# Secondary context from stdin
+
+- Durable Markdown.

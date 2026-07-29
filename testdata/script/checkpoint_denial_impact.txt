@@ -1,0 +1,26 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix impact-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card apply localization-plan.json
+cmp stdout $WORK/golden/applied.txt
+
+exec card --actor language-owner --json checkpoint deny --reason 'Terminology conflicts with policy.' impact-1
+cmpjson stdout $WORK/golden/denied.json
+exec card --json ready
+cmp stdout $WORK/golden/unaffected.jsonl
+
+-- localization-plan.json --
+{"version":1,"issues":[{"alias":"glossary","title":"Approve glossary","type":"checkpoint"},{"alias":"update","title":"Update translated prompts","type":"task","depends_on":{"values":[{"alias":"glossary"}]}},{"title":"Notify translation vendors","type":"task","depends_on":{"values":[{"alias":"update"}]}},{"title":"Audit locale coverage","type":"task"}]}
+-- golden/applied.txt --
+applied document: 4 create, 0 update, 0 skip, 0 no change
+0	create	impact-1
+1	create	impact-2
+2	create	impact-3
+3	create	impact-4
+-- golden/denied.json --
+{"decision":{"outcome":"denied","reason":"Terminology conflicts with policy.","decided_at":1783857600,"revision":3},"issue":null,"cancelled":[{"id":"impact-1","title":"Approve glossary","type":"checkpoint","lifecycle":"cancelled","status":"cancelled","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3},{"id":"impact-2","title":"Update translated prompts","type":"task","lifecycle":"cancelled","status":"cancelled","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3},{"id":"impact-3","title":"Notify translation vendors","type":"task","lifecycle":"cancelled","status":"cancelled","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3}],"parents_without_open_children":[]}
+-- golden/unaffected.jsonl --
+{"id":"impact-4","title":"Audit locale coverage","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":2,"labels":[],"blocked":false}

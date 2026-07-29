@@ -1,0 +1,23 @@
+exec git init -b main
+at 2026-07-21T12:00:00Z
+exec card init --prefix version-
+exec card config set --scope store issue.id.strategy sequential
+
+! exec card apply future-version.json
+cmp stderr $WORK/golden/version-error.txt
+exec card --json list
+! stdout .
+
+exec card --json apply --dry-run current-version.json
+cmpjson stdout $WORK/golden/preview.json
+exec card --json list
+! stdout .
+
+-- future-version.json --
+{"version":2,"issues":[{"title":"Future document entry","type":"task"}]}
+-- current-version.json --
+{"version":1,"issues":[{"alias":"audit","title":"Audit abandoned uploads","type":"task"}]}
+-- golden/version-error.txt --
+error: invalid input: apply document version must equal 1
+-- golden/preview.json --
+{"entries":[{"alias":"audit","action":"create"}],"counts":{"create":1},"dry_run":true}

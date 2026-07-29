@@ -1,0 +1,170 @@
+exec git init -b main
+at 2026-07-21T12:00:00Z
+exec card init --board-name 'Primary board'
+cmp .cardamom/config.yaml $WORK/golden/template.yaml
+
+# The default view names the selected namespace and reports every effective
+# value with its supplying layer.
+exec card --json config show
+cmpenv stdout $WORK/golden/default.json
+exec card config show
+cmpenv stdout $WORK/golden/default.txt
+
+# A scoped read exposes only values explicitly stored at that layer.
+exec card --json config show --scope store
+cmpenv stdout $WORK/golden/empty-store.json
+
+# Store, project, and board mutations use the same selected board context.
+exec card --json config set --scope store issue.id.prefix config-
+cmpenv stdout $WORK/golden/store-prefix.json
+exec card --json config set --scope project issue.summary.max_bytes 4096
+cmpenv stdout $WORK/golden/project-summary.json
+exec card --json config set --scope board attachment.max_bytes 1048576
+cmpenv stdout $WORK/golden/board-attachment.json
+exec card --json config set --scope board issue.id.strategy sequential
+cmpenv stdout $WORK/golden/layered.json
+
+exec card --json config show --scope project
+cmpenv stdout $WORK/golden/project-layer.json
+
+# One field resolves through every mutable layer, and ID allocation consumes
+# the live effective value at each operation boundary.
+exec card --json config set --scope project issue.id.prefix project-
+cmpenv stdout $WORK/golden/project-prefix.json
+exec card --json config set --scope board issue.id.prefix board-
+cmpenv stdout $WORK/golden/board-prefix.json
+exec card create 'Board prefix'
+cmp stdout $WORK/golden/board-id.txt
+exec card --json config unset --scope board issue.id.prefix
+cmpenv stdout $WORK/golden/project-prefix.json
+exec card create 'Project prefix'
+cmp stdout $WORK/golden/project-id.txt
+exec card --json config unset --scope project issue.id.prefix
+cmpenv stdout $WORK/golden/layered.json
+exec card create 'Store prefix'
+cmp stdout $WORK/golden/store-id.txt
+
+# Database-layer limits govern the same issue and attachment operations as
+# store YAML limits.
+exec card config set --scope board issue.summary.max_bytes 4
+! exec card create --summary 12345 'Oversized summary'
+! stdout .
+stderr 'summary is 5 bytes; maximum is 4 bytes'
+exec card config unset --scope board issue.summary.max_bytes
+exec card config set --scope board attachment.max_bytes 4
+! exec card attachment add six-bytes.txt
+! stdout .
+stderr 'attachment expected size 6 exceeds 4 bytes'
+
+# Clearing an override returns the effective inherited view. Clearing the final
+# store override removes the optional YAML without breaking later reads.
+exec card --json config unset --scope board attachment.max_bytes
+cmpenv stdout $WORK/golden/without-board-attachment.json
+exec card --json config unset --scope project issue.summary.max_bytes
+cmpenv stdout $WORK/golden/without-project-summary.json
+exec card --json config unset --scope store issue.id.prefix
+cmpenv stdout $WORK/golden/default-with-board-strategy.json
+! exists .cardamom/config.yaml
+exec card --json config show --scope store
+cmpenv stdout $WORK/golden/empty-store.json
+exec card create 'Built-in prefix'
+cmp stdout $WORK/golden/built-in-id.txt
+
+# Mutation scope, finite keys, and typed values are validated before writes.
+! exec card config set issue.id.prefix missing-scope-
+stderr '--scope'
+! exec card config set --scope board unsupported.key value
+stderr 'unsupported.key'
+! exec card config set --scope board issue.id.prefix Invalid-
+stderr 'must contain lowercase letters'
+! exec card config set --scope board issue.id.strategy uuid
+stderr 'invalid issue ID strategy "uuid"'
+! exec card config set --scope board issue.summary.max_bytes 2MB
+stderr 'byte limit "2MB"'
+! exec card config set --scope board attachment.max_bytes 0
+stderr 'must be between 1 and'
+
+exec card --json config show
+cmpenv stdout $WORK/golden/default-with-board-strategy.json
+
+# Help presents the read and mutation boundaries and the finite key vocabulary.
+exec card config --help
+stdout 'Inspect and update typed configuration'
+stdout 'config show'
+stdout 'config set'
+stdout 'config unset'
+exec card config show --help
+stdout 'effective configuration by default'
+stdout 'raw store, project, or board layer'
+exec card config set --help
+stdout 'Layer to update: store, project, or board'
+stdout 'positive decimal byte count'
+stdout 'issue.id.prefix'
+stdout 'attachment.max_bytes'
+exec card config unset --help
+stdout 'Layer to update: store, project, or board'
+stdout 'inherits from less specific layers'
+stdout 'issue.id.prefix'
+stdout 'attachment.max_bytes'
+
+-- six-bytes.txt --
+12345
+-- golden/template.yaml --
+# config.yaml contains local overrides for this physical Cardamom store.
+# Missing or commented values inherit built-in, project, or board values.
+# Use card config set --scope store KEY VALUE to set one value.
+# Use card config unset --scope store KEY to restore inheritance.
+#
+# Built-in defaults are shown below.
+# version: 1
+# issue:
+#   id:
+#     prefix: cm-
+#     strategy: random
+#   summary:
+#     max_bytes: 2048
+# attachment:
+#   max_bytes: 104857600
+-- golden/default.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"cm-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"built_in","identity":"built-in"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/default.txt --
+Scope:    effective
+Store:    $WORK/.cardamom
+Project:  project_00000000000000000000
+Board:    board_00000000000000000000
+
+KEY                      VALUE      ORIGIN
+issue.id.prefix          cm-        built_in (built-in)
+issue.id.strategy        random     built_in (built-in)
+issue.summary.max_bytes  2048       built_in (built-in)
+attachment.max_bytes     104857600  built_in (built-in)
+-- golden/empty-store.json --
+{"scope":"store","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":null,"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}},"origins":{"issue":{"id":{"prefix":null,"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}}}
+-- golden/store-prefix.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"config-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"store","identity":"$WORK/.cardamom"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/project-summary.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"config-","strategy":"random"},"summary":{"max_bytes":4096}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"store","identity":"$WORK/.cardamom"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"project","identity":"project_00000000000000000000"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/board-attachment.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"config-","strategy":"random"},"summary":{"max_bytes":4096}},"attachment":{"max_bytes":1048576}},"origins":{"issue":{"id":{"prefix":{"scope":"store","identity":"$WORK/.cardamom"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"project","identity":"project_00000000000000000000"}}},"attachment":{"max_bytes":{"scope":"board","identity":"board_00000000000000000000"}}}}
+-- golden/layered.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"config-","strategy":"sequential"},"summary":{"max_bytes":4096}},"attachment":{"max_bytes":1048576}},"origins":{"issue":{"id":{"prefix":{"scope":"store","identity":"$WORK/.cardamom"},"strategy":{"scope":"board","identity":"board_00000000000000000000"}},"summary":{"max_bytes":{"scope":"project","identity":"project_00000000000000000000"}}},"attachment":{"max_bytes":{"scope":"board","identity":"board_00000000000000000000"}}}}
+-- golden/project-layer.json --
+{"scope":"project","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":null,"strategy":null},"summary":{"max_bytes":4096}},"attachment":{"max_bytes":null}},"origins":{"issue":{"id":{"prefix":null,"strategy":null},"summary":{"max_bytes":{"scope":"project","identity":"project_00000000000000000000"}}},"attachment":{"max_bytes":null}}}
+-- golden/project-prefix.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"project-","strategy":"sequential"},"summary":{"max_bytes":4096}},"attachment":{"max_bytes":1048576}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":{"scope":"board","identity":"board_00000000000000000000"}},"summary":{"max_bytes":{"scope":"project","identity":"project_00000000000000000000"}}},"attachment":{"max_bytes":{"scope":"board","identity":"board_00000000000000000000"}}}}
+-- golden/board-prefix.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"board-","strategy":"sequential"},"summary":{"max_bytes":4096}},"attachment":{"max_bytes":1048576}},"origins":{"issue":{"id":{"prefix":{"scope":"board","identity":"board_00000000000000000000"},"strategy":{"scope":"board","identity":"board_00000000000000000000"}},"summary":{"max_bytes":{"scope":"project","identity":"project_00000000000000000000"}}},"attachment":{"max_bytes":{"scope":"board","identity":"board_00000000000000000000"}}}}
+-- golden/board-id.txt --
+board-1
+-- golden/project-id.txt --
+project-2
+-- golden/store-id.txt --
+config-3
+-- golden/built-in-id.txt --
+cm-4
+-- golden/without-board-attachment.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"config-","strategy":"sequential"},"summary":{"max_bytes":4096}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"store","identity":"$WORK/.cardamom"},"strategy":{"scope":"board","identity":"board_00000000000000000000"}},"summary":{"max_bytes":{"scope":"project","identity":"project_00000000000000000000"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/without-project-summary.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"config-","strategy":"sequential"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"store","identity":"$WORK/.cardamom"},"strategy":{"scope":"board","identity":"board_00000000000000000000"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/default-with-board-strategy.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"cm-","strategy":"sequential"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"built_in","identity":"built-in"},"strategy":{"scope":"board","identity":"board_00000000000000000000"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}

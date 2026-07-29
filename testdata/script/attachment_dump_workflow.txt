@@ -1,0 +1,71 @@
+exec git init -b main
+at 2026-07-20T12:00:00Z
+env TZ=UTC
+exec card init --prefix attach-
+cmp stdout $WORK/golden/init.txt
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: attach-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card create 'Attachment origin'
+cmp stdout $WORK/golden/create.txt
+
+# A CLI-created attachment remains usable across issue records, dump
+# publication, download, and tombstoning in a freshly migrated store.
+exec sh attachment-dump-workflow.sh
+cmp stdout $WORK/golden/workflow.txt
+! stderr .
+
+-- attachment-dump-workflow.sh --
+#!/bin/sh
+set -eu
+
+add_output=$(card attachment add report.txt --issue attach-1)
+attachment_id=$(printf '%s\n' "$add_output" | sed -n '1p')
+markdown_link=$(printf '%s\n' "$add_output" | sed -n '2p')
+case "$attachment_id" in
+  att_[a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7]) ;;
+  *) echo "invalid attachment ID: $attachment_id" >&2; exit 1 ;;
+esac
+[ "$markdown_link" = "[report.txt](attachment:$attachment_id)" ]
+
+note_output=$(card state set attach-1 "$markdown_link")
+[ "$note_output" = 'Set state on attach-1.' ]
+
+dump_output=$(card dump published)
+[ "$dump_output" = "published 1 issues to $PWD/published (4 written, 0 unchanged, 0 removed)" ]
+
+attachment_dir="published/attachments/$attachment_id"
+printf '%s\n' \
+  'format_version: 1' \
+  "attachment_id: $attachment_id" \
+  'digest: sha256:e8d95d85d63087a2e60b4f189b38a03c10759143f6e01f5363b5ee6ce7ea3841' \
+  'size_bytes: 14' \
+  'media_type: text/plain; charset=utf-8' \
+  'filename: report.txt' \
+  >expected-metadata.yaml
+cmp expected-metadata.yaml "$attachment_dir/metadata.yaml"
+cmp report.txt "$attachment_dir/files/report.txt"
+grep -F "[report.txt](../attachments/$attachment_id/files/report.txt)" \
+  published/issues/attach-1.md >/dev/null
+
+get_output=$(card attachment get "$attachment_id" downloaded.txt)
+[ "$get_output" = 'wrote downloaded.txt (14 bytes)' ]
+cmp report.txt downloaded.txt
+
+remove_output=$(card attachment remove "$attachment_id")
+[ "$remove_output" = "removed $attachment_id" ]
+
+printf '%s\n' \
+  'recorded the emitted Markdown reference' \
+  'published deterministic attachment metadata and bytes' \
+  'downloaded identical bytes and tombstoned the attachment'
+
+-- report.txt --
+bridge report
+-- golden/init.txt --
+initialized .cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/create.txt --
+attach-1
+-- golden/workflow.txt --
+recorded the emitted Markdown reference
+published deterministic attachment metadata and bytes
+downloaded identical bytes and tombstoned the attachment

@@ -1,0 +1,72 @@
+at 2026-07-15T12:00:00Z
+exec card init --prefix sel-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: sel-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card board create 'Second board'
+cmp stdout $WORK/golden/second-board.txt
+
+exec card --board board_00000000000000000000 create 'Default parent'
+cmp stdout $WORK/golden/default-parent.txt
+exec card --board board_00000000000000000000 create 'Default child'
+cmp stdout $WORK/golden/default-child.txt
+exec card issue edit sel-2 --parent sel-1
+cmp stdout $WORK/golden/edited.txt
+exec card --board board_11111111111111111111 create 'Second issue'
+cmp stdout $WORK/golden/second-issue.txt
+exec card board use board_11111111111111111111
+cmp stdout $WORK/golden/use-second.txt
+
+# Explicit issue IDs infer their board instead of requiring ambient selection.
+exec card --json show sel-1
+cmpjson stdout $WORK/golden/default-parent.json
+exec card --json list --under sel-1
+cmp stdout $WORK/golden/default-descendants.jsonl
+exec card issue edit sel-2 --priority 1
+cmp stdout $WORK/golden/edited.txt
+
+# Explicit flag and environment selections are validated against inferred IDs.
+env CARDAMOM_BOARD=board_11111111111111111111
+! exec card show sel-1
+! stdout .
+stderr 'belongs to board "board_00000000000000000000"'
+exec card --board board_00000000000000000000 show sel-1
+stdout 'Default parent'
+! stderr .
+env CARDAMOM_BOARD=
+
+# Release validates an explicit board and otherwise follows the claimed issue.
+exec card --actor alice claim sel-1
+stdout 'Claimed sel-1'
+! exec card --board board_11111111111111111111 --actor alice release sel-1
+! stdout .
+stderr 'belongs to board "board_00000000000000000000"'
+exec card --actor alice release sel-1
+cmp stdout $WORK/golden/released.txt
+
+# One invocation cannot target issue IDs owned by different boards.
+! exec card close sel-1 sel-3
+stderr 'issue IDs belong to multiple boards'
+exec card close sel-1 sel-2
+cmp stdout $WORK/golden/closed.txt
+
+-- golden/second-board.txt --
+board_11111111111111111111
+-- golden/default-parent.txt --
+sel-1
+-- golden/default-child.txt --
+sel-2
+-- golden/second-issue.txt --
+sel-3
+-- golden/use-second.txt --
+using board_11111111111111111111 (Second board)
+-- golden/default-parent.json --
+{"id":"sel-1","title":"Default parent","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784116800,"updated":1784116800,"revision":3,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/default-descendants.jsonl --
+{"id":"sel-2","title":"Default child","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784116800,"updated":1784116800,"revision":5,"labels":[],"blocked":false}
+-- golden/edited.txt --
+edited sel-2
+-- golden/released.txt --
+Released sel-1 as ready.
+-- golden/closed.txt --
+Closed sel-1.
+Closed sel-2.
+Parent sel-1 has no open children.

@@ -1,0 +1,158 @@
+exec git init -b main
+at 2026-07-16T12:00:00Z
+exec card init --prefix routine-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: routine-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+# Routines use the generic issue creation surface.
+exec card create --priority 1 'Ordinary task'
+cmp stdout $WORK/golden/ordinary.txt
+exec card create --priority 0 --type routine --summary 'Repeat this procedure.' 'Periodic review'
+cmp stdout $WORK/golden/routine.txt
+exec card create --priority 4 'Routine prerequisite'
+cmp stdout $WORK/golden/prerequisite.txt
+exec card create --priority 0 --type routine --depends-on routine-3 'Blocked routine'
+cmp stdout $WORK/golden/blocked-routine.txt
+
+# Routine issues stay out of ordinary execution pools but remain listable by
+# their first-class type.
+exec card --json ready
+cmp stdout $WORK/golden/ready.jsonl
+exec card --json blocked
+! stdout .
+exec card --json list --type routine
+cmp stdout $WORK/golden/routines.jsonl
+
+# An unqualified claim skips routines. A routine remains directly claimable
+# and releasable by its ID.
+exec card --actor worker --json claim
+cmpjson stdout $WORK/golden/ordinary-claim.json
+exec card --actor worker release routine-1
+cmp stdout $WORK/golden/ordinary-release.txt
+exec card --actor caretaker --json claim routine-2
+cmpjson stdout $WORK/golden/routine-claim.json
+exec card --actor caretaker release routine-2
+cmp stdout $WORK/golden/routine-release.txt
+
+# Existing generic mutation and batch surfaces accept routine.
+exec card --json issue edit routine-1 --type routine
+cmpjson stdout $WORK/golden/edited.json
+exec card apply graph.json
+cmp stdout $WORK/golden/applied.txt
+
+# Dump renders routine without a special export format.
+exec card dump --issue routine-5 --no-descendants routine-dump
+cmpenv stdout $WORK/golden/dump.txt
+cmp routine-dump/issues/routine-5.md $WORK/golden/routine-5.md
+
+# Routine closure is explicit and does not require a result.
+exec card --json close routine-2
+cmpjson stdout $WORK/golden/closed.json
+
+# Context-sensitive command help exposes routine behavior without introducing
+# routine-specific commands.
+exec card create --help
+stdout 'routine'
+exec card issue edit --help
+stdout 'routine'
+exec card list --help
+stdout 'routine'
+exec card claim --help
+stdout 'routine'
+
+-- graph.json --
+{"version":1,"issues":[{"alias":"applied","title":"Applied routine","type":"routine","summary":"Imported procedure."}]}
+
+-- golden/applied.txt --
+applied document: 1 create, 0 update, 0 skip, 0 no change
+0	create	routine-5
+-- golden/ordinary.txt --
+routine-1
+-- golden/routine.txt --
+routine-2
+-- golden/prerequisite.txt --
+routine-3
+-- golden/blocked-routine.txt --
+routine-4
+-- golden/ready.jsonl --
+{"id":"routine-1","title":"Ordinary task","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":2,"labels":[],"blocked":false}
+{"id":"routine-3","title":"Routine prerequisite","type":"task","lifecycle":"open","status":"ready","priority":4,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":4,"labels":[],"blocked":false}
+-- golden/routines.jsonl --
+{"id":"routine-2","title":"Periodic review","type":"routine","lifecycle":"open","status":"ready","priority":0,"active_claim":null,"created":1784203200,"updated":1784203200,"summary":"Repeat this procedure.","revision":3,"labels":[],"blocked":false}
+{"id":"routine-4","title":"Blocked routine","type":"routine","lifecycle":"open","status":"blocked","priority":0,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":5,"labels":[],"blocked":true}
+-- golden/ordinary-claim.json --
+{"id":"routine-1","title":"Ordinary task","type":"task","lifecycle":"open","status":"in_progress","priority":1,"assignee":"worker","active_claim":{"actor":"worker","started_at":1784203200},"created":1784203200,"updated":1784203200,"started_at":1784203200,"revision":6,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/ordinary-release.txt --
+Released routine-1 as ready.
+-- golden/routine-claim.json --
+{"id":"routine-2","title":"Periodic review","type":"routine","lifecycle":"open","status":"in_progress","priority":0,"assignee":"caretaker","active_claim":{"actor":"caretaker","started_at":1784203200},"created":1784203200,"updated":1784203200,"started_at":1784203200,"summary":"Repeat this procedure.","revision":8,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/routine-release.txt --
+Released routine-2 as ready.
+-- golden/edited.json --
+{"id":"routine-1","title":"Ordinary task","type":"routine","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":10,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/dump.txt --
+published 1 issues to $WORK/routine-dump (1 written, 0 unchanged, 0 removed)
+-- golden/routine-5.md --
+---
+cardamom:
+  format_version: 1
+  project_id: project_00000000000000000000
+  project_name: script-routine_cli
+  board_id: board_00000000000000000000
+  board_name: script-routine_cli
+  generated_identity: issue:routine-5
+  body_sha256: a09b100cf163144ba36db440d195b7a1e8dc7e51b7f34823065cd10691c27a9c
+---
+
+# routine-5: Applied routine
+
+| Field | Value |
+| --- | --- |
+| Type | routine |
+| Status | ready |
+| Priority | 2 |
+| Assignee | - |
+| Created | 2026-07-16T12:00:00Z |
+| Updated | 2026-07-16T12:00:00Z |
+| Started | - |
+| Closed | - |
+| Revision | 11 |
+| Labels | - |
+## Summary
+
+Imported procedure.
+
+## Details
+
+None.
+
+## Current state
+
+None.
+
+## Result
+
+None.
+
+## Graph context
+
+### Containment parent
+
+None.
+
+### Containment children
+
+None.
+
+### Depends on
+
+None.
+
+### Blocks
+
+None.
+
+## Log
+
+No log entries.
+-- golden/closed.json --
+{"issues":[{"id":"routine-2","title":"Periodic review","type":"routine","lifecycle":"closed","status":"closed","priority":0,"active_claim":null,"created":1784203200,"updated":1784203200,"closed":1784203200,"summary":"Repeat this procedure.","revision":12,"labels":[],"blocked":false}],"parents_without_open_children":[]}

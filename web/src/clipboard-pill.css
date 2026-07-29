@@ -1,0 +1,62 @@
+.clipboard-pill {
+  max-width: 100%;
+  display: inline-flex;
+  align-items: stretch;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-detail);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+  line-height: 1;
+}
+
+.clipboard-pill-content {
+  min-width: 0;
+  display: inline-flex;
+  align-items: center;
+  padding: 0.08rem 0.32rem;
+  overflow-wrap: anywhere;
+  line-height: 1.25;
+}
+
+.clipboard-pill-content a {
+  color: var(--accent-strong);
+  text-decoration: none;
+}
+
+.clipboard-pill-content a:hover {
+  text-decoration: underline;
+}
+
+.clipboard-pill > button {
+  width: 1.2rem;
+  min-width: 1.2rem;
+  min-height: 0;
+  display: inline-grid;
+  place-items: center;
+  padding: 0.2rem;
+  border: 0;
+  border-inline-start: 1px solid var(--border);
+  border-radius: 0;
+  background: transparent;
+  color: var(--accent-strong);
+}
+
+.clipboard-pill > button:hover {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.clipboard-pill > button svg {
+  width: 0.7rem;
+  height: 0.7rem;
+}
+
+.clipboard-pill[data-copy-status="copied"] > button {
+  color: var(--state-closed);
+}
+
+.clipboard-pill[data-copy-status="failed"] > button {
+  color: var(--state-blocked);
+}

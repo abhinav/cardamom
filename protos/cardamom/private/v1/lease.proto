@@ -1,0 +1,153 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// ResourceLease records active temporary ownership of an external resource.
+message ResourceLease {
+  // name identifies the external resource.
+  string name = 1;
+
+  // owner identifies the actor that owns the lease.
+  string owner = 2;
+
+  // acquired_at is the original acquisition time.
+  google.protobuf.Timestamp acquired_at = 3;
+
+  // expires_at is the exclusive expiration boundary.
+  google.protobuf.Timestamp expires_at = 4;
+}
+
+// AcquireLeaseRequest identifies a resource, owner, and requested lifetime.
+message AcquireLeaseRequest {
+  // name identifies the external resource.
+  string name = 1;
+
+  // owner identifies the requested lease owner.
+  string owner = 2;
+
+  // ttl is the positive requested lifetime.
+  google.protobuf.Duration ttl = 3;
+}
+
+// AcquireLeaseResponse contains the acquired lease.
+message AcquireLeaseResponse {
+  // lease is the committed ownership record.
+  ResourceLease lease = 1;
+}
+
+// RenewLeaseRequest identifies an owner-held lease and its new lifetime.
+message RenewLeaseRequest {
+  // name identifies the external resource.
+  string name = 1;
+
+  // owner identifies the current lease owner.
+  string owner = 2;
+
+  // ttl is the positive requested lifetime from renewal.
+  google.protobuf.Duration ttl = 3;
+}
+
+// RenewLeaseResponse contains the renewed lease.
+message RenewLeaseResponse {
+  // lease is the committed ownership record.
+  ResourceLease lease = 1;
+}
+
+// ReleaseLeaseRequest identifies an owner-held lease to remove.
+message ReleaseLeaseRequest {
+  // name identifies the external resource.
+  string name = 1;
+
+  // owner identifies the current lease owner.
+  string owner = 2;
+}
+
+// ReleaseLeaseResponse contains the removed lease.
+message ReleaseLeaseResponse {
+  // lease is the ownership record removed by the operation.
+  ResourceLease lease = 1;
+}
+
+// RevokeLeaseRequest identifies an active lease by its expected owner and
+// carries coordinator-attributed recovery context.
+message RevokeLeaseRequest {
+  // name identifies the external resource.
+  string name = 1;
+
+  // owner identifies the expected active lease owner.
+  string owner = 2;
+
+  // revoked_by identifies the actor performing the revocation.
+  string revoked_by = 3;
+
+  // reason records why coordinator recovery requires revocation.
+  string reason = 4;
+}
+
+// ResourceLeaseRevocation reports the removed lease and transient operation
+// context. It does not represent external resource cleanup or durable audit
+// history.
+message ResourceLeaseRevocation {
+  // lease is the ownership record removed by the operation.
+  ResourceLease lease = 1;
+
+  // revoked_by identifies the actor that performed the revocation.
+  string revoked_by = 2;
+
+  // reason records why coordinator recovery required revocation.
+  string reason = 3;
+
+  // revoked_at is the time Cardamom removed the lease.
+  google.protobuf.Timestamp revoked_at = 4;
+}
+
+// RevokeLeaseResponse contains the completed revocation.
+message RevokeLeaseResponse {
+  // revocation is the removed lease and transient operation context.
+  ResourceLeaseRevocation revocation = 1;
+}
+
+// GetLeaseRequest identifies one active resource lease.
+message GetLeaseRequest {
+  // name identifies the external resource.
+  string name = 1;
+}
+
+// GetLeaseResponse contains one active resource lease.
+message GetLeaseResponse {
+  // lease is the active ownership record.
+  ResourceLease lease = 1;
+}
+
+// ListLeasesRequest selects every active resource lease in the store.
+message ListLeasesRequest {}
+
+// ListLeasesResponse contains active leases in domain order.
+message ListLeasesResponse {
+  // leases contains every active ownership record.
+  repeated ResourceLease leases = 1;
+}
+
+// LeaseService exposes store-scoped resource lease ownership.
+service LeaseService {
+  // AcquireLease acquires an absent or expired resource lease.
+  rpc AcquireLease(AcquireLeaseRequest) returns (AcquireLeaseResponse);
+
+  // RenewLease extends an active lease held by the requested owner.
+  rpc RenewLease(RenewLeaseRequest) returns (RenewLeaseResponse);
+
+  // ReleaseLease removes an active lease held by the requested owner.
+  rpc ReleaseLease(ReleaseLeaseRequest) returns (ReleaseLeaseResponse);
+
+  // RevokeLease removes an active lease held by the expected owner.
+  rpc RevokeLease(RevokeLeaseRequest) returns (RevokeLeaseResponse);
+
+  // GetLease returns one active resource lease.
+  rpc GetLease(GetLeaseRequest) returns (GetLeaseResponse);
+
+  // ListLeases returns every active resource lease in name order.
+  rpc ListLeases(ListLeasesRequest) returns (ListLeasesResponse);
+}

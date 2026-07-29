@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+// MarkdownContent pairs stored Markdown with presentation HTML rendered and
+// sanitized by the server.
+message MarkdownContent {
+  // source is the stored Markdown supplied by a Cardamom actor.
+  string source = 1;
+
+  // rendered_html is trusted HTML produced from source by the server.
+  string rendered_html = 2;
+}

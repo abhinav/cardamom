@@ -1,0 +1,23 @@
+version: "2"
+sql:
+  - name: repository
+    engine: sqlite
+    strict_function_checks: true
+    schema: internal/repository/store/migrations
+    queries:
+      - internal/repository/attachment
+      - internal/repository/board
+      - internal/repository/lease
+      - internal/repository/mail
+      - internal/repository/project
+      - internal/repository/store
+    gen:
+      go:
+        package: query
+        out: internal/repository/internal/query
+        emit_pointers_for_null_types: true
+        omit_unused_structs: true
+        rename:
+          attachment_ids: AttachmentIDs
+          issue_ids: IssueIDs
+          log_ids: LogIDs

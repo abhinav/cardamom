@@ -1,0 +1,106 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+exec card init --prefix workstream-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: workstream-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+# Workstream is accepted by create and by both directions of the editable
+# workstream/task transition.
+exec card create --type workstream 'Release workstream'
+cmp stdout $WORK/golden/create.txt
+exec card issue edit workstream-1 --type task
+cmp stdout $WORK/golden/edit.txt
+exec card --json issue edit workstream-1 --type workstream
+cmpjson stdout $WORK/golden/workstream.json
+
+# Apply accepts workstream as a first-class type and builds nested containment.
+exec card apply graph.json
+cmp stdout $WORK/golden/applied.txt
+
+# Removed kinds are rejected at the command boundary.
+! exec card create --type decision 'Removed decision'
+cmp stderr $WORK/golden/decision-error.txt
+! exec card create --type mission 'Removed mission'
+cmp stderr $WORK/golden/mission-error.txt
+! exec card create --type epic 'Removed epic'
+cmp stderr $WORK/golden/epic-error.txt
+
+# List selects strict descendants and composes ancestor, state, and label
+# filters. The ancestor itself and matching issues outside it are excluded.
+exec card --json list --under workstream-1 --status ready --label team
+cmp stdout $WORK/golden/workstream-list.jsonl
+exec card --json list --under workstream-6 --status ready --label team
+cmp stdout $WORK/golden/generic-list.jsonl
+
+# Workstreams are directly claimable, while unqualified claim continues to
+# compose generic --under scope with labels.
+exec card --actor root-worker --json claim workstream-1
+cmpjson stdout $WORK/golden/workstream-claim.json
+exec card --actor geordi --json claim --under workstream-1 --label team
+cmpjson stdout $WORK/golden/descendant-claim.json
+exec card --actor data --json claim --under workstream-6 --label team
+cmpjson stdout $WORK/golden/generic-claim.json
+
+# Workstream closure is explicit and permits closed or cancelled direct
+# children. The no-open-children notice remains parent-neutral.
+! exec card close workstream-1
+cmp stderr $WORK/golden/open-children-error.txt
+exec card close workstream-3
+cmp stdout $WORK/golden/close-nested-task.txt
+exec card close workstream-2
+cmp stdout $WORK/golden/close-nested-workstream.txt
+exec card cancel workstream-4
+cmp stdout $WORK/golden/cancel-child.txt
+exec card --json close workstream-1
+cmpjson stdout $WORK/golden/close-workstream.json
+
+# Generic ancestor queries reject missing issues.
+! exec card list --under workstream-missing
+stderr 'issue not found'
+! exec card claim --under workstream-missing
+stderr 'issue not found'
+
+-- graph.json --
+{"version":1,"issues":[{"alias":"nested","title":"Nested workstream","type":"workstream","parent":{"id":"workstream-1"}},{"alias":"workstream-task","title":"Workstream task","type":"task","priority":1,"labels":{"values":["team"]},"parent":{"alias":"nested"}},{"alias":"other-child","title":"Other child","type":"task","labels":{"values":["other"]},"parent":{"id":"workstream-1"}},{"alias":"outside","title":"Outside task","type":"task","labels":{"values":["team"]}},{"alias":"generic","title":"Generic ancestor","type":"workstream"},{"alias":"generic-child","title":"Generic child","type":"task","labels":{"values":["team"]},"parent":{"alias":"generic"}}]}
+
+-- golden/create.txt --
+workstream-1
+-- golden/edit.txt --
+edited workstream-1
+-- golden/workstream.json --
+{"id":"workstream-1","title":"Release workstream","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":4,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/applied.txt --
+applied document: 6 create, 0 update, 0 skip, 0 no change
+0	create	workstream-2
+1	create	workstream-3
+2	create	workstream-4
+3	create	workstream-5
+4	create	workstream-6
+5	create	workstream-7
+-- golden/mission-error.txt --
+error: --type must be one of "workstream","task","checkpoint","routine" but got "mission"
+-- golden/epic-error.txt --
+error: --type must be one of "workstream","task","checkpoint","routine" but got "epic"
+-- golden/decision-error.txt --
+error: --type must be one of "workstream","task","checkpoint","routine" but got "decision"
+-- golden/workstream-list.jsonl --
+{"id":"workstream-3","title":"Workstream task","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":5,"labels":["team"],"blocked":false}
+-- golden/generic-list.jsonl --
+{"id":"workstream-7","title":"Generic child","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":5,"labels":["team"],"blocked":false}
+-- golden/workstream-claim.json --
+{"id":"workstream-1","title":"Release workstream","type":"workstream","lifecycle":"open","status":"in_progress","priority":2,"active_claim":{"actor":"root-worker","started_at":1783857600},"assignee":"root-worker","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":6,"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
+-- golden/descendant-claim.json --
+{"id":"workstream-3","title":"Workstream task","type":"task","lifecycle":"open","status":"in_progress","priority":1,"active_claim":{"actor":"geordi","started_at":1783857600},"assignee":"geordi","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":7,"labels":["team"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"workstream-2"}
+-- golden/generic-claim.json --
+{"id":"workstream-7","title":"Generic child","type":"task","lifecycle":"open","status":"in_progress","priority":2,"active_claim":{"actor":"data","started_at":1783857600},"assignee":"data","created":1783857600,"updated":1783857600,"started_at":1783857600,"revision":8,"labels":["team"],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"workstream-6"}
+-- golden/open-children-error.txt --
+error: workstream-1: workstream has open children
+-- golden/close-nested-task.txt --
+Closed workstream-3.
+Parent workstream-2 has no open children.
+-- golden/close-nested-workstream.txt --
+Closed workstream-2.
+-- golden/cancel-child.txt --
+Cancelled 1 requested issue and 0 dependent issues.
+Parent workstream-1 has no open children.
+-- golden/close-workstream.json --
+{"issues":[{"id":"workstream-1","title":"Release workstream","type":"workstream","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":12,"labels":[],"blocked":false}],"parents_without_open_children":[]}

@@ -1,0 +1,208 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/issue.proto";
+import "cardamom/private/v1/mutation.proto";
+import "cardamom/private/v1/scope.proto";
+
+// ListReadyIssuesRequest selects ready executable work.
+message ListReadyIssuesRequest {
+  // scope selects one board or the aggregate of all boards.
+  BoardScope scope = 1;
+
+  // limit is the maximum number of issues returned; zero uses the server default.
+  uint32 limit = 2;
+}
+
+// ListReadyIssuesResponse contains ready work in domain claim order.
+message ListReadyIssuesResponse {
+  // issues contains open, unclaimed, executable issues without blockers.
+  repeated IssueSummary issues = 1;
+}
+
+// ListBlockedIssuesRequest selects blocked unfinished work.
+message ListBlockedIssuesRequest {
+  // scope selects one board or the aggregate of all boards.
+  BoardScope scope = 1;
+
+  // limit is the maximum number of issues returned; zero uses the server default.
+  uint32 limit = 2;
+}
+
+// ListBlockedIssuesResponse contains blocked work in domain order.
+message ListBlockedIssuesResponse {
+  // issues contains open, unclaimed, non-routine issues with prerequisites.
+  repeated IssueSummary issues = 1;
+}
+
+// ClaimIssueRequest claims one explicitly identified issue.
+message ClaimIssueRequest {
+  // issue_id identifies the issue to claim.
+  string issue_id = 1;
+
+  // context supplies the actor that receives custody.
+  MutationContext context = 2;
+
+  // context_depth includes inherited context when present; zero includes all ancestors.
+  optional uint32 context_depth = 3;
+}
+
+// ClaimNextIssueRequest selects and claims the next matching ready issue.
+message ClaimNextIssueRequest {
+  // board_id identifies the board whose ready pool is selected.
+  string board_id = 1;
+
+  // context supplies the actor that receives custody.
+  MutationContext context = 2;
+
+  // ancestor_id limits selection to strict containment descendants.
+  optional string ancestor_id = 3;
+
+  // labels_all requires every supplied classification label.
+  repeated string labels_all = 4;
+
+  // labels_any requires at least one supplied classification label.
+  repeated string labels_any = 7;
+
+  // labels_none excludes issues carrying any supplied classification label.
+  repeated string labels_none = 8;
+
+  // watch waits until matching ready work exists or the request context ends.
+  bool watch = 5;
+
+  // context_depth includes inherited context when present; zero includes all ancestors.
+  optional uint32 context_depth = 6;
+}
+
+// ClaimIssueResponse contains the claimed issue and requested context.
+message ClaimIssueResponse {
+  // issue is the canonical issue view after custody is acquired.
+  IssueDetail issue = 1;
+}
+
+// ClaimNextIssueResponse contains the selected issue and requested context.
+message ClaimNextIssueResponse {
+  // issue is the canonical issue view after custody is acquired.
+  IssueDetail issue = 1;
+}
+
+// ReleaseIssueRequest relinquishes one actor-owned claim.
+message ReleaseIssueRequest {
+  // issue_id identifies the issue whose custody is released.
+  string issue_id = 1;
+
+  // context supplies the actor that currently owns custody.
+  MutationContext context = 2;
+
+  // waiting_reason releases custody into waiting state when present.
+  optional string waiting_reason = 3;
+}
+
+// ReleaseIssueResponse contains the issue after custody is released.
+message ReleaseIssueResponse {
+  // issue is the canonical issue detail after release.
+  IssueDetail issue = 1;
+}
+
+// CloseIssuesRequest completes issues in caller order.
+message CloseIssuesRequest {
+  // issue_ids identifies issues to close in one board.
+  repeated string issue_ids = 1;
+
+  // context supplies mutation attribution.
+  MutationContext context = 2;
+}
+
+// CloseIssuesResponse reports completed issues and newly childless parents.
+message CloseIssuesResponse {
+  // issues contains successful closures in request order.
+  repeated IssueSummary issues = 1;
+
+  // parents_without_open_children identifies parents now eligible for review.
+  repeated string parents_without_open_children = 2;
+}
+
+// CancelIssuesRequest abandons roots and their non-terminal dependent closure.
+message CancelIssuesRequest {
+  // root_issue_ids identifies cancellation roots in one board.
+  repeated string root_issue_ids = 1;
+
+  // context supplies mutation attribution.
+  MutationContext context = 2;
+}
+
+// CancelIssuesResponse reports the cancellation closure.
+message CancelIssuesResponse {
+  // issues contains every changed issue in closure order.
+  repeated IssueSummary issues = 1;
+
+  // requested is the number of changed roots named by the caller.
+  uint32 requested = 2;
+
+  // dependents is the number of changed issues reached through readiness edges.
+  uint32 dependents = 3;
+
+  // parents_without_open_children identifies parents now without active children.
+  repeated string parents_without_open_children = 4;
+}
+
+// ReopenIssuesRequest returns terminal issues to the open lifecycle.
+message ReopenIssuesRequest {
+  // issue_ids identifies terminal issues to reopen in one board.
+  repeated string issue_ids = 1;
+
+  // context supplies mutation attribution.
+  MutationContext context = 2;
+}
+
+// IssueStatusReference identifies one issue and its lifecycle-derived status.
+message IssueStatusReference {
+  // issue_id identifies the related issue.
+  string issue_id = 1;
+
+  // status is the issue's current effective status.
+  IssueStatus status = 2;
+}
+
+// ReopenedIssue contains one reopened issue and remaining blockers.
+message ReopenedIssue {
+  // issue is the canonical reopened issue summary.
+  IssueSummary issue = 1;
+
+  // unresolved_prerequisites contains prerequisites that still block execution.
+  repeated IssueStatusReference unresolved_prerequisites = 2;
+}
+
+// ReopenIssuesResponse reports reopened issues in request order.
+message ReopenIssuesResponse {
+  // issues contains successful reopen operations.
+  repeated ReopenedIssue issues = 1;
+}
+
+// ExecutionService exposes eligibility, custody, and lifecycle operations.
+service ExecutionService {
+  // ListReadyIssues returns claimable executable work in domain order.
+  rpc ListReadyIssues(ListReadyIssuesRequest) returns (ListReadyIssuesResponse);
+
+  // ListBlockedIssues returns unfinished work with unresolved prerequisites.
+  rpc ListBlockedIssues(ListBlockedIssuesRequest) returns (ListBlockedIssuesResponse);
+
+  // ClaimIssue acquires custody of one explicitly identified issue.
+  rpc ClaimIssue(ClaimIssueRequest) returns (ClaimIssueResponse);
+
+  // ClaimNextIssue selects and atomically claims the next matching ready issue.
+  rpc ClaimNextIssue(ClaimNextIssueRequest) returns (ClaimNextIssueResponse);
+
+  // ReleaseIssue relinquishes actor-owned custody while keeping the issue open.
+  rpc ReleaseIssue(ReleaseIssueRequest) returns (ReleaseIssueResponse);
+
+  // CloseIssues completes issues in caller order.
+  rpc CloseIssues(CloseIssuesRequest) returns (CloseIssuesResponse);
+
+  // CancelIssues abandons roots and their non-terminal dependent closure.
+  rpc CancelIssues(CancelIssuesRequest) returns (CancelIssuesResponse);
+
+  // ReopenIssues returns terminal issues to the open lifecycle.
+  rpc ReopenIssues(ReopenIssuesRequest) returns (ReopenIssuesResponse);
+}

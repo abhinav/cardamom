@@ -1,0 +1,54 @@
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { describe, expect, it, vi } from "vitest";
+
+import { SettingsControl } from "./app.tsx";
+import { defaultBoardView } from "./issue-collection.ts";
+import { IssueControls } from "./issue-views.tsx";
+import { defaultPreferences } from "./preferences.ts";
+
+describe("responsive toolbar", () => {
+  it("uses accessible compact collection controls", () => {
+    const markup = renderToStaticMarkup(createElement(IssueControls, {
+      mode: "board",
+      view: {
+        ...defaultBoardView,
+        filters: { ...defaultBoardView.filters, label: "area:web" },
+      },
+      grouping: "status",
+      updateGrouping: vi.fn(),
+      updateView: vi.fn(),
+      createIssue: vi.fn(),
+    }));
+
+    expect(markup.match(/name="issue-collection-options"/g)).toHaveLength(2);
+    expect(markup).toContain('aria-label="Search issues"');
+    expect(markup).toContain('title="Search issues"');
+    expect(markup).toContain("lucide-search");
+    expect(markup).toContain('aria-label="Filters, 1 active"');
+    expect(markup).toContain('title="Filters"');
+    expect(markup).toContain("lucide-list-filter");
+    expect(markup).toContain('aria-label="View options"');
+    expect(markup).toContain('title="View options"');
+    expect(markup).toContain("lucide-sliders-horizontal");
+    expect(markup).toContain('aria-label="Create issue"');
+    expect(markup).toContain('title="Create issue"');
+    expect(markup).toContain("lucide-plus");
+  });
+
+  it("presents global settings as an accessible header icon", () => {
+    const markup = renderToStaticMarkup(createElement(SettingsControl, {
+      boards: [],
+      preferences: defaultPreferences,
+      openBoardSettings: vi.fn(),
+      openConfiguration: vi.fn(),
+      selection: { kind: "all" },
+      selectedBoard: undefined,
+      updatePreferences: vi.fn(),
+    }));
+
+    expect(markup).toContain('aria-label="Settings"');
+    expect(markup).toContain('title="Settings"');
+    expect(markup).toContain("lucide-settings");
+  });
+});

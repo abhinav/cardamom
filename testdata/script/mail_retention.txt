@@ -1,0 +1,50 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-22T12:00:00Z
+exec card init --prefix mail-
+
+exec card --actor worker mail subscribe 'release/*' --ttl 1m
+exec card --actor scheduler mail send worker --ttl 1m 'temporary notice'
+
+# Refresh keeps the original subscription identity and extends its retention.
+at 2026-07-22T12:00:30Z
+exec card --actor worker --json mail subscribe 'release/*' --ttl 2m
+cmp stdout $WORK/golden/refreshed.jsonl
+exec card --actor observer --json mail subscribe 'build/ready'
+cmp stdout $WORK/golden/default.jsonl
+exec card --actor archive --json mail subscribe 'release/*' --ttl 240h
+cmp stdout $WORK/golden/capped.jsonl
+
+# Expired direct mail is purged while the refreshed subscription remains active.
+at 2026-07-22T12:01:00Z
+exec card --actor worker mail recv --peek
+! stdout .
+exec card --actor scheduler --json mail publish release/ready 'release notice'
+cmp stdout $WORK/golden/published.jsonl
+exec card --actor worker --json mail recv --peek
+cmp stdout $WORK/golden/worker.jsonl
+
+# An expired subscription no longer participates in later publication.
+at 2026-07-22T12:02:30Z
+exec card --actor scheduler mail publish release/ready 'late notice'
+cmp stdout $WORK/golden/published-after-expiry.txt
+exec card --json mail subscriptions
+cmp stdout $WORK/golden/active.jsonl
+
+-- golden/refreshed.jsonl --
+{"listener":"worker","pattern":"release/*","created":"2026-07-22T12:00:00Z","expires":"2026-07-22T12:02:30Z"}
+-- golden/default.jsonl --
+{"listener":"observer","pattern":"build/ready","created":"2026-07-22T12:00:30Z","expires":"2026-07-22T12:15:30Z"}
+-- golden/capped.jsonl --
+{"listener":"archive","pattern":"release/*","created":"2026-07-22T12:00:30Z","expires":"2026-07-29T12:00:30Z"}
+-- golden/published.jsonl --
+{"id":"mail_00000000000000000000000000000002","sender":"scheduler","recipient":"archive","source_topic":"release/ready","body":"release notice","created":"2026-07-22T12:01:00Z","expires":"2026-07-29T12:01:00Z","read_at":null}
+{"id":"mail_00000000000000000000000000000003","sender":"scheduler","recipient":"worker","source_topic":"release/ready","body":"release notice","created":"2026-07-22T12:01:00Z","expires":"2026-07-29T12:01:00Z","read_at":null}
+-- golden/worker.jsonl --
+{"id":"mail_00000000000000000000000000000003","sender":"scheduler","recipient":"worker","source_topic":"release/ready","body":"release notice","created":"2026-07-22T12:01:00Z","expires":"2026-07-29T12:01:00Z","read_at":null}
+-- golden/published-after-expiry.txt --
+mail_00000000000000000000000000000004	scheduler	archive	release/ready	2026-07-22T12:02:30Z	2026-07-29T12:02:30Z
+late notice
+-- golden/active.jsonl --
+{"listener":"archive","pattern":"release/*","created":"2026-07-22T12:00:30Z","expires":"2026-07-29T12:00:30Z"}
+{"listener":"observer","pattern":"build/ready","created":"2026-07-22T12:00:30Z","expires":"2026-07-22T12:15:30Z"}

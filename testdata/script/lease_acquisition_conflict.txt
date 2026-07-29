@@ -1,0 +1,25 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T12:00:00Z
+exec card init --prefix lease-
+
+exec card --actor migration-runner lease acquire customer-schema --ttl 45m
+cmp stdout $WORK/golden/customer-schema.txt
+! stderr .
+
+# Acquisition cannot extend an existing lease, even for its current owner.
+! exec card --actor migration-runner lease acquire customer-schema --ttl 2h
+! stdout .
+cmp stderr $WORK/golden/held.txt
+! exec card --actor report-worker lease acquire customer-schema --ttl 10m
+! stdout .
+cmp stderr $WORK/golden/held.txt
+
+exec card lease show customer-schema
+cmp stdout $WORK/golden/customer-schema.txt
+! stderr .
+
+-- golden/customer-schema.txt --
+customer-schema	migration-runner	2026-07-12T12:00:00Z	2026-07-12T12:45:00Z
+-- golden/held.txt --
+error: lease "customer-schema" is held by "migration-runner" until 2026-07-12T12:45:00Z

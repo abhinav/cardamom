@@ -1,0 +1,14 @@
+.attachment-identity {
+  min-width: 0;
+  display: grid;
+  justify-items: start;
+  gap: 0.25rem;
+}
+
+.attachment-identity strong {
+  min-width: 0;
+  overflow: hidden;
+  font-size: 0.82rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

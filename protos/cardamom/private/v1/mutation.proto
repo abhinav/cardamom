@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+// MutationContext carries browser-local identity used to attribute a write.
+// Each domain operation decides whether actor is required.
+message MutationContext {
+  // actor identifies the browser-selected author when present.
+  optional string actor = 1;
+}

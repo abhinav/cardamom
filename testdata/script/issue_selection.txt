@@ -1,0 +1,102 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix sel-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: sel-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+# Creation flags establish priority, kind, labels, dependencies, and summary.
+exec card create --priority 0 --type workstream --label program --summary 'Program context.' 'Program'
+cmp stdout $WORK/golden/create-program.txt
+exec card create --priority 1 --type task --label docs,urgent --depends-on sel-1 --parent sel-1 --summary 'Child context.' 'Document system'
+cmp stdout $WORK/golden/create-document.txt
+exec card create --label docs 'Independent task'
+cmp stdout $WORK/golden/create-independent.txt
+
+exec card list --status ready --label docs --limit 1
+cmp stdout $WORK/golden/list.txt
+exec card list --status ready --limit 0
+cmp stdout $WORK/golden/list-unlimited.txt
+exec card ready --limit 1
+cmp stdout $WORK/golden/ready.txt
+! exec card ready --limit 0
+! stdout .
+cmp stderr $WORK/golden/ready-limit-error.txt
+exec card blocked --limit 1
+cmp stdout $WORK/golden/blocked.txt
+! exec card blocked --limit 0
+! stdout .
+cmp stderr $WORK/golden/blocked-limit-error.txt
+
+exec card issue edit sel-2 --remove-depends-on sel-1
+cmp stdout $WORK/golden/remove-dependency.txt
+exec card issue edit sel-2 --add-depends-on sel-1 --label reviewed,-urgent
+cmp stdout $WORK/golden/edit.txt
+exec card --json show sel-2
+cmpjson stdout $WORK/golden/edited.json
+
+# Pull claiming honors label filters.
+exec card --actor geordi claim --label docs
+cmp stdout $WORK/golden/claim.txt
+
+# A watched claim polls until another process creates a matching issue.
+exec sh watch-claim.sh
+cmp stdout $WORK/golden/watch-claim.txt
+
+-- watch-claim.sh --
+#!/bin/sh
+set -eu
+card --actor data claim --watch --label watched >claim.out 2>claim.err &
+pid=$!
+sleep 0.1
+card create --label watched 'Watched task' >/dev/null
+wait "$pid"
+cat claim.out
+cat claim.err >&2
+
+-- golden/edited.json --
+{"id":"sel-2","title":"Document system","type":"task","lifecycle":"open","status":"blocked","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"summary":"Child context.","revision":6,"labels":["docs","reviewed"],"depends_on":["sel-1"],"blocks":[],"log_count":0,"blocked":true,"parent_id":"sel-1","attachments":[]}
+-- golden/create-program.txt --
+sel-1
+-- golden/create-document.txt --
+sel-2
+-- golden/create-independent.txt --
+sel-3
+-- golden/list.txt --
+ID     PRI  STATUS  TYPE  TITLE
+sel-3  2    ready   task  Independent task
+-- golden/list-unlimited.txt --
+ID     PRI  STATUS  TYPE        TITLE
+sel-1  0    ready   workstream  Program
+sel-3  2    ready   task        Independent task
+-- golden/ready.txt --
+ID     PRI  STATUS  TYPE        TITLE
+sel-1  0    ready   workstream  Program
+-- golden/ready-limit-error.txt --
+error: --limit must be positive
+-- golden/blocked.txt --
+ID     PRI  STATUS   TYPE  TITLE
+sel-2  1    blocked  task  Document system
+-- golden/blocked-limit-error.txt --
+error: --limit must be positive
+-- golden/remove-dependency.txt --
+edited sel-2
+-- golden/edit.txt --
+edited sel-2
+-- golden/claim.txt --
+Claimed sel-3 as geordi.
+Issue sel-3
+Title: Independent task
+Type: task
+Status: in_progress
+Priority: 2
+Assignee: geordi
+Labels: docs
+-- golden/watch-claim.txt --
+Claimed sel-4 as data.
+Issue sel-4
+Title: Watched task
+Type: task
+Status: in_progress
+Priority: 2
+Assignee: data
+Labels: watched

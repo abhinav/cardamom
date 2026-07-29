@@ -1,0 +1,362 @@
+.configuration-page {
+  display: grid;
+  gap: 1.75rem;
+}
+
+.configuration-heading {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.configuration-heading h1 {
+  margin: 0;
+  font-size: 2rem;
+  letter-spacing: 0;
+}
+
+.configuration-intro {
+  max-width: 44rem;
+  margin: 0.35rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.configuration-context {
+  min-width: 0;
+  display: grid;
+  justify-items: end;
+  gap: 0.2rem;
+  margin: 0;
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.configuration-context span {
+  max-width: 32rem;
+  overflow-wrap: anywhere;
+  text-align: right;
+}
+
+.configuration-effective,
+.configuration-layers {
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+}
+
+.configuration-section-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.configuration-section-heading h2 {
+  margin: 0;
+  font-size: 1rem;
+  letter-spacing: 0;
+}
+
+.configuration-section-heading p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.76rem;
+}
+
+.configuration-effective-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.configuration-effective-field {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.35rem;
+  padding: 0.9rem 1rem;
+}
+
+.configuration-effective-field + .configuration-effective-field {
+  border-left: 1px solid var(--border);
+}
+
+.configuration-field-label {
+  color: var(--muted);
+  font-size: 0.7rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.configuration-effective-field strong,
+.configuration-layer-field strong,
+.configuration-preview strong {
+  min-width: 0;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 1rem;
+  overflow-wrap: anywhere;
+}
+
+.configuration-origin {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.configuration-origin > span {
+  width: 0.42rem;
+  height: 0.42rem;
+  flex: none;
+  border-radius: 50%;
+  background: var(--accent);
+}
+
+.configuration-layer-list {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.configuration-layer {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 13rem minmax(0, 1fr);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.configuration-layer-heading {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-content: start;
+  gap: 0.5rem 0.65rem;
+  padding: 0.9rem;
+  border-right: 1px solid var(--border);
+  background: var(--surface-subtle);
+}
+
+.configuration-layer-number {
+  width: 1.55rem;
+  height: 1.55rem;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  color: var(--accent);
+  font-size: 0.7rem;
+  font-weight: 800;
+}
+
+.configuration-layer-heading h3 {
+  margin: 0.1rem 0 0;
+  font-size: 0.92rem;
+  letter-spacing: 0;
+}
+
+.configuration-layer-heading p {
+  margin: 0.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.configuration-layer-heading .metadata-chip {
+  grid-column: 1 / -1;
+  justify-self: start;
+}
+
+.configuration-layer-fields {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.configuration-layer-field {
+  min-width: 0;
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  padding: 0.8rem;
+}
+
+.configuration-layer-field:nth-child(even) {
+  border-left: 1px solid var(--border);
+}
+
+.configuration-layer-field:nth-child(n + 3) {
+  border-top: 1px solid var(--border);
+}
+
+.configuration-layer-field code {
+  color: var(--muted);
+  font-size: 0.65rem;
+  overflow-wrap: anywhere;
+}
+
+.configuration-layer-effective {
+  color: var(--muted);
+  font-size: 0.7rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.configuration-field-actions {
+  min-height: 2rem;
+  display: flex;
+  align-items: end;
+  gap: 0.4rem;
+  margin-top: 0.15rem;
+}
+
+.configuration-field-actions button {
+  min-height: 1.85rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.7rem;
+}
+
+.configuration-field-actions svg {
+  width: 0.8rem;
+  height: 0.8rem;
+}
+
+.configuration-reset-summary {
+  display: grid;
+  gap: 0.6rem;
+}
+
+.configuration-reset-summary p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.84rem;
+  line-height: 1.45;
+}
+
+.configuration-reset-summary strong {
+  color: var(--text);
+}
+
+.configuration-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: baseline;
+  gap: 0.3rem 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+}
+
+.configuration-preview span {
+  color: var(--muted);
+  font-size: 0.72rem;
+}
+
+.configuration-preview span:last-child {
+  grid-column: 1 / -1;
+}
+
+.configuration-load-state {
+  min-height: 18rem;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 0.75rem;
+  color: var(--muted);
+}
+
+.configuration-load-state p {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .configuration-effective-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .configuration-effective-field:nth-child(odd) {
+    border-left: 0;
+  }
+
+  .configuration-effective-field:nth-child(n + 3) {
+    border-top: 1px solid var(--border);
+  }
+
+  .configuration-layer {
+    grid-template-columns: 10.5rem minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 620px) {
+  .configuration-page {
+    gap: 1.4rem;
+  }
+
+  .configuration-heading {
+    display: grid;
+    gap: 0.8rem;
+  }
+
+  .configuration-heading h1 {
+    font-size: 1.5rem;
+  }
+
+  .configuration-context {
+    justify-items: start;
+  }
+
+  .configuration-context span {
+    text-align: left;
+  }
+
+  .configuration-section-heading {
+    display: grid;
+    gap: 0.25rem;
+  }
+
+  .configuration-effective-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .configuration-effective-field + .configuration-effective-field {
+    border-top: 1px solid var(--border);
+    border-left: 0;
+  }
+
+  .configuration-layer {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .configuration-layer-heading {
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .configuration-layer-fields {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .configuration-layer-field:nth-child(even) {
+    border-left: 0;
+  }
+
+  .configuration-layer-field + .configuration-layer-field {
+    border-top: 1px solid var(--border);
+  }
+}

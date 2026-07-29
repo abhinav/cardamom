@@ -1,0 +1,127 @@
+# Help exposes accepted values, defaults, and input forms.
+exec card create --help
+stdout '--type=TYPE'
+stdout 'Issue type'
+stdout 'Defaults to task'
+stdout '--priority=PRIORITY'
+stdout 'Defaults to 2'
+stdout '--label=TERM'
+stdout 'No prefix or \+ adds'
+stdout '- is invalid'
+! stdout '--add-label'
+! stdout '--remove-label'
+
+exec card list --help
+stdout '--status=STATUS'
+stdout 'Effective issue status to include: ready'
+stdout 'blocked, in_progress, waiting, closed'
+stdout 'or cancelled'
+stdout '--under=ISSUE'
+stdout '--assignee=ACTOR'
+stdout '--label=TERM'
+stdout 'No prefix or \+ requires'
+stdout '--label-any=LABEL'
+stdout 'Alternative label'
+! stdout '--add-label'
+! stdout '--remove-label'
+stdout '--title=TEXT'
+stdout '--priority-min=PRIORITY'
+stdout 'Minimum inclusive priority from 0 through 4'
+stdout '--priority-max=PRIORITY'
+stdout 'Maximum inclusive priority from 0 through 4'
+stdout '--sort=FIELD'
+stdout '--limit=COUNT'
+
+exec card claim --help
+stdout '--label=TERM'
+stdout 'or \+ requires; - excludes'
+stdout '--label-any=LABEL'
+stdout 'and requires'
+stdout 'one --label-any match'
+! stdout '--add-label'
+! stdout '--remove-label'
+
+exec card issue edit --help
+stdout '--type=TYPE'
+stdout '--priority=PRIORITY'
+stdout '--summary=MARKDOWN'
+stdout '--label=TERM'
+stdout 'No prefix or \+ adds; - removes'
+! stdout '--add-label'
+! stdout '--remove-label'
+stdout '--clear-parent'
+
+exec card checkpoint approve --help
+stdout 'Checkpoint to approve'
+stdout 'Use - to read standard'
+stdout 'input\.'
+
+exec card checkpoint deny --help
+stdout 'Checkpoint to deny'
+stdout 'Use - to read standard'
+stdout 'input\.'
+
+exec card result set --help
+stdout 'Use - or omit with piped input'
+
+exec card state append --help
+stdout 'Use - or omit with piped input'
+
+exec card show --help
+stdout '--context-depth=DEPTH'
+
+exec card attachment list --help
+stdout '--issue=ISSUE'
+stdout '--page-size=COUNT'
+stdout '--page-token=TOKEN'
+
+exec card config show --help
+stdout '--scope=SCOPE'
+
+exec card lease acquire --help
+stdout '--ttl=DURATION'
+stdout 'Positive lifetime in Go duration syntax'
+
+exec card lease renew --help
+stdout '--ttl=DURATION'
+stdout 'Positive lifetime from renewal'
+
+exec card lease revoke --help
+stdout '--owner=ACTOR'
+stdout '--reason=REASON'
+stdout 'Expected active lease owner'
+stdout 'Required operation context'
+stdout 'does not establish external resource cleanup'
+stdout 'returned reason and revocation context are transient'
+stdout 'persist them as audit history'
+
+exec git init -b main
+exec card init --prefix correction-
+
+# Ambiguous mailbox modes are usage errors.
+! exec card mail recv --clear --peek
+! stdout .
+cmp stderr $WORK/golden/mail-clear-peek-error.txt
+
+# Commands without structured output reject --json before doing work.
+! exec card web --json
+! stdout .
+cmp stderr $WORK/golden/web-json-error.txt
+
+# Ready and blocked reject zero instead of passing a hidden default downstream.
+! exec card ready --limit 0
+! stdout .
+cmp stderr $WORK/golden/ready-limit-error.txt
+
+! exec card blocked --limit 0
+! stdout .
+cmp stderr $WORK/golden/blocked-limit-error.txt
+
+-- golden/mail-clear-peek-error.txt --
+error: --clear cannot be combined with --peek, --all, --global, or --tail
+-- golden/web-json-error.txt --
+error: web: --json is not supported
+-- golden/ready-limit-error.txt --
+error: --limit must be positive
+-- golden/blocked-limit-error.txt --
+error: --limit must be positive

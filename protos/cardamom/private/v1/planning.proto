@@ -1,0 +1,136 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/issue.proto";
+import "cardamom/private/v1/mutation.proto";
+import "cardamom/v1/apply.proto";
+
+// IssueLabels is a present replacement for an issue's complete label set.
+message IssueLabels {
+  // values contains the replacement labels in caller order.
+  repeated string values = 1;
+}
+
+// CreateIssueRequest creates one issue in an explicit board.
+message CreateIssueRequest {
+  // board_id identifies the board that will own the issue.
+  string board_id = 1;
+
+  // title is the new issue's human-readable title.
+  string title = 2;
+
+  // type selects the new issue's workflow role.
+  IssueType type = 3;
+
+  // priority sets domain ordering, where lower values run first.
+  int32 priority = 4;
+
+  // summary_source sets the concise stable Markdown contract.
+  optional string summary_source = 5;
+
+  reserved 6;
+  reserved "state_source";
+
+  // labels sets inert classification labels.
+  repeated string labels = 7;
+
+  // parent_id sets the direct containment parent when present.
+  optional string parent_id = 8;
+
+  // prerequisite_ids adds directed prerequisite edges.
+  repeated string prerequisite_ids = 9;
+
+  // context supplies attribution for the issue mutation.
+  MutationContext context = 10;
+
+  // details_source sets expanded stable Markdown material.
+  optional string details_source = 11;
+}
+
+// CreateIssueResponse contains the created issue summary.
+message CreateIssueResponse {
+  // issue is the authoritative created issue record.
+  IssueSummary issue = 1;
+}
+
+// EditIssueRequest applies one atomic metadata and relationship edit.
+message EditIssueRequest {
+  // issue_id identifies the issue to edit.
+  string issue_id = 1;
+
+  // title replaces the issue title when present.
+  optional string title = 2;
+
+  // type replaces the issue workflow role when present.
+  optional IssueType type = 3;
+
+  // priority replaces domain ordering when present.
+  optional int32 priority = 4;
+
+  // summary_source replaces or clears the concise contract when present.
+  optional string summary_source = 5;
+
+  // parent_id replaces containment when present; an empty value removes it.
+  optional string parent_id = 6;
+
+  // add_prerequisite_ids adds readiness edges atomically.
+  repeated string add_prerequisite_ids = 7;
+
+  // remove_prerequisite_ids removes readiness edges atomically.
+  repeated string remove_prerequisite_ids = 8;
+
+  // add_labels adds inert classification labels atomically.
+  repeated string add_labels = 9;
+
+  // remove_labels removes inert classification labels atomically.
+  repeated string remove_labels = 10;
+
+  // labels replaces the complete label set when present.
+  IssueLabels labels = 11;
+
+  // context supplies attribution for the issue mutation.
+  MutationContext context = 12;
+
+  // details_source replaces or clears expanded stable material when present.
+  optional string details_source = 13;
+}
+
+// EditIssueResponse contains the issue after its atomic edit.
+message EditIssueResponse {
+  // issue is the authoritative edited issue record.
+  IssueDetail issue = 1;
+}
+
+// ApplyDocumentRequest applies one canonical document to an explicit board.
+message ApplyDocumentRequest {
+  // board_id identifies the board that owns every document issue.
+  string board_id = 1;
+
+  // document is the canonical version 1 apply document.
+  cardamom.v1.ApplyDocument document = 2;
+
+  // dry_run validates and plans without allocating durable state.
+  bool dry_run = 3 [json_name = "dry_run"];
+
+  // context supplies attribution for a committed apply.
+  MutationContext context = 4;
+}
+
+// ApplyDocumentResponse reports one apply receipt.
+message ApplyDocumentResponse {
+  // receipt reports entry decisions and optional commit identity.
+  cardamom.v1.ApplyReceipt receipt = 1;
+}
+
+// PlanningService exposes issue creation, atomic editing, and document application.
+service PlanningService {
+  // CreateIssue creates one issue and its initial relationships.
+  rpc CreateIssue(CreateIssueRequest) returns (CreateIssueResponse);
+
+  // EditIssue atomically changes metadata and relationships.
+  rpc EditIssue(EditIssueRequest) returns (EditIssueResponse);
+
+  // ApplyDocument validates or atomically applies one canonical document.
+  rpc ApplyDocument(ApplyDocumentRequest) returns (ApplyDocumentResponse);
+}

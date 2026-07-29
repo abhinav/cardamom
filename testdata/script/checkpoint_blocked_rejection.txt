@@ -1,0 +1,26 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix blocked-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card apply access-review.json
+cmp stdout $WORK/golden/applied.txt
+
+! exec card --actor privacy-reviewer checkpoint approve --reason 'Review is incomplete.' blocked-2
+cmp stderr $WORK/golden/unresolved.txt
+! exec card --actor service-owner checkpoint deny --reason 'Review is incomplete.' blocked-2
+cmp stderr $WORK/golden/unresolved.txt
+exec card --json show blocked-2
+cmpjson stdout $WORK/golden/unchanged.json
+
+-- access-review.json --
+{"version":1,"issues":[{"alias":"inventory","title":"Inventory retained credentials","type":"task"},{"title":"Approve credential cleanup","type":"checkpoint","depends_on":{"values":[{"alias":"inventory"}]}}]}
+-- golden/applied.txt --
+applied document: 2 create, 0 update, 0 skip, 0 no change
+0	create	blocked-1
+1	create	blocked-2
+-- golden/unresolved.txt --
+error: checkpoint resolution requires all dependencies to be closed
+-- golden/unchanged.json --
+{"id":"blocked-2","title":"Approve credential cleanup","type":"checkpoint","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":2,"labels":[],"depends_on":["blocked-1"],"blocks":[],"log_count":0,"blocked":true,"parent_id":null,"attachments":[]}

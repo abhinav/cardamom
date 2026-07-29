@@ -1,0 +1,12 @@
+exec git init -b main
+exec sh -c 'printf "existing-pattern\n" > .git/info/exclude'
+
+env CARDAMOM_NO_GITIGNORE=1
+exec card init
+cmp .git/info/exclude $WORK/golden/exclude
+
+exec card init --help
+stdout 'CARDAMOM_NO_GITIGNORE'
+
+-- golden/exclude --
+existing-pattern

@@ -1,0 +1,56 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix diagnostic-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card create 'Lifecycle task'
+exec card create 'Claimed task'
+exec card create 'Dependency'
+exec card create --depends-on diagnostic-3 'Blocked task'
+exec card create --type checkpoint 'Approval gate'
+exec card create 'Cycle prerequisite'
+exec card create --depends-on diagnostic-6 'Cycle dependent'
+
+exec card close diagnostic-1
+! exec card close diagnostic-1
+cmp stderr $WORK/golden/close-closed.txt
+! exec card reopen diagnostic-2
+cmp stderr $WORK/golden/reopen-open.txt
+
+exec card --actor owner claim diagnostic-2
+! exec card --actor worker claim diagnostic-2
+cmp stderr $WORK/golden/claim-claimed.txt
+! exec card --actor worker claim diagnostic-4
+cmp stderr $WORK/golden/claim-blocked.txt
+! exec card --actor worker claim diagnostic-5
+cmp stderr $WORK/golden/claim-checkpoint.txt
+
+! exec card checkpoint approve diagnostic-2
+cmp stderr $WORK/golden/resolve-task.txt
+
+! exec card issue edit diagnostic-2 --add-depends-on diagnostic-2
+cmp stderr $WORK/golden/self-dependency.txt
+! exec card issue edit diagnostic-6 --add-depends-on diagnostic-7
+cmp stderr $WORK/golden/dependency-cycle.txt
+! exec card issue edit diagnostic-2 --remove-depends-on diagnostic-3
+cmp stderr $WORK/golden/missing-dependency.txt
+
+-- golden/close-closed.txt --
+error: diagnostic-1: close requires lifecycle open or cancelled; issue lifecycle is closed
+-- golden/reopen-open.txt --
+error: diagnostic-2: reopen requires lifecycle closed or cancelled; issue lifecycle is open
+-- golden/claim-claimed.txt --
+error: claim requires an unclaimed issue; active claim belongs to "owner"
+-- golden/claim-blocked.txt --
+error: claim requires all dependencies to be closed
+-- golden/claim-checkpoint.txt --
+error: claim requires an executable issue; issue type is checkpoint
+-- golden/resolve-task.txt --
+error: checkpoint resolution requires type checkpoint; issue type is task
+-- golden/self-dependency.txt --
+error: an issue cannot be its own dependency
+-- golden/dependency-cycle.txt --
+error: dependency graph must remain acyclic
+-- golden/missing-dependency.txt --
+error: issue does not depend on "diagnostic-3"

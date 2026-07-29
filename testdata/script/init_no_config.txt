@@ -1,0 +1,58 @@
+mkdir no-config
+cd no-config
+exec git init -b main
+exec sh -c 'printf "existing-pattern\n" > .git/info/exclude'
+
+# A missing config stays absent while the explicit prefix persists in the
+# initialized project database.
+exec card --json init --no-config --prefix local-
+cmpjson stdout $WORK/golden/no-config-init.json
+! exists .cardamom/config.yaml
+exists .cardamom/board.sqlite3
+exec card create 'Persisted prefix'
+stdout '^local-[a-z2-7]+$'
+cmp .git/info/exclude $WORK/golden/exclude
+
+# The removed flag is rejected by command parsing.
+! exec card init --stealth
+stderr 'unknown flag.*--stealth'
+cd ..
+
+# --no-config preserves and uses an existing store configuration.
+mkdir existing-config
+cd existing-config
+exec git init -b main
+mkdir .cardamom
+cp $WORK/golden/existing-config.yaml .cardamom/config.yaml
+exec card --json init --no-config
+cmp .cardamom/config.yaml $WORK/golden/existing-config.yaml
+exec card create 'Existing prefix'
+stdout '^existing-[a-z2-7]+$'
+cd ..
+
+# An explicit prefix updates an existing project's database configuration when
+# config.yaml is absent.
+mkdir retained-store
+cd retained-store
+exec git init -b main
+exec card init --prefix old-
+exec rm .cardamom/config.yaml
+exec card --json init --no-config --prefix new-
+cmpjson stdout $WORK/golden/retained-init.json
+! exists .cardamom/config.yaml
+exec card create 'Updated prefix'
+stdout '^new-[a-z2-7]+$'
+
+-- golden/no-config-init.json --
+{"dir":".cardamom","id_prefix":"local-","id_strategy":"random","schema_version":20260726181403,"config_written":false,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"no-config","board_created":true,"board_id":"board_00000000000000000000","board_name":"no-config","already_initialized":false}
+-- golden/exclude --
+existing-pattern
+.cardamom/board.sqlite3*
+.cardamom/blobs/
+-- golden/existing-config.yaml --
+version: 1
+issue:
+  id:
+    prefix: existing-
+-- golden/retained-init.json --
+{"dir":".cardamom","id_prefix":"new-","id_strategy":"random","schema_version":20260726181403,"config_written":false,"db_written":false,"project_created":false,"project_id":null,"project_name":null,"board_created":false,"board_id":null,"board_name":null,"already_initialized":true}

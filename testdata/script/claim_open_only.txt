@@ -1,0 +1,23 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix claim-
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: claim-\n    strategy: sequential\n" > .cardamom/config.yaml'
+exec card create 'Open task'
+
+! exec card --actor geordi claim --status ready
+cmp stderr $WORK/golden/unknown-flag.txt
+
+exec card --actor geordi claim
+cmp stdout $WORK/golden/claim.txt
+
+-- golden/unknown-flag.txt --
+error: unknown flag --status
+-- golden/claim.txt --
+Claimed claim-1 as geordi.
+Issue claim-1
+Title: Open task
+Type: task
+Status: in_progress
+Priority: 2
+Assignee: geordi

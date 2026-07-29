@@ -1,0 +1,26 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-12T13:00:00Z
+exec card init --prefix lease-
+
+exec card --actor thumbnail-worker lease acquire media-index-writer --ttl 90s
+cmp stdout $WORK/golden/original.txt
+! stderr .
+
+at 2026-07-12T13:01:30Z
+exec card --actor transcript-worker --json lease acquire media-index-writer --ttl 8m
+cmpjson stdout $WORK/golden/takeover.json
+! stderr .
+exec card --json lease list
+cmp stdout $WORK/golden/active.jsonl
+! stderr .
+exec card --json lease show media-index-writer
+cmpjson stdout $WORK/golden/takeover.json
+! stderr .
+
+-- golden/original.txt --
+media-index-writer	thumbnail-worker	2026-07-12T13:00:00Z	2026-07-12T13:01:30Z
+-- golden/takeover.json --
+{"name":"media-index-writer","owner":"transcript-worker","acquired_at":"2026-07-12T13:01:30Z","expires_at":"2026-07-12T13:09:30Z"}
+-- golden/active.jsonl --
+{"name":"media-index-writer","owner":"transcript-worker","acquired_at":"2026-07-12T13:01:30Z","expires_at":"2026-07-12T13:09:30Z"}

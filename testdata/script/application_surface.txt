@@ -1,0 +1,18 @@
+# Root help and store-independent commands remain usable without a store.
+exec card --help
+stdout '^Usage: card <command> \[flags\]'
+exec card -h
+stdout '^Usage: card <command> \[flags\]'
+exec card -V
+cmp stdout $WORK/golden/version.txt
+
+# Explicit store selection remains lazy through help and parse failures.
+exec card --store $WORK/missing --help
+stdout '^Usage: card <command> \[flags\]'
+! exists $WORK/missing
+! exec card --store $WORK/missing list --bogus
+stderr 'unknown flag --bogus'
+! exists $WORK/missing
+
+-- golden/version.txt --
+dev go1.26.4

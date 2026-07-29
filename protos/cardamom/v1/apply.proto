@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package cardamom.v1;
+
+import "buf/validate/validate.proto";
+
+// IssueLabels is a present replacement for an issue's complete label set.
+message IssueLabels {
+  // values contains the replacement labels in caller order.
+  repeated string values = 1;
+}
+
+// IssueReference identifies one issue in an explicit namespace.
+message IssueReference {
+  // reference selects one reference namespace.
+  oneof target {
+    // alias identifies another entry in the same apply request.
+    string alias = 1;
+
+    // id identifies a durable issue in the selected board.
+    // It matches [A-Za-z0-9][A-Za-z0-9-]*.
+    string id = 2 [(buf.validate.field).string = {
+      pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
+    }];
+
+    // key identifies a board-scoped producer identity.
+    string key = 3;
+  }
+}
+
+// IssueReferences is a present replacement for a complete relationship set.
+message IssueReferences {
+  // values contains references in caller order.
+  repeated IssueReference values = 1;
+}
+
+// ClearParent explicitly removes an issue's containment parent.
+message ClearParent {}
+
+// ApplyIssue is one issue entry in an atomic apply document.
+message ApplyIssue {
+  // alias optionally identifies this entry to request-local references.
+  optional string alias = 1;
+
+  // id targets an existing durable issue when present.
+  // It matches [A-Za-z0-9][A-Za-z0-9-]*.
+  optional string id = 2 [(buf.validate.field).string = {
+    pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
+  }];
+
+  // key targets or binds a board-scoped producer identity when present.
+  optional string key = 3;
+
+  // title creates or replaces the issue title when present.
+  optional string title = 4;
+
+  // type creates or replaces the issue workflow role when present.
+  // Valid values are workstream, task, checkpoint, and routine.
+  optional string type = 5 [(buf.validate.field).string = {
+    in: ["workstream", "task", "checkpoint", "routine"]
+  }];
+
+  // priority creates or replaces issue ordering when present.
+  optional int32 priority = 6;
+
+  // summary creates or replaces the concise stable contract when present.
+  optional string summary = 7;
+
+  // details creates or replaces expanded stable material when present.
+  optional string details = 8;
+
+  // labels replaces the complete label set when present.
+  IssueLabels labels = 9;
+
+  // parent_change distinguishes replacement from explicit clearing.
+  oneof parent_change {
+    // parent replaces the containment parent.
+    IssueReference parent = 10;
+
+    // clear_parent removes containment.
+    ClearParent clear_parent = 11 [json_name = "clear_parent"];
+  }
+
+  // depends_on replaces the complete prerequisite set when present.
+  IssueReferences depends_on = 12 [json_name = "depends_on"];
+}
+
+// ApplyDocument is the canonical version 1 graph-application document.
+message ApplyDocument {
+  // version is required and must equal 1.
+  int32 version = 1;
+
+  // issues contains issue entries in document order.
+  repeated ApplyIssue issues = 2;
+
+  // on_existing selects existing-target behavior.
+  // Valid values are error, skip, and update; an omitted value defaults to error.
+  string on_existing = 3 [
+    json_name = "on_existing",
+    (buf.validate.field).string = {
+      in: ["", "error", "skip", "update"]
+    }
+  ];
+}
+
+// ApplyReceiptEntry reports one document entry in document order.
+message ApplyReceiptEntry {
+  // input_index is the zero-based document entry index.
+  uint32 input_index = 1 [json_name = "input_index"];
+
+  // alias is the request-local identity when supplied.
+  optional string alias = 2;
+
+  // id is the durable identity when resolved.
+  // It matches [A-Za-z0-9][A-Za-z0-9-]*.
+  optional string id = 3 [(buf.validate.field).string = {
+    pattern: "^[A-Za-z0-9][A-Za-z0-9-]*$"
+  }];
+
+  // key is the producer identity when supplied or resolved.
+  optional string key = 4;
+
+  // action reports the entry decision.
+  // Valid values are create, update, skip, and no_change.
+  string action = 5 [(buf.validate.field).string = {
+    in: ["create", "update", "skip", "no_change"]
+  }];
+}
+
+// ApplyCounts summarizes receipt actions.
+message ApplyCounts {
+  // create is the number of create actions.
+  uint32 create = 1;
+
+  // update is the number of update actions.
+  uint32 update = 2;
+
+  // skip is the number of skip actions.
+  uint32 skip = 3;
+
+  // no_change is the number of no-change actions.
+  uint32 no_change = 4 [json_name = "no_change"];
+}
+
+// ApplyReceipt is the deterministic outcome of one apply document.
+message ApplyReceipt {
+  // entries contains one result per document issue in document order.
+  repeated ApplyReceiptEntry entries = 1;
+
+  // counts summarizes entry actions.
+  ApplyCounts counts = 2;
+
+  // revision is the committed store revision.
+  optional int64 revision = 4;
+
+  // dry_run reports that no durable state was allocated or committed.
+  bool dry_run = 5 [json_name = "dry_run"];
+}

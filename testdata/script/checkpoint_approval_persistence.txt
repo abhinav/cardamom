@@ -1,0 +1,32 @@
+exec git init -b main
+at 2026-07-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix decision-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card apply policy-review.json
+cmp stdout $WORK/golden/applied.txt
+
+exec card --actor risk-owner --json checkpoint approve --reason 'Rollback limits accepted.' decision-1
+cmpjson stdout $WORK/golden/approved.json
+exec card --json show decision-1
+cmpjson stdout $WORK/golden/closed.json
+! exec card --actor second-reviewer checkpoint deny decision-1
+cmp stderr $WORK/golden/already-resolved.txt
+exec card --json ready
+cmp stdout $WORK/golden/ready.jsonl
+
+-- policy-review.json --
+{"version":1,"issues":[{"alias":"policy","title":"Approve retention limits","type":"checkpoint"},{"title":"Remove expired exports","type":"task","depends_on":{"values":[{"alias":"policy"}]}}]}
+-- golden/applied.txt --
+applied document: 2 create, 0 update, 0 skip, 0 no change
+0	create	decision-1
+1	create	decision-2
+-- golden/approved.json --
+{"decision":{"outcome":"approved","reason":"Rollback limits accepted.","decided_at":1783857600,"revision":3},"issue":{"id":"decision-1","title":"Approve retention limits","type":"checkpoint","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3},"cancelled":[],"parents_without_open_children":[]}
+-- golden/closed.json --
+{"id":"decision-1","title":"Approve retention limits","type":"checkpoint","lifecycle":"closed","status":"closed","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"closed":1783857600,"revision":3,"labels":[],"depends_on":[],"blocks":["decision-2"],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/already-resolved.txt --
+error: checkpoint already resolved
+-- golden/ready.jsonl --
+{"id":"decision-2","title":"Remove expired exports","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":2,"labels":[],"blocked":false}

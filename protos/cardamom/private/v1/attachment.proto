@@ -1,0 +1,427 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/mutation.proto";
+import "google/protobuf/timestamp.proto";
+
+// AttachmentLifecycle is the monotonic logical attachment state.
+enum AttachmentLifecycle {
+  // ATTACHMENT_LIFECYCLE_UNSPECIFIED is not a persisted lifecycle.
+  ATTACHMENT_LIFECYCLE_UNSPECIFIED = 0;
+
+  // ATTACHMENT_LIFECYCLE_ACTIVE identifies usable attachment metadata.
+  ATTACHMENT_LIFECYCLE_ACTIVE = 1;
+
+  // ATTACHMENT_LIFECYCLE_REMOVED identifies a permanent tombstone.
+  ATTACHMENT_LIFECYCLE_REMOVED = 2;
+}
+
+// BlobAvailability is one replica-local observation of expected blob bytes.
+enum BlobAvailability {
+  // BLOB_AVAILABILITY_UNSPECIFIED is not an observed availability state.
+  BLOB_AVAILABILITY_UNSPECIFIED = 0;
+
+  // BLOB_AVAILABILITY_MISSING means expected content is absent locally.
+  BLOB_AVAILABILITY_MISSING = 1;
+
+  // BLOB_AVAILABILITY_PRESENT_UNVERIFIED means size-valid content has not
+  // been fully hashed by this observation.
+  BLOB_AVAILABILITY_PRESENT_UNVERIFIED = 2;
+
+  // BLOB_AVAILABILITY_SIZE_MISMATCH means local content has an unexpected
+  // size.
+  BLOB_AVAILABILITY_SIZE_MISMATCH = 3;
+
+  // BLOB_AVAILABILITY_VERIFIED means local content matches its descriptor.
+  BLOB_AVAILABILITY_VERIFIED = 4;
+
+  // BLOB_AVAILABILITY_DIGEST_MISMATCH means size-valid local content has an
+  // unexpected SHA-256 digest.
+  BLOB_AVAILABILITY_DIGEST_MISMATCH = 5;
+}
+
+// AttachmentUploadState is the durable lifecycle of a resumable upload.
+enum AttachmentUploadState {
+  // ATTACHMENT_UPLOAD_STATE_UNSPECIFIED is not a durable upload state.
+  ATTACHMENT_UPLOAD_STATE_UNSPECIFIED = 0;
+
+  // ATTACHMENT_UPLOAD_STATE_ACTIVE accepts sequential chunks.
+  ATTACHMENT_UPLOAD_STATE_ACTIVE = 1;
+
+  // ATTACHMENT_UPLOAD_STATE_COMMITTED is a terminal attachment receipt.
+  ATTACHMENT_UPLOAD_STATE_COMMITTED = 2;
+
+  // ATTACHMENT_UPLOAD_STATE_ABORTED is an explicitly abandoned receipt.
+  ATTACHMENT_UPLOAD_STATE_ABORTED = 3;
+
+  // ATTACHMENT_UPLOAD_STATE_EXPIRED is an inactive staging receipt.
+  ATTACHMENT_UPLOAD_STATE_EXPIRED = 4;
+}
+
+// BlobDescriptor identifies immutable content by SHA-256 digest and byte size.
+message BlobDescriptor {
+  // digest is sha256 followed by 64 lowercase hexadecimal digits.
+  string digest = 1;
+
+  // size_bytes is the complete content size in bytes.
+  uint64 size_bytes = 2;
+}
+
+// AttachmentAttribution records one logical attachment mutation.
+message AttachmentAttribution {
+  // actor identifies the mutation author.
+  string actor = 1;
+
+  // at is the committed mutation time.
+  google.protobuf.Timestamp at = 2;
+
+  // revision is the canonical board revision created by the mutation.
+  uint64 revision = 3;
+}
+
+// Attachment is immutable board-scoped file metadata with current lifecycle
+// and local availability.
+message Attachment {
+  // id is the durable attachment handle.
+  string id = 1;
+
+  // board_id identifies the board that owns the attachment metadata.
+  string board_id = 2;
+
+  // issue_id identifies the issue that introduced the attachment when present.
+  // The association is organizational and does not restrict same-board use.
+  optional string issue_id = 3;
+
+  // blob identifies the immutable expected content.
+  BlobDescriptor blob = 4;
+
+  // filename is the portable presentation filename.
+  string filename = 5;
+
+  // media_type is the server-detected canonical MIME media type.
+  string media_type = 6;
+
+  // lifecycle is the monotonic logical attachment state.
+  AttachmentLifecycle lifecycle = 7;
+
+  // availability is the latest replica-local content observation.
+  BlobAvailability availability = 8;
+
+  // created records attachment creation attribution.
+  AttachmentAttribution created = 9;
+
+  // removed records tombstone attribution when lifecycle is removed.
+  optional AttachmentAttribution removed = 10;
+}
+
+// AttachmentUpload is the durable recovery view of one resumable upload.
+message AttachmentUpload {
+  // id is the opaque upload-session identity.
+  string id = 1;
+
+  // board_id identifies the target board.
+  string board_id = 2;
+
+  // issue_id identifies the originating issue when one is associated.
+  optional string issue_id = 3;
+
+  // filename is the portable presentation filename.
+  string filename = 4;
+
+  // expected_size_bytes is the optional client-declared complete size.
+  optional uint64 expected_size_bytes = 5;
+
+  // expected_digest is the optional client-computed SHA-256 identity.
+  optional string expected_digest = 6;
+
+  // actor owns the upload session.
+  string actor = 7;
+
+  // state is the durable upload lifecycle.
+  AttachmentUploadState state = 8;
+
+  // accepted_offset is the next sequential byte offset.
+  uint64 accepted_offset = 9;
+
+  // expires_at is the staging or terminal-receipt expiration boundary.
+  google.protobuf.Timestamp expires_at = 10;
+
+  // attachment is the one result of a committed upload.
+  optional Attachment attachment = 11;
+}
+
+// AttachmentVerification records one complete local integrity observation.
+message AttachmentVerification {
+  // attachment_id identifies the verified metadata.
+  string attachment_id = 1;
+
+  // blob identifies the expected immutable content.
+  BlobDescriptor blob = 2;
+
+  // availability is the observed local content state after verification.
+  BlobAvailability availability = 3;
+
+  // observed_at records when verification completed.
+  google.protobuf.Timestamp observed_at = 4;
+}
+
+// CollectionSummary reports a collected item count and total byte size.
+message CollectionSummary {
+  // count is the number of collected items.
+  uint64 count = 1;
+
+  // bytes is the total size of collected content.
+  uint64 bytes = 2;
+}
+
+// AttachmentIntegrityProblem reports expected retained content that collection
+// found missing or invalid.
+message AttachmentIntegrityProblem {
+  // board_id identifies the board retaining the attachment metadata.
+  string board_id = 1;
+
+  // attachment_id identifies the retained attachment.
+  string attachment_id = 2;
+
+  // blob identifies the expected immutable content.
+  BlobDescriptor blob = 3;
+
+  // availability describes the missing or invalid local content.
+  BlobAvailability availability = 4;
+}
+
+// BlobCollectionResult reports conservative local cleanup and retained-content
+// observations.
+message BlobCollectionResult {
+  // dry_run reports whether bytes were only planned for removal.
+  bool dry_run = 1;
+
+  // expired_staging reports inactive staged uploads selected for cleanup.
+  CollectionSummary expired_staging = 2;
+
+  // orphan_blobs reports content with no retained attachment metadata.
+  CollectionSummary orphan_blobs = 3;
+
+  // integrity_problems reports retained metadata with missing or invalid
+  // bytes.
+  repeated AttachmentIntegrityProblem integrity_problems = 4;
+}
+
+// BeginAttachmentUploadRequest establishes a durable upload session.
+message BeginAttachmentUploadRequest {
+  // board_id identifies the target board.
+  string board_id = 1;
+
+  // issue_id identifies the originating issue when one is associated.
+  optional string issue_id = 2;
+
+  // filename is the portable presentation filename.
+  string filename = 3;
+
+  // expected_size_bytes is the optional client-declared complete size.
+  optional uint64 expected_size_bytes = 4;
+
+  // expected_digest is the optional client-computed SHA-256 identity.
+  optional string expected_digest = 5;
+
+  // mutation carries the actor that owns the upload.
+  MutationContext mutation = 6;
+}
+
+// BeginAttachmentUploadResponse contains the upload and fixed server limits.
+message BeginAttachmentUploadResponse {
+  // upload is the durable resumable session.
+  AttachmentUpload upload = 1;
+
+  // max_chunk_size_bytes is the largest accepted chunk.
+  uint64 max_chunk_size_bytes = 2;
+
+  // max_attachment_size_bytes is the largest accepted complete attachment.
+  uint64 max_attachment_size_bytes = 3;
+}
+
+// WriteAttachmentChunkRequest appends or replays one sequential upload chunk.
+message WriteAttachmentChunkRequest {
+  // upload_id identifies the durable upload session.
+  string upload_id = 1;
+
+  // expected_offset is the byte offset at which content must begin.
+  uint64 expected_offset = 2;
+
+  // content is one non-empty bounded chunk.
+  bytes content = 3;
+
+  // mutation carries the upload owner.
+  MutationContext mutation = 4;
+}
+
+// WriteAttachmentChunkResponse contains the updated upload progress.
+message WriteAttachmentChunkResponse {
+  // upload is the durable session after accepting or replaying the chunk.
+  AttachmentUpload upload = 1;
+}
+
+// GetAttachmentUploadRequest identifies one durable upload session.
+message GetAttachmentUploadRequest {
+  // upload_id identifies the durable upload session.
+  string upload_id = 1;
+}
+
+// GetAttachmentUploadResponse contains upload progress or a terminal receipt.
+message GetAttachmentUploadResponse {
+  // upload is the durable upload recovery view.
+  AttachmentUpload upload = 1;
+}
+
+// CommitAttachmentUploadRequest identifies an upload to publish exactly once.
+message CommitAttachmentUploadRequest {
+  // upload_id identifies the durable upload session.
+  string upload_id = 1;
+
+  // mutation carries the upload owner.
+  MutationContext mutation = 2;
+}
+
+// CommitAttachmentUploadResponse contains the one committed attachment.
+message CommitAttachmentUploadResponse {
+  // attachment is the upload's idempotent terminal result.
+  Attachment attachment = 1;
+}
+
+// AbortAttachmentUploadRequest identifies an uncommitted upload to abandon.
+message AbortAttachmentUploadRequest {
+  // upload_id identifies the durable upload session.
+  string upload_id = 1;
+
+  // mutation carries the upload owner.
+  MutationContext mutation = 2;
+}
+
+// AbortAttachmentUploadResponse contains the terminal upload receipt.
+message AbortAttachmentUploadResponse {
+  // upload is the durable aborted receipt.
+  AttachmentUpload upload = 1;
+}
+
+// GetAttachmentRequest identifies one attachment within its owning board.
+message GetAttachmentRequest {
+  // board_id identifies the attachment's owning board.
+  string board_id = 1;
+
+  // attachment_id identifies the attachment metadata.
+  string attachment_id = 2;
+}
+
+// GetAttachmentResponse contains one attachment and local availability.
+message GetAttachmentResponse {
+  // attachment is the selected board-scoped metadata.
+  Attachment attachment = 1;
+}
+
+// ListAttachmentsRequest selects one stable attachment page from a board.
+message ListAttachmentsRequest {
+  // board_id identifies the attachment's owning board.
+  string board_id = 1;
+
+  // issue_id restricts results to one originating issue when present.
+  optional string issue_id = 2;
+
+  // include_removed includes tombstoned attachment metadata.
+  bool include_removed = 3;
+
+  // page_size is the requested maximum result count.
+  uint32 page_size = 4;
+
+  // page_token resumes a prior stable page.
+  optional string page_token = 5;
+}
+
+// ListAttachmentsResponse contains one stable attachment page.
+message ListAttachmentsResponse {
+  // attachments contains metadata in stable repository order.
+  repeated Attachment attachments = 1;
+
+  // next_page_token resumes the next page when present.
+  optional string next_page_token = 2;
+}
+
+// RemoveAttachmentRequest identifies one active attachment to tombstone.
+message RemoveAttachmentRequest {
+  // board_id identifies the attachment's owning board.
+  string board_id = 1;
+
+  // attachment_id identifies the attachment metadata.
+  string attachment_id = 2;
+
+  // mutation carries the removal actor.
+  MutationContext mutation = 3;
+}
+
+// RemoveAttachmentResponse contains the monotonic attachment tombstone.
+message RemoveAttachmentResponse {
+  // attachment is the removed metadata or existing tombstone.
+  Attachment attachment = 1;
+}
+
+// VerifyAttachmentRequest identifies one attachment for full integrity
+// verification.
+message VerifyAttachmentRequest {
+  // board_id identifies the attachment's owning board.
+  string board_id = 1;
+
+  // attachment_id identifies the attachment metadata.
+  string attachment_id = 2;
+}
+
+// VerifyAttachmentResponse contains one complete local integrity observation.
+message VerifyAttachmentResponse {
+  // verification records the expected descriptor and observed availability.
+  AttachmentVerification verification = 1;
+}
+
+// CollectBlobsRequest selects mutation or dry-run collection behavior.
+message CollectBlobsRequest {
+  // dry_run reports collection results without removing bytes.
+  bool dry_run = 1;
+}
+
+// CollectBlobsResponse contains conservative local collection results.
+message CollectBlobsResponse {
+  // result reports removed or planned content and retained integrity problems.
+  BlobCollectionResult result = 1;
+}
+
+// AttachmentService exposes finite attachment metadata, upload, integrity, and
+// collection operations.
+service AttachmentService {
+  // BeginAttachmentUpload establishes one durable resumable upload session.
+  rpc BeginAttachmentUpload(BeginAttachmentUploadRequest) returns (BeginAttachmentUploadResponse);
+
+  // WriteAttachmentChunk appends or idempotently replays one sequential chunk.
+  rpc WriteAttachmentChunk(WriteAttachmentChunkRequest) returns (WriteAttachmentChunkResponse);
+
+  // GetAttachmentUpload returns durable progress or a terminal receipt.
+  rpc GetAttachmentUpload(GetAttachmentUploadRequest) returns (GetAttachmentUploadResponse);
+
+  // CommitAttachmentUpload verifies and publishes an upload exactly once.
+  rpc CommitAttachmentUpload(CommitAttachmentUploadRequest) returns (CommitAttachmentUploadResponse);
+
+  // AbortAttachmentUpload abandons an uncommitted upload idempotently.
+  rpc AbortAttachmentUpload(AbortAttachmentUploadRequest) returns (AbortAttachmentUploadResponse);
+
+  // GetAttachment returns one board-scoped attachment.
+  rpc GetAttachment(GetAttachmentRequest) returns (GetAttachmentResponse);
+
+  // ListAttachments returns one stable attachment page.
+  rpc ListAttachments(ListAttachmentsRequest) returns (ListAttachmentsResponse);
+
+  // RemoveAttachment creates or returns a monotonic tombstone.
+  rpc RemoveAttachment(RemoveAttachmentRequest) returns (RemoveAttachmentResponse);
+
+  // VerifyAttachment performs complete local integrity verification.
+  rpc VerifyAttachment(VerifyAttachmentRequest) returns (VerifyAttachmentResponse);
+
+  // CollectBlobs removes expired staging and true orphan content.
+  rpc CollectBlobs(CollectBlobsRequest) returns (CollectBlobsResponse);
+}

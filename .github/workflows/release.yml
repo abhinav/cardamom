@@ -1,28 +1,69 @@
-name: release
+name: Release
 
 on:
-  push:
-    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Git ref containing the prepared Changie release.
+        required: true
+        type: string
 
-permissions:
-  contents: write # for creating the GitHub Release + attaching artefacts
+permissions: {}
 
 jobs:
   release:
     runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      contents: write
+
     steps:
       - uses: actions/checkout@v6
         with:
-          fetch-depth: 0 # goreleaser needs the full history for changelogs
+          ref: ${{ inputs.ref }}
 
-      - uses: actions/setup-go@v6
+      - uses: jdx/mise-action@v4
         with:
-          go-version-file: go.mod
-          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
 
-      - uses: goreleaser/goreleaser-action@v7
+      - name: Set version
+        run: |
+          CHANGIE_VERSION=$(changie latest)
+          echo "VERSION=${CHANGIE_VERSION#v}" >> "$GITHUB_ENV"
+
+      - name: Verify version
+        run: |
+          if [[ -z "$VERSION" ]]; then
+            echo "No version set"
+            exit 1
+          fi
+
+      - name: Extract changelog
+        run: |
+          tail -n+2 .changes/v${{ env.VERSION }}.md > ${{ github.workspace }}-CHANGELOG.txt
+          echo "::group::CHANGELOG"
+          cat ${{ github.workspace }}-CHANGELOG.txt
+          echo "::endgroup::"
+
+      - name: Build Cardamom binary and web assets
+        run: mise run build
+
+      - name: Tag release
+        env:
+          TAG: v${{ env.VERSION }}
+        run: |
+          git tag "$TAG"
+          git push origin "$TAG"
+
+      - name: Publish release
+        uses: goreleaser/goreleaser-action@v7
         with:
+          distribution: goreleaser
           version: latest
-          args: release --clean
+          args: >-
+            release --clean
+            --release-notes ${{ github.workspace }}-CHANGELOG.txt
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GORELEASER_CURRENT_TAG: v${{ env.VERSION }}
+          # HOMEBREW_TAP_GITHUB_TOKEN: ${{ secrets.HOMEBREW_TAP_GITHUB_TOKEN }}

@@ -1,0 +1,168 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/content.proto";
+import "cardamom/private/v1/issue.proto";
+import "cardamom/private/v1/mutation.proto";
+import "google/protobuf/timestamp.proto";
+
+// Project identifies a project namespace available to the browser.
+message Project {
+  // id is the stable project ID.
+  string id = 1;
+
+  // name is the human-readable project name.
+  string name = 2;
+}
+
+// BoardSummary identifies a board in the server catalog.
+message BoardSummary {
+  // id is the stable board ID.
+  string id = 1;
+
+  // project_id identifies the project that owns the board.
+  string project_id = 2;
+
+  // name is the human-readable board name.
+  string name = 3;
+}
+
+// Board contains browser-visible board settings and rendered context.
+message Board {
+  // id is the stable board ID.
+  string id = 1;
+
+  // project_id identifies the project that owns the board.
+  string project_id = 2;
+
+  // name is the human-readable board name.
+  string name = 3;
+
+  // description is the optional shared context inherited by board issues.
+  optional MarkdownContent description = 4;
+
+  // created_at is the time at which the board was created.
+  google.protobuf.Timestamp created_at = 5;
+}
+
+// ListProjectsRequest requests every project in catalog order.
+message ListProjectsRequest {}
+
+// ListProjectsResponse contains every project visible to the server.
+message ListProjectsResponse {
+  // projects lists project namespaces in catalog order.
+  repeated Project projects = 1;
+}
+
+// ListBoardsRequest requests every board in catalog order.
+message ListBoardsRequest {}
+
+// ListBoardsResponse contains every board visible to the server.
+message ListBoardsResponse {
+  // boards lists board summaries in catalog order.
+  repeated BoardSummary boards = 1;
+}
+
+// GetBootstrapRequest requests server metadata and the project catalog.
+message GetBootstrapRequest {}
+
+// GetBootstrapResponse contains startup data independent of board selection.
+message GetBootstrapResponse {
+  // projects lists project namespaces visible to the server.
+  repeated Project projects = 1;
+
+  // boards lists boards visible to the server.
+  repeated BoardSummary boards = 2;
+
+  // server_default_board_id identifies the board selected at server startup.
+  optional string server_default_board_id = 3;
+
+  // issue_types lists issue types accepted by browser mutations and filters.
+  repeated IssueType issue_types = 4;
+
+  // issue_statuses lists effective statuses supported by browser filters.
+  repeated IssueStatus issue_statuses = 5;
+
+  // id_prefix is the configured prefix for newly allocated issue IDs.
+  string id_prefix = 6;
+
+  // schema_version is the active Cardamom store schema version.
+  uint64 schema_version = 7;
+}
+
+// GetBoardRequest identifies one board by stable ID.
+message GetBoardRequest {
+  // board_id identifies the board to read.
+  string board_id = 1;
+}
+
+// GetBoardResponse contains the requested board.
+message GetBoardResponse {
+  // board is the authoritative browser-visible board record.
+  Board board = 1;
+}
+
+// CreateBoardRequest creates a board in one explicit project.
+message CreateBoardRequest {
+  // project_id identifies the project that will own the board.
+  string project_id = 1;
+
+  // name is the new board's human-readable name.
+  string name = 2;
+
+  // description_source is the optional shared Markdown context.
+  optional string description_source = 3;
+
+  // context supplies attribution for the board mutation.
+  MutationContext context = 4;
+}
+
+// CreateBoardResponse contains the created board.
+message CreateBoardResponse {
+  // board is the authoritative created board record.
+  Board board = 1;
+}
+
+// UpdateBoardRequest atomically replaces the supplied board settings.
+message UpdateBoardRequest {
+  // board_id identifies the board to update.
+  string board_id = 1;
+
+  // name replaces the board name when present.
+  optional string name = 2;
+
+  // description_source replaces or clears the board description when present.
+  optional string description_source = 3;
+
+  // context supplies attribution for the board mutation.
+  MutationContext context = 4;
+}
+
+// UpdateBoardResponse contains the updated board.
+message UpdateBoardResponse {
+  // board is the authoritative updated board record.
+  Board board = 1;
+}
+
+// ProjectService exposes startup catalog reads and project-owned board
+// settings on the browser transport.
+service ProjectService {
+  // ListProjects returns every project in catalog order.
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+
+  // ListBoards returns every board in catalog order.
+  rpc ListBoards(ListBoardsRequest) returns (ListBoardsResponse);
+
+  // GetBootstrap returns the project and board catalog plus server metadata.
+  rpc GetBootstrap(GetBootstrapRequest) returns (GetBootstrapResponse);
+
+  // GetBoard returns one board and its rendered shared context.
+  rpc GetBoard(GetBoardRequest) returns (GetBoardResponse);
+
+  // CreateBoard establishes a board in an explicitly identified project.
+  rpc CreateBoard(CreateBoardRequest) returns (CreateBoardResponse);
+
+  // UpdateBoard replaces the supplied settings for one board.
+  rpc UpdateBoard(UpdateBoardRequest) returns (UpdateBoardResponse);
+}

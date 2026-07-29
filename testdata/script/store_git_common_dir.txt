@@ -1,0 +1,149 @@
+env TZ=UTC
+at 2026-07-22T12:00:00Z
+
+mkdir repo
+exec git -C repo init -b main
+exec sh -c 'printf "initial\n" > repo/README.md'
+exec git -C repo add README.md
+exec git -C repo commit -m initial
+
+# The Git common directory owns one store shared by every worktree.
+exec card --store repo/.git/.cardamom init --prefix common- --board-name 'Primary board'
+cmp stdout $WORK/golden/init.txt
+exec card --store repo/.git/.cardamom config set --scope store issue.id.strategy sequential
+cmpenv stdout $WORK/golden/config.txt
+exec card --store repo/.git/.cardamom board create 'Linked board'
+cmp stdout $WORK/golden/linked-board.txt
+
+# Each worktree keeps its own selected board in its private Git directory.
+cd repo
+exec card board use board_00000000000000000000
+cmp stdout $WORK/golden/use-primary.txt
+exec git worktree add ../linked -b linked
+cd ../linked
+exec card board use board_11111111111111111111
+cmp stdout $WORK/golden/use-linked.txt
+exec card create 'Linked issue'
+cmp stdout $WORK/golden/linked-create.txt
+
+cd ../repo
+exec card create 'Primary issue'
+cmp stdout $WORK/golden/primary-create.txt
+exec card list
+cmp stdout $WORK/golden/primary-list.txt
+cd ../linked
+exec card list
+cmp stdout $WORK/golden/linked-list.txt
+
+# Direct mail and topic subscriptions span board selections in one store.
+cd ../repo
+exec card --actor primary-agent mail send linked-agent 'direct across worktrees'
+cmp stdout $WORK/golden/direct-send.txt
+cd ../linked
+exec card --actor linked-agent mail recv
+cmp stdout $WORK/golden/direct-recv.txt
+exec card --actor linked-agent mail subscribe 'release.*' --ttl 1h
+cmp stdout $WORK/golden/subscription.txt
+cd ../repo
+exec card --actor primary-agent mail publish release.ready 'topic across worktrees'
+cmp stdout $WORK/golden/topic-publish.txt
+cd ../linked
+exec card --actor linked-agent mail recv
+cmp stdout $WORK/golden/topic-recv.txt
+
+# Resource names also span board selections in one store.
+cd ../repo
+exec card --actor primary-agent lease acquire shared-environment --ttl 30m
+cmp stdout $WORK/golden/lease.txt
+cd ../linked
+exec card --actor linked-agent lease show shared-environment
+cmp stdout $WORK/golden/lease.txt
+! exec card --actor linked-agent lease acquire shared-environment --ttl 30m
+cmp stderr $WORK/golden/lease-held.txt
+
+# A nearest store overrides Git common-directory discovery, while --store can
+# select the common store explicitly.
+mkdir nested
+exec card --store nested/.cardamom init --prefix nested- --board-name 'Nested board'
+cmp stdout $WORK/golden/nested-init.txt
+exec card --store nested/.cardamom --board 'Nested board' config set --scope store issue.id.strategy sequential
+cmpenv stdout $WORK/golden/nested-config.txt
+cd nested
+exec card --board 'Nested board' create 'Nested issue'
+cmp stdout $WORK/golden/nested-create.txt
+exec card --board 'Nested board' list
+cmp stdout $WORK/golden/nested-list.txt
+exec card --store $WORK/repo/.git/.cardamom --board board_11111111111111111111 list
+cmp stdout $WORK/golden/linked-list.txt
+
+-- golden/init.txt --
+initialized repo/.git/.cardamom
+Automatic local exclusion failed. Add these patterns to .gitignore:
+.cardamom/board.sqlite3
+.cardamom/board.sqlite3-shm
+.cardamom/board.sqlite3-wal
+.cardamom/blobs/
+-- golden/config.txt --
+Scope:    effective
+Store:    $WORK/repo/.git/.cardamom
+Project:  project_00000000000000000000
+Board:    board_00000000000000000000
+
+KEY                      VALUE       ORIGIN
+issue.id.prefix          common-     store ($WORK/repo/.git/.cardamom)
+issue.id.strategy        sequential  store ($WORK/repo/.git/.cardamom)
+issue.summary.max_bytes  2048        built_in (built-in)
+attachment.max_bytes     104857600   built_in (built-in)
+-- golden/linked-board.txt --
+board_11111111111111111111
+-- golden/use-primary.txt --
+using board_00000000000000000000 (Primary board)
+-- golden/use-linked.txt --
+using board_11111111111111111111 (Linked board)
+-- golden/linked-create.txt --
+common-1
+-- golden/primary-create.txt --
+common-2
+-- golden/primary-list.txt --
+ID        PRI  STATUS  TYPE  TITLE
+common-2  2    ready   task  Primary issue
+-- golden/linked-list.txt --
+ID        PRI  STATUS  TYPE  TITLE
+common-1  2    ready   task  Linked issue
+-- golden/direct-send.txt --
+mail_00000000000000000000000000000001	primary-agent	linked-agent		2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
+direct across worktrees
+-- golden/direct-recv.txt --
+mail_00000000000000000000000000000001	primary-agent	linked-agent		2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
+direct across worktrees
+-- golden/subscription.txt --
+linked-agent	release.*	2026-07-22T12:00:00Z	2026-07-22T13:00:00Z
+-- golden/topic-publish.txt --
+mail_00000000000000000000000000000002	primary-agent	linked-agent	release.ready	2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
+topic across worktrees
+-- golden/topic-recv.txt --
+mail_00000000000000000000000000000002	primary-agent	linked-agent	release.ready	2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
+topic across worktrees
+-- golden/lease.txt --
+shared-environment	primary-agent	2026-07-22T12:00:00Z	2026-07-22T12:30:00Z
+-- golden/lease-held.txt --
+error: lease "shared-environment" is held by "primary-agent" until 2026-07-22T12:30:00Z
+-- golden/nested-init.txt --
+initialized nested/.cardamom
+This checkout now excludes Cardamom's local database and attachment blob files. .cardamom/config.yaml remains suitable to commit.
+-- golden/nested-config.txt --
+Scope:    effective
+Store:    $WORK/linked/nested/.cardamom
+Project:  project_00000000000000000000
+Board:    board_00000000000000000000
+
+KEY                      VALUE       ORIGIN
+issue.id.prefix          nested-     store ($WORK/linked/nested/.cardamom)
+issue.id.strategy        sequential  store ($WORK/linked/nested/.cardamom)
+issue.summary.max_bytes  2048        built_in (built-in)
+attachment.max_bytes     104857600   built_in (built-in)
+-- golden/nested-create.txt --
+nested-1
+-- golden/nested-list.txt --
+ID        PRI  STATUS  TYPE  TITLE
+nested-1  2    ready   task  Nested issue

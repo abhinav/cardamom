@@ -1,0 +1,38 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-22T12:00:00Z
+exec card init --prefix mail-
+
+exec card --actor scheduler mail send worker old
+at 2026-07-22T12:30:00Z
+exec card --actor scheduler mail send worker recent
+at 2026-07-22T12:45:00Z
+exec card --actor scheduler mail send observer observed
+
+# Global selection applies age and limit without changing mailbox read state.
+at 2026-07-22T13:00:00Z
+exec card --actor auditor --json mail recv --global --age 45m --limit 2
+cmp stdout $WORK/golden/global.jsonl
+
+# Clear applies the actor selection and leaves unselected mail available.
+exec card --actor worker --json mail recv --clear --age 45m --limit 1
+cmp stdout $WORK/golden/cleared.json
+exec card --actor worker --json mail recv
+cmp stdout $WORK/golden/old.jsonl
+exec card --actor worker --json mail recv --all
+cmp stdout $WORK/golden/worker-all.jsonl
+exec card --actor observer --json mail recv --peek
+cmp stdout $WORK/golden/observer.jsonl
+
+-- golden/global.jsonl --
+{"id":"mail_00000000000000000000000000000002","sender":"scheduler","recipient":"worker","source_topic":null,"body":"recent","created":"2026-07-22T12:30:00Z","expires":"2026-07-29T12:30:00Z","read_at":null}
+{"id":"mail_00000000000000000000000000000003","sender":"scheduler","recipient":"observer","source_topic":null,"body":"observed","created":"2026-07-22T12:45:00Z","expires":"2026-07-29T12:45:00Z","read_at":null}
+-- golden/cleared.json --
+{"cleared":1}
+-- golden/old.jsonl --
+{"id":"mail_00000000000000000000000000000001","sender":"scheduler","recipient":"worker","source_topic":null,"body":"old","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":"2026-07-22T13:00:00Z"}
+-- golden/worker-all.jsonl --
+{"id":"mail_00000000000000000000000000000001","sender":"scheduler","recipient":"worker","source_topic":null,"body":"old","created":"2026-07-22T12:00:00Z","expires":"2026-07-29T12:00:00Z","read_at":"2026-07-22T13:00:00Z"}
+{"id":"mail_00000000000000000000000000000002","sender":"scheduler","recipient":"worker","source_topic":null,"body":"recent","created":"2026-07-22T12:30:00Z","expires":"2026-07-29T12:30:00Z","read_at":"2026-07-22T13:00:00Z"}
+-- golden/observer.jsonl --
+{"id":"mail_00000000000000000000000000000003","sender":"scheduler","recipient":"observer","source_topic":null,"body":"observed","created":"2026-07-22T12:45:00Z","expires":"2026-07-29T12:45:00Z","read_at":null}

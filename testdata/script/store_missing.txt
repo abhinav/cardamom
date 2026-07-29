@@ -1,0 +1,15 @@
+# Missing implicit stores report the aggregate discovery result outside Git.
+mkdir non-git
+cd non-git
+! exec card list
+! stdout .
+stderr 'no Cardamom store found from'
+cd ..
+
+# A Git common directory without .cardamom has the same discovery result.
+mkdir repo
+exec git -C repo init -b main
+cd repo
+! exec card list
+! stdout .
+stderr 'no Cardamom store found from'
