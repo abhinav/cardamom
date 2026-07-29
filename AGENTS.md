@@ -91,6 +91,8 @@ Keep command and Connect packages limited to parsing, protocol translation,
 and rendering.
 Domain operations own product policy.
 Repository implementations own persistence and transaction boundaries.
+Author new stable production repository SQL for sqlc generation;
+repository ownership does not permit handwritten runtime queries.
 `internal/process` owns process lifetime and dependency composition.
 
 Read `.agents/docs/skill.md` before changing `skills/cardamom`.

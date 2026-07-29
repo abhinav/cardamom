@@ -12,6 +12,114 @@ import (
 
 var errDescriptorMismatch = errors.New("attachment descriptor mismatch")
 
+// publishReader verifies reader against descriptor and idempotently publishes
+// the content-addressed bytes.
+func (s *blobStore) publishReader(
+	descriptor domainattachment.BlobDescriptor,
+	reader io.Reader,
+) (err error) {
+	if err := descriptor.Validate(); err != nil {
+		return err
+	}
+	if reader == nil {
+		return errors.New("attachment blob reader is required")
+	}
+
+	existing, availability, err := s.openVerified(descriptor)
+	if err != nil {
+		return err
+	}
+	if existing != nil {
+		return existing.Close()
+	}
+	if availability != domainattachment.BlobAvailabilityMissing {
+		return fmt.Errorf(
+			"existing attachment blob %s is %s",
+			descriptor.Digest,
+			availability,
+		)
+	}
+
+	if err := os.MkdirAll(s.contentDir(), 0o700); err != nil {
+		return fmt.Errorf("create attachment content directory: %w", err)
+	}
+	temporary, err := os.CreateTemp(s.contentDir(), ".copy-*")
+	if err != nil {
+		return fmt.Errorf("create attachment blob temporary file: %w", err)
+	}
+	temporaryPath := temporary.Name()
+	defer func() {
+		err = errors.Join(err, os.Remove(temporaryPath))
+	}()
+
+	hash := sha256.New()
+	written, copyErr := io.CopyN(
+		io.MultiWriter(temporary, hash),
+		reader,
+		int64(descriptor.SizeBytes),
+	)
+	if copyErr != nil {
+		_ = temporary.Close()
+		return fmt.Errorf("read attachment blob: %w", copyErr)
+	}
+	var extra [1]byte
+	extraBytes, extraErr := reader.Read(extra[:])
+	if extraErr != nil && !errors.Is(extraErr, io.EOF) {
+		_ = temporary.Close()
+		return fmt.Errorf("read attachment blob trailer: %w", extraErr)
+	}
+	if written != int64(descriptor.SizeBytes) || extraBytes != 0 {
+		_ = temporary.Close()
+		return fmt.Errorf(
+			"%w: attachment blob size exceeds descriptor size %d",
+			errDescriptorMismatch,
+			descriptor.SizeBytes,
+		)
+	}
+	digest := fmt.Sprintf("sha256:%x", hash.Sum(nil))
+	if digest != descriptor.Digest.String() {
+		_ = temporary.Close()
+		return fmt.Errorf(
+			"%w: attachment blob digest %s does not match descriptor digest %s",
+			errDescriptorMismatch,
+			digest,
+			descriptor.Digest,
+		)
+	}
+	if err := temporary.Sync(); err != nil {
+		_ = temporary.Close()
+		return fmt.Errorf("sync attachment blob: %w", err)
+	}
+	if err := temporary.Close(); err != nil {
+		return fmt.Errorf("close attachment blob: %w", err)
+	}
+
+	target := s.contentPath(descriptor.Digest)
+	if err := os.Link(temporaryPath, target); err != nil {
+		if !errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("publish attachment blob: %w", err)
+		}
+		existing, availability, verifyErr := s.openVerified(descriptor)
+		if existing != nil {
+			verifyErr = errors.Join(verifyErr, existing.Close())
+		}
+		if verifyErr != nil {
+			return verifyErr
+		}
+		if availability != domainattachment.BlobAvailabilityVerified {
+			return fmt.Errorf(
+				"existing attachment blob %s is %s",
+				descriptor.Digest,
+				availability,
+			)
+		}
+	}
+	if err := s.syncDirectory(s.contentDir()); err != nil {
+		return fmt.Errorf("sync attachment content directory: %w", err)
+	}
+	return nil
+}
+
 // publish verifies and atomically publishes one staged upload. An existing
 // digest target is accepted only after its complete content is verified.
 func (s *blobStore) publish(

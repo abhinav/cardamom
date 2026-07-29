@@ -1,0 +1,104 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-29T12:00:00Z
+mkdir source destination empty-destination
+
+exec card --store $WORK/source init --no-config --prefix src- --board-name Source
+
+exec touch $WORK/empty-destination/board.sqlite3
+! exec card --store $WORK/source --board Source board copy --to-store $WORK/empty-destination
+stderr 'not an existing Cardamom store'
+! exists empty-destination/board.sqlite3-wal
+! exists empty-destination/board.sqlite3-shm
+exec sh -c 'test ! -s "$1"' check-empty $WORK/empty-destination/board.sqlite3
+
+exec card --store $WORK/destination init --no-config --prefix src- --board-name Existing
+
+exec card --store $WORK/source --board Source config set --scope board issue.id.strategy sequential
+exec card --store $WORK/source --board Source create --key external-1 'Copied issue'
+cmp stdout $WORK/golden/source-issue.txt
+
+# A live claim prevents the source snapshot from being accepted.
+exec card --store $WORK/source --board Source claim src-1
+! exec card --store $WORK/source --board Source board copy --to-store $WORK/destination
+cmp stderr $WORK/golden/active-claim.txt
+exec card --store $WORK/source --board Source release src-1 --waiting 'root acceptance'
+exec card --store $WORK/source --board Source state set src-1 'State for %src-1.' --next 'Continue %src-1.'
+exec card --store $WORK/source --board Source log post src-1 'Log for %src-1.'
+exec card --store $WORK/source --board Source result set src-1 'Result for %src-1.'
+
+# The destination's store-wide issue collision is remapped with copied policy.
+exec card --store $WORK/destination --board Existing config set --scope board issue.id.strategy sequential
+exec card --store $WORK/destination --board Existing create 'Existing issue'
+cmp stdout $WORK/golden/existing-issue.txt
+
+# Same-store aliases and existing destination names are rejected.
+! exec card --store $WORK/source --board Source board copy --to-store $WORK/source
+cmp stderr $WORK/golden/same-store.txt
+! exec card --store $WORK/source --board Source board copy --to-store $WORK/destination --name Existing
+cmp stderr $WORK/golden/name-collision.txt
+
+exec card --store $WORK/source --board Source board copy --to-store $WORK/destination
+stdout 'copied board "Source" as board_[0-9a-f]+ in project project_00000000000000000000: 1 issue, 1 Log entry, 0 attachments, 0 blobs'
+! stderr .
+
+exec card --store $WORK/destination --board Source show src-2 --context
+cmp stdout $WORK/golden/copied-show.txt
+exec card --store $WORK/destination --board Source --json state show src-2
+cmpjson stdout $WORK/golden/copied-state.json
+exec card --store $WORK/destination --board Source log show src-2
+stdout 'Log for %src-2\.'
+
+# Every portable value is an explicit board override in the destination.
+exec card --store $WORK/destination --board Source config show --scope board
+stdout 'issue.id.prefix +src- +board'
+stdout 'issue.id.strategy +sequential +board'
+stdout 'issue.summary.max_bytes +2048 +board'
+stdout 'attachment.max_bytes +104857600 +board'
+
+# An identical retry returns the durable receipt without another board.
+exec card --store $WORK/source --board Source board copy --to-store $WORK/destination
+stdout 'previously copied board "Source"'
+exec card --store $WORK/destination board list
+stdout 'Existing'
+stdout 'Source'
+
+# Changed snapshots remain a v1 policy error rather than a schema constraint.
+exec card --store $WORK/source --board Source board edit --description Changed
+! exec card --store $WORK/source --board Source board copy --to-store $WORK/destination
+cmp stderr $WORK/golden/changed-snapshot.txt
+
+-- golden/source-issue.txt --
+src-1
+-- golden/active-claim.txt --
+error: source board has active claims
+-- golden/existing-issue.txt --
+src-1
+-- golden/same-store.txt --
+error: source and destination stores are the same physical store
+-- golden/name-collision.txt --
+error: destination board name "Existing" already exists; use --name
+-- golden/copied-show.txt --
+ID: src-2
+Title: Copied issue
+Type: task
+Status: waiting
+Priority: 2
+Assignee: -
+Parent: -
+Keys: external-1
+Labels: -
+Depends on: -
+Blocks: -
+Log entries: 1
+Attachments: -
+
+State:
+State for %src-2.
+
+Result:
+Result for %src-2.
+-- golden/copied-state.json --
+{"issue_id":"src-2","body":"State for %src-2.","next_action":"Continue %src-2.","author":"test-user","updated":1785326400}
+-- golden/changed-snapshot.txt --
+error: source board has changed since its previous copy; incremental synchronization is not supported

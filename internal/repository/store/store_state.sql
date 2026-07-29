@@ -18,3 +18,9 @@ WHERE singleton = 1;
 UPDATE store_state
 SET next_issue_number = sqlc.arg(next_issue_number)
 WHERE singleton = 1;
+
+-- name: StoreAdvanceNextIssueNumber :exec
+UPDATE store_state
+SET next_issue_number = sqlc.arg(next_issue_number)
+WHERE singleton = 1
+    AND next_issue_number < sqlc.arg(next_issue_number);

@@ -4,9 +4,11 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
+	"testing/fstest"
 	"time"
 
 	"github.com/pressly/goose/v3"
@@ -29,6 +31,49 @@ func TestOpenMigratesFreshDatabaseToCurrentSchema(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, SchemaVersion(), information.DatabaseSchemaVersion)
 	assert.Equal(t, SchemaVersion(), information.CodeSchemaVersion)
+}
+
+func TestOpenExistingRejectsEmptyDatabaseWithoutModification(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "board.sqlite3")
+	require.NoError(t, os.WriteFile(path, nil, 0o600))
+
+	persistence, err := OpenExisting(t.Context(), Config{Path: path})
+	assert.Nil(t, persistence)
+	assert.ErrorContains(t, err, "not an existing Cardamom store")
+
+	body, readErr := os.ReadFile(path)
+	require.NoError(t, readErr)
+	assert.Empty(t, body)
+	assert.NoFileExists(t, path+"-wal")
+	assert.NoFileExists(t, path+"-shm")
+}
+
+func TestOpenExistingMigratesBaselineStore(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "board.sqlite3")
+	db, err := sql.Open("sqlite", sqliteDSN(path, false))
+	require.NoError(t, err)
+	baseline, err := migrationFiles.ReadFile(
+		"migrations/20260726181403_baseline.sql",
+	)
+	require.NoError(t, err)
+	provider, err := newMigrationProvider(db, fstest.MapFS{
+		"20260726181403_baseline.sql": {Data: baseline},
+	})
+	require.NoError(t, err)
+	_, err = provider.Up(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	persistence, err := OpenExisting(t.Context(), Config{Path: path})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+
+	view, err := persistence.View(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, view.Done()) }()
+	information, err := view.ReadInformation(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, SchemaVersion(), information.DatabaseSchemaVersion)
 }
 
 func TestOpenProvidesNativeUnixTimestamps(t *testing.T) {

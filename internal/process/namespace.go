@@ -51,6 +51,34 @@ func openNamespace(
 	if err != nil {
 		return nil, err
 	}
+	return composeNamespace(cfg, directory, persistence)
+}
+
+// openExistingNamespace composes services only after the store package has
+// verified an initialized Cardamom database.
+func openExistingNamespace(
+	ctx context.Context,
+	cfg Config,
+	storeSelector string,
+) (*namespaceRuntime, error) {
+	directory, err := storelocation.Resolve(storeSelector, cfg.CWD)
+	if err != nil {
+		return nil, err
+	}
+	persistence, err := store.OpenExisting(ctx, store.Config{
+		Path: storelocation.DatabasePath(directory),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return composeNamespace(cfg, directory, persistence)
+}
+
+func composeNamespace(
+	cfg Config,
+	directory string,
+	persistence *store.Store,
+) (*namespaceRuntime, error) {
 	catalog := repositoryproject.New(persistence, repositoryproject.Config{
 		Clock: cfg.Clock, IDSource: cfg.ProjectIDs,
 	})

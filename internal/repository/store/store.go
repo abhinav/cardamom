@@ -17,6 +17,8 @@ import (
 
 const readerConnectionLimit = 4
 
+const existingStoreBaselineVersion int64 = 20260726181403
+
 var storeOpenGates = openGates{
 	byPath: make(map[string]*openGate),
 }
@@ -50,13 +52,9 @@ type Store struct {
 // Open migrates and verifies one local SQLite database before publishing its
 // Store lifetime to the caller.
 func Open(ctx context.Context, cfg Config) (*Store, error) {
-	path := strings.TrimSpace(cfg.Path)
-	if path == "" {
-		return nil, errors.New("store path is required")
-	}
-	absolutePath, err := filepath.Abs(path)
+	absolutePath, err := absoluteStorePath(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("resolve store path %q: %w", path, err)
+		return nil, err
 	}
 	releaseOpenGate, err := storeOpenGates.acquire(ctx, absolutePath)
 	if err != nil {
@@ -64,6 +62,41 @@ func Open(ctx context.Context, cfg Config) (*Store, error) {
 	}
 	defer releaseOpenGate()
 
+	return openStore(ctx, absolutePath)
+}
+
+// OpenExisting verifies that a database is an initialized Cardamom store
+// before permitting WAL setup or forward migration.
+func OpenExisting(ctx context.Context, cfg Config) (*Store, error) {
+	absolutePath, err := absoluteStorePath(cfg)
+	if err != nil {
+		return nil, err
+	}
+	releaseOpenGate, err := storeOpenGates.acquire(ctx, absolutePath)
+	if err != nil {
+		return nil, err
+	}
+	defer releaseOpenGate()
+
+	if err := verifyExistingStore(ctx, absolutePath); err != nil {
+		return nil, err
+	}
+	return openStore(ctx, absolutePath)
+}
+
+func absoluteStorePath(cfg Config) (string, error) {
+	path := strings.TrimSpace(cfg.Path)
+	if path == "" {
+		return "", errors.New("store path is required")
+	}
+	absolutePath, err := filepath.Abs(path)
+	if err != nil {
+		return "", fmt.Errorf("resolve store path %q: %w", path, err)
+	}
+	return absolutePath, nil
+}
+
+func openStore(ctx context.Context, absolutePath string) (*Store, error) {
 	writer, err := openDatabase(ctx, sqliteDSN(absolutePath, false), 1)
 	if err != nil {
 		return nil, err
@@ -94,6 +127,38 @@ func Open(ctx context.Context, cfg Config) (*Store, error) {
 		readDB:                readers,
 		databaseSchemaVersion: databaseSchemaVersion,
 	}, nil
+}
+
+func verifyExistingStore(ctx context.Context, absolutePath string) (err error) {
+	database, err := openDatabase(
+		ctx,
+		sqliteExistingStoreDSN(absolutePath),
+		1,
+	)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, database.Close()) }()
+
+	var baselineApplied bool
+	// This probe runs before the application schema is trusted, so it cannot use
+	// the sqlc-generated repository queries.
+	err = database.QueryRowContext(ctx, `
+SELECT EXISTS (
+    SELECT 1
+    FROM goose_db_version
+    WHERE version_id = ?
+        AND is_applied
+)`,
+		existingStoreBaselineVersion,
+	).Scan(&baselineApplied)
+	if err != nil || !baselineApplied {
+		return fmt.Errorf(
+			"database %q is not an existing Cardamom store",
+			absolutePath,
+		)
+	}
+	return nil
 }
 
 // openGates serializes initialization of each physical database without
@@ -201,6 +266,17 @@ func sqliteDSN(path string, queryOnly bool) string {
 		Path:     path,
 		RawQuery: parameters.Encode(),
 	}).String()
+}
+
+func sqliteExistingStoreDSN(path string) string {
+	dsn, err := url.Parse(sqliteDSN(path, true))
+	if err != nil {
+		panic(fmt.Sprintf("parse internal SQLite DSN: %v", err))
+	}
+	parameters := dsn.Query()
+	parameters.Set("mode", "ro")
+	dsn.RawQuery = parameters.Encode()
+	return dsn.String()
 }
 
 // configureWAL selects the database-wide journal mode before readers are opened.

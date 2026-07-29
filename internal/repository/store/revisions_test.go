@@ -120,3 +120,22 @@ func TestChangeReservesSequentialIssueNumbers(t *testing.T) {
 	assert.Equal(t, int64(1), first)
 	assert.Equal(t, int64(2), second)
 }
+
+func TestChangeAdvancesSequentialIssueNumberWithoutDecreasing(t *testing.T) {
+	persistence, err := Open(t.Context(), Config{
+		Path: filepath.Join(t.TempDir(), "imported-issues.db"),
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+
+	change, err := persistence.Change(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, change.Done()) }()
+	require.NoError(t, change.AdvanceIssueNumber(t.Context(), 8))
+	require.NoError(t, change.AdvanceIssueNumber(t.Context(), 5))
+	next, err := change.ReserveIssueNumber(t.Context())
+	require.NoError(t, err)
+	require.NoError(t, change.Commit())
+
+	assert.Equal(t, int64(8), next)
+}

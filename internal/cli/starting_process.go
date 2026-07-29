@@ -208,6 +208,7 @@ func writeInitResult(output *Output, result InitResult) error {
 type boardCommand struct {
 	List   boardListCommand   `cmd:"" help:"List coordination boards."`
 	Create boardCreateCommand `cmd:"" help:"Create a coordination board."`
+	Copy   boardCopyCommand   `cmd:"" help:"Copy a board into another store."`
 	Use    boardUseCommand    `cmd:"" help:"Select a board for this checkout."`
 	Show   boardShowCommand   `cmd:"" help:"Show board metadata."`
 	Edit   boardEditCommand   `cmd:"" help:"Edit board metadata."`

@@ -22,6 +22,20 @@ func (r RevisionReservation) CurrentRevision() int64 { return r.currentRevision 
 // Revision returns the canonical revision reserved for publication.
 func (r RevisionReservation) Revision() int64 { return r.revision }
 
+// RevisionRange reserves one or more ordered canonical revisions for a single
+// atomic publication.
+type RevisionRange struct {
+	currentRevision int64
+	firstRevision   int64
+	lastRevision    int64
+}
+
+// FirstRevision returns the first revision available to persisted projections.
+func (r RevisionRange) FirstRevision() int64 { return r.firstRevision }
+
+// LastRevision returns the canonical revision published at commit.
+func (r RevisionRange) LastRevision() int64 { return r.lastRevision }
+
 // ReserveRevision reads the scalar store head retained by Change and reserves
 // its successor for publication in the same transaction.
 func (c *Change) ReserveRevision(ctx context.Context) (RevisionReservation, error) {
@@ -38,12 +52,56 @@ func (c *Change) ReserveRevision(ctx context.Context) (RevisionReservation, erro
 	}, nil
 }
 
+// ReserveRevisions reserves count ordered revisions from the retained head.
+func (c *Change) ReserveRevisions(
+	ctx context.Context,
+	count int64,
+) (RevisionRange, error) {
+	if count <= 0 {
+		return RevisionRange{}, errors.New("revision reservation count must be positive")
+	}
+	current, err := query.New(c).StoreGetCanonicalRevision(ctx)
+	if err != nil {
+		return RevisionRange{}, err
+	}
+	if current > math.MaxInt64-count {
+		return RevisionRange{}, errors.New("canonical revision space exhausted")
+	}
+	return RevisionRange{
+		currentRevision: current,
+		firstRevision:   current + 1,
+		lastRevision:    current + count,
+	}, nil
+}
+
 // PublishRevision advances the canonical store head to reservation.
 func (c *Change) PublishRevision(ctx context.Context, reservation RevisionReservation) error {
 	result, err := query.New(c).StorePublishCanonicalRevision(
 		ctx,
 		query.StorePublishCanonicalRevisionParams{
 			Revision:        reservation.revision,
+			CurrentRevision: reservation.currentRevision,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if changed, _ := result.RowsAffected(); changed != 1 {
+		return errors.New("canonical head changed")
+	}
+	return nil
+}
+
+// PublishRevisions advances the canonical store head to the reserved range's
+// final revision.
+func (c *Change) PublishRevisions(
+	ctx context.Context,
+	reservation RevisionRange,
+) error {
+	result, err := query.New(c).StorePublishCanonicalRevision(
+		ctx,
+		query.StorePublishCanonicalRevisionParams{
+			Revision:        reservation.lastRevision,
 			CurrentRevision: reservation.currentRevision,
 		},
 	)
@@ -92,4 +150,13 @@ func (c *Change) ReserveIssueNumber(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return next, nil
+}
+
+// AdvanceIssueNumber moves the store-wide sequential allocator past a
+// preserved imported identity without decreasing its current position.
+func (c *Change) AdvanceIssueNumber(ctx context.Context, next int64) error {
+	if next <= 0 {
+		return errors.New("next sequential issue number must be positive")
+	}
+	return query.New(c).StoreAdvanceNextIssueNumber(ctx, next)
 }
