@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -243,6 +244,35 @@ func TestRepositoryListIssuesMatchesAllAnyAndNoneLabels(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, listed, 1)
 	assert.Equal(t, "task-2", listed[0].Issue.ID)
+}
+
+func TestRepositoryListIssuesMatchesTitleRegexpAndSubstring(t *testing.T) {
+	repository := openBoardRepository(t, Config{
+		BoardID: mustBoardID(t, "board-test"), IDPrefix: "task-", IDStrategy: "sequential",
+	})
+	planner := planning.NewPlanner(repository, repository, nil)
+	for _, title := range []string{
+		"Repair parser", "Repair renderer", "Document parser repair",
+	} {
+		_, err := planner.CreateIssue(
+			t.Context(),
+			issue.NewInvocation("captain"),
+			planning.CreateIssueRequest{Title: title, Type: "task", Priority: 2},
+		)
+		require.NoError(t, err)
+	}
+
+	regexpMatches, err := repository.ListIssues(t.Context(), issue.ListRequest{
+		TitleRegexp: regexp.MustCompile(`^Repair (parser|renderer)$`),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"task-1", "task-2"}, summaryIDs(regexpMatches))
+
+	substringMatches, err := repository.ListIssues(t.Context(), issue.ListRequest{
+		TitleContains: "PARSER REPAIR",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"task-3"}, summaryIDs(substringMatches))
 }
 
 func TestRepositoryIssueContextIncludesDependencyReferenceAndResult(t *testing.T) {

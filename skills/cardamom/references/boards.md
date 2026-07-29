@@ -47,7 +47,7 @@ search the selected board and inspect plausible matches:
 ```bash
 card --actor coordinator --board <board-id> --json list \
   --status ready,blocked,in_progress,waiting,closed,cancelled \
-  --title '<title-term>' --limit 0 \
+  --title-regexp '<title-regexp>' --limit 0 \
   | jq -r '.id'
 card --actor coordinator --board <board-id> --json \
   show <candidate-id> --context

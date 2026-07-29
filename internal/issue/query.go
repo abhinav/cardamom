@@ -2,6 +2,7 @@ package issue
 
 import (
 	"context"
+	"regexp"
 	"slices"
 
 	"go.abhg.dev/cardamom/internal/must"
@@ -114,7 +115,7 @@ type CompletionReader interface {
 }
 
 // ListRequest selects and orders issue summaries. Empty fields do not
-// constrain their dimension unless the corresponding No flag is set.
+// constrain their dimension.
 type ListRequest struct {
 	// UnderID limits results to strict containment descendants of one issue.
 	UnderID string
@@ -143,23 +144,14 @@ type ListRequest struct {
 	// LabelsNone excludes issues carrying any requested label.
 	LabelsNone []string
 
-	// NoLabels matches issues without labels.
-	NoLabels bool
-
 	// NoAssignee matches issues without active custody.
 	NoAssignee bool
 
 	// TitleContains performs a case-insensitive title substring match.
 	TitleContains string
 
-	// PriorityMin is the inclusive minimum priority.
-	PriorityMin *int
-
-	// PriorityMax is the inclusive maximum priority.
-	PriorityMax *int
-
-	// SummaryContains performs a case-insensitive summary substring match.
-	SummaryContains string
+	// TitleRegexp performs a Go regular-expression match against the title.
+	TitleRegexp *regexp.Regexp
 
 	// Sort selects a supported issue field or the default priority order.
 	Sort string

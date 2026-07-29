@@ -181,9 +181,6 @@ func matchesIssueRequest(
 	if len(request.Types) > 0 && !slices.Contains(request.Types, value.Type) {
 		return false
 	}
-	if request.NoLabels && len(summary.Labels) != 0 {
-		return false
-	}
 	for _, label := range request.LabelsAll {
 		if !slices.Contains(summary.Labels, label) {
 			return false
@@ -206,13 +203,10 @@ func matchesIssueRequest(
 	if request.TitleContains != "" && !normalizedContains(value.Title, request.TitleContains) {
 		return false
 	}
-	if request.SummaryContains != "" && (value.Summary == nil || !normalizedContains(*value.Summary, request.SummaryContains)) {
+	if request.TitleRegexp != nil && !request.TitleRegexp.MatchString(value.Title) {
 		return false
 	}
-	if request.PriorityMin != nil && value.Priority < *request.PriorityMin {
-		return false
-	}
-	return request.PriorityMax == nil || value.Priority <= *request.PriorityMax
+	return true
 }
 
 func normalizedContains(value, substring string) bool {
