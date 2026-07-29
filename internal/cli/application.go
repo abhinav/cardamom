@@ -17,7 +17,15 @@ import (
 
 // Version is the build version reported by the version command.
 // Release builds replace it through the linker.
-var Version = "dev " + runtime.Version()
+var Version = "dev"
+
+func init() {
+	// Preserve a linker-provided release version while adding toolchain context
+	// to development builds.
+	if Version == "dev" {
+		Version += " " + runtime.Version()
+	}
+}
 
 const (
 	// ExitSuccess reports successful command completion.
