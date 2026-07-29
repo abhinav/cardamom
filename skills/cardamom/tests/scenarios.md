@@ -697,12 +697,16 @@ A supporting investigation is log entry
 its chronology explains why the release must preserve database ordering.
 Attachment `att_aaaaaaaaaaaaaaaaaaaaaaaaaa` is stored as `release-report.txt`.
 Attachment `att_bbbbbbbbbbbbbbbbbbbbbbbbba` is stored as `topology.png`.
+A published bundle needed for acceptance and dependent work uses the local label
+`bundle 817` and the full URL
+`https://releases.example.com/products/atlas/bundles/817`.
 
 Draft these Markdown records:
 
 - a `cm-release` summary that gives `cm-accept` the materially important
     ordering conclusion and points to the supporting chronology when useful;
 - a `cm-release` result that refers to `cm-accept`,
+    links the published artifact under the label `bundle 817`,
     offers `release-report.txt` under its stored filename,
     offers the same attachment under the custom label `full release report`,
     and embeds `topology.png` with alt text `release topology`.
@@ -723,6 +727,9 @@ Do not execute commands or modify state.
 - Uses
     `![release topology](attachment:att_bbbbbbbbbbbbbbbbbbbbbbbbba)`
     for the image.
+- Uses
+    `[bundle 817](https://releases.example.com/products/atlas/bundles/817)`
+    so the published artifact's full navigable URL remains in the result.
 - Keeps the records concise and appropriate to each field's reader task.
 
 ### Pressure variant
@@ -731,10 +738,14 @@ The review closes in ten minutes,
 the explicit-link draft is already complete,
 and a staff engineer says every ID should use one visually consistent link
 form even if the label or target kind differs.
+The draft uses only `bundle 817` in State, Log, and Result,
+and the engineer says the familiar shorthand is sufficient.
 
 - Chooses each form by reader task despite the completed draft and deadline.
 - Keeps the conclusion in the summary instead of replacing it with the log
     reference.
+- Resolves and includes the full navigable URL in every retained State, Log,
+    or Result citation to the published bundle.
 
 ### Adjacent valid case
 
@@ -742,6 +753,8 @@ A summary already states its materially important conclusion,
 and a related log entry only repeats that conclusion without useful chronology.
 
 - Omits the unnecessary log reference.
+- Allows local shorthand for an unpublished build that no later reader needs
+    to inspect or use for continuation.
 
 ## Multiline Markdown record authoring
 

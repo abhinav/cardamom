@@ -25,7 +25,8 @@ MARKDOWN
 details=$(cat <<'MARKDOWN'
 ## Inputs
 
-Read the current pull request IDs and last safe cursor from the routine state.
+Read the current pull request targets and last safe cursor from the routine
+state.
 
 ## Procedure
 
@@ -52,12 +53,12 @@ routine_id=$(card --actor coordinator create \
 card --actor coordinator state set "$routine_id" "$(cat <<'STATE'
 ## Current targets
 
-- `acme/widgets#121`
-- `acme/widgets#122`
+- [acme/widgets#121](https://reviews.example.com/acme/widgets/pulls/121)
+- [acme/widgets#122](https://reviews.example.com/acme/widgets/pulls/122)
 
 ## Safe cursor
 
-`acme/widgets#120`
+[acme/widgets#120](https://reviews.example.com/acme/widgets/pulls/120)
 STATE
 )" --next "Assess the current pull request targets."
 ```
@@ -89,12 +90,12 @@ Omitting `--next` from this replacement clears the consumed action:
 card --actor routine-worker state set <routine-id> "$(cat <<'STATE'
 ## Current targets
 
-- `acme/widgets#121`
-- `acme/widgets#122`
+- [acme/widgets#121](https://reviews.example.com/acme/widgets/pulls/121)
+- [acme/widgets#122](https://reviews.example.com/acme/widgets/pulls/122)
 
 ## Safe cursor
 
-`acme/widgets#120`
+[acme/widgets#120](https://reviews.example.com/acme/widgets/pulls/120)
 
 ## Active run
 
@@ -125,18 +126,20 @@ card --actor routine-worker state append <routine-id> "$(cat <<'STATE'
 
 - Reviewed pull requests 121 through 124.
 - Pull requests 121 through 123 are resolved.
-- Pull request 124 still has a failing CI job.
+- [acme/widgets#124](https://reviews.example.com/acme/widgets/pulls/124)
+  still has a failing CI job.
 STATE
 )"
 
 next_state=$(cat <<'STATE'
 ## Current targets
 
-- `acme/widgets#124`: CI job `test` is failing
+- [acme/widgets#124](https://reviews.example.com/acme/widgets/pulls/124):
+  CI job `test` is failing
 
 ## Safe cursor
 
-`acme/widgets#124`
+[acme/widgets#124](https://reviews.example.com/acme/widgets/pulls/124)
 STATE
 )
 card --actor routine-worker state commit <routine-id> \
@@ -174,11 +177,12 @@ STATE
 next_state=$(cat <<'STATE'
 ## Current targets
 
-- `acme/widgets#125`: not yet assessed
+- [acme/widgets#125](https://reviews.example.com/acme/widgets/pulls/125):
+  not yet assessed
 
 ## Safe cursor
 
-`acme/widgets#124`
+[acme/widgets#124](https://reviews.example.com/acme/widgets/pulls/124)
 
 ## External trigger
 
