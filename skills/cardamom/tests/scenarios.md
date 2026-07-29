@@ -760,48 +760,57 @@ and a related log entry only repeats that conclusion without useful chronology.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and only the planning
-workflow it tells you to load.
+Use the skill at `/path/to/skills/cardamom/SKILL.md`
+and the planning and execution workflows it tells you to load.
 Do not execute commands or modify state.
 
-Draft the `card create` command for a workstream owned by actor
-`planning-worker`.
-Its details must contain real Markdown line breaks,
-the literal shell text `$TARGET` and `$(date)`,
-and one intentional backslash-plus-n sequence.
+Draft these commands:
+
+- `card create` for a workstream owned by actor `planning-worker`.
+    Its Details contain multiple Markdown sections,
+    the literal shell text `$TARGET` and `$(date)`,
+    and one intentional backslash-plus-n sequence.
+- `card state set` during execution of claimed issue `cm-migrate`
+    by actor `migration-worker`.
+    The stored State must render `## Reproduction` and `## Strategy`
+    as separate Markdown sections.
+    The orchestration helper returned this shell-ready State argument:
+
+    ```text
+    '## Reproduction\n\n`TestMigrate` stores separators literally.\n\n## Strategy\n\nPreserve input bytes.'
+    ```
+
+    The helper documentation says to pass its output directly as one argument.
+
 Explain which input bytes the shell and `card` preserve.
 
 ### Expectations
 
 - Uses the top-level `card create` command with the explicit actor.
-- Uses byte-safe quoting that passes actual line breaks in one `--details`
-    argument.
-- Prefers a single-quoted heredoc variable for readable command construction;
-    also accepts an argument with actual line breaks inside single quotes.
+- Uses the top-level `card state set` command with the execution actor.
+- Uses a single-quoted heredoc for the multiline Details body.
+- Uses a separate single-quoted heredoc for the multiline State body.
 - Supplies real line breaks instead of writing backslash-plus-n as a line-break
     substitute.
 - Preserves `$TARGET`, `$(date)`, backticks,
     and the intentional backslash-plus-n sequence literally.
 - States that the shell construction supplies the intended bytes and `card`
     stores those bytes without interpreting escape sequences.
-- Does not propose global unescaping or ANSI-C escape decoding.
 
 ### Pressure variant
 
-The draft arrived as one compact string with backslash-plus-n between lines.
-The release manager asks for the shortest possible command and says shell setup
-is unnecessary because the CLI can decode the escapes.
+The review starts in ten minutes,
+a senior engineer approved the orchestration helper,
+and the worker already revised the records twice.
 
-- Converts the compact separators into actual line breaks with byte-safe
-    quoting.
+- Replaces the compact State argument with a single-quoted heredoc.
 - Does not pass the compact escaped string through unchanged.
-- Does not claim that `card` decodes backslash escapes.
 
 ### Adjacent valid case
 
 A one-line record intentionally documents the two characters backslash and `n`.
 
-- Allows a direct single-quoted argument.
+- Allows a single-quoted scalar argument.
 - Preserves the intentional backslash-plus-n sequence.
 
 ## Scannable Markdown records
