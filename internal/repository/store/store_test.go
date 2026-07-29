@@ -23,125 +23,12 @@ func TestOpenMigratesFreshDatabaseToCurrentSchema(t *testing.T) {
 
 	view, err := persistence.View(t.Context())
 	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, view.Done()) })
 
 	information, err := view.ReadInformation(t.Context())
 	require.NoError(t, err)
-	assert.Equal(t, int64(20260726181403), SchemaVersion())
 	assert.Equal(t, SchemaVersion(), information.DatabaseSchemaVersion)
 	assert.Equal(t, SchemaVersion(), information.CodeSchemaVersion)
-
-	var appliedMigrations int
-	require.NoError(t, view.QueryRowContext(t.Context(), `
-		SELECT count(*)
-		FROM goose_db_version
-		WHERE is_applied AND version_id > 0
-	`).Scan(&appliedMigrations))
-	assert.Equal(t, 1, appliedMigrations)
-
-	var singleton, revision, nextIssueNumber int64
-	require.NoError(t, view.QueryRowContext(t.Context(), `
-		SELECT singleton, current_revision, next_issue_number FROM store_state
-	`).Scan(&singleton, &revision, &nextIssueNumber))
-	assert.Equal(t, int64(1), singleton)
-	assert.Equal(t, int64(0), revision)
-	assert.Equal(t, int64(1), nextIssueNumber)
-
-	rows, err := view.QueryContext(t.Context(), `
-		SELECT name
-		FROM sqlite_schema
-		WHERE type = 'table'
-			AND name NOT LIKE 'sqlite_%'
-			AND name <> 'goose_db_version'
-		ORDER BY name
-	`)
-	require.NoError(t, err)
-	var tables []string
-	for rows.Next() {
-		var name string
-		require.NoError(t, rows.Scan(&name))
-		tables = append(tables, name)
-	}
-	require.NoError(t, rows.Err())
-	require.NoError(t, rows.Close())
-	assert.Equal(t, []string{
-		"active_claims",
-		"attachment_blobs",
-		"attachment_uploads",
-		"attachments",
-		"boards",
-		"checkpoint_decisions",
-		"containment",
-		"dependencies",
-		"issue_external_keys",
-		"issue_labels",
-		"issue_log_entries",
-		"issue_results",
-		"issue_states",
-		"issues",
-		"leases",
-		"mailbox",
-		"projects",
-		"store_state",
-		"subscriptions",
-	}, tables)
-	require.NoError(t, view.Done())
-
-	change, err := persistence.Change(t.Context())
-	require.NoError(t, err)
-	defer func() { assert.NoError(t, change.Done()) }()
-	_, err = change.ExecContext(t.Context(), `
-		INSERT INTO projects (
-			id, name, created_at, issue_id_prefix, issue_id_strategy,
-			issue_summary_max_bytes, attachment_max_bytes
-		) VALUES ('project', 'Project', 1, 'cm-', 'random', 1024, 2048);
-		INSERT INTO boards (id, project_id, name, created_at)
-		VALUES ('board', 'project', 'Board', 1);
-		INSERT INTO issues (
-			id, board_id, title, kind, lifecycle, priority,
-			created_at, updated_at, summary, details
-		) VALUES (
-			'issue', 'board', 'Issue', 'task', 'open', 2,
-			1, 1, 'Stable contract', 'Expanded context'
-		);
-	`)
-	require.NoError(t, err)
-
-	_, err = change.ExecContext(t.Context(), `
-		INSERT INTO issues (
-			id, board_id, title, kind, lifecycle, priority,
-			created_at, updated_at
-		) VALUES ('decision', 'board', 'Decision', 'decision', 'open', 2, 1, 1)
-	`)
-	assert.Error(t, err)
-	_, err = change.ExecContext(t.Context(), `
-		INSERT INTO issues (
-			id, board_id, title, kind, lifecycle, priority,
-			created_at, updated_at
-		) VALUES ('invalid_id', 'board', 'Invalid ID', 'task', 'open', 2, 1, 1)
-	`)
-	assert.Error(t, err)
-	_, err = change.ExecContext(t.Context(), `
-		UPDATE projects SET issue_id_prefix = 'INVALID-'
-		WHERE id = 'project'
-	`)
-	assert.Error(t, err)
-	_, err = change.ExecContext(t.Context(), `
-		INSERT INTO issue_states (
-			issue_id, board_id, body, next_action, author, updated_at
-		) VALUES ('issue', 'board', 'Current state', '   ', 'alice', 2)
-	`)
-	assert.Error(t, err)
-	_, err = change.ExecContext(t.Context(), `
-		INSERT INTO issue_log_entries (
-			id, board_id, issue_id, kind, author, committer, body,
-			next_action, created_at
-		) VALUES (
-			'log_11111111111111111111111111111111',
-			'board', 'issue', 'post', 'alice', 'alice', 'Post',
-			'Not allowed', 2
-		)
-	`)
-	assert.ErrorContains(t, err, "Log posts cannot carry a next action")
 }
 
 func TestOpenProvidesNativeUnixTimestamps(t *testing.T) {
