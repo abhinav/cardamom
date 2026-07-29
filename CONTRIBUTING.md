@@ -43,12 +43,16 @@ run the applicable checks:
 mise run fmt
 mise run lint
 mise run test
-mise run test:script
 ```
 
 Run all Go tests with race detection using `mise run test --race`.
-Run one process-boundary scenario with
-`mise run test:script --run <name>`.
+`mise run test` includes the process-boundary CLI scenarios
+and the web unit tests.
+Run one process-boundary scenario directly with:
+
+```bash
+go test ./cmd/card -run 'TestScript/<name>' -count=1
+```
 
 ## Develop migrations safely
 
@@ -71,23 +75,9 @@ builds the React application with Vite,
 generates `internal/web/server/static.tar.gz`,
 and embeds the archive in the `card` binary with the `webassets` build tag.
 
-To regenerate the archive from an existing `web/dist` directory without
-installing dependencies or rebuilding the frontend,
-run:
-
-```bash
-mise run web:archive
-```
-
 A source build without the `webassets` or `webdev` build tag remains usable
 for non-web commands.
 Its `card web` command reports that embedded web assets are unavailable.
-
-Run the process scenario against embedded assets with:
-
-```bash
-mise run test:script:webassets
-```
 
 ## Run live web development
 
