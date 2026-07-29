@@ -1,7 +1,0 @@
-# Version is a root flag and cannot intercept a selected subcommand.
-! exec card create --version hijacked
-! stdout .
-cmp stderr $WORK/golden/create-version-error.txt
-
--- golden/create-version-error.txt --
-error: --version must precede a command

@@ -32,7 +32,7 @@ exec card --json board show
 cmpjson stdout $WORK/golden/secondary-delivery.json
 
 # Clearing removes only the selected board's description.
-exec card --json board edit --clear-description
+exec card --json board edit --description ''
 cmpjson stdout $WORK/golden/secondary-cleared.json
 
 # An explicit board edit does not change the checkout selection or another board.

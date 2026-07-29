@@ -17,7 +17,7 @@ exec sh -c 'details=$(head -c 4096 /dev/zero | tr "\000" x); card create --summa
 cmp stdout $WORK/golden/create-details.txt
 
 # Every operation that supplies a summary uses the shared domain limit.
-! exec card issue edit summary-1 --summary '12345'
+! exec card edit summary-1 --summary '12345'
 cmp stderr $WORK/golden/five-byte-error.txt
 ! exec card apply oversized.json
 cmp stderr $WORK/golden/apply-error.txt
@@ -32,11 +32,11 @@ exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: summary-\n    strateg
 exec sh -c 'summary=$(head -c 3000 /dev/zero | tr "\000" x); card create --summary "$summary" "Existing large summary"'
 cmp stdout $WORK/golden/create-existing.txt
 exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: summary-\n    strategy: sequential\n  summary:\n    max_bytes: 4\n" > .cardamom/config.yaml'
-exec card issue edit summary-3 --priority 1
+exec card edit summary-3 --priority 1
 cmp stdout $WORK/golden/edit-existing.txt
 
 # Normal editing and apply carry summary and details together.
-exec card issue edit summary-1 --summary 'Edit' --details 'Edited details.'
+exec card edit summary-1 --summary 'Edit' --details 'Edited details.'
 cmp stdout $WORK/golden/edit.txt
 exec card apply valid.json
 cmp stdout $WORK/golden/apply.txt

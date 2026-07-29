@@ -29,11 +29,11 @@ cmp stderr $WORK/golden/claim-checkpoint.txt
 ! exec card checkpoint approve diagnostic-2
 cmp stderr $WORK/golden/resolve-task.txt
 
-! exec card issue edit diagnostic-2 --add-depends-on diagnostic-2
+! exec card edit diagnostic-2 --depends-on diagnostic-2
 cmp stderr $WORK/golden/self-dependency.txt
-! exec card issue edit diagnostic-6 --add-depends-on diagnostic-7
+! exec card edit diagnostic-6 --depends-on diagnostic-7
 cmp stderr $WORK/golden/dependency-cycle.txt
-! exec card issue edit diagnostic-2 --remove-depends-on diagnostic-3
+! exec card edit diagnostic-2 --depends-on -diagnostic-3
 cmp stderr $WORK/golden/missing-dependency.txt
 
 -- golden/close-closed.txt --

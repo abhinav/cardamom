@@ -3,6 +3,7 @@ package cli
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"slices"
 	"strings"
 	"text/tabwriter"
@@ -13,17 +14,13 @@ import (
 
 type listCommand struct {
 	UnderID     string     `name:"under" predictor:"issues" placeholder:"ISSUE" help:"List strict containment descendants of this issue."`
-	Statuses    []string   `name:"status" sep:"," enum:"ready,blocked,in_progress,waiting,closed,cancelled" placeholder:"STATUS" help:"Effective issue status to include: ready, blocked, in_progress, waiting, closed, or cancelled. Repeat or separate values with commas to match any status."`
+	Statuses    []string   `name:"status" sep:"," enum:"ready,blocked,in_progress,waiting,closed,cancelled" placeholder:"STATUS" help:"Effective issue status to include: ready, blocked, in_progress, waiting, closed, or cancelled. Repeat or separate values with commas to match any status. Defaults to ready, blocked, in_progress, and waiting."`
 	Assignee    *string    `name:"assignee" placeholder:"ACTOR" help:"Match active custody by this actor."`
 	Type        string     `name:"type" placeholder:"TYPE" help:"Match one issue type: workstream, task, checkpoint, or routine."`
 	Labels      labelTerms `name:"label" predictor:"labels" placeholder:"TERM" help:"Label term. No prefix or + requires; - excludes. Repeat for multiple labels."`
-	LabelsAny   []string   `name:"label-any" placeholder:"LABEL" help:"Alternative label. Repeat to require at least one."`
-	NoLabels    bool       `name:"no-labels" help:"Match issues without labels."`
+	LabelsAny   []string   `name:"label-any" placeholder:"LABEL" help:"Match issues carrying at least one supplied label. Repeat for alternatives."`
 	NoAssignee  bool       `name:"no-assignee" help:"Match issues without active custody."`
-	Title       string     `name:"title" placeholder:"TEXT" help:"Match a case-insensitive title substring."`
-	PriorityMin *int       `name:"priority-min" placeholder:"PRIORITY" help:"Minimum inclusive priority from 0 through 4."`
-	PriorityMax *int       `name:"priority-max" placeholder:"PRIORITY" help:"Maximum inclusive priority from 0 through 4."`
-	Summary     string     `name:"summary" placeholder:"TEXT" help:"Match a case-insensitive summary substring."`
+	TitleRegexp string     `name:"title-regexp" placeholder:"REGEXP" help:"Match titles using Go regular-expression syntax."`
 	Sort        string     `name:"sort" placeholder:"FIELD" help:"Sort by priority, created, updated, closed, id, title, or type."`
 	Reverse     bool       `name:"reverse" help:"Reverse the selected order."`
 	Limit       int        `name:"limit" placeholder:"COUNT" help:"Maximum results. Zero returns every match."`
@@ -62,13 +59,26 @@ func (c *listCommand) Run(inv *Invocation, operation ListIssuesOperation) error 
 	) {
 		return UsageErrorf("unsupported sort field %q", c.Sort)
 	}
+	var titleRegexp *regexp.Regexp
+	if c.TitleRegexp != "" {
+		var err error
+		titleRegexp, err = regexp.Compile(c.TitleRegexp)
+		if err != nil {
+			return UsageErrorf("invalid --title-regexp %q: %v", c.TitleRegexp, err)
+		}
+	}
+	statuses := slices.Clone(c.Statuses)
+	if len(statuses) == 0 {
+		for _, status := range issue.NonTerminalStatuses() {
+			statuses = append(statuses, status.String())
+		}
+	}
 	result, err := operation.ListIssues(inv.Context, issue.ListRequest{
-		UnderID: c.UnderID, Statuses: c.Statuses, Assignee: c.Assignee,
+		UnderID: c.UnderID, Statuses: statuses, Assignee: c.Assignee,
 		Type: c.Type, LabelsAll: c.Labels.add, LabelsAny: c.LabelsAny,
 		LabelsNone: c.Labels.remove,
-		NoLabels:   c.NoLabels, NoAssignee: c.NoAssignee,
-		TitleContains: c.Title, PriorityMin: c.PriorityMin, PriorityMax: c.PriorityMax,
-		SummaryContains: c.Summary, Sort: c.Sort, Reverse: c.Reverse, Limit: c.Limit,
+		NoAssignee: c.NoAssignee, TitleRegexp: titleRegexp,
+		Sort: c.Sort, Reverse: c.Reverse, Limit: c.Limit,
 	})
 	if err != nil {
 		return err

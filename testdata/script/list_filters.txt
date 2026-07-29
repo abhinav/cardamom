@@ -1,0 +1,61 @@
+exec git init -b main
+at 2026-07-28T12:00:00Z
+exec card init --prefix list-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card create --priority 0 'Ready task'
+exec card create --priority 1 'Prerequisite task'
+exec card create --priority 2 --depends-on list-2 'Blocked task'
+exec card create --priority 1 'In progress task'
+exec card --actor worker claim list-4
+exec card create --priority 1 'Waiting task'
+exec card --actor worker claim list-5
+exec card --actor worker release list-5 --waiting 'root acceptance'
+exec card create --priority 1 'Closed task'
+exec card close list-6
+exec card create --priority 1 'Cancelled task'
+exec card cancel list-7
+
+# Unqualified listing includes every non-terminal presentation status.
+exec card list
+cmp stdout $WORK/golden/default.txt
+
+# An explicit terminal status replaces the default selection.
+exec card list --status closed
+cmp stdout $WORK/golden/closed.txt
+
+# Title matching uses Go regular-expression syntax.
+exec card list --title-regexp '^(Ready|Waiting) task$'
+cmp stdout $WORK/golden/title-regexp.txt
+
+! exec card list --title-regexp '['
+cmp stderr $WORK/golden/title-regexp-error.txt
+
+# Retired filters are rejected at the command boundary.
+! exec card list --title Ready
+stderr 'unknown flag --title'
+! exec card list --no-labels
+stderr 'unknown flag --no-labels'
+! exec card list --priority-min 1
+stderr 'unknown flag --priority-min'
+! exec card list --priority-max 3
+stderr 'unknown flag --priority-max'
+! exec card list --summary contract
+stderr 'unknown flag --summary'
+
+-- golden/default.txt --
+ID      PRI  STATUS       TYPE  TITLE
+list-1  0    ready        task  Ready task
+list-2  1    ready        task  Prerequisite task
+list-4  1    in_progress  task  In progress task
+list-5  1    waiting      task  Waiting task
+list-3  2    blocked      task  Blocked task
+-- golden/closed.txt --
+ID      PRI  STATUS  TYPE  TITLE
+list-6  1    closed  task  Closed task
+-- golden/title-regexp.txt --
+ID      PRI  STATUS   TYPE  TITLE
+list-1  0    ready    task  Ready task
+list-5  1    waiting  task  Waiting task
+-- golden/title-regexp-error.txt --
+error: invalid --title-regexp "[": error parsing regexp: missing closing ]: `[`

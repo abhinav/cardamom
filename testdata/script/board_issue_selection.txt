@@ -8,7 +8,7 @@ exec card --board board_00000000000000000000 create 'Default parent'
 cmp stdout $WORK/golden/default-parent.txt
 exec card --board board_00000000000000000000 create 'Default child'
 cmp stdout $WORK/golden/default-child.txt
-exec card issue edit sel-2 --parent sel-1
+exec card edit sel-2 --parent sel-1
 cmp stdout $WORK/golden/edited.txt
 exec card --board board_11111111111111111111 create 'Second issue'
 cmp stdout $WORK/golden/second-issue.txt
@@ -20,7 +20,7 @@ exec card --json show sel-1
 cmpjson stdout $WORK/golden/default-parent.json
 exec card --json list --under sel-1
 cmp stdout $WORK/golden/default-descendants.jsonl
-exec card issue edit sel-2 --priority 1
+exec card edit sel-2 --priority 1
 cmp stdout $WORK/golden/edited.txt
 
 # Explicit flag and environment selections are validated against inferred IDs.

@@ -287,7 +287,6 @@ func TestCLIAndConnectShareIssueOperationOutcomes(t *testing.T) {
 		"engineer",
 		"--board",
 		*namespace.BoardID,
-		"issue",
 		"edit",
 		cliIssueID,
 		"--title",

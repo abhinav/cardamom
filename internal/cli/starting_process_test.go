@@ -204,6 +204,25 @@ func TestBoardCommandsDelegateNamespaceRulesAndRenderResults(t *testing.T) {
 		assert.Equal(t, catalog.edited, applied)
 		assert.Equal(t, "updated board settings\n", stdout.String())
 	})
+
+	t.Run("EditEmptyDescriptionClears", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		empty := ""
+		invocation := testInvocation(t, &stdout, &stderr)
+		catalog.edited = testBoard(
+			t, "board-two", "project-one", secondary.Name(), nil,
+		)
+
+		err := (&boardEditCommand{
+			Description: &empty,
+		}).Run(invocation, boards, resolver, &invocation.Markdown)
+		require.NoError(t, err)
+
+		applied, applyErr := secondary.EditSettings(catalog.editRequest.Settings)
+		require.NoError(t, applyErr)
+		assert.Nil(t, applied.Description())
+		assert.Equal(t, "updated board description\n", stdout.String())
+	})
 }
 
 func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
@@ -348,6 +367,21 @@ func TestApplicationRunServesImplicitShellCompletion(t *testing.T) {
 	assert.Contains(t, stdout.String(), "init\n")
 	assert.Contains(t, stdout.String(), "board\n")
 	assert.Contains(t, stdout.String(), "completion\n")
+	assert.Empty(t, stderr.String())
+}
+
+func TestApplicationRunCompletesAttachmentPaginationFlags(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	t.Setenv("COMP_LINE", "card attachment list --")
+	t.Setenv("COMP_POINT", "23")
+	app, err := New(testConfig(&stdout, &stderr))
+	require.NoError(t, err)
+
+	assert.Equal(t, ExitSuccess, app.Run(t.Context(), nil))
+	assert.Contains(t, stdout.String(), "--limit\n")
+	assert.Contains(t, stdout.String(), "--after\n")
+	assert.NotContains(t, stdout.String(), "--page-size\n")
+	assert.NotContains(t, stdout.String(), "--page-token\n")
 	assert.Empty(t, stderr.String())
 }
 

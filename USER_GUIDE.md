@@ -144,7 +144,7 @@ card --actor worker-a state commit "$issue"
 
 The commit preserves a State snapshot in the Log
 while retaining the current State.
-Use `log add` only for additional replay-worthy reasoning or evidence
+Use `log post` only for additional replay-worthy reasoning or evidence
 that the State snapshot does not represent.
 
 Mail is expiring communication,
@@ -776,14 +776,14 @@ then commit that checkpoint while installing the next-run recovery truth:
 card --actor routine-worker state append <routine-id> \
   "Reviewed through pull request 124; its test job is still failing."
 card --actor routine-worker state commit <routine-id> \
-  --replace "Pull request 124 is unresolved. Safe cursor: 124." \
+  --set "Pull request 124 is unresolved. Safe cursor: 124." \
   --next "Recheck pull request 124."
 card --actor routine-worker release <routine-id>
 ```
 
 The commit preserves the completed run as a State snapshot.
 Release preserves the changed next-run State automatically.
-Use `log add` only for additional replay-worthy material
+Use `log post` only for additional replay-worthy material
 that neither State snapshot represents.
 Create child tasks only when part of the run needs independent ownership,
 dependencies,
@@ -824,7 +824,7 @@ att_yfivg2cnkcjaorkasemozcjiqa
 Use the displayed ID in a durable record where the file's meaning is clear:
 
 ```bash
-card --actor worker-a log add "$issue" \
+card --actor worker-a log post "$issue" \
   "Validation report: %att_yfivg2cnkcjaorkasemozcjiqa"
 ```
 

@@ -1,0 +1,15 @@
+# Root help separates inherited flags and store-scoped command families.
+exec card --help
+stdout '^Global flags$'
+stdout '^Mail$'
+stdout 'mail subscribe'
+stdout '^Leases$'
+stdout 'lease acquire'
+stdout 'Running locally'
+stdout 'version'
+! stdout 'Mail and leases'
+
+# Subcommand help separates local and inherited flags.
+exec card create --help
+stdout '^Flags:$'
+stdout '^Global flags$'

@@ -6,21 +6,19 @@ import "github.com/alecthomas/kong"
 // completion. Command-family files add syntax and Run methods to these nodes;
 // commandTree does not perform domain work.
 type commandTree struct {
-	Store         string `name:"store" env:"CARDAMOM_STORE" placeholder:"PATH" help:"Physical Cardamom store directory. Overrides automatic discovery."`
-	BoardSelector string `name:"board" env:"CARDAMOM_BOARD" predictor:"boards" placeholder:"BOARD" help:"Coordination board ID or exact name."`
-	Actor         string `name:"actor" env:"CARDAMOM_ACTOR" default:"${default_actor}" placeholder:"ACTOR" help:"Identity that owns active claims and attributes changes. Defaults to the current OS username."`
-	JSON          bool   `name:"json" help:"Emit machine-readable JSON or JSON Lines output."`
-	Quiet         bool   `name:"quiet" short:"q" help:"Suppress status notices while preserving requested output and errors."`
-
-	Version kong.VersionFlag `name:"version" short:"V" help:"Print version information and exit. This flag must precede any command."`
+	Store         string `name:"store" group:"global" env:"CARDAMOM_STORE" placeholder:"PATH" help:"Physical Cardamom store directory. Overrides automatic discovery."`
+	BoardSelector string `name:"board" group:"global" env:"CARDAMOM_BOARD" predictor:"boards" placeholder:"BOARD" help:"Coordination board ID or exact name."`
+	Actor         string `name:"actor" group:"global" env:"CARDAMOM_ACTOR" default:"${default_actor}" placeholder:"ACTOR" help:"Identity that owns active claims and attributes changes. Defaults to the current OS username."`
+	JSON          bool   `name:"json" group:"global" help:"Emit machine-readable JSON or JSON Lines output."`
+	Quiet         bool   `name:"quiet" short:"q" group:"global" help:"Suppress status notices while preserving requested output and errors."`
 
 	Init   initCommand          `cmd:"" group:"starting" help:"Initialize a store, project, and first board."`
 	Board  boardCommand         `cmd:"" group:"starting" help:"Create, select, and inspect coordination boards."`
 	Config configurationCommand `cmd:"" group:"configuration" help:"Inspect and update typed configuration."`
 
-	Create createCommand `cmd:"" group:"planning" help:"Create a board-scoped issue."`
-	Apply  applyCommand  `cmd:"" group:"planning" help:"Apply an issue graph from JSON."`
-	Issue  issueCommand  `cmd:"" group:"planning" help:"Edit issue metadata and graph relationships."`
+	Create createCommand    `cmd:"" group:"planning" help:"Create a board-scoped issue."`
+	Apply  applyCommand     `cmd:"" group:"planning" help:"Apply an issue graph from JSON."`
+	Edit   issueEditCommand `cmd:"" group:"planning" help:"Edit issue metadata and graph relationships."`
 
 	List    listCommand    `cmd:"" group:"inspection" help:"List issues."`
 	Ready   readyCommand   `cmd:"" group:"inspection" help:"List issues that are ready to work on."`
@@ -35,16 +33,17 @@ type commandTree struct {
 	Reopen     reopenCommand     `cmd:"" group:"execution" help:"Reopen terminal issues without claiming them."`
 	Checkpoint checkpointCommand `cmd:"" group:"execution" help:"Approve or deny a checkpoint."`
 
-	Log    logCommand    `cmd:"" group:"records" help:"Append and list durable issue log entries."`
+	Log    logCommand    `cmd:"" group:"records" help:"Post and show durable issue log entries."`
 	State  stateCommand  `cmd:"" group:"records" help:"Manage mutable issue recovery state."`
 	Result resultCommand `cmd:"" group:"records" help:"Manage an issue result."`
 
 	Attachment attachmentCommand `cmd:"" group:"attachments" help:"Add, inspect, download, remove, and collect board attachments."`
 
-	Mail  mailCommand  `cmd:"" group:"coordination" help:"Send and receive ephemeral mail."`
-	Lease leaseCommand `cmd:"" group:"coordination" help:"Coordinate ownership of named external resources."`
+	Mail  mailCommand  `cmd:"" group:"mail" help:"Send and receive ephemeral mail."`
+	Lease leaseCommand `cmd:"" group:"leases" help:"Coordinate ownership of named external resources."`
 
 	Info       infoCommand       `cmd:"" group:"process" help:"Show store identity and inventory."`
+	Version    versionCommand    `cmd:"" group:"process" help:"Print version information."`
 	Web        webCommand        `cmd:"" group:"process" help:"Launch the local web application."`
 	Completion completionCommand `cmd:"" group:"process" help:"Generate shell completion."`
 }
@@ -58,7 +57,9 @@ func commandGroups() kong.Option {
 		{Key: "execution", Title: "Executing work"},
 		{Key: "records", Title: "Recording work"},
 		{Key: "attachments", Title: "Managing attachments"},
-		{Key: "coordination", Title: "Mail and leases"},
+		{Key: "mail", Title: "Mail"},
+		{Key: "leases", Title: "Leases"},
 		{Key: "process", Title: "Running locally"},
+		{Key: "global", Title: "Global flags"},
 	})
 }

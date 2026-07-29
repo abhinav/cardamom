@@ -8,14 +8,14 @@ cmp stdout $WORK/golden/create-parent.txt
 exec card create 'Child task'
 cmp stdout $WORK/golden/create-child.txt
 
-exec card issue edit graph-2 --parent graph-1
+exec card edit graph-2 --parent graph-1
 cmp stdout $WORK/golden/attach.txt
 
 # Containment does not create a dependency or block the child.
 exec card --json show graph-2
 cmpjson stdout $WORK/golden/child.json
 
-exec card issue edit graph-2 --clear-parent
+exec card edit graph-2 --parent=
 cmp stdout $WORK/golden/detach.txt
 exec card --json show graph-2
 cmpjson stdout $WORK/golden/unparented.json

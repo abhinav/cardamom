@@ -367,13 +367,13 @@ func renderCheckpointResult(output *Output, id string, approved bool, result exe
 }
 
 type logCommand struct {
-	Add  logAddCommand  `cmd:"" help:"Append an immutable issue log entry."`
-	List logListCommand `cmd:"" help:"List issue log entries."`
+	Post logPostCommand `cmd:"" help:"Post an immutable issue log entry."`
+	Show logShowCommand `cmd:"" help:"Show issue log entries."`
 }
 
 // Help distinguishes immutable log entries from mutable recovery state.
 func (*logCommand) Help() string {
-	return "Append and list immutable attributed Markdown log entries."
+	return "Post and show immutable attributed Markdown log entries."
 }
 
 // LogEntryWriteOperations appends immutable issue log entries.
@@ -383,20 +383,20 @@ type LogEntryWriteOperations interface {
 
 var _ LogEntryWriteOperations = (*record.Recorder)(nil)
 
-type logAddCommand struct {
+type logPostCommand struct {
 	ID   string  `arg:"" name:"id" help:"Issue receiving the log entry."`
 	Body *string `arg:"" optional:"" name:"body" help:"Markdown body. Use - or omit with piped input to read standard input."`
 }
 
-func (c *logAddCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *logPostCommand) referencedIssueIDs() []string { return []string{c.ID} }
 
 // Help describes immutable log input and attribution.
-func (*logAddCommand) Help() string {
-	return "Append one immutable Markdown log entry attributed to the invocation actor."
+func (*logPostCommand) Help() string {
+	return "Post one immutable Markdown log entry attributed to the invocation actor."
 }
 
-// Run selects Markdown input and appends one log entry.
-func (c *logAddCommand) Run(inv *Invocation, markdown *MarkdownInput, operations LogEntryWriteOperations) error {
+// Run selects Markdown input and posts one log entry.
+func (c *logPostCommand) Run(inv *Invocation, markdown *MarkdownInput, operations LogEntryWriteOperations) error {
 	body, provided, err := markdown.Read(c.Body)
 	if err != nil {
 		return err
@@ -415,31 +415,31 @@ func (c *logAddCommand) Run(inv *Invocation, markdown *MarkdownInput, operations
 	if inv.Output.JSON() {
 		return inv.Output.WriteJSON(newLogEntryOutput(result.LogEntry))
 	}
-	return inv.Output.Noticef("Added log entry %s to %s.", result.LogEntry.ID, result.LogEntry.IssueID)
+	return inv.Output.Noticef("Posted log entry %s to %s.", result.LogEntry.ID, result.LogEntry.IssueID)
 }
 
-// LogEntryReadOperations lists issue log entries in durable order.
+// LogEntryReadOperations reads issue log entries in durable order.
 type LogEntryReadOperations interface {
 	ListLogEntries(context.Context, issue.LogListRequest) ([]issue.LogEntry, error)
 }
 
 var _ LogEntryReadOperations = (*record.Recorder)(nil)
 
-type logListCommand struct {
-	ID          string `arg:"" name:"id" help:"Issue whose log entries will be listed."`
+type logShowCommand struct {
+	ID          string `arg:"" name:"id" help:"Issue whose log entries will be shown."`
 	Limit       int    `name:"limit" default:"0" placeholder:"COUNT" help:"Maximum entries after ordering; 0 lists all."`
-	OldestFirst bool   `name:"oldest-first" help:"List entries in chronological order."`
+	OldestFirst bool   `name:"oldest-first" help:"Show entries in chronological order."`
 }
 
-func (c *logListCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *logShowCommand) referencedIssueIDs() []string { return []string{c.ID} }
 
 // Help describes durable log ordering and limits.
-func (*logListCommand) Help() string {
-	return "List immutable log entries. Newest entries are listed first; --limit applies after ordering."
+func (*logShowCommand) Help() string {
+	return "Show immutable log entries. Newest entries are shown first; --limit applies after ordering."
 }
 
-// Run lists log entries as human records or JSON Lines.
-func (c *logListCommand) Run(inv *Invocation, operations LogEntryReadOperations) error {
+// Run shows log entries as human records or JSON Lines.
+func (c *logShowCommand) Run(inv *Invocation, operations LogEntryReadOperations) error {
 	entries, err := operations.ListLogEntries(inv.Context, issue.LogListRequest{
 		IssueID: c.ID, Reverse: !c.OldestFirst, Limit: c.Limit,
 	})
@@ -489,41 +489,39 @@ func writeLogEntryHeading(output *strings.Builder, entry issue.LogEntry) {
 }
 
 type stateCommand struct {
-	Show    stateShowCommand    `cmd:"" help:"Show the issue recovery State."`
-	Set     stateSetCommand     `cmd:"" help:"Replace the issue recovery State."`
-	Append  stateAppendCommand  `cmd:"" help:"Append to the issue recovery State."`
-	Discard stateDiscardCommand `cmd:"" help:"Discard the issue recovery State."`
-	Commit  stateCommitCommand  `cmd:"" help:"Commit the issue recovery State to the Log."`
+	Show   stateShowCommand   `cmd:"" help:"Show the issue recovery State."`
+	Set    stateSetCommand    `cmd:"" help:"Set or clear the issue recovery State."`
+	Append stateAppendCommand `cmd:"" help:"Append to the issue recovery State."`
+	Commit stateCommitCommand `cmd:"" help:"Commit the issue recovery State to the Log."`
 }
 
 // Help describes the single mutable recovery record.
 func (*stateCommand) Help() string {
-	return "Show, set, append, discard, or commit one mutable Markdown recovery State."
+	return "Show, set, append, or commit one mutable Markdown recovery State."
 }
 
 // StateWriteOperations changes one issue's mutable recovery state.
 type StateWriteOperations interface {
 	SetState(context.Context, issue.Invocation, record.SetStateRequest) (record.StateResult, error)
 	AppendState(context.Context, issue.Invocation, record.SetStateRequest) (record.StateResult, error)
-	ClearState(context.Context, issue.Invocation, record.ClearStateRequest) (record.StateResult, error)
 }
 
 var _ StateWriteOperations = (*record.Recorder)(nil)
 
 type stateSetCommand struct {
-	ID   string  `arg:"" name:"id" help:"Issue whose state will be replaced."`
+	ID   string  `arg:"" name:"id" help:"Issue whose State will be set or cleared."`
 	Text *string `arg:"" optional:"" name:"text" help:"State body Markdown. Use - or omit with piped input to read standard input."`
 	Next *string `name:"next" placeholder:"ACTION" help:"Optional next-action Markdown. Use - to read standard input."`
 }
 
 func (c *stateSetCommand) referencedIssueIDs() []string { return []string{c.ID} }
 
-// Help describes state replacement input.
+// Help describes State setting and explicit removal.
 func (*stateSetCommand) Help() string {
-	return "Replace the complete mutable recovery state with supplied Markdown."
+	return "Set the complete mutable recovery State. An explicitly empty body clears it."
 }
 
-// Run replaces one issue state with selected Markdown input.
+// Run sets or clears one issue State from selected Markdown input.
 func (c *stateSetCommand) Run(inv *Invocation, markdown *MarkdownInput, operations StateWriteOperations) error {
 	inputs := []*string{c.Text}
 	if c.Next != nil {
@@ -539,7 +537,10 @@ func (c *stateSetCommand) Run(inv *Invocation, markdown *MarkdownInput, operatio
 	if !provided {
 		return UsageErrorf("state text is required as an argument or standard input")
 	}
-	if strings.TrimSpace(text) == "" {
+	if text == "" && c.Next != nil {
+		return UsageErrorf("--next requires non-empty state text")
+	}
+	if text != "" && strings.TrimSpace(text) == "" {
 		return UsageErrorf("state body must not be blank")
 	}
 	nextAction := ""
@@ -592,27 +593,6 @@ func (c *stateAppendCommand) Run(inv *Invocation, markdown *MarkdownInput, opera
 		record.SetStateRequest{IssueID: c.ID, Text: text},
 	)
 	return renderStateMutation(inv.Output, "Appended state on", result, err)
-}
-
-type stateDiscardCommand struct {
-	ID string `arg:"" name:"id" help:"Issue whose mutable State will be discarded."`
-}
-
-func (c *stateDiscardCommand) referencedIssueIDs() []string { return []string{c.ID} }
-
-// Help describes discarding only the mutable State.
-func (*stateDiscardCommand) Help() string {
-	return "Discard mutable recovery State without preserving it in the Log."
-}
-
-// Run discards one issue State through the retained domain operation.
-func (c *stateDiscardCommand) Run(inv *Invocation, operations StateWriteOperations) error {
-	result, err := operations.ClearState(
-		inv.Context,
-		issue.NewInvocation(inv.Actor),
-		record.ClearStateRequest{IssueID: c.ID},
-	)
-	return renderStateMutation(inv.Output, "Discarded state on", result, err)
 }
 
 func renderStateMutation(output *Output, action string, result record.StateResult, err error) error {
@@ -673,17 +653,16 @@ type StateCommitOperations interface {
 var _ StateCommitOperations = (*record.Recorder)(nil)
 
 type stateCommitCommand struct {
-	ID      string  `arg:"" name:"id" help:"Issue whose current State will be committed."`
-	Replace *string `name:"replace" placeholder:"MARKDOWN" xor:"state-disposition" help:"Replacement State body Markdown. Use - to read standard input."`
-	Next    *string `name:"next" placeholder:"ACTION" help:"Optional replacement next-action Markdown. Use - to read standard input."`
-	Clear   bool    `name:"clear" xor:"state-disposition" help:"Clear State after committing it."`
+	ID   string  `arg:"" name:"id" help:"Issue whose current State will be committed."`
+	Set  *string `name:"set" placeholder:"MARKDOWN" help:"State body after the commit. Use - to read standard input or an empty value to clear State."`
+	Next *string `name:"next" placeholder:"ACTION" help:"Optional next-action Markdown for a non-empty --set. Use - to read standard input."`
 }
 
 func (c *stateCommitCommand) referencedIssueIDs() []string { return []string{c.ID} }
 
 // Help describes the atomic State disposition selected by each flag.
 func (*stateCommitCommand) Help() string {
-	return "Commit changed State to the Log. Retain current State by default, replace it with --replace, or remove it with --clear."
+	return "Commit changed State to the Log. Retain current State by default or set its next value with --set; an empty --set clears it."
 }
 
 // Run selects Markdown and delegates the atomic State commit.
@@ -696,12 +675,12 @@ func (c *stateCommitCommand) Run(
 		IssueID:     c.ID,
 		Disposition: record.CommitStateRetain,
 	}
-	if c.Next != nil && c.Replace == nil {
-		return UsageErrorf("--next requires --replace")
+	if c.Next != nil && c.Set == nil {
+		return UsageErrorf("--next requires a non-empty --set")
 	}
 	inputs := []*string{}
-	if c.Replace != nil {
-		inputs = append(inputs, c.Replace)
+	if c.Set != nil {
+		inputs = append(inputs, c.Set)
 	}
 	if c.Next != nil {
 		inputs = append(inputs, c.Next)
@@ -709,30 +688,35 @@ func (c *stateCommitCommand) Run(
 	if err := markdown.ValidateSingleStdinConsumer(inputs...); err != nil {
 		return err
 	}
-	if c.Replace != nil {
-		body, _, err := markdown.Read(c.Replace)
+	if c.Set != nil {
+		body, _, err := markdown.Read(c.Set)
 		if err != nil {
 			return err
 		}
-		if strings.TrimSpace(body) == "" {
-			return UsageErrorf("state body must not be blank")
-		}
-		nextAction := ""
-		if c.Next != nil {
-			nextAction, _, err = markdown.Read(c.Next)
-			if err != nil {
-				return err
+		if body == "" {
+			if c.Next != nil {
+				return UsageErrorf("--next requires a non-empty --set")
 			}
-			if strings.TrimSpace(nextAction) == "" {
-				return UsageErrorf("next action must not be blank")
+			request.Disposition = record.CommitStateClear
+		} else {
+			if strings.TrimSpace(body) == "" {
+				return UsageErrorf("state body must not be blank")
+			}
+			nextAction := ""
+			if c.Next != nil {
+				nextAction, _, err = markdown.Read(c.Next)
+				if err != nil {
+					return err
+				}
+				if strings.TrimSpace(nextAction) == "" {
+					return UsageErrorf("next action must not be blank")
+				}
+			}
+			request.Disposition = record.CommitStateReplace
+			request.Replacement = record.StateReplacement{
+				Body: body, NextAction: nextAction,
 			}
 		}
-		request.Disposition = record.CommitStateReplace
-		request.Replacement = record.StateReplacement{
-			Body: body, NextAction: nextAction,
-		}
-	} else if c.Clear {
-		request.Disposition = record.CommitStateClear
 	}
 
 	result, err := operations.CommitState(

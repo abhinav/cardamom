@@ -32,7 +32,7 @@ att_yfivg2cnkcjaorkasemozcjiqa
 Use the displayed ID in a durable record where the file's meaning is clear:
 
 ```bash
-card --actor worker-a log add "$issue" \
+card --actor worker-a log post "$issue" \
   "Validation report: %att_yfivg2cnkcjaorkasemozcjiqa"
 ```
 

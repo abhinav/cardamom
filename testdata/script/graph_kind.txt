@@ -5,15 +5,15 @@ exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: graph-\n    strategy:
 
 exec card create 'Candidate task'
 cmp stdout $WORK/golden/create-parent.txt
-exec card issue edit graph-1 --type workstream
+exec card edit graph-1 --type workstream
 cmp stdout $WORK/golden/edit-workstream.txt
 exec card --json show graph-1
 cmpjson stdout $WORK/golden/workstream.json
 
 exec card create 'Child task'
 cmp stdout $WORK/golden/create-child.txt
-exec card issue edit graph-2 --parent graph-1
-exec card --json issue edit graph-1 --type task
+exec card edit graph-2 --parent graph-1
+exec card --json edit graph-1 --type task
 cmpjson stdout $WORK/golden/task.json
 
 -- golden/workstream.json --

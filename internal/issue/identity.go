@@ -145,6 +145,13 @@ func ValidStatuses() []Status {
 	}
 }
 
+// NonTerminalStatuses returns every status representing unfinished work.
+func NonTerminalStatuses() []Status {
+	return []Status{
+		StatusReady, StatusBlocked, StatusInProgress, StatusWaiting,
+	}
+}
+
 // String returns the textual representation of issue status.
 func (s Status) String() string {
 	if int(s) >= len(statusNames) {

@@ -17,7 +17,7 @@ exec card create 'Context consumer'
 exec card --json show --context board-1
 cmpjson stdout $WORK/golden/context.json
 
-exec card --json board edit --clear-description
+exec card --json board edit --description ''
 cmpjson stdout $WORK/golden/empty.json
 
 -- golden/empty.json --

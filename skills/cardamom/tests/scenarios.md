@@ -324,7 +324,7 @@ Do not modify state.
 - The plan uses one current phase label for human and coordinator visibility
     and automatic worker routing.
 - At least two routing transitions use atomic signed
-    `issue edit --label` terms.
+    `edit --label` terms.
 - Routing, waiting, and routine custody retain their distinct
     Cardamom meanings.
 - Label selection details remain limited to what this workflow needs.
@@ -963,7 +963,7 @@ Do not execute the commands.
     then runs `state commit` before implementation depends on that checkpoint.
 - Authors the State body as recovery prose without generic
     `Current state` or `Next action` wrapper headings.
-- Uses `log add` only for useful rationale about the rejected alternative that
+- Uses `log post` only for useful rationale about the rejected alternative that
     the State snapshot does not represent.
 - Writes the standalone Log body in a concise, self-contained,
     reference-first form.
@@ -986,13 +986,13 @@ Do not execute the commands.
 - Starts Log inspection newest-first
     and uses `--oldest-first` only for chronological replay from the beginning.
 
-### Discard adjacent case
+### Empty State adjacent case
 
 The worker wrote temporary diagnostic State,
 then established that the diagnostic should not enter durable history.
 
-- Uses `state discard` for the intentional unsnapshotted removal.
-- Does not use discard for ordinary phase advancement or handoff.
+- Uses `state set <issue-id> ''` for the intentional unsnapshotted removal.
+- Does not set State empty for ordinary phase advancement or handoff.
 
 ### Mechanical adjacent case
 
@@ -1199,7 +1199,7 @@ Do not execute commands.
     sibling relies on it.
 - Pauses dispatch during graph mutation and verifies ready and blocked state
     afterward.
-- Uses `issue edit --add-depends-on` only once the prerequisite is real.
+- Uses `edit --depends-on` only once the prerequisite is real.
 
 ## Checkpoint graph
 
@@ -1254,7 +1254,7 @@ Do not mutate the board.
 - Starts with current context and state.
 - Uses visible summary metadata to identify any chronology or result needed to
     continue the issue.
-- Treats `log list` as newest-first by default
+- Treats `log show` as newest-first by default
     and uses `--oldest-first` only for chronological replay from the beginning.
 - Does not load every historical surface by default.
 - Treats root's decision that the old worker will not continue as the recovery
@@ -1359,7 +1359,7 @@ Do not configure a scheduler or mutate the board.
 - Records resource disposition before closing the run.
 - Closes the child before releasing the routine claim.
 - Appends the run outcome to the active-run State,
-    then uses `state commit --replace` to preserve that run snapshot
+    then uses `state commit --set` to preserve that run snapshot
     while installing the accepted cursor and unresolved targets in the body
     and the next awakening's transition with `--next`.
 - Does not author generic `Current state` or `Next action` wrapper headings
@@ -1459,7 +1459,7 @@ but its records no longer retain the attachment reference.
 The first associated-attachment page returns `next_page_token`.
 
 - Uses `attachment list --issue <issue-id>` for discovery.
-- Requests each following page with `--page-token <token>` until the token is
+- Requests each following page with `--after <token>` until the token is
     absent.
 - Does not assume the first page contains every associated attachment.
 

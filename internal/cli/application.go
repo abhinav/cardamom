@@ -9,14 +9,13 @@ import (
 	"io"
 	"runtime"
 	"slices"
-	"strings"
 
 	"github.com/alecthomas/kong"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/komplete"
 )
 
-// Version is the build version reported by the root version flag.
+// Version is the build version reported by the version command.
 // Release builds replace it through the linker.
 var Version = "dev " + runtime.Version()
 
@@ -40,7 +39,7 @@ const (
 // actor before constructing the CLI so command adapters do not inspect process
 // globals independently.
 type Config struct {
-	// Version is printed by -V and --version.
+	// Version is printed by the version command.
 	Version string // required
 
 	// DefaultActor is used when CARDAMOM_ACTOR and --actor are absent.
@@ -102,7 +101,9 @@ func New(config Config, options ...kong.Option) (*Application, error) {
 		config:  config,
 		options: append([]kong.Option(nil), options...),
 	}
-	if _, err := app.newParser(new(commandTree)); err != nil {
+	if _, err := app.newParser(&commandTree{
+		Version: versionCommand{value: config.Version},
+	}); err != nil {
 		return nil, fmt.Errorf("build command grammar: %w", err)
 	}
 	return app, nil
@@ -152,9 +153,6 @@ type parsedInvocation struct {
 // Run parses and executes one command invocation and returns its process exit
 // status without terminating the process.
 func (a *Application) Run(ctx context.Context, args []string) int {
-	if versionFollowsCommand(args) {
-		return a.reportError(UsageErrorf("--version must precede a command"))
-	}
 	if len(args) == 0 {
 		args = []string{"--help"}
 	}
@@ -184,9 +182,9 @@ func (a *Application) parse(ctx context.Context, args []string) (
 		return nil, errors.New("invocation context is required")
 	}
 
-	// Kong's help and version hooks call Exit before command validation or
-	// dependency resolution. Convert that callback into a returned status so
-	// Application never terminates its host process.
+	// Kong's help hook calls Exit before command validation or dependency
+	// resolution. Convert that callback into a returned status so Application
+	// never terminates its host process.
 	defer func() {
 		if recovered := recover(); recovered != nil {
 			requested, ok := recovered.(requestedExitError)
@@ -197,7 +195,9 @@ func (a *Application) parse(ctx context.Context, args []string) (
 		}
 	}()
 
-	grammar := new(commandTree)
+	grammar := &commandTree{
+		Version: versionCommand{value: a.config.Version},
+	}
 	parser, err := a.newParser(grammar)
 	if err != nil {
 		return nil, fmt.Errorf("build command grammar: %w", err)
@@ -337,45 +337,11 @@ func UsageErrorf(format string, args ...any) error {
 	)
 }
 
-// requestedExitError carries a Kong help or version exit through its callback.
+// requestedExitError carries a Kong help exit through its callback.
 type requestedExitError struct {
 	code int
 }
 
 func (e requestedExitError) Error() string {
 	return fmt.Sprintf("exit %d requested", e.code)
-}
-
-func versionFollowsCommand(args []string) bool {
-	commandSeen := false
-	consumeValue := false
-	for _, arg := range args {
-		if consumeValue {
-			consumeValue = false
-			continue
-		}
-		if arg == "-V" || arg == "--version" {
-			return commandSeen
-		}
-		if commandSeen {
-			continue
-		}
-
-		switch arg {
-		case "--store", "--board", "--actor":
-			consumeValue = true
-		case "--json", "--quiet", "-q", "--help", "-h":
-			continue
-		default:
-			if strings.HasPrefix(arg, "--store=") ||
-				strings.HasPrefix(arg, "--board=") ||
-				strings.HasPrefix(arg, "--actor=") {
-				continue
-			}
-			if !strings.HasPrefix(arg, "-") {
-				commandSeen = true
-			}
-		}
-	}
-	return false
 }

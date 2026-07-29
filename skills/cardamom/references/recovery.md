@@ -47,12 +47,12 @@ Treat the State body as mutable recovery facts
 and the optional next action as the planned transition from them.
 The Log contains committed State snapshots and any standalone replay material;
 expand it only when current context does not answer the recovery decision.
-`log list` returns newest entries first by default.
+`log show` returns newest entries first by default.
 Expand only the evidence needed for the recovery decision:
 
 ```bash
 card --actor recovery-worker --json show <ancestor-id>
-card --actor recovery-worker --json log list <issue-id> --limit 20
+card --actor recovery-worker --json log show <issue-id> --limit 20
 card --actor recovery-worker --json list \
   --under <issue-id> --status closed,cancelled --limit 0
 card --actor recovery-worker --json result show <issue-id>
@@ -109,7 +109,7 @@ worker's actor because Cardamom has no force-release operation.
 Root-authored logs and every other root operation retain root's stable actor.
 
 ```bash
-card --actor coordinator log add <issue-id> \
+card --actor coordinator log post <issue-id> \
   "Root ended worker-old's assignment and reassigned this issue for recovery."
 card --actor worker-old release <issue-id> \
   --waiting "worker reassignment"

@@ -112,14 +112,14 @@ STATE
 )
 next_action='Assess release-held before processing input after release-1.'
 "$CARDAMOM_BIN" --actor worker-a state commit "$routine" \
-  --replace "$next_state" --next "$next_action"
+  --set "$next_state" --next "$next_action"
 "$CARDAMOM_BIN" --actor worker-a --json state show "$routine" \
   | jq -e --arg body "$next_state" --arg next "$next_action" \
     '.body == $body and .next_action == $next and
      (.body | test("(?m)^## (Current state|Next action)$") | not)'
 "$CARDAMOM_BIN" --actor worker-a --json release "$routine"
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json show "$routine" --context
-"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log list "$routine" | jq -s .
+"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log show "$routine" | jq -s .
 "$CARDAMOM_BIN" --actor worker-b --json claim "$routine" --context
 run_state=$(cat <<'STATE'
 ## Current targets
@@ -163,9 +163,9 @@ STATE
 )
 next_action='Assess release-held before processing input after release-2.'
 "$CARDAMOM_BIN" --actor worker-b state commit "$routine" \
-  --replace "$next_state" --next "$next_action"
+  --set "$next_state" --next "$next_action"
 "$CARDAMOM_BIN" --actor worker-b release "$routine"
-"$CARDAMOM_BIN" --actor coordinator log add "$routine" \
+"$CARDAMOM_BIN" --actor coordinator log post "$routine" \
   'Retiring the routine because compatibility tracking ended.'
 "$CARDAMOM_BIN" --actor coordinator close "$routine"
 ```
@@ -203,13 +203,13 @@ outside="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" create --label implementati
   --waiting 'root acceptance'
 "$CARDAMOM_BIN" --actor coordinator --json result show "$task" \
   | jq -e '.body == "Validated outcome."'
-"$CARDAMOM_BIN" --actor coordinator log add "$task" \
+"$CARDAMOM_BIN" --actor coordinator log post "$task" \
   'Accepted the validated task outcome.'
 "$CARDAMOM_BIN" --actor coordinator close "$task"
-"$CARDAMOM_BIN" --actor coordinator log add "$workstream" \
+"$CARDAMOM_BIN" --actor coordinator log post "$workstream" \
   'Accepted the nested workstream after its task closed.'
 "$CARDAMOM_BIN" --actor coordinator close "$workstream"
-"$CARDAMOM_BIN" --actor coordinator log add "$root" \
+"$CARDAMOM_BIN" --actor coordinator log post "$root" \
   'Accepted after inspecting component evidence.'
 "$CARDAMOM_BIN" --actor coordinator close "$root"
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json show "$outside"
@@ -301,7 +301,7 @@ waiting="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" create \
 "$CARDAMOM_BIN" --actor worker-a --json release "$waiting" \
   --waiting 'signing service is restored' \
   | jq -e '.status == "waiting" and .active_claim == null'
-"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log list "$waiting" --limit 1 \
+"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log show "$waiting" --limit 1 \
   | jq -s -e \
     '.[0].kind == "state_snapshot" and
      .[0].body == "Implementation is partial." and
@@ -328,8 +328,8 @@ checkpoint="$(
 implementation="$(
   "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" create 'Implement retry'
 )"
-"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" issue edit "$implementation" \
-  --add-depends-on "$checkpoint"
+"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" edit "$implementation" \
+  --depends-on "$checkpoint"
 decision="$("$CARDAMOM_BIN" --actor decision-recorder --json \
   checkpoint approve "$checkpoint" \
   --reason 'External authority accepted the recorded evidence.')"
@@ -373,11 +373,11 @@ issue="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" create \
   '`ship inspect $TARGET` retains `$(date)`.' \
   --next 'Validate output.'
 "$CARDAMOM_BIN" --actor worker-a state commit "$issue"
-"$CARDAMOM_BIN" --actor worker-a log add "$issue" \
+"$CARDAMOM_BIN" --actor worker-a log post "$issue" \
   'No escaping workaround was required.'
 "$CARDAMOM_BIN" --actor worker-a result set "$issue" \
   'Implemented `ship inspect $TARGET`.'
-"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log list "$issue" | jq -s .
+"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log show "$issue" | jq -s .
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json state show "$issue"
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json result show "$issue"
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json show "$issue" --context
@@ -392,19 +392,19 @@ current issue section of `show --context`.
 ## Intentional unsnapshotted State removal
 
 ```bash
-discarded="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" create \
-  'Discard temporary diagnosis')"
-"$CARDAMOM_BIN" --actor worker-a state set "$discarded" \
+cleared="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" create \
+  'Remove temporary diagnosis')"
+"$CARDAMOM_BIN" --actor worker-a state set "$cleared" \
   'Temporary diagnosis that should not enter history.'
-"$CARDAMOM_BIN" --actor worker-a state discard "$discarded"
-"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json state show "$discarded" \
+"$CARDAMOM_BIN" --actor worker-a state set "$cleared" ''
+"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json state show "$cleared" \
   | jq -e '.body == null'
-"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log list "$discarded" \
+"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log show "$cleared" \
   | jq -s -e 'length == 0'
 ```
 
-Verify discard removes intentionally unsnapshotted State without adding a Log
-entry.
+Verify an explicitly empty `state set` removes unsnapshotted State without
+adding a Log entry.
 
 ## Summary and Details progressive disclosure
 
@@ -451,12 +451,12 @@ issue="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" create --type workstream 'Rec
   'A failing parser test exists.' \
   --next 'Implement the parser fix.'
 "$CARDAMOM_BIN" --actor worker-a state commit "$issue"
-"$CARDAMOM_BIN" --actor coordinator log add "$issue" \
+"$CARDAMOM_BIN" --actor coordinator log post "$issue" \
   'Root ended worker-a assignment and reassigned this issue for recovery.'
 "$CARDAMOM_BIN" --actor worker-a release "$issue"
 "$CARDAMOM_BIN" --actor worker-b --json show "$issue" --context
-"$CARDAMOM_BIN" --actor worker-b --json log list "$issue" | jq -s .
-"$CARDAMOM_BIN" --actor worker-b --json log list "$issue" --oldest-first \
+"$CARDAMOM_BIN" --actor worker-b --json log show "$issue" | jq -s .
+"$CARDAMOM_BIN" --actor worker-b --json log show "$issue" --oldest-first \
   | jq -s .
 "$CARDAMOM_BIN" --actor worker-b --json claim "$issue" --context
 ```
@@ -477,7 +477,7 @@ added="$("$CARDAMOM_BIN" --actor worker-a --json attachment add \
   --issue "$origin" route-audit.ndjson)"
 attachment_id="$(printf '%s\n' "$added" | jq -r .id)"
 attachment_ref="%$attachment_id"
-log_entry="$("$CARDAMOM_BIN" --actor worker-a --json log add "$origin" \
+log_entry="$("$CARDAMOM_BIN" --actor worker-a --json log post "$origin" \
   'The route audit established stable ordering.')"
 log_id="$(printf '%s\n' "$log_entry" | jq -r .id)"
 log_ref="%$log_id"
@@ -495,7 +495,7 @@ log_ref="%$log_id"
 "$CARDAMOM_BIN" --actor recovery-worker --json result show "$origin" \
   | jq -e --arg log "$log_ref" --arg ref "$attachment_ref" \
   '.body | contains($log) and contains($ref)'
-"$CARDAMOM_BIN" --actor recovery-worker --json log list "$origin" \
+"$CARDAMOM_BIN" --actor recovery-worker --json log show "$origin" \
   | jq -s -e --arg id "$log_id" 'any(.id == $id)'
 "$CARDAMOM_BIN" --actor recovery-worker attachment get \
   "$attachment_id" recovered-route-audit.ndjson
@@ -504,7 +504,7 @@ cmp route-audit.ndjson recovered-route-audit.ndjson
   "$attachment_id" recovered-route-audit.ndjson
 ```
 
-Verify the attachment-add and log-add results supply the IDs needed to author
+Verify the attachment-add and log-post results supply the IDs needed to author
 their reference forms,
 issue, log, and stored-filename attachment references survive record storage,
 the originating issue association supports filtered discovery,

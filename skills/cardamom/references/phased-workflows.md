@@ -16,7 +16,7 @@ Additional labels may classify or route the issue
 when they answer an independently meaningful coordination question.
 Labels do not create dependency edges or waiting semantics.
 For a phased transition,
-repeat signed `--label` terms in one `issue edit` command:
+repeat signed `--label` terms in one `edit` command:
 `+` adds a label and `-` removes one.
 Apply the phase-label change before releasing custody.
 When continuation is external or directed,
@@ -66,7 +66,7 @@ the worker records recoverable State and atomically moves the phase label
 before an ordinary release:
 
 ```bash
-card --actor preparer issue edit <change-id> \
+card --actor preparer edit <change-id> \
   --label -phase:prepare \
   --label +phase:verify
 card --actor preparer release <change-id>
@@ -81,7 +81,7 @@ external authorization is the next continuation.
 Move the phase label atomically and release into waiting:
 
 ```bash
-card --actor verifier issue edit <change-id> \
+card --actor verifier edit <change-id> \
   --label -phase:verify \
   --label +phase:authorize
 card --actor verifier release <change-id> \
@@ -104,7 +104,7 @@ then atomically moves to the activation phase and releases normally:
 card --actor coordinator state set <change-id> \
   "External authorization is established; evidence: <reference>." \
   --next "Activate the authorized change."
-card --actor coordinator issue edit <change-id> \
+card --actor coordinator edit <change-id> \
   --label -phase:authorize \
   --label +phase:activate
 card --actor coordinator release <change-id>

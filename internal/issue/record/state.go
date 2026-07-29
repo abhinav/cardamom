@@ -7,15 +7,16 @@ import (
 	"go.abhg.dev/cardamom/internal/issue"
 )
 
-// SetState replaces one issue's mutable State.
+// SetState sets or clears one issue's mutable State.
 type SetState struct {
 	// IssueID identifies the issue whose state changes.
 	IssueID issue.ID
 	// Author is the normalized actor replacing the State.
 	Author issue.Actor
 	// Text is the complete replacement Markdown source.
+	// An empty value clears State.
 	Text string
-	// NextAction is the optional planned transition from Text.
+	// NextAction is the optional planned transition from non-empty Text.
 	NextAction string
 }
 
@@ -35,11 +36,11 @@ type AppendState struct {
 	Text string
 }
 
-// StateSet is the semantic outcome of replacing one state.
+// StateSet is the semantic outcome of setting or clearing one State.
 type StateSet struct {
 	// Issue is the changed issue state.
 	Issue issue.State
-	// State is the complete state after the change.
+	// State is the complete State after the change, or empty when absent.
 	State string
 	// CommittedRevision is populated after persistence publishes the change.
 	CommittedRevision
@@ -63,13 +64,14 @@ type StateResult struct {
 	Issue issue.Issue
 }
 
-// SetStateRequest supplies caller input for replacing or appending a state.
+// SetStateRequest supplies caller input for setting or appending State.
 type SetStateRequest struct {
 	// IssueID identifies the issue whose state changes.
 	IssueID string
 	// Text is the replacement or appended Markdown source.
+	// For SetState, an empty value clears State.
 	Text string
-	// NextAction is the optional planned transition for replacement.
+	// NextAction is the optional planned transition for non-empty replacement.
 	NextAction string
 }
 
@@ -79,10 +81,14 @@ type ClearStateRequest struct {
 	IssueID string
 }
 
-// SetState applies replacement policy to the loaded snapshot.
+// SetState applies setting or clearing policy to the loaded snapshot.
 func (p *Policy) SetState(command SetState) (StateSet, error) {
 	if command.IssueID != p.snapshot.Issue.ID() {
 		return StateSet{}, ErrIncompleteSnapshot
+	}
+	if command.Text == "" && command.NextAction == "" {
+		state := p.snapshot.Issue.WithRecoveryState(nil, p.snapshot.OccurredAt)
+		return StateSet{Issue: state}, nil
 	}
 	recovery, err := issue.NewRecoveryState(
 		command.Text,
@@ -149,7 +155,7 @@ func (p *Policy) AppendState(command AppendState) (StateAppended, error) {
 	}, nil
 }
 
-// SetState validates caller input and replaces one state.
+// SetState validates caller input and sets or clears one State.
 func (r *Recorder) SetState(
 	ctx context.Context,
 	invocation issue.Invocation,

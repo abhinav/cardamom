@@ -27,7 +27,7 @@ artifact=$(
 )
 artifact_id=$(printf '%s\n' "$artifact" | jq -r .id)
 artifact_ref="%$artifact_id"
-card --actor worker-a log add <issue-id> \
+card --actor worker-a log post <issue-id> \
   "Validation report: $artifact_ref"
 ```
 
@@ -72,7 +72,7 @@ card --actor recovery-worker --json attachment list --issue <issue-id>
 
 `attachment list` returns one stable page.
 When `next_page_token` is present,
-repeat the command with `--page-token <token>` until the token is absent.
+repeat the command with `--after <token>` until the token is absent.
 
 Recover meaning from the issue context;
 an attachment supplies file bytes rather than replacing that context.

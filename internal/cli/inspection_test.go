@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"regexp"
 	"testing"
 
 	"github.com/alecthomas/kong"
@@ -38,9 +39,8 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 		"--assignee", "worker", "--type", "task",
 		"--label", "+area:cli", "--label", "-archived",
 		"--label-any", "phase:a", "--label-any", "phase:b",
-		"--no-labels", "--no-assignee", "--title", "adapter",
-		"--priority-min", "1", "--priority-max", "3",
-		"--summary", "contract", "--sort", "updated", "--reverse", "--limit", "9",
+		"--no-assignee", "--title-regexp", "(?i)adapter",
+		"--sort", "updated", "--reverse", "--limit", "9",
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
@@ -49,9 +49,8 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 		Assignee: new("worker"), Type: "task",
 		LabelsAll: []string{"area:cli"}, LabelsAny: []string{"phase:a", "phase:b"},
 		LabelsNone: []string{"archived"},
-		NoLabels:   true, NoAssignee: true, TitleContains: "adapter",
-		PriorityMin: new(1), PriorityMax: new(3),
-		SummaryContains: "contract", Sort: "updated", Reverse: true, Limit: 9,
+		NoAssignee: true, TitleRegexp: regexp.MustCompile("(?i)adapter"),
+		Sort: "updated", Reverse: true, Limit: 9,
 	}, operation.listRequest)
 	assert.Equal(
 		t,
@@ -60,6 +59,34 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 		stdout.String(),
 	)
 	assert.Empty(t, stderr.String())
+}
+
+func TestListCommandDefaultsToNonTerminalStatuses(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	operation := new(inspectionOperation)
+	app := newInspectionApplication(t, testConfig(&stdout, &stderr), operation)
+
+	exitCode := app.Run(t.Context(), []string{"list"})
+
+	assert.Equal(t, ExitSuccess, exitCode)
+	assert.Equal(t, []string{
+		"ready", "blocked", "in_progress", "waiting",
+	}, operation.listRequest.Statuses)
+	assert.Equal(t, 1, operation.listCalls)
+	assert.Empty(t, stderr.String())
+}
+
+func TestListCommandRejectsInvalidTitleRegexp(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	operation := new(inspectionOperation)
+	app := newInspectionApplication(t, testConfig(&stdout, &stderr), operation)
+
+	exitCode := app.Run(t.Context(), []string{"list", "--title-regexp", "["})
+
+	assert.Equal(t, ExitUsage, exitCode)
+	assert.Zero(t, operation.listCalls)
+	assert.Empty(t, stdout.String())
+	assert.Contains(t, stderr.String(), `invalid --title-regexp "["`)
 }
 
 func TestReadyAndBlockedCommandsPassDomainLimits(t *testing.T) {
@@ -161,6 +188,7 @@ func newInspectionApplication(t *testing.T, config Config, operation *inspection
 type inspectionOperation struct {
 	listRequest    issue.ListRequest
 	listResult     []issue.Summary
+	listCalls      int
 	readyRequest   issue.ListReadyRequest
 	readyResult    []issue.Summary
 	readyCalls     int
@@ -175,6 +203,7 @@ func (o *inspectionOperation) ListIssues(
 	_ context.Context,
 	request issue.ListRequest,
 ) ([]issue.Summary, error) {
+	o.listCalls++
 	o.listRequest = request
 	return o.listResult, nil
 }

@@ -8,7 +8,7 @@ exec card --board board_00000000000000000000 create --type workstream 'Primary r
 cmp stdout $WORK/golden/primary-root.txt
 exec card --board board_00000000000000000000 create 'Primary child'
 cmp stdout $WORK/golden/primary-child.txt
-exec card issue edit scope-2 --parent scope-1
+exec card edit scope-2 --parent scope-1
 cmp stdout $WORK/golden/edited-child.txt
 
 exec card board create 'Secondary board'

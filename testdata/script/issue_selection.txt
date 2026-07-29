@@ -27,9 +27,9 @@ cmp stdout $WORK/golden/blocked.txt
 ! stdout .
 cmp stderr $WORK/golden/blocked-limit-error.txt
 
-exec card issue edit sel-2 --remove-depends-on sel-1
+exec card edit sel-2 --depends-on -sel-1
 cmp stdout $WORK/golden/remove-dependency.txt
-exec card issue edit sel-2 --add-depends-on sel-1 --label reviewed,-urgent
+exec card edit sel-2 --depends-on sel-1 --label reviewed,-urgent
 cmp stdout $WORK/golden/edit.txt
 exec card --json show sel-2
 cmpjson stdout $WORK/golden/edited.json

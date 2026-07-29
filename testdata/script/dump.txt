@@ -14,17 +14,17 @@ exec card create --summary 'Abandoned release task.' 'Abandoned task'
 cmp stdout $WORK/golden/create-4.txt
 exec card create --summary 'Approve the release.' 'Release approval'
 cmp stdout $WORK/golden/create-5.txt
-exec card issue edit dump-2 --parent dump-1 --add-depends-on dump-5
+exec card edit dump-2 --parent dump-1 --depends-on dump-5
 cmp stdout $WORK/golden/edit-2.txt
-exec card issue edit dump-3 --parent dump-1
+exec card edit dump-3 --parent dump-1
 cmp stdout $WORK/golden/edit-3.txt
-exec card issue edit dump-4 --parent dump-1
+exec card edit dump-4 --parent dump-1
 cmp stdout $WORK/golden/edit-4.txt
 exec card close dump-3
 cmp stdout $WORK/golden/close-3.txt
 exec card cancel dump-4
 cmp stdout $WORK/golden/cancel-4.txt
-exec card --actor operator log add dump-2 'Build log captured.'
+exec card --actor operator log post dump-2 'Build log captured.'
 cmp stdout $WORK/golden/log-2.txt
 exec card state set dump-2 'Next: publish artifacts.'
 cmp stdout $WORK/golden/state-2.txt
@@ -92,7 +92,7 @@ cmpenv stdout $WORK/golden/dump-6-workstream.txt
 cmp board-dump/issues/dump-6.md $WORK/golden/board-dump-6-workstream.md
 exec sh -c 'printf "local edit\n" >> board-dump/issues/dump-6.md'
 exec sh -c 'printf "unowned\n" > board-dump/local.md'
-exec card issue edit dump-6 --type task
+exec card edit dump-6 --type task
 cmp stdout $WORK/golden/edit-6.txt
 ! exec card --json dump board-dump --issue dump-6
 ! stdout .
@@ -144,7 +144,7 @@ Closed dump-3.
 -- golden/cancel-4.txt --
 Cancelled 1 requested issue and 0 dependent issues.
 -- golden/log-2.txt --
-Added log entry log_00000000000000000000000000000001 to dump-2.
+Posted log entry log_00000000000000000000000000000001 to dump-2.
 -- golden/state-2.txt --
 Set state on dump-2.
 -- golden/result-5.txt --
@@ -1168,23 +1168,21 @@ Arguments:
 
 Flags:
   -h, --help               Show context-sensitive help.
-      --store=PATH         Physical Cardamom store directory. Overrides
-                           automatic discovery ($CARDAMOM_STORE).
-      --board=BOARD        Coordination board ID or exact name
-                           ($CARDAMOM_BOARD).
-      --actor=ACTOR        Identity that owns active claims and attributes
-                           changes. Defaults to the current OS username
-                           ($CARDAMOM_ACTOR).
-      --json               Emit machine-readable JSON or JSON Lines output.
-  -q, --quiet              Suppress status notices while preserving requested
-                           output and errors.
-  -V, --version            Print version information and exit. This flag must
-                           precede any command.
 
       --issue=ISSUE,...    Issue root to publish. Repeat for multiple roots.
       --no-descendants     Publish only named issues, without containment
                            descendants.
       --force              Replace recognized generated files modified after
                            publication.
+
+Global flags
+      --store=PATH     Physical Cardamom store directory. Overrides automatic
+                       discovery ($CARDAMOM_STORE).
+      --board=BOARD    Coordination board ID or exact name ($CARDAMOM_BOARD).
+      --actor=ACTOR    Identity that owns active claims and attributes changes.
+                       Defaults to the current OS username ($CARDAMOM_ACTOR).
+      --json           Emit machine-readable JSON or JSON Lines output.
+  -q, --quiet          Suppress status notices while preserving requested output
+                       and errors.
 -- golden/invalid-error.txt --
 error: --no-descendants requires --issue

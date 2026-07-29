@@ -89,14 +89,14 @@ then commit that checkpoint while installing the next-run recovery truth:
 card --actor routine-worker state append <routine-id> \
   "Reviewed through pull request 124; its test job is still failing."
 card --actor routine-worker state commit <routine-id> \
-  --replace "Pull request 124 is unresolved. Safe cursor: 124." \
+  --set "Pull request 124 is unresolved. Safe cursor: 124." \
   --next "Recheck pull request 124."
 card --actor routine-worker release <routine-id>
 ```
 
 The commit preserves the completed run as a State snapshot.
 Release preserves the changed next-run State automatically.
-Use `log add` only for additional replay-worthy material
+Use `log post` only for additional replay-worthy material
 that neither State snapshot represents.
 Create child tasks only when part of the run needs independent ownership,
 dependencies,

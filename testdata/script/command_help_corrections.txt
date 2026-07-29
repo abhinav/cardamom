@@ -14,23 +14,28 @@ stdout '- is invalid'
 exec card list --help
 stdout '--status=STATUS'
 stdout 'Effective issue status to include: ready'
-stdout 'blocked, in_progress, waiting, closed'
-stdout 'or cancelled'
+stdout 'blocked, in_progress, waiting, closed, or'
+stdout 'cancelled'
+stdout 'Defaults to ready, blocked'
+stdout 'in_progress, and waiting'
 stdout '--under=ISSUE'
 stdout '--assignee=ACTOR'
 stdout '--label=TERM'
 stdout 'No prefix or \+ requires'
 stdout '--label-any=LABEL'
-stdout 'Alternative label'
+stdout 'Match issues carrying at least one supplied'
+stdout 'label. Repeat for alternatives'
 ! stdout '--add-label'
 ! stdout '--remove-label'
-stdout '--title=TEXT'
-stdout '--priority-min=PRIORITY'
-stdout 'Minimum inclusive priority from 0 through 4'
-stdout '--priority-max=PRIORITY'
-stdout 'Maximum inclusive priority from 0 through 4'
+stdout '--title-regexp=REGEXP'
+stdout 'Go regular-expression syntax'
 stdout '--sort=FIELD'
 stdout '--limit=COUNT'
+! stdout '--title=TEXT'
+! stdout '--no-labels'
+! stdout '--priority-min'
+! stdout '--priority-max'
+! stdout '--summary=TEXT'
 
 exec card claim --help
 stdout '--label=TERM'
@@ -41,7 +46,7 @@ stdout 'one --label-any match'
 ! stdout '--add-label'
 ! stdout '--remove-label'
 
-exec card issue edit --help
+exec card edit --help
 stdout '--type=TYPE'
 stdout '--priority=PRIORITY'
 stdout '--summary=MARKDOWN'
@@ -49,7 +54,14 @@ stdout '--label=TERM'
 stdout 'No prefix or \+ adds; - removes'
 ! stdout '--add-label'
 ! stdout '--remove-label'
-stdout '--clear-parent'
+stdout '--depends-on=TERM'
+stdout 'No prefix or \+ adds; - removes'
+stdout '--parent=ISSUE'
+stdout 'Replacement containment parent issue ID'
+stdout 'empty value to clear it'
+! stdout '--clear-parent'
+! stdout '--add-depends-on'
+! stdout '--remove-depends-on'
 
 exec card checkpoint approve --help
 stdout 'Checkpoint to approve'
@@ -72,8 +84,10 @@ stdout '--context-depth=DEPTH'
 
 exec card attachment list --help
 stdout '--issue=ISSUE'
-stdout '--page-size=COUNT'
-stdout '--page-token=TOKEN'
+stdout '--limit=COUNT'
+stdout '--after=TOKEN'
+! stdout '--page-size'
+! stdout '--page-token'
 
 exec card config show --help
 stdout '--scope=SCOPE'
@@ -97,6 +111,13 @@ stdout 'persist them as audit history'
 
 exec git init -b main
 exec card init --prefix correction-
+
+# Removed attachment pagination spellings are rejected instead of aliased.
+! exec card attachment list --page-size 1
+stderr 'unknown flag --page-size'
+
+! exec card attachment list --page-token opaque
+stderr 'unknown flag --page-token'
 
 # Ambiguous mailbox modes are usage errors.
 ! exec card mail recv --clear --peek
