@@ -1,7 +1,10 @@
 import { create } from "@bufbuild/protobuf";
 import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { createRouterTransport } from "@connectrpc/connect";
-import { TransportProvider } from "@connectrpc/connect-query";
+import {
+  createInfiniteQueryOptions,
+  TransportProvider,
+} from "@connectrpc/connect-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
@@ -9,12 +12,16 @@ import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import type { AttachmentClient } from "../api.ts";
-import { AttachmentService } from "../gen/cardamom/private/v1/attachment_pb.ts";
+import {
+  AttachmentSchema,
+  AttachmentService,
+  BlobAvailability,
+} from "../gen/cardamom/private/v1/attachment_pb.ts";
 import { MarkdownContentSchema } from "../gen/cardamom/private/v1/content_pb.ts";
 import {
-  CheckpointDecisionSchema,
   CheckpointOutcome,
   IssueDetailSchema,
+  IssueLifecycle,
   IssueService,
   RelatedIssueSchema,
   IssueSort,
@@ -29,6 +36,10 @@ import {
   StateRecordSchema,
 } from "../gen/cardamom/private/v1/record_pb.ts";
 import { LifecycleAction } from "../issue-lifecycle.ts";
+import {
+  attachmentListInput,
+  nextAttachmentPageToken,
+} from "../attachments.tsx";
 import { unaryRouteQueryOptions } from "../query-runtime.ts";
 import {
   addIssueLogEntryInput,
@@ -44,6 +55,7 @@ import {
   LogEntryList,
   issueMetadataDraft,
   PrimaryRecord,
+  RelationshipBand,
   RelationshipList,
   resolveIssueCheckpointInput,
 } from "./issue-detail.tsx";
@@ -104,15 +116,6 @@ describe("issue detail presentation", () => {
         source: "Completed outcome.",
         renderedHtml: "<p>Completed outcome.</p>",
       }),
-      checkpointDecision: create(CheckpointDecisionSchema, {
-        outcome: CheckpointOutcome.APPROVED,
-        reason: create(MarkdownContentSchema, {
-          source: "Staging passed.",
-          renderedHtml: "<p>Staging passed.</p>",
-        }),
-        decidedAt: create(TimestampSchema, { seconds: 200n }),
-        revision: 8n,
-      }),
     });
 
     const content = PrimaryRecord({ detail, selectLabel: vi.fn() });
@@ -129,10 +132,262 @@ describe("issue detail presentation", () => {
     expect(markup).not.toContain("state-title");
     expect(markup).toContain("<h2 id=\"result-title\">Result</h2>");
     expect(markup).toContain("Completed outcome.");
-    expect(markup).toContain("Approved");
-    expect(markup).toContain("Staging passed.");
-    expect(markup).toContain("Revision 8");
+    expect(markup).toContain('class="issue-detail-section issue-details" open=""');
     expect(markup).not.toContain("Description");
+  });
+
+  it("orders stable records for reading and omits empty optional sections", () => {
+    const detail = create(IssueDetailSchema, {
+      issue: create(IssueSummarySchema, {
+        id: "cm-reading-order",
+        boardId: "board-1",
+        title: "Reading order",
+      }),
+      summary: create(MarkdownContentSchema, {
+        source: "Visible summary.",
+        renderedHtml: "<p>Visible summary.</p>",
+      }),
+    });
+
+    const content = PrimaryRecord({ detail, selectLabel: vi.fn() });
+    expect(content).not.toBeNull();
+    if (content === null) {
+      throw new Error("primary issue record was not rendered");
+    }
+    const markup = renderToStaticMarkup(content);
+
+    expect(markup.indexOf('id="record-title"')).toBeLessThan(
+      markup.indexOf('id="summary-title"'),
+    );
+    expect(markup).not.toContain('id="details-title"');
+    expect(markup).not.toContain('id="result-title"');
+    expect(markup).not.toContain("No details.");
+    expect(markup).not.toContain("No result recorded.");
+  });
+
+  it("keeps the complete reading sequence ahead of secondary controls", async () => {
+    const issueId = "cm-reading-flow";
+    const detail = create(IssueDetailSchema, {
+      issue: create(IssueSummarySchema, {
+        id: issueId,
+        boardId: "board-1",
+        title: "Reading flow",
+        lifecycle: IssueLifecycle.OPEN,
+        status: IssueStatus.READY,
+        type: IssueType.TASK,
+      }),
+      summary: create(MarkdownContentSchema, {
+        source: "Summary record.",
+        renderedHtml: "<p>Summary record.</p>",
+      }),
+      details: create(MarkdownContentSchema, {
+        source: "Details record.",
+        renderedHtml: "<p>Details record.</p>",
+      }),
+      result: create(MarkdownContentSchema, {
+        source: "Result record.",
+        renderedHtml: "<p>Result record.</p>",
+      }),
+      prerequisites: [
+        create(RelatedIssueSchema, {
+          id: "cm-prerequisite",
+          title: "Prerequisite",
+        }),
+      ],
+    });
+    const serviceFirst = create(LogEntrySchema, {
+      id: "log-service-first",
+      payload: {
+        case: "post",
+        value: {
+          actor: "observer",
+          body: {
+            source: "Service first.",
+            renderedHtml: "<p>Service first.</p>",
+          },
+          createdAt: create(TimestampSchema, { seconds: 300n }),
+        },
+      },
+    });
+    const serviceSecond = create(LogEntrySchema, {
+      id: "log-service-second",
+      payload: {
+        case: "post",
+        value: {
+          actor: "observer",
+          body: {
+            source: "Service second.",
+            renderedHtml: "<p>Service second.</p>",
+          },
+          createdAt: create(TimestampSchema, { seconds: 100n }),
+        },
+      },
+    });
+    const state = create(StateRecordSchema, {
+      body: {
+        source: "State record.",
+        renderedHtml: "<p>State record.</p>",
+      },
+    });
+    const transport = createRouterTransport(({ service }) => {
+      service(IssueService, {
+        getIssue: () => ({ issue: detail }),
+      });
+      service(RecordService, {
+        listLogEntries: (request) => {
+          expect(request.direction).toBe(SortDirection.ASCENDING);
+          return { logEntries: [serviceFirst, serviceSecond] };
+        },
+        getState: () => ({ state }),
+      });
+      service(AttachmentService, {
+        listAttachments: () => ({
+          attachments: [
+            create(AttachmentSchema, {
+              id: "att-reading-flow",
+              boardId: "board-1",
+              issueId,
+              filename: "reading-flow.txt",
+              availability: BlobAvailability.VERIFIED,
+            }),
+          ],
+        }),
+      });
+    });
+    const queryClient = new QueryClient();
+    await queryClient.fetchQuery(
+      unaryRouteQueryOptions(
+        IssueService.method.getIssue,
+        { issueId },
+        transport,
+      ),
+    );
+    await queryClient.fetchQuery(
+      unaryRouteQueryOptions(
+        RecordService.method.listLogEntries,
+        { issueId, direction: SortDirection.ASCENDING },
+        transport,
+      ),
+    );
+    await queryClient.fetchQuery(
+      unaryRouteQueryOptions(
+        RecordService.method.getState,
+        { issueId },
+        transport,
+      ),
+    );
+    await queryClient.fetchInfiniteQuery(
+      createInfiniteQueryOptions(
+        AttachmentService.method.listAttachments,
+        attachmentListInput("board-1", issueId),
+        {
+          transport,
+          pageParamKey: "pageToken",
+          getNextPageParam: nextAttachmentPageToken,
+        },
+      ),
+    );
+
+    const markup = renderToStaticMarkup(
+      createElement(
+        TransportProvider,
+        { transport },
+        createElement(
+          QueryClientProvider,
+          { client: queryClient },
+          createElement(
+            MemoryRouter,
+            null,
+            createElement(IssueDetailPage, {
+              actor: "observer",
+              attachmentClient: {} as AttachmentClient,
+              collapsedDetailsBoardIds: [],
+              issueId,
+              selectLabel: vi.fn(),
+              setDetailsCollapsed: vi.fn(),
+            }),
+          ),
+        ),
+      ),
+    );
+    const positions = [
+      'id="record-title"',
+      'id="summary-title"',
+      'id="details-title"',
+      'id="result-title"',
+      `id="attachments-${issueId}"`,
+      'id="relations-title"',
+      'id="log-title"',
+      'id="state-title"',
+      'id="log-body"',
+      "Add a file",
+    ].map((marker) => markup.indexOf(marker));
+
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(positions).not.toContain(-1);
+    expect(markup).toContain("<h2 id=\"dependencies-title\">Dependencies</h2>");
+    expect(markup).toContain("<h2 id=\"hierarchy-title\">Hierarchy</h2>");
+    expect(markup).toContain("<h2 id=\"dependents-title\">Dependents</h2>");
+    expect(markup.indexOf("Service first.")).toBeLessThan(
+      markup.indexOf("Service second."),
+    );
+    expect(markup).toContain(
+      '<details class="issue-actions"><summary>Issue actions</summary>',
+    );
+    expect(markup).not.toContain('id="lifecycle-title"');
+    expect(markup).toContain(
+      '<details class="issue-detail-section issue-relations"><summary>',
+    );
+  });
+
+  it("omits Relations when hierarchy contains only the current issue", () => {
+    const issueId = "cm-unrelated";
+    const detail = create(IssueDetailSchema, {
+      issue: create(IssueSummarySchema, {
+        id: issueId,
+        boardId: "board-1",
+        title: "Unrelated issue",
+      }),
+      containment: {
+        nodes: [
+          {
+            issue: {
+              id: issueId,
+              title: "Unrelated issue",
+            },
+            selectedPath: true,
+          },
+        ],
+      },
+    });
+    const transport = createRouterTransport(() => {});
+    const markup = renderToStaticMarkup(
+      createElement(
+        TransportProvider,
+        { transport },
+        createElement(
+          QueryClientProvider,
+          { client: new QueryClient() },
+          createElement(
+            MemoryRouter,
+            null,
+            createElement(RelationshipBand, {
+              addDependency: vi.fn(),
+              dependencyQuery: "",
+              detail,
+              pending: false,
+              removeDependency: vi.fn(),
+              setDependencyQuery: vi.fn(),
+            }),
+          ),
+        ),
+      ),
+    );
+
+    expect(markup).not.toContain('id="relations-title"');
+    expect(markup).not.toContain("Dependencies");
+    expect(markup).not.toContain("Hierarchy");
+    expect(markup).not.toContain("Dependents");
   });
 
   it("keeps retained issue content stable during a background refresh", () => {
@@ -187,8 +442,10 @@ describe("issue detail presentation", () => {
             createElement(IssueDetailPage, {
               actor: "observer",
               attachmentClient: {} as AttachmentClient,
+              collapsedDetailsBoardIds: [],
               issueId,
               selectLabel: vi.fn(),
+              setDetailsCollapsed: vi.fn(),
             }),
           ),
         ),
@@ -245,6 +502,19 @@ describe("issue detail presentation", () => {
     );
     expect(markup).not.toContain("issue-next-action");
     expect(markup).not.toContain("<h3>Next action</h3>");
+  });
+
+  it("omits State when neither recovery field has content", () => {
+    const markup = renderToStaticMarkup(
+      CurrentIssueState({
+        state: create(StateRecordSchema, {
+          body: { source: "  " },
+          nextAction: { source: "\n" },
+        }),
+      }),
+    );
+
+    expect(markup).toBe("");
   });
 
   it("presents effective status on direct relationship rows", () => {
@@ -384,7 +654,7 @@ describe("issue detail RPC boundaries", () => {
     expect(input).toHaveProperty("parentId");
   });
 
-  it("offers metadata editing without lifecycle actions", () => {
+  it("keeps edit and lifecycle mutations in collapsed Issue actions", () => {
     const markup = renderToStaticMarkup(
       IssueActions({
         actor: "issue-detail-worker",
@@ -393,13 +663,21 @@ describe("issue detail RPC boundaries", () => {
         pending: false,
         summary: create(IssueSummarySchema, {
           id: "cm-task",
-          title: "Task without lifecycle controls",
+          lifecycle: IssueLifecycle.OPEN,
+          status: IssueStatus.READY,
+          type: IssueType.TASK,
         }),
       }),
     );
 
-    expect(markup).toContain("Issue actions");
+    expect(markup).toContain(
+      '<details class="issue-actions"><summary>Issue actions</summary>',
+    );
     expect(markup).toContain("Edit issue");
+    expect(markup).toContain("Claim");
+    expect(markup).toContain("Mark done");
+    expect(markup).toContain("Cancel");
+    expect(markup).not.toContain('open=""');
   });
 
   it("searches the current board and excludes existing relationships", () => {

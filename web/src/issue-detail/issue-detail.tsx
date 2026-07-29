@@ -14,7 +14,10 @@ import { createRoot } from "react-dom/client";
 import type {
   AttachmentClient,
 } from "../api.ts";
-import { AttachmentPanel } from "../attachments.tsx";
+import {
+  AttachmentRecords,
+  AttachmentUploadPanel,
+} from "../attachments.tsx";
 import { ClipboardPill } from "../clipboard-pill.tsx";
 import { WatchResource } from "../gen/cardamom/private/v1/change_pb.ts";
 import { CheckpointService } from "../gen/cardamom/private/v1/checkpoint_pb.ts";
@@ -76,8 +79,10 @@ import "./issue-detail.css";
 interface IssueDetailPageProps {
   actor: string;
   attachmentClient: AttachmentClient;
+  collapsedDetailsBoardIds: readonly string[];
   issueId: string;
   selectLabel: SelectLabel;
+  setDetailsCollapsed: (boardId: string, collapsed: boolean) => void;
 }
 
 /** dependencySearchInput selects title matches from one board. */
@@ -279,8 +284,10 @@ export function addIssueLogEntryInput(
 export function IssueDetailPage({
   actor,
   attachmentClient,
+  collapsedDetailsBoardIds,
   issueId,
   selectLabel,
+  setDetailsCollapsed,
 }: IssueDetailPageProps) {
   const transport = useTransport();
   const queryClient = useQueryClient();
@@ -318,7 +325,7 @@ export function IssueDetailPage({
   const logRequest = useQuery({
     ...unaryRouteQueryOptions(
       RecordService.method.listLogEntries,
-      { issueId, direction: SortDirection.DESCENDING },
+      { issueId, direction: SortDirection.ASCENDING },
       transport,
     ),
     select: (response) => response.logEntries,
@@ -342,7 +349,8 @@ export function IssueDetailPage({
       />
     );
   }
-  if (detail.issue === undefined) {
+  const issue = detail.issue;
+  if (issue === undefined) {
     return (
       <section className="issue-detail-state" role="alert">
         <h1>Issue data is incomplete</h1>
@@ -447,7 +455,7 @@ export function IssueDetailPage({
     setMetadataEditor(issueMetadataDraft(detail));
   };
   const state = currentIssueState(
-    detail.issue,
+    issue,
     requestData(stateRequest),
   );
   const logEntries = visibleIssueLogEntries(requestData(logRequest), state);
@@ -457,13 +465,13 @@ export function IssueDetailPage({
       <RequestRefreshError request={issueRequest} recordName="issue" />
       <RequestRefreshError request={stateRequest} recordName="state" />
       <IssueHeader
-        summary={detail.issue}
+        summary={issue}
         externalKeys={detail.externalKeys}
       />
       <IssueActions
         actor={actor}
         pending={mutation.status === "pending"}
-        summary={detail.issue}
+        summary={issue}
         changeLifecycle={(action) => void changeLifecycle(action)}
         edit={openMetadataEditor}
       />
@@ -485,20 +493,17 @@ export function IssueDetailPage({
           onSubmit={() => void saveMetadata()}
         />
       )}
-      <PrimaryRecord detail={detail} selectLabel={selectLabel} />
-      <AttachmentPanel
-        actor={actor}
-        boardId={detail.issue.boardId}
-        client={attachmentClient}
-        issueId={detail.issue.id}
+      <PrimaryRecord
+        detail={detail}
+        detailsOpen={!collapsedDetailsBoardIds.includes(issue.boardId)}
+        selectLabel={selectLabel}
+        setDetailsOpen={(open) =>
+          setDetailsCollapsed(issue.boardId, !open)
+        }
       />
-      <CheckpointControls
-        actor={actor}
-        pending={mutation.status === "pending"}
-        reason={checkpointReason}
-        setReason={setCheckpointReason}
-        summary={detail.issue}
-        decide={(decision) => void decideCheckpoint(decision)}
+      <AttachmentRecords
+        boardId={issue.boardId}
+        issueId={issue.id}
       />
       <RelationshipBand
         dependencyQuery={dependencyQuery}
@@ -510,14 +515,16 @@ export function IssueDetailPage({
         setDependencyQuery={setDependencyQuery}
         addDependency={(id) => void changeDependency(id, "add")}
       />
-      <CurrentIssueState state={state} />
       <IssueLog
-        body={logBody}
         entries={logEntries}
         state={state}
-        pending={mutation.status === "pending"}
         request={logRequest}
         retry={() => void logRequest.refetch()}
+      />
+      <CurrentIssueState state={state} />
+      <IssueLogComposer
+        body={logBody}
+        pending={mutation.status === "pending"}
         setBody={setLogBody}
         submit={(event) => {
           event.preventDefault();
@@ -525,6 +532,21 @@ export function IssueDetailPage({
             void addLogEntry();
           }
         }}
+      />
+      <CheckpointRecord detail={detail} />
+      <CheckpointControls
+        actor={actor}
+        pending={mutation.status === "pending"}
+        reason={checkpointReason}
+        setReason={setCheckpointReason}
+        summary={issue}
+        decide={(decision) => void decideCheckpoint(decision)}
+      />
+      <AttachmentUploadPanel
+        actor={actor}
+        boardId={issue.boardId}
+        client={attachmentClient}
+        issueId={issue.id}
       />
     </article>
   );
@@ -575,10 +597,14 @@ export function IssueHeader({
 /** PrimaryRecord renders stable issue content and metadata. */
 export function PrimaryRecord({
   detail,
+  detailsOpen = true,
   selectLabel,
+  setDetailsOpen = () => {},
 }: {
   detail: IssueDetail;
+  detailsOpen?: boolean;
   selectLabel: SelectLabel;
+  setDetailsOpen?: (open: boolean) => void;
 }) {
   const issue = detail.issue;
   if (issue === undefined) {
@@ -586,53 +612,10 @@ export function PrimaryRecord({
   }
   return (
     <>
-      <section className="issue-detail-section" aria-labelledby="summary-title">
-        <h2 id="summary-title">Summary</h2>
-        <Markdown content={detail.summary} empty="No summary." />
-      </section>
-
-      <section className="issue-detail-section" aria-labelledby="details-title">
-        <h2 id="details-title">Details</h2>
-        <Markdown content={detail.details} empty="No details." />
-      </section>
-
-      <section className="issue-detail-section" aria-labelledby="result-title">
-        <h2 id="result-title">Result</h2>
-        <Markdown content={detail.result} empty="No result recorded." />
-      </section>
-
-      {detail.checkpointDecision !== undefined && (
-        <section
-          className="issue-detail-section"
-          aria-labelledby="checkpoint-record-title"
-        >
-          <h2 id="checkpoint-record-title">Checkpoint decision</h2>
-          <dl className="issue-record">
-            <div>
-              <dt>Outcome</dt>
-              <dd>{checkpointOutcomeLabel(detail.checkpointDecision.outcome)}</dd>
-            </div>
-            <div>
-              <dt>Decided</dt>
-              <dd>{formatTimestamp(detail.checkpointDecision.decidedAt)}</dd>
-            </div>
-            <div>
-              <dt>Lifecycle</dt>
-              <dd>{enumLabel(IssueLifecycle[issue.lifecycle])}</dd>
-            </div>
-            <div>
-              <dt>Revision</dt>
-              <dd>Revision {detail.checkpointDecision.revision.toString()}</dd>
-            </div>
-          </dl>
-          <Markdown
-            content={detail.checkpointDecision.reason}
-            empty="No decision reason recorded."
-          />
-        </section>
-      )}
-
-      <section className="issue-detail-section" aria-labelledby="record-title">
+      <section
+        className="issue-detail-section issue-record-section"
+        aria-labelledby="record-title"
+      >
         <h2 id="record-title">Record</h2>
         <dl className="issue-record">
           <div>
@@ -662,11 +645,39 @@ export function PrimaryRecord({
           </ul>
         )}
       </section>
+
+      <section className="issue-detail-section" aria-labelledby="summary-title">
+        <h2 id="summary-title">Summary</h2>
+        <Markdown content={detail.summary} empty="No summary." />
+      </section>
+
+      {hasMarkdown(detail.details) && (
+        <details
+          className="issue-detail-section issue-details"
+          open={detailsOpen}
+          onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+        >
+          <summary>
+            <h2 id="details-title">Details</h2>
+          </summary>
+          <Markdown content={detail.details} />
+        </details>
+      )}
+
+      {hasMarkdown(detail.result) && (
+        <section
+          className="issue-detail-section"
+          aria-labelledby="result-title"
+        >
+          <h2 id="result-title">Result</h2>
+          <Markdown content={detail.result} />
+        </section>
+      )}
     </>
   );
 }
 
-/** IssueActions keeps metadata editing available beside optional lifecycle controls. */
+/** IssueActions keeps mutations inside one collapsed header disclosure. */
 export function IssueActions({
   actor,
   changeLifecycle,
@@ -783,6 +794,41 @@ function EditIssueDialog({
   );
 }
 
+function CheckpointRecord({ detail }: { detail: IssueDetail }) {
+  const decision = detail.checkpointDecision;
+  const issue = detail.issue;
+  if (decision === undefined || issue === undefined) {
+    return null;
+  }
+  return (
+    <section
+      className="issue-detail-section"
+      aria-labelledby="checkpoint-record-title"
+    >
+      <h2 id="checkpoint-record-title">Checkpoint decision</h2>
+      <dl className="issue-record">
+        <div>
+          <dt>Outcome</dt>
+          <dd>{checkpointOutcomeLabel(decision.outcome)}</dd>
+        </div>
+        <div>
+          <dt>Decided</dt>
+          <dd>{formatTimestamp(decision.decidedAt)}</dd>
+        </div>
+        <div>
+          <dt>Lifecycle</dt>
+          <dd>{enumLabel(IssueLifecycle[issue.lifecycle])}</dd>
+        </div>
+        <div>
+          <dt>Revision</dt>
+          <dd>Revision {decision.revision.toString()}</dd>
+        </div>
+      </dl>
+      <Markdown content={decision.reason} />
+    </section>
+  );
+}
+
 function CheckpointControls({
   actor,
   decide,
@@ -869,7 +915,7 @@ function MutationResult({ mutation }: { mutation: MutationState }) {
   );
 }
 
-function RelationshipBand({
+export function RelationshipBand({
   addDependency,
   dependencyQuery,
   detail,
@@ -888,28 +934,42 @@ function RelationshipBand({
   if (issue === undefined) {
     return null;
   }
+  const hasRelations =
+    detail.prerequisites.length > 0 ||
+    detail.dependents.length > 0 ||
+    detail.containment?.nodes.some(
+      (node) => node.issue !== undefined && node.issue.id !== issue.id,
+    ) === true;
+  if (!hasRelations) {
+    return null;
+  }
   return (
-    <section className="issue-relationship-band" aria-label="Related work">
-      <DependencyPanel
-        add={addDependency}
-        boardId={issue.boardId}
-        currentIssueId={issue.id}
-        dependencies={detail.prerequisites}
-        pending={pending}
-        query={dependencyQuery}
-        remove={removeDependency}
-        setQuery={setDependencyQuery}
-      />
-      <HierarchyPanel detail={detail} />
-      <section className="issue-relationship-panel" aria-labelledby="dependents-title">
-        <h2 id="dependents-title">Dependents</h2>
-        <RelationshipList
-          empty="No dependents."
-          issues={detail.dependents}
+    <details className="issue-detail-section issue-relations">
+      <summary>
+        <h2 id="relations-title">Relations</h2>
+      </summary>
+      <div className="issue-relationship-band" aria-labelledby="relations-title">
+        <DependencyPanel
+          add={addDependency}
+          boardId={issue.boardId}
+          currentIssueId={issue.id}
+          dependencies={detail.prerequisites}
           pending={pending}
+          query={dependencyQuery}
+          remove={removeDependency}
+          setQuery={setDependencyQuery}
         />
-      </section>
-    </section>
+        <HierarchyPanel detail={detail} />
+        <section className="issue-relationship-panel" aria-labelledby="dependents-title">
+          <h2 id="dependents-title">Dependents</h2>
+          <RelationshipList
+            empty="No dependents."
+            issues={detail.dependents}
+            pending={pending}
+          />
+        </section>
+      </div>
+    </details>
   );
 }
 
@@ -1082,23 +1142,15 @@ function HierarchyPanel({ detail }: { detail: IssueDetail }) {
 }
 
 function IssueLog({
-  body,
   entries,
   state,
-  pending,
   request,
   retry,
-  setBody,
-  submit,
 }: {
-  body: string;
   entries: readonly LogEntry[] | undefined;
   state: StateRecord | undefined;
-  pending: boolean;
   request: QueryState<LogEntry[]>;
   retry: () => void;
-  setBody: (body: string) => void;
-  submit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
   useEffect(() => {
     if (entries !== undefined) {
@@ -1131,6 +1183,23 @@ function IssueLog({
       ) : (
         <LogEntryList entries={entries} />
       )}
+    </section>
+  );
+}
+
+function IssueLogComposer({
+  body,
+  pending,
+  setBody,
+  submit,
+}: {
+  body: string;
+  pending: boolean;
+  setBody: (body: string) => void;
+  submit: (event: FormEvent<HTMLFormElement>) => void;
+}) {
+  return (
+    <section className="issue-log-composer" aria-label="Log composer">
       <form className="issue-log-form" onSubmit={submit}>
         <label htmlFor="log-body">Add log entry</label>
         <textarea
@@ -1147,9 +1216,12 @@ function IssueLog({
   );
 }
 
-/** CurrentIssueState renders retained mutable State above immutable Log history. */
+/** CurrentIssueState renders retained mutable State after immutable Log history. */
 export function CurrentIssueState({ state }: { state: StateRecord | undefined }) {
-  if (state === undefined) {
+  if (
+    state === undefined ||
+    (!hasMarkdown(state.body) && !hasMarkdown(state.nextAction))
+  ) {
     return null;
   }
   return (
@@ -1261,6 +1333,10 @@ export function Markdown({
       }}
     />
   );
+}
+
+function hasMarkdown(content: MarkdownContent | undefined): boolean {
+  return content !== undefined && content.source.trim() !== "";
 }
 
 /** MarkdownIssueReferenceTarget binds one safe server marker to its issue route. */

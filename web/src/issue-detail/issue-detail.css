@@ -65,6 +65,22 @@
   font-size: 1rem;
 }
 
+.issue-details > summary,
+.issue-relations > summary {
+  cursor: pointer;
+}
+
+.issue-details > summary h2,
+.issue-relations > summary h2 {
+  display: inline;
+  margin: 0;
+}
+
+.issue-details[open] > summary,
+.issue-relations[open] > summary {
+  margin-bottom: 0.85rem;
+}
+
 .issue-record {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -86,6 +102,19 @@
 .issue-record dd {
   margin: 0.2rem 0 0;
   overflow-wrap: anywhere;
+}
+
+.issue-record-section {
+  padding-top: 0.75rem;
+}
+
+.issue-record-section .issue-record {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.55rem 1rem;
+}
+
+.issue-record-section .issue-labels {
+  margin-top: 0.65rem;
 }
 
 .issue-labels,
@@ -314,6 +343,10 @@ button:disabled {
   border-block: 1px solid var(--border);
 }
 
+.issue-relations {
+  min-width: 0;
+}
+
 .issue-relationship-panel {
   min-width: 0;
   padding: 1rem;
@@ -373,6 +406,14 @@ button.issue-add-dependency {
   display: grid;
   gap: 0.45rem;
   margin-top: 0.9rem;
+}
+
+.issue-log-composer {
+  min-width: 0;
+}
+
+.issue-log-composer .issue-log-form {
+  margin-top: 0;
 }
 
 .issue-dependency-search {
@@ -596,6 +637,10 @@ button.issue-add-dependency {
 
   .issue-record {
     grid-template-columns: minmax(0, 1fr);
+  }
+
+  .issue-record-section .issue-record {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .issue-actions {
