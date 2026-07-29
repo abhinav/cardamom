@@ -33,6 +33,7 @@ import type {
   GetBootstrapResponse,
 } from "./gen/cardamom/private/v1/project_pb.ts";
 import type { BoardScope } from "./gen/cardamom/private/v1/scope_pb.ts";
+import { DocumentTitle } from "./document-title.tsx";
 import { type StreamStatus, watchContinuously } from "./invalidation.ts";
 import { bootstrapQueryOptions } from "./query-runtime.ts";
 import { BoardRoute, ListRoute } from "./issue-views.tsx";
@@ -195,6 +196,7 @@ function ApplicationShell({
   return (
     <>
       <ScrollToTopAfterPushNavigation />
+      <DocumentTitle boardName={boardName} boards={boards} />
       <div
         className={`app-frame${collectionRoute ? " app-frame-collection" : ""}`}
       >
