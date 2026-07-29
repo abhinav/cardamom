@@ -64,6 +64,7 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 				Summary: &summary, Details: &details, State: &state,
 				NextAction: &nextAction,
 			},
+			Keys:          []string{" producer:z ", "producer:a"},
 			CurrentResult: &issue.Result{IssueID: "an-selected", Body: result},
 			LogSummary:    issue.LogSummary{Count: 2, LatestID: &latestLogID},
 			Story: issue.Story{Containment: []issue.ContainmentNode{
@@ -96,6 +97,7 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 	assert.Equal(t, state, view.GetState().GetSource())
 	assert.Equal(t, nextAction, view.GetNextAction().GetSource())
 	assert.Equal(t, result, view.GetResult().GetSource())
+	assert.Equal(t, []string{" producer:z ", "producer:a"}, view.GetExternalKeys())
 	assert.Equal(t, uint32(2), view.GetLogCount())
 	assert.Equal(t, "cmt_12121212121212121212121212121212", view.GetLatestLogId())
 	require.Len(t, view.GetContainment().GetNodes(), 2)
