@@ -93,17 +93,17 @@ List attachment metadata.
 
 List one stable page of attachment metadata for the selected board. Use --issue
 to restrict the originating issue, --include-removed to include tombstones,
-and --page-token to continue a previous listing.
+and --after with next_page_token to continue a previous listing.
 
 Flags:
-  -h, --help                Show context-sensitive help.
+  -h, --help               Show context-sensitive help.
 
-      --issue=ISSUE         Restrict results to this originating issue.
-      --include-removed     Include permanently tombstoned attachment metadata.
-      --page-size=COUNT     Maximum attachments in this page. Zero selects the
-                            default page size.
-      --page-token=TOKEN    Resume a prior stable page from its opaque next-page
-                            token.
+      --issue=ISSUE        Restrict results to this originating issue.
+      --include-removed    Include permanently tombstoned attachment metadata.
+      --limit=COUNT        Maximum attachments in this page. Zero selects the
+                           default limit.
+      --after=TOKEN        Continue after the opaque token returned as
+                           next_page_token.
 
 Global flags
       --store=PATH     Physical Cardamom store directory. Overrides automatic

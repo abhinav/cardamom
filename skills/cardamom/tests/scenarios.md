@@ -1459,7 +1459,7 @@ but its records no longer retain the attachment reference.
 The first associated-attachment page returns `next_page_token`.
 
 - Uses `attachment list --issue <issue-id>` for discovery.
-- Requests each following page with `--page-token <token>` until the token is
+- Requests each following page with `--after <token>` until the token is
     absent.
 - Does not assume the first page contains every associated attachment.
 

@@ -351,6 +351,21 @@ func TestApplicationRunServesImplicitShellCompletion(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
+func TestApplicationRunCompletesAttachmentPaginationFlags(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	t.Setenv("COMP_LINE", "card attachment list --")
+	t.Setenv("COMP_POINT", "23")
+	app, err := New(testConfig(&stdout, &stderr))
+	require.NoError(t, err)
+
+	assert.Equal(t, ExitSuccess, app.Run(t.Context(), nil))
+	assert.Contains(t, stdout.String(), "--limit\n")
+	assert.Contains(t, stdout.String(), "--after\n")
+	assert.NotContains(t, stdout.String(), "--page-size\n")
+	assert.NotContains(t, stdout.String(), "--page-token\n")
+	assert.Empty(t, stderr.String())
+}
+
 func TestApplicationRunUsesConfiguredCompletionPredictors(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	t.Setenv("COMP_LINE", "card --board bo")

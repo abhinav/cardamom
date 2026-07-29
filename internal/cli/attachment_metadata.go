@@ -41,8 +41,8 @@ func (c *attachmentShowCommand) Run(
 type attachmentListCommand struct {
 	Issue          string `name:"issue" predictor:"issues" placeholder:"ISSUE" help:"Restrict results to this originating issue."`
 	IncludeRemoved bool   `name:"include-removed" help:"Include permanently tombstoned attachment metadata."`
-	PageSize       uint32 `name:"page-size" placeholder:"COUNT" help:"Maximum attachments in this page. Zero selects the default page size."`
-	PageToken      string `name:"page-token" placeholder:"TOKEN" help:"Resume a prior stable page from its opaque next-page token."`
+	Limit          uint32 `name:"limit" placeholder:"COUNT" help:"Maximum attachments in this page. Zero selects the default limit."`
+	After          string `name:"after" placeholder:"TOKEN" help:"Continue after the opaque token returned as next_page_token."`
 }
 
 func (c *attachmentListCommand) referencedIssueIDs() []string {
@@ -56,7 +56,7 @@ func (c *attachmentListCommand) referencedIssueIDs() []string {
 func (*attachmentListCommand) Help() string {
 	return `List one stable page of attachment metadata for the selected board.
 Use --issue to restrict the originating issue, --include-removed to include
-tombstones, and --page-token to continue a previous listing.`
+tombstones, and --after with next_page_token to continue a previous listing.`
 }
 
 func (c *attachmentListCommand) Run(
@@ -77,8 +77,8 @@ func (c *attachmentListCommand) Run(
 		BoardID:        selected.ID(),
 		OriginIssueID:  originIssueID,
 		IncludeRemoved: c.IncludeRemoved,
-		PageSize:       c.PageSize,
-		PageToken:      c.PageToken,
+		PageSize:       c.Limit,
+		PageToken:      c.After,
 	})
 	if err != nil {
 		return err

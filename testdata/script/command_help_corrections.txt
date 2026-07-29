@@ -72,8 +72,10 @@ stdout '--context-depth=DEPTH'
 
 exec card attachment list --help
 stdout '--issue=ISSUE'
-stdout '--page-size=COUNT'
-stdout '--page-token=TOKEN'
+stdout '--limit=COUNT'
+stdout '--after=TOKEN'
+! stdout '--page-size'
+! stdout '--page-token'
 
 exec card config show --help
 stdout '--scope=SCOPE'
@@ -97,6 +99,13 @@ stdout 'persist them as audit history'
 
 exec git init -b main
 exec card init --prefix correction-
+
+# Removed attachment pagination spellings are rejected instead of aliased.
+! exec card attachment list --page-size 1
+stderr 'unknown flag --page-size'
+
+! exec card attachment list --page-token opaque
+stderr 'unknown flag --page-token'
 
 # Ambiguous mailbox modes are usage errors.
 ! exec card mail recv --clear --peek

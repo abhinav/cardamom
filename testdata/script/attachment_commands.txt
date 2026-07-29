@@ -55,7 +55,7 @@ card attachment get "$attachment_id" downloaded.txt --force >force.out
 cmp report.txt downloaded.txt
 cmp force.out golden/get.txt
 
-stdin_output=$(card attachment add - --name stdin.txt <stdin.txt)
+stdin_output=$(card attachment add - --name stdin.txt --issue attach-1 <stdin.txt)
 stdin_id=$(printf '%s\n' "$stdin_output" | sed -n '1p')
 case "$stdin_id" in
   att_[a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7][a-z2-7]) ;;
@@ -65,6 +65,19 @@ esac
 [ "$(printf '%s\n' "$stdin_output" | sed -n '3p')" = "![stdin.txt](attachment:$stdin_id)" ]
 card attachment get "$stdin_id" stdin-downloaded.txt >/dev/null
 cmp stdin.txt stdin-downloaded.txt
+
+first_page=$(card --json attachment list --issue attach-1 --limit 1)
+first_id=$(printf '%s\n' "$first_page" | jq -r '.attachments[0].id')
+after=$(printf '%s\n' "$first_page" | jq -r '.next_page_token')
+[ -n "$after" ]
+second_page=$(card --json attachment list --issue attach-1 --limit 1 --after "$after")
+second_id=$(printf '%s\n' "$second_page" | jq -r '.attachments[0].id')
+[ "$first_id" != "$second_id" ]
+case "$first_id:$second_id" in
+  "$attachment_id:$stdin_id"|"$stdin_id:$attachment_id") ;;
+  *) echo "pagination returned unexpected attachments" >&2; exit 1 ;;
+esac
+[ "$(printf '%s\n' "$second_page" | jq -r '.next_page_token // empty')" = "" ]
 
 card attachment remove "$attachment_id" >remove.out
 grep -F "removed $attachment_id" remove.out >/dev/null
@@ -79,6 +92,7 @@ cmp gc.out golden/gc.txt
 printf '%s\n' \
   'file upload, metadata, and download passed' \
   'stdin upload passed' \
+  'pagination with --limit and --after passed' \
   'overwrite protection and force passed' \
   'removal and collection passed'
 
@@ -107,5 +121,6 @@ Integrity problems: 0
 -- golden/workflow.txt --
 file upload, metadata, and download passed
 stdin upload passed
+pagination with --limit and --after passed
 overwrite protection and force passed
 removal and collection passed
