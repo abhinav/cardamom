@@ -1,3 +1,0 @@
-kind: Fixed
-body: Release binaries report their published version instead of a development build identifier.
-time: 2026-07-29T10:47:53.61974-07:00
