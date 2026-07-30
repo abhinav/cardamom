@@ -1,3 +1,0 @@
-kind: Fixed
-body: Remove the unnecessary configuration dependency from `card web` startup.
-time: 2026-07-30T08:48:58.860156-07:00
