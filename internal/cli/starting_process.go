@@ -799,6 +799,9 @@ type WebRequest struct {
 
 	// Notice receives the public web and API addresses.
 	Notice io.Writer
+
+	// Diagnostic receives non-fatal server diagnostics.
+	Diagnostic io.Writer
 }
 
 // WebOperation owns server composition and the complete web application
@@ -820,7 +823,7 @@ func (c *webCommand) Run(invocation *Invocation, operation WebOperation) error {
 		Store: invocation.Store, Board: invocation.Board,
 		Bind: c.Bind, Port: c.Port, NoBrowser: c.NoBrowser,
 		Development: c.Development, WebDir: c.WebDir,
-		Notice: notice,
+		Notice: notice, Diagnostic: invocation.Output.Stderr(),
 	})
 }
 

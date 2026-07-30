@@ -49,7 +49,8 @@ func (o *webOperation) Run(ctx context.Context, request cli.WebRequest) (err err
 	defer func() { err = errors.Join(err, closeStore()) }()
 	return runWebServer(ctx, request, server.Config{
 		Bind: request.Bind, Port: request.Port, NoBrowser: request.NoBrowser,
-		Notice: request.Notice, HandlerPath: binding.path, Handler: binding.handler,
+		Notice: request.Notice, Diagnostic: request.Diagnostic,
+		HandlerPath: binding.path, Handler: binding.handler,
 		AttachmentContentPath: binding.attachmentContentPath,
 		AttachmentContent:     binding.attachmentContent,
 	})

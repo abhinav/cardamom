@@ -290,7 +290,7 @@ func TestWebCommandDelegatesLongRunningInvocation(t *testing.T) {
 	assert.Equal(t, WebRequest{
 		Store: "/repo/.cardamom", Board: "Mission",
 		Bind: "0.0.0.0", Port: 9000, NoBrowser: true,
-		Notice: &stdout,
+		Notice: &stdout, Diagnostic: &stderr,
 	}, operation.request)
 	assert.Same(t, invocation.Context, operation.ctx)
 }
