@@ -29,6 +29,9 @@ type Config struct {
 	// Notice receives the public application address after the listener binds.
 	Notice io.Writer
 
+	// Diagnostic receives non-fatal startup diagnostics.
+	Diagnostic io.Writer
+
 	// HandlerPath is the common prefix of every Connect procedure route.
 	HandlerPath string // required
 
@@ -113,7 +116,13 @@ func runSharedLifetime(
 	}
 	if !cfg.NoBrowser {
 		if err := openBrowser(address); err != nil {
-			return errors.Join(err, stopLifetime(server, child))
+			diagnostic := cfg.Diagnostic
+			if diagnostic == nil {
+				diagnostic = io.Discard
+			}
+			// Browser launch is optional after readiness; an unavailable
+			// diagnostic stream must not change the listener lifetime.
+			_, _ = fmt.Fprintf(diagnostic, "warning: %v\n", err)
 		}
 	}
 

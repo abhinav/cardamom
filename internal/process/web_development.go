@@ -15,6 +15,6 @@ func runWebServer(ctx context.Context, request cli.WebRequest, cfg server.Config
 	}
 	return server.RunDevelopment(ctx, server.DevelopmentConfig{
 		Config: cfg, WebDir: request.WebDir,
-		Stdout: request.Notice, Stderr: request.Notice,
+		Stdout: request.Notice, Stderr: request.Diagnostic,
 	})
 }
