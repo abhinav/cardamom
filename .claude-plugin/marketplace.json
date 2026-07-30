@@ -1,0 +1,13 @@
+{
+  "name": "abhinav-cardamom",
+  "description": "Official Cardamom plugins",
+  "owner": {
+    "name": "Abhinav Gupta"
+  },
+  "plugins": [
+    {
+      "name": "cardamom",
+      "source": "./plugins/cardamom"
+    }
+  ]
+}
