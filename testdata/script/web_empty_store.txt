@@ -1,0 +1,80 @@
+[!assets] skip 'requires embedded assets'
+
+# A new physical store serves the browser application and empty bootstrap
+# without implicitly creating a project or board.
+mkdir empty-store
+! exec card --store empty-store web --board missing --port 0 --no-browser
+! stdout .
+cmp stderr $WORK/golden/invalid-board.txt
+
+exec sh probe-empty-web.sh
+cmp stdout $WORK/golden/probe.txt
+cmpjson bootstrap.json $WORK/golden/bootstrap.json
+cmpjson catalog.json $WORK/golden/catalog.json
+
+-- probe-empty-web.sh --
+#!/bin/sh
+set -eu
+
+card --store "$PWD/empty-store" web \
+  --bind 127.0.0.1 \
+  --port 0 \
+  --no-browser >web.out 2>web.err &
+pid=$!
+trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+
+i=0
+url=
+while [ "$i" -lt 100 ]; do
+  url=$(sed -n 's/^web application available at //p' web.out | head -n 1)
+  [ -n "$url" ] && break
+  if ! kill -0 "$pid" 2>/dev/null; then
+    cat web.err >&2
+    wait "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+[ -n "$url" ]
+
+i=0
+while [ "$i" -lt 100 ]; do
+  if curl --fail --silent --request POST \
+    --header 'Content-Type: application/json' \
+    --header 'Connect-Protocol-Version: 1' \
+    --data '{}' \
+    "$url/cardamom.private.v1.ProjectService/GetBootstrap" >bootstrap.json; then
+    break
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    cat web.err >&2
+    wait "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+
+jq '{
+  projects: (.projects // []),
+  boards: (.boards // []),
+  serverDefaultBoardId: (.serverDefaultBoardId // null)
+}' bootstrap.json >catalog.json
+
+curl --fail --silent "$url/" >shell.body
+grep '<div id="app"></div>' shell.body >/dev/null
+
+kill -TERM "$pid"
+wait "$pid" 2>/dev/null || true
+trap - EXIT
+echo 'empty web probe passed'
+
+-- golden/bootstrap.json --
+{"issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"idPrefix":"cm-","schemaVersion":"20260729090000"}
+-- golden/catalog.json --
+{"projects":[],"boards":[],"serverDefaultBoardId":null}
+-- golden/invalid-board.txt --
+error: board "missing" not found
+-- golden/probe.txt --
+empty web probe passed
