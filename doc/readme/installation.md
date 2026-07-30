@@ -1,10 +1,81 @@
 # Installation
 
-Use one of the following options to install Cardamom on your system.
+Install the Cardamom plugin for your agent host.
+The plugin supplies the Cardamom skill
+and makes the matching `card` CLI available when the agent needs it.
 
-- **Homebrew** or **Linuxbrew**:
+## Claude Code
 
-    Install a pre-built binary of Cardamom from the official Homebrew tap:
+1. Add the Cardamom repository marketplace.
+
+    ```bash
+    claude plugin marketplace add abhinav/cardamom
+    ```
+
+2. Install the plugin.
+
+    ```bash
+    claude plugin install cardamom@abhinav-cardamom
+    ```
+
+## Codex
+
+1. Add the Cardamom repository marketplace.
+
+    ```bash
+    codex plugin marketplace add abhinav/cardamom
+    ```
+
+2. Install the plugin.
+
+    ```bash
+    codex plugin add cardamom@abhinav-cardamom
+    ```
+
+## First use
+
+Start Claude Code or Codex in the project you want to coordinate,
+then ask the agent:
+
+```text
+Use the Cardamom skill to plan and coordinate this work.
+```
+
+The plugin uses an existing `card` executable from `PATH` when one is available.
+Otherwise,
+its packaged launcher downloads and verifies the Cardamom release
+that matches the plugin version.
+On macOS and Linux,
+the launcher caches that executable at
+`~/.cache/cardamom-skill/versions/<version>/cardamom`.
+On Windows,
+it uses
+`%LOCALAPPDATA%\cardamom-skill\versions\<version>\cardamom.exe`.
+Updating the plugin selects the matching release and cache directory.
+
+## Updates
+
+- **Claude Code**
+
+    ```bash
+    claude plugin marketplace update abhinav-cardamom
+    claude plugin update cardamom@abhinav-cardamom
+    ```
+
+- **Codex**
+
+    ```bash
+    codex plugin marketplace upgrade abhinav-cardamom
+    codex plugin add cardamom@abhinav-cardamom
+    ```
+
+## Direct CLI installation
+
+Install the public `card` command directly
+when you want to use Cardamom from your shell
+or need a recovery path that does not use the plugin launcher.
+
+- **Homebrew** or **Linuxbrew**
 
     ```bash
     brew install --cask abhinav/tap/cardamom
@@ -21,10 +92,11 @@ Use one of the following options to install Cardamom on your system.
       tar -xz -C "$HOME/.local/bin" card
     ```
 
-- **Install from source**
+- **Source checkout**
 
-    To build and install Cardamom from source, clone the repository,
-    set up [Mise](https://mise.jdx.dev/), and run:
+    Clone the repository,
+    set up [Mise](https://mise.jdx.dev/),
+    and run:
 
     ```bash
     mise run build
