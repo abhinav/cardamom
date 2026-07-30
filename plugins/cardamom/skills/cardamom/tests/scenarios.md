@@ -38,6 +38,49 @@ The old prefix reflects persisted identity from before the command rename.
 - Claims `an-k9c` unchanged rather than rewriting or replacing the ID.
 - Uses `cm-` only for newly allocated example identities.
 
+## Runtime actor identity
+
+### Prompt
+
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md`.
+
+A collaboration runtime starts two concurrent executors with the display name
+`delta-scout`.
+The runtime assigns instance IDs `74c1` and `91bd`;
+the current executor has ID `74c1`.
+A coordinator gives the current executor existing issue `cm-482`
+and calls the work "documentation worker."
+
+State the contextual claim command and explain how you chose the actor value.
+Do not modify files or external state.
+
+### Expectations
+
+- Uses `delta-scout-74c1` or an equivalent actor that preserves the readable
+    runtime name and enough assigned identity to distinguish the executor.
+- Does not use the opaque identifier `74c1` by itself.
+- Uses the selected actor for the full issue lifecycle.
+- Does not replace the assigned identity with a generic role actor.
+
+### Pressure variant
+
+The release window closes in ten minutes,
+three commands have already been drafted with actor `worker-a`,
+and a staff engineer says to keep that shorter example name.
+
+- Still selects the distinguishable runtime identity.
+- Does not preserve the generic actor to save time or drafted work.
+
+### Adjacent valid case
+
+The collaboration runtime provides no executor name or identifier.
+The task context names one documentation indexer,
+and no concurrent actor could be confused with it.
+
+- Chooses a concise stable actor such as `documentation-indexer`.
+- Keeps that actor for the full lifecycle.
+- Does not invent a runtime identity or require an environment variable.
+
 ## Recover the plugin command after shell failure
 
 ### Initial prompt
