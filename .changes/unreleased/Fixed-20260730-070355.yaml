@@ -1,3 +1,0 @@
-kind: Fixed
-body: Allow `card web` to serve a new empty store without creating a project or board.
-time: 2026-07-30T07:03:55.398897-07:00

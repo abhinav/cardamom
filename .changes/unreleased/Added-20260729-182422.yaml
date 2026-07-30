@@ -1,3 +1,0 @@
-kind: Added
-body: Create and list project namespaces in an existing Cardamom store with `card project create` and `card project list`.
-time: 2026-07-29T18:24:22.245339-07:00
