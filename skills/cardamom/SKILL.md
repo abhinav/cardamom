@@ -94,7 +94,10 @@ omit it when no next action is established.
 Structure the body around the work's domain concepts,
 without generic `Current state` or `Next action` wrapper headings.
 During active execution,
-use `state commit` at durable checkpoints to preserve current State in the Log.
+use `state commit` when a phase produces a coherent recovery position,
+such as a selected strategy or a coherent implementation awaiting validation.
+Incomplete mechanical work and command duration do not create checkpoints by
+themselves.
 Use `log post` for material design, strategy, or policy choices
 whose evidence, rationale, alternatives, or consequences help replay the work.
 Use it also for other replay-worthy evidence or handoff material
@@ -175,7 +178,8 @@ and runs `close` without claiming unless more execution is required.
 
 Record the selected position of each material choice in State
 before dependent work begins or resumes,
-then commit State at a durable checkpoint during active execution.
+then commit State when that choice produces a coherent recovery position during
+active execution.
 When a design, strategy, or policy choice constrains later work,
 also write one standalone Log post with the material evidence,
 rationale, rejected alternatives, and downstream consequence.

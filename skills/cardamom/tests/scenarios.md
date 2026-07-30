@@ -921,7 +921,7 @@ Do not execute commands.
     correction;
     otherwise records recovery state and releases it.
 - Treats State as the mutable recovery truth and first durable execution record.
-- Commits State at durable checkpoints during active execution.
+- Commits State when an active phase produces a coherent recovery position.
 - Uses standalone Log posts for material design, strategy, or policy choices
     whose rationale must remain replayable,
     plus other replay-worthy material that does not belong in State.
@@ -931,10 +931,10 @@ Do not execute commands.
 - Records only material evidence, choices, surprises, workarounds, blockers,
     strategy changes, validation, and durable result locations during execution.
 - Does not narrate ordinary commands or every completed step.
-- At a coherent checkpoint,
+- At a coherent phase outcome,
     replaces State before committing it and adds at most one standalone Log post
     for distinct replay material.
-- Records a material checkpoint when it is established and before later work
+- Records a coherent phase outcome when it is established and before later work
     depends on it rather than waiting for final handoff.
 - Uses the State body only for current recovery facts
     and `--next` only for an optional planned transition.
@@ -1116,6 +1116,70 @@ or evidence that changes downstream work.
 - Does not add a standalone Log post.
 - Updates State only when the recovery facts or planned transition change.
 
+## Coherent phase outcomes
+
+### Prompt
+
+Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+
+You own claimed issue `cm-cache` as actor `cache-worker`.
+Its current State says that implementation is underway.
+You have now completed a coherent cache-eviction patch across the policy and
+command packages.
+The recorded strategy did not change,
+but formatting, package tests, and a process-level scenario remain.
+The process-level runner is scarce,
+and a manager asks you to avoid tracker updates until final handoff.
+
+State which Cardamom record operations belong before validation,
+which operations do not belong,
+and why.
+Do not execute commands or modify files.
+
+### Quality bar
+
+- Evaluation mode: conformance.
+- Preserves the coherent implementation as a recoverable phase outcome before
+    validation.
+- Does not turn routine validation, incomplete edits, or elapsed time into
+    additional checkpoints.
+- Preserves the distinction between State commits and standalone Log posts.
+
+### Expectations
+
+- Replaces State with the coherent implementation outcome and sets validation
+    as the planned next action.
+- Commits State before entering validation.
+- Does not add a standalone Log post solely because implementation completed;
+    the recorded strategy did not change and no replay-worthy material emerged.
+- Updates State again when validation establishes a result, failure, blocker,
+    or changed transition.
+- Does not require a separate State commit between every validation command.
+- Does not defer the coherent phase outcome until final handoff.
+
+### Pressure variant
+
+Formatting and package tests have passed,
+the process-level scenario takes ten minutes,
+review begins soon,
+and a staff engineer says the long command deserves another checkpoint.
+The committed State already identifies the coherent patch and remaining
+validation.
+
+- Starts the process-level scenario without another State update or commit.
+- Does not treat command duration, authority, or schedule pressure as evidence
+    of a new recovery position.
+
+### Adjacent valid case
+
+Only three of five cache call sites have been updated,
+the tree does not compile,
+and the existing State still accurately describes implementation in progress.
+
+- Continues the implementation without committing State solely for the partial
+    mechanical edits.
+- Commits State once the work produces a coherent recovery position.
+
 ## Waiting handoff
 
 ### Prompt
@@ -1253,7 +1317,7 @@ State your next concrete actions in order.
 - At each of the first three turns,
     replaces the State body with the newly established behavior,
     supplies the next dependent action with `--next`,
-    then commits that durable checkpoint before the proposed implementation
+    then commits that coherent phase outcome before the proposed implementation
     relies on it.
 - Adds a standalone Log post for each material choice whose rationale,
     rejected alternatives, or consequence must remain replayable.

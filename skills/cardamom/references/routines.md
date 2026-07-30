@@ -116,7 +116,7 @@ the child owner performs that bounded work.
 
 After the run,
 append the outcome to the active-run State.
-Commit that durable checkpoint while replacing the State body
+Commit that coherent run outcome while replacing the State body
 and optional next action with the next-run recovery position,
 then release the routine without closing it:
 

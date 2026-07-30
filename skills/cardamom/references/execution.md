@@ -88,7 +88,7 @@ Update them at these execution boundaries:
 | --- | --- | --- |
 | A material investigation or change begins and interruption would leave intent ambiguous | Put active recovery facts in the State body and consume a started next action | Starting that work |
 | A reproduction, strategy choice, implementation outcome, validation result, blocker, or planned transition changes | Replace the State body and optional next action | Dependent work |
-| Current State reaches a durable checkpoint during active execution | Commit State | Dependent work that should rely on the checkpoint |
+| A phase produces a coherent recovery position during active execution | Commit State | Dependent work that should rely on the phase outcome |
 | A material design, strategy, or policy choice establishes rationale that later work may need to replay | Add one standalone Log post | Dependent work that relies on the choice |
 | Other replay-worthy evidence does not belong in current State | Add one standalone Log post | Dependent work that needs the material |
 | A conclusion becomes necessary for child tasks | Promote the concise conclusion to the containing summary | Dispatching dependent children |
@@ -106,9 +106,12 @@ use bullets, short paragraphs, or small domain-specific headings
 instead of one dense paragraph.
 The command output supplies State and next-action labels,
 so do not add generic wrapper headings for those fields.
-Commit current State at a durable checkpoint while execution remains active.
+Commit current State when a phase produces a coherent recovery position,
+such as a selected strategy or a coherent implementation awaiting validation.
+Incomplete mechanical work and command duration do not create checkpoints by
+themselves.
 Do not wait for final handoff when dependent work already relies on that
-checkpoint.
+phase outcome.
 
 Use `log post` for a material design, strategy, or policy choice
 when later work may need its evidence, rationale, rejected alternatives,
