@@ -1,3 +1,0 @@
-kind: Fixed
-body: Allow `card web` to start on a multi-board shared store so the browser can select its scope.
-time: 2026-07-30T08:15:27.355318-07:00
