@@ -1,4 +1,4 @@
-[!webassets] skip 'requires embedded web assets'
+[!assets] skip 'requires embedded web assets'
 
 exec git init -b main
 at 2026-07-18T12:00:00Z

@@ -20,8 +20,8 @@ func TestScript(t *testing.T) {
 		RequireUniqueNames: true,
 		Setup:              setupTestScript,
 		Condition: func(condition string) (bool, error) {
-			if condition == "webassets" {
-				return webAssetsBuild, nil
+			if condition == "assets" {
+				return assetsBuild, nil
 			}
 			return false, fmt.Errorf("unknown condition %q", condition)
 		},

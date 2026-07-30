@@ -1,4 +1,4 @@
-[webassets] skip 'requires a source-only build'
+[assets] skip 'requires a source-only build'
 
 exec git init -b main
 exec card init --prefix web-

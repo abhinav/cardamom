@@ -32,6 +32,10 @@ run = [
 description = "Generate repository code"
 run = "sqlc generate"
 
+[tasks."generate:skill"]
+description = "Generate the embedded Cardamom skill archive"
+run = "go run ./internal/skill/cmd/skillarchive"
+
 [tasks."migration:new:sql"]
 description = "Create a timestamped Goose SQL schema migration"
 usage = '''
@@ -123,9 +127,9 @@ description = "Generate USER_GUIDE.md"
 run = "stitchmd -unsafe -o USER_GUIDE.md -preface doc/guide/preface.md doc/guide/README.md"
 
 [tasks.build]
-description = "Build Cardamom with embedded production web assets"
-depends = ["web:build"]
-run = "go build -tags=webassets -o bin/card ./cmd/card"
+description = "Build Cardamom with embedded production assets"
+depends = ["generate:skill", "web:build"]
+run = "go build -tags=assets -o bin/card ./cmd/card"
 
 [tasks.test]
 description = "Run all tests"
@@ -147,6 +151,7 @@ run = 'go test -count=1 -race="${usage_race?}" ./...'
 
 [tasks."test:script"]
 description = "Run process-boundary test scripts"
+depends = ["generate:skill", "web:build"]
 usage = '''
 flag "--race" default="false" env="CARDAMOM_TEST_RACE" help="Enable data race detection"
 flag "--run <pattern>" default="." help="Run matching test scripts"
@@ -160,7 +165,7 @@ fi
 go test \
   -count=1 \
   -race="${usage_race?}" \
-  -tags=script \
+  -tags=script,assets \
   -run "TestScript/${usage_run?}" \
   ./cmd/card \
   $update

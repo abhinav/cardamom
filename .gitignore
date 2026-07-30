@@ -1,6 +1,7 @@
 # Build and release outputs.
 /bin/
 /dist/
+/internal/skill/cardamom.tar.gz
 /internal/web/server/static.tar.gz
 
 # Web outputs.

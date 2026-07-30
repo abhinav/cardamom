@@ -113,6 +113,7 @@ func providerOptions() []kong.Option {
 	return []kong.Option{
 		kong.BindSingletonProvider(provideInitializer),
 		kong.BindSingletonProvider(provideInfo),
+		kong.BindSingletonProvider(provideSkillInstallOperation),
 		kong.BindSingletonProvider(provideWeb),
 		kong.BindSingletonProvider(provideNamespace),
 		kong.BindSingletonProvider(provideConfigurationService),

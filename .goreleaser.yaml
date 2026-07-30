@@ -19,7 +19,7 @@ builds:
       -s -w -X go.abhg.dev/cardamom/internal/cli.Version={{ .Version }}
     flags:
       - -trimpath
-      - -tags=webassets
+      - -tags=assets
 
 archives:
   - ids: [card]
