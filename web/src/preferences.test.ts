@@ -27,6 +27,7 @@ describe("preferences", () => {
         sort: "title" as const,
         direction: "ascending" as const,
       },
+      relationsOpen: false,
     };
 
     savePreferences(storage, preferences);
@@ -64,7 +65,37 @@ describe("preferences", () => {
       boardView: defaultBoardView,
       collapsedIssueDetailsBoardIds: [],
       listView: defaultListView,
+      relationsOpen: true,
     });
+  });
+
+  it("expands Relations by default and remembers later choices", () => {
+    const noPreference = new MemoryStorage();
+    const previousVersion = new MemoryStorage(
+      JSON.stringify({
+        version: 3,
+        actor: "captain",
+        theme: "dark",
+      }),
+    );
+    const currentVersion = new MemoryStorage();
+
+    expect(loadPreferences(noPreference).relationsOpen).toBe(true);
+    expect(loadPreferences(previousVersion).relationsOpen).toBe(true);
+
+    savePreferences(currentVersion, {
+      ...defaultPreferences,
+      relationsOpen: false,
+    });
+
+    expect(loadPreferences(currentVersion).relationsOpen).toBe(false);
+
+    savePreferences(currentVersion, {
+      ...defaultPreferences,
+      relationsOpen: true,
+    });
+
+    expect(loadPreferences(currentVersion).relationsOpen).toBe(true);
   });
 
   it("shares Details disclosure by board without changing other boards", () => {

@@ -578,7 +578,11 @@ function IssuePage({
       attachmentClient={attachmentClient}
       collapsedDetailsBoardIds={preferences.collapsedIssueDetailsBoardIds}
       issueId={issueId}
+      relationsOpen={preferences.relationsOpen}
       selectLabel={selectLabel}
+      setRelationsOpen={(relationsOpen) =>
+        updatePreferences({ ...preferences, relationsOpen })
+      }
       setDetailsCollapsed={(boardId, collapsed) =>
         updatePreferences(
           setIssueDetailsCollapsed(preferences, boardId, collapsed),
