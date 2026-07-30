@@ -38,6 +38,9 @@ jobs:
             exit 1
           fi
 
+      - name: Verify plugin version
+        run: go run ./tools/pluginrelease check "v$VERSION"
+
       - name: Extract changelog
         run: |
           tail -n+2 .changes/v${{ env.VERSION }}.md > ${{ github.workspace }}-CHANGELOG.txt

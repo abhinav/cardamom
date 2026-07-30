@@ -19,6 +19,14 @@ but `--store` or `CARDAMOM_STORE` may select another physical store directory.
 The collaboration runtime owns agent dispatch, liveness, and worktrees;
 `card` owns durable coordination state.
 
+Before the first command,
+resolve `card` from `PATH`.
+When an installed plugin does not have `card` available,
+use `scripts/cardamom` from this skill directory on POSIX systems
+or `scripts/cardamom.ps1` on Windows.
+Use that resolved executable in place of `card` in the workflow commands below;
+the launcher preserves every argument.
+
 ## Establish identity and scope
 
 Choose one stable actor name before the first `card` invocation.

@@ -38,6 +38,31 @@ The old prefix reflects persisted identity from before the command rename.
 - Claims `an-k9c` unchanged rather than rewriting or replacing the ID.
 - Uses `cm-` only for newly allocated example identities.
 
+## Resolve the plugin command
+
+### Prompt
+
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md`
+and its linked references.
+
+The skill came from an installed Cardamom plugin.
+The user asks you to inspect an existing board,
+but `card` is not available on `PATH`.
+State the next action and the read-only command shape.
+Do not modify files or external state.
+
+### Expectations
+
+- Uses the platform launcher from the loaded skill's `scripts` directory.
+- Uses the POSIX launcher on a POSIX host
+    or the PowerShell launcher on Windows.
+- Substitutes the resolved launcher for `card`
+    without changing the workflow arguments.
+- Supplies one stable actor name.
+- Does not invent an installation procedure,
+    globally install a command,
+    or manually manage the launcher's cache.
+
 ## Add a project to an existing store
 
 ### Prompt

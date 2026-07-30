@@ -1,0 +1,103 @@
+#!/bin/sh
+set -eu
+
+if command -v card >/dev/null 2>&1; then
+	exec card "$@"
+fi
+
+fail() {
+	printf 'cardamom: %s\n' "$*" >&2
+	exit 1
+}
+
+script_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
+plugin_dir=$(CDPATH= cd -P "$script_dir/../../.." && pwd)
+version=$(cat "$plugin_dir/VERSION")
+case "$version" in
+	""|*[!0-9A-Za-z.+-]*)
+		fail "invalid plugin version in $plugin_dir/VERSION"
+		;;
+esac
+
+cache_root=${XDG_CACHE_HOME:-"${HOME:?HOME is not set}/.cache"}
+cache_dir=$cache_root/cardamom-skill/versions/$version
+executable=$cache_dir/cardamom
+if [ -x "$executable" ]; then
+	exec "$executable" "$@"
+fi
+
+os=$(uname -s)
+arch=$(uname -m)
+case "$os:$arch" in
+	Darwin:arm64)
+		target=Darwin-arm64
+		;;
+	Darwin:x86_64)
+		target=Darwin-x86_64
+		;;
+	Linux:aarch64|Linux:arm64)
+		target=Linux-aarch64
+		;;
+	Linux:x86_64|Linux:amd64)
+		target=Linux-x86_64
+		;;
+	*)
+		fail "unsupported platform $os/$arch; install card and place it on PATH"
+		;;
+esac
+
+command -v curl >/dev/null 2>&1 ||
+	fail "curl is required to download card"
+command -v tar >/dev/null 2>&1 ||
+	fail "tar is required to extract card"
+
+mkdir -p "$cache_dir"
+temp_dir=$(mktemp -d "$cache_dir/.install.XXXXXX")
+trap 'rm -rf "$temp_dir"' 0 HUP INT TERM
+
+archive_name=cardamom.$target.tar.gz
+release_url=https://github.com/abhinav/cardamom/releases/download/v$version
+archive=$temp_dir/$archive_name
+checksums=$temp_dir/checksums.txt
+curl --fail --location --silent --show-error \
+	--output "$archive" "$release_url/$archive_name"
+curl --fail --location --silent --show-error \
+	--output "$checksums" "$release_url/checksums.txt"
+
+expected=$(
+	awk -v file="$archive_name" '
+		{
+			name = $2
+			sub(/^\*/, "", name)
+			if (name == file) {
+				print $1
+				exit
+			}
+		}
+	' "$checksums"
+)
+[ -n "$expected" ] ||
+	fail "checksums.txt has no entry for $archive_name"
+
+if command -v sha256sum >/dev/null 2>&1; then
+	actual=$(sha256sum "$archive" | awk '{print $1}')
+elif command -v shasum >/dev/null 2>&1; then
+	actual=$(shasum -a 256 "$archive" | awk '{print $1}')
+else
+	fail "sha256sum or shasum is required to verify card"
+fi
+[ "$actual" = "$expected" ] ||
+	fail "checksum mismatch for $archive_name"
+
+tar -xzf "$archive" -C "$temp_dir" card
+[ -f "$temp_dir/card" ] ||
+	fail "$archive_name does not contain card"
+
+staged=$cache_dir/.cardamom.$$
+mv "$temp_dir/card" "$staged"
+chmod 0755 "$staged"
+mv -f "$staged" "$executable"
+rm -rf "$temp_dir"
+trap - 0 HUP INT TERM
+
+exec "$executable" "$@"

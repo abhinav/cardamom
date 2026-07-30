@@ -16,6 +16,7 @@ require (
 	github.com/yuin/goldmark-highlighting/v2 v2.0.0-20230729083705-37449abec8cc
 	go.abhg.dev/goldmark/mermaid v0.6.0
 	go.abhg.dev/komplete v0.1.0
+	golang.org/x/mod v0.38.0
 	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.54.0
 )
