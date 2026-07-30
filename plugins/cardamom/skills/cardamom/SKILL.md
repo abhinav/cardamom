@@ -28,17 +28,15 @@ The launcher preserves every argument.
 
 ## Establish identity and scope
 
-Choose one stable actor name before the first `card` invocation.
-Pass that name with `--actor` on every command,
-including reads.
-Each root agent and each subagent has its own actor identity.
-Do not share an actor name between concurrently operating agents.
-Keep the same actor for the full claim, record, result, release, mail,
-or lease lifecycle that identity owns.
+Use the collaboration runtime's readable agent name as `--actor`.
+Add a short runtime-assigned identifier only when agents share that name.
+If the runtime supplies no identity,
+choose a concise stable name from the task context.
+Give each root agent and subagent its own actor,
+pass it on every command including reads,
+and keep it for the full claim, record, result, release, mail,
+or lease lifecycle.
 Do not rely on the machine username default.
-
-Examples use names such as `coordinator` and `worker-a`.
-Replace them with identities that distinguish the participating agents.
 
 Cardamom scopes durable concepts as follows:
 
