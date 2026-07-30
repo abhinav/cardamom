@@ -33,7 +33,7 @@ and makes the matching `card` CLI available when the agent needs it.
 2. Install the plugin.
 
    ```bash
-   claude plugin install cardamom@abhinav-cardamom
+   claude plugin install cardamom@cardamom
    ```
 
 ### Codex
@@ -47,7 +47,7 @@ and makes the matching `card` CLI available when the agent needs it.
 2. Install the plugin.
 
    ```bash
-   codex plugin add cardamom@abhinav-cardamom
+   codex plugin add cardamom@cardamom
    ```
 
 ### First use
@@ -76,15 +76,15 @@ Updating the plugin selects the matching release and cache directory.
 - **Claude Code**
 
   ```bash
-  claude plugin marketplace update abhinav-cardamom
-  claude plugin update cardamom@abhinav-cardamom
+  claude plugin marketplace update cardamom
+  claude plugin update cardamom@cardamom
   ```
 
 - **Codex**
 
   ```bash
-  codex plugin marketplace upgrade abhinav-cardamom
-  codex plugin add cardamom@abhinav-cardamom
+  codex plugin marketplace upgrade cardamom
+  codex plugin add cardamom@cardamom
   ```
 
 ### Direct CLI installation
