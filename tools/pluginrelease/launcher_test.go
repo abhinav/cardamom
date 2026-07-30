@@ -89,11 +89,13 @@ printf 'downloaded:%s\n' "$*"
 		filepath.Join(fixtures, "curl.log"),
 	)), "\n"), 2)
 
-	cached := filepath.Join(
+	cached, err := filepath.Glob(filepath.Join(
 		home,
-		".cache/cardamom-skill/versions/0.1.0-beta.2/cardamom",
-	)
-	info, err := os.Stat(cached)
+		".cache/cardamom-skill/versions/*/cardamom",
+	))
+	require.NoError(t, err)
+	require.Len(t, cached, 1)
+	info, err := os.Stat(cached[0])
 	require.NoError(t, err)
 	assert.NotZero(t, info.Mode()&0o111)
 }
@@ -130,11 +132,12 @@ func TestBashLauncher_RejectsChecksumMismatch(t *testing.T) {
 
 	require.Error(t, err)
 	assert.Contains(t, string(out), "checksum mismatch")
-	_, statErr := os.Stat(filepath.Join(
+	cached, globErr := filepath.Glob(filepath.Join(
 		home,
-		".cache/cardamom-skill/versions/0.1.0-beta.2/cardamom",
+		".cache/cardamom-skill/versions/*/cardamom",
 	))
-	assert.ErrorIs(t, statErr, os.ErrNotExist)
+	require.NoError(t, globErr)
+	assert.Empty(t, cached)
 }
 
 func repositoryRoot(t *testing.T) string {
