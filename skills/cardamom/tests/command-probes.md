@@ -18,7 +18,9 @@ printf '%s\n' "$info" | jq -e \
    .configuration.issue.id.prefix == "cm-"'
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json board list | jq -s .
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json board show
-project="$(printf '%s\n' "$info" | jq -r .project.id)"
+project="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json project create \
+  --prefix probe-next- "Probe next" | jq -r .id)"
+"$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json project list | jq -s .
 board="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json board create \
   --project "$project" "Explicit probe board" | jq -r .id)"
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" board use "$board"

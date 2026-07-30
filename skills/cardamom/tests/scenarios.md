@@ -38,6 +38,40 @@ The old prefix reflects persisted identity from before the command rename.
 - Claims `an-k9c` unchanged rather than rewriting or replacing the ID.
 - Uses `cm-` only for newly allocated example identities.
 
+## Add a project to an existing store
+
+### Prompt
+
+Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+
+An existing selected Cardamom store contains the `Inventory` project and its
+board.
+A coordinator needs a separate `Billing` project in the same physical store,
+with the project prefix `bill-`,
+and a first board named `Ledger migration`.
+
+Produce the command sequence without modifying files or external state.
+Explain which identities later commands should use.
+
+### Expectations
+
+- Uses one stable actor on every command.
+- Inspects the project catalog with structured output.
+- Creates the project with `card project create --prefix bill- "Billing"`.
+- Parses the structured create result for the stable project ID.
+- Creates the board with `card board create --project <project-id>`.
+- Parses the structured board result before selecting the new board.
+- Does not use repeated `card init` to add the project.
+- Does not assume project creation creates or selects a board.
+- Uses stable IDs when duplicate names make selection ambiguous.
+
+### Adjacent valid case
+
+The active store prefix should apply to the new project.
+
+- Omits `--prefix` so project creation uses store inheritance.
+- Does not restate prefix selection policy as a separate agent-side workflow.
+
 ## Store-scoped mail and lease
 
 ### Prompt

@@ -11,6 +11,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/board/selection"
 	"go.abhg.dev/cardamom/internal/project"
+	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
 	"go.abhg.dev/komplete"
 )
 
@@ -48,7 +49,7 @@ remains active.
 
 Repeated initialization preserves existing projects and boards; first-init
 board options never add or rename them, and omitted --prefix never infers a new
-project prefix.
+project prefix. Use card project create NAME to add another project.
 
 Set CARDAMOM_NO_GITIGNORE to any non-empty value to prevent initialization from
 changing Git's local exclude file.`
@@ -190,6 +191,13 @@ func writeInitResult(output *Output, result InitResult) error {
 	if err := output.Noticef("%s", status); err != nil {
 		return err
 	}
+	if result.AlreadyInitialized {
+		if err := output.Noticef(
+			"Use card project create NAME to add another project.",
+		); err != nil {
+			return err
+		}
+	}
 
 	switch result.IgnoreOutcome {
 	case InitIgnoreUnchanged:
@@ -207,6 +215,102 @@ func writeInitResult(output *Output, result InitResult) error {
 .cardamom/blobs/`)
 	default:
 		return fmt.Errorf("unsupported initialization ignore outcome %d", result.IgnoreOutcome)
+	}
+}
+
+type projectCommand struct {
+	List   projectListCommand   `cmd:"" help:"List project namespaces."`
+	Create projectCreateCommand `cmd:"" help:"Create a project namespace."`
+}
+
+// Help explains project ownership inside the selected physical store.
+func (*projectCommand) Help() string {
+	return `A project is a repository or product namespace inside a Cardamom store.
+
+Project operations use the selected physical store without selecting or creating
+a board.`
+}
+
+type projectListCommand struct{}
+
+// Run lists every project without requiring a board selection.
+func (*projectListCommand) Run(
+	invocation *Invocation,
+	projects *project.Service,
+) error {
+	states, err := projects.List(invocation.Context)
+	if err != nil {
+		return err
+	}
+	records := make([]projectSummaryOut, 0, len(states))
+	for _, state := range states {
+		records = append(records, newProjectSummaryOut(state))
+	}
+	if invocation.Output.JSON() {
+		return WriteJSONLines(invocation.Output, records)
+	}
+	for _, record := range records {
+		if err := invocation.Output.WriteString(
+			fmt.Sprintf("%s\t%s\n", record.ID, record.Name),
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type projectCreateCommand struct {
+	Name   string  `arg:"" name:"name" help:"Name of the new project."`
+	Prefix *string `name:"prefix" placeholder:"PREFIX" help:"Project issue ID prefix ending in a dash."`
+}
+
+// Help explains project naming, prefix selection, and board independence.
+func (*projectCreateCommand) Help() string {
+	return `Create one project in the selected physical store.
+
+NAME is trimmed and must contain a non-whitespace character. Project names need
+not be unique; duplicate exact names make later name selection ambiguous, so use
+the project ID when selecting one.
+
+An explicit --prefix establishes a project-level override. Without --prefix,
+the new project inherits an active store prefix or persists a prefix inferred
+from NAME.
+
+Project creation does not create or select a board.`
+}
+
+// Run delegates project creation and renders the created project.
+func (c *projectCreateCommand) Run(
+	invocation *Invocation,
+	creator *projectcreation.Service,
+) error {
+	created, err := creator.CreateProject(
+		invocation.Context,
+		projectcreation.NewInvocation(invocation.Actor),
+		projectcreation.Request{Name: c.Name, Prefix: c.Prefix},
+	)
+	if err != nil {
+		return err
+	}
+	record := newProjectSummaryOut(created)
+	if invocation.Output.JSON() {
+		return invocation.Output.WriteJSON(record)
+	}
+	return invocation.Output.WriteString(
+		fmt.Sprintf("created project %s (%s)\n", record.ID, record.Name),
+	)
+}
+
+// projectSummaryOut is the structured command projection for one project.
+type projectSummaryOut struct {
+	ID      string `json:"id"`
+	Name    string `json:"name"`
+	Created int64  `json:"created"`
+}
+
+func newProjectSummaryOut(state *project.State) projectSummaryOut {
+	return projectSummaryOut{
+		ID: state.ID().String(), Name: state.Name(), Created: state.Created().Unix(),
 	}
 }
 

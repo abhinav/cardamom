@@ -68,6 +68,31 @@ without copying the database into the worktree.
 Pass `--store` and `--board` explicitly in delegated work
 when ambient discovery or checkout selection is not part of the handoff.
 
+## Multiple projects
+
+Add another repository or product namespace to the selected store explicitly:
+
+```bash
+card --actor coordinator --json project list
+card --actor coordinator --json project create \
+  --prefix payments- "Payments"
+```
+
+`project create` returns the new project ID.
+Use that ID when creating the project's first board:
+
+```bash
+card --actor coordinator --json board create \
+  --project <project-id> "Payments delivery"
+```
+
+Project creation does not create or select a board.
+Project names need not be unique,
+so use the stable project ID when a name is ambiguous.
+Without `--prefix`,
+the new project inherits an active store prefix
+or stores a prefix inferred from its name.
+
 ## Multiple boards
 
 Store configuration lives at `config.yaml` inside the resolved physical store.
