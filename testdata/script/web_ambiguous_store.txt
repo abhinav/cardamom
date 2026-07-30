@@ -1,0 +1,85 @@
+[!assets] skip 'requires embedded web assets'
+
+at 2026-07-30T12:00:00Z
+mkdir shared-store
+exec card --store shared-store init --prefix alpha- --board-name Shared
+exec card --store shared-store project create Secondary --prefix beta-
+exec card --store shared-store board create --project project_11111111111111111111 Shared
+
+# An explicit ambiguous selector remains an error.
+! exec card --store shared-store --board Shared web --port 0 --no-browser
+! stdout .
+cmp stderr $WORK/golden/ambiguous-board.txt
+
+# Without an explicit or checkout-bound selection, the browser chooses scope
+# from the complete catalog and startup does not create a binding.
+! exists .cardamom-board
+exec sh probe-web.sh unbound-catalog.json
+cmpjson unbound-catalog.json $WORK/golden/unbound-catalog.json
+! exists .cardamom-board
+
+# A checkout binding remains the server default.
+exec card --store shared-store board use board_11111111111111111111
+exec sh probe-web.sh bound-catalog.json
+cmpjson bound-catalog.json $WORK/golden/bound-catalog.json
+
+-- probe-web.sh --
+#!/bin/sh
+set -eu
+
+card --store "$PWD/shared-store" web \
+  --bind 127.0.0.1 \
+  --port 0 \
+  --no-browser >web.out 2>web.err &
+pid=$!
+trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+
+i=0
+url=
+while [ "$i" -lt 100 ]; do
+  url=$(sed -n 's/^web application available at //p' web.out | head -n 1)
+  [ -n "$url" ] && break
+  if ! kill -0 "$pid" 2>/dev/null; then
+    cat web.err >&2
+    wait "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+[ -n "$url" ]
+
+i=0
+while [ "$i" -lt 100 ]; do
+  if curl --fail --silent --request POST \
+    --header 'Content-Type: application/json' \
+    --header 'Connect-Protocol-Version: 1' \
+    --data '{}' \
+    "$url/cardamom.private.v1.ProjectService/GetBootstrap" >bootstrap.json; then
+    break
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    cat web.err >&2
+    wait "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+
+jq '{
+  projects: (.projects // []),
+  boards: (.boards // []),
+  serverDefaultBoardId: (.serverDefaultBoardId // null)
+}' bootstrap.json >"$1"
+
+kill -TERM "$pid"
+wait "$pid" 2>/dev/null || true
+trap - EXIT
+
+-- golden/ambiguous-board.txt --
+error: board "Shared" is ambiguous; use an ID
+-- golden/unbound-catalog.json --
+{"projects":[{"id":"project_11111111111111111111","name":"Secondary"},{"id":"project_00000000000000000000","name":"script-web_ambiguous_store"}],"boards":[{"id":"board_00000000000000000000","projectId":"project_00000000000000000000","name":"Shared"},{"id":"board_11111111111111111111","projectId":"project_11111111111111111111","name":"Shared"}],"serverDefaultBoardId":null}
+-- golden/bound-catalog.json --
+{"projects":[{"id":"project_11111111111111111111","name":"Secondary"},{"id":"project_00000000000000000000","name":"script-web_ambiguous_store"}],"boards":[{"id":"board_00000000000000000000","projectId":"project_00000000000000000000","name":"Shared"},{"id":"board_11111111111111111111","projectId":"project_11111111111111111111","name":"Shared"}],"serverDefaultBoardId":"board_11111111111111111111"}

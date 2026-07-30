@@ -73,7 +73,9 @@ func (o *webOperation) open(
 	}
 	selectedBoard, err := runtime.selectBoard(ctx, request.Board, nil)
 	if err != nil {
-		if request.Board != "" || errkind.Of(err) != errkind.NotFound {
+		kind := errkind.Of(err)
+		if request.Board != "" ||
+			(kind != errkind.NotFound && kind != errkind.Conflict) {
 			return webHandlerBinding{}, nil, errors.Join(err, runtime.close())
 		}
 		selectedBoard = nil
