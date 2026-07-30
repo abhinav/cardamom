@@ -14,6 +14,7 @@ import (
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1/privatev1connect"
 	"go.abhg.dev/cardamom/internal/must"
 	"go.abhg.dev/cardamom/internal/project"
+	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
 	"go.abhg.dev/cardamom/internal/web"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
@@ -22,6 +23,16 @@ import (
 type Projects interface {
 	// List returns every current project in catalog order.
 	List(context.Context) ([]*project.State, error)
+}
+
+// ProjectCreator establishes projects through shared domain policy.
+type ProjectCreator interface {
+	// CreateProject establishes one project in the current store.
+	CreateProject(
+		context.Context,
+		projectcreation.Invocation,
+		projectcreation.Request,
+	) (*project.State, error)
 }
 
 // Boards supplies board catalog reads and mutations exposed by ProjectService.
@@ -50,6 +61,9 @@ type Config struct {
 	// Projects reads the project catalog.
 	Projects Projects // required
 
+	// ProjectCreator establishes projects through shared domain policy.
+	ProjectCreator ProjectCreator // required
+
 	// Boards reads and changes boards.
 	Boards Boards // required
 
@@ -70,6 +84,7 @@ type Config struct {
 type Service struct {
 	privatev1connect.UnimplementedProjectServiceHandler
 	projects             Projects
+	projectCreator       ProjectCreator
 	boards               Boards
 	markdown             MarkdownRenderer
 	serverDefaultBoardID *board.ID
@@ -83,10 +98,15 @@ var _ privatev1connect.ProjectServiceHandler = (*Service)(nil)
 // collaborators.
 func New(cfg Config) *Service {
 	must.NotBeNilf(cfg.Projects, "projectconnect: projects are required")
+	must.NotBeNilf(
+		cfg.ProjectCreator,
+		"projectconnect: project creator is required",
+	)
 	must.NotBeNilf(cfg.Boards, "projectconnect: board service is required")
 	must.NotBeNilf(cfg.Markdown, "projectconnect: Markdown renderer is required")
 	return &Service{
 		projects:             cfg.Projects,
+		projectCreator:       cfg.ProjectCreator,
 		boards:               cfg.Boards,
 		markdown:             cfg.Markdown,
 		serverDefaultBoardID: cloneBoardID(cfg.ServerDefaultBoardID),
@@ -159,9 +179,7 @@ func (s *Service) listProjects(ctx context.Context) ([]*privatev1.Project, error
 	}
 	result := make([]*privatev1.Project, 0, len(projects))
 	for _, value := range projects {
-		result = append(result, &privatev1.Project{
-			Id: value.ID().String(), Name: value.Name(),
-		})
+		result = append(result, projectMessage(value))
 	}
 	return result, nil
 }
@@ -196,6 +214,27 @@ func (s *Service) GetBoard(
 		return nil, web.FromError(err)
 	}
 	return connect.NewResponse(&privatev1.GetBoardResponse{Board: converted}), nil
+}
+
+// CreateProject establishes one project in the current store.
+func (s *Service) CreateProject(
+	ctx context.Context,
+	request *connect.Request[privatev1.CreateProjectRequest],
+) (*connect.Response[privatev1.CreateProjectResponse], error) {
+	created, err := s.projectCreator.CreateProject(
+		ctx,
+		projectcreation.NewInvocation(request.Msg.GetContext().GetActor()),
+		projectcreation.Request{
+			Name:   request.Msg.GetName(),
+			Prefix: cloneString(request.Msg.Prefix),
+		},
+	)
+	if err != nil {
+		return nil, web.FromError(err)
+	}
+	return connect.NewResponse(&privatev1.CreateProjectResponse{
+		Project: projectMessage(created),
+	}), nil
 }
 
 // CreateBoard establishes one board in an explicitly identified project.
@@ -317,6 +356,13 @@ func validIssueStatuses() []privatev1.IssueStatus {
 func boardSummary(value *board.State) *privatev1.BoardSummary {
 	return &privatev1.BoardSummary{
 		Id: value.ID().String(), ProjectId: value.ProjectID(),
+		Name: value.Name(),
+	}
+}
+
+func projectMessage(value *project.State) *privatev1.Project {
+	return &privatev1.Project{
+		Id:   value.ID().String(),
 		Name: value.Name(),
 	}
 }

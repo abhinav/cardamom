@@ -618,6 +618,116 @@ func (x *GetBoardResponse) GetBoard() *Board {
 	return nil
 }
 
+// CreateProjectRequest creates one project in the current store.
+type CreateProjectRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// name is the new project's human-readable name.
+	Name string `protobuf:"bytes,1,opt,name=name,proto3" json:"name,omitempty"`
+	// prefix explicitly sets the project issue ID prefix when present.
+	Prefix *string `protobuf:"bytes,2,opt,name=prefix,proto3,oneof" json:"prefix,omitempty"`
+	// context supplies attribution for the project mutation.
+	Context       *MutationContext `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateProjectRequest) Reset() {
+	*x = CreateProjectRequest{}
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[11]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateProjectRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateProjectRequest) ProtoMessage() {}
+
+func (x *CreateProjectRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[11]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateProjectRequest.ProtoReflect.Descriptor instead.
+func (*CreateProjectRequest) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{11}
+}
+
+func (x *CreateProjectRequest) GetName() string {
+	if x != nil {
+		return x.Name
+	}
+	return ""
+}
+
+func (x *CreateProjectRequest) GetPrefix() string {
+	if x != nil && x.Prefix != nil {
+		return *x.Prefix
+	}
+	return ""
+}
+
+func (x *CreateProjectRequest) GetContext() *MutationContext {
+	if x != nil {
+		return x.Context
+	}
+	return nil
+}
+
+// CreateProjectResponse contains the created project.
+type CreateProjectResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// project is the authoritative created project record.
+	Project       *Project `protobuf:"bytes,1,opt,name=project,proto3" json:"project,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *CreateProjectResponse) Reset() {
+	*x = CreateProjectResponse{}
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *CreateProjectResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*CreateProjectResponse) ProtoMessage() {}
+
+func (x *CreateProjectResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use CreateProjectResponse.ProtoReflect.Descriptor instead.
+func (*CreateProjectResponse) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *CreateProjectResponse) GetProject() *Project {
+	if x != nil {
+		return x.Project
+	}
+	return nil
+}
+
 // CreateBoardRequest creates a board in one explicit project.
 type CreateBoardRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -635,7 +745,7 @@ type CreateBoardRequest struct {
 
 func (x *CreateBoardRequest) Reset() {
 	*x = CreateBoardRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[11]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -647,7 +757,7 @@ func (x *CreateBoardRequest) String() string {
 func (*CreateBoardRequest) ProtoMessage() {}
 
 func (x *CreateBoardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[11]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -660,7 +770,7 @@ func (x *CreateBoardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBoardRequest.ProtoReflect.Descriptor instead.
 func (*CreateBoardRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{11}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreateBoardRequest) GetProjectId() string {
@@ -702,7 +812,7 @@ type CreateBoardResponse struct {
 
 func (x *CreateBoardResponse) Reset() {
 	*x = CreateBoardResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[12]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -714,7 +824,7 @@ func (x *CreateBoardResponse) String() string {
 func (*CreateBoardResponse) ProtoMessage() {}
 
 func (x *CreateBoardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[12]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -727,7 +837,7 @@ func (x *CreateBoardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBoardResponse.ProtoReflect.Descriptor instead.
 func (*CreateBoardResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{12}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CreateBoardResponse) GetBoard() *Board {
@@ -754,7 +864,7 @@ type UpdateBoardRequest struct {
 
 func (x *UpdateBoardRequest) Reset() {
 	*x = UpdateBoardRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[13]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -766,7 +876,7 @@ func (x *UpdateBoardRequest) String() string {
 func (*UpdateBoardRequest) ProtoMessage() {}
 
 func (x *UpdateBoardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[13]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -779,7 +889,7 @@ func (x *UpdateBoardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBoardRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBoardRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{13}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *UpdateBoardRequest) GetBoardId() string {
@@ -821,7 +931,7 @@ type UpdateBoardResponse struct {
 
 func (x *UpdateBoardResponse) Reset() {
 	*x = UpdateBoardResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[14]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -833,7 +943,7 @@ func (x *UpdateBoardResponse) String() string {
 func (*UpdateBoardResponse) ProtoMessage() {}
 
 func (x *UpdateBoardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[14]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -846,7 +956,7 @@ func (x *UpdateBoardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBoardResponse.ProtoReflect.Descriptor instead.
 func (*UpdateBoardResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{14}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UpdateBoardResponse) GetBoard() *Board {
@@ -898,7 +1008,14 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x0fGetBoardRequest\x12\x19\n" +
 	"\bboard_id\x18\x01 \x01(\tR\aboardId\"D\n" +
 	"\x10GetBoardResponse\x120\n" +
-	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board\"\xd2\x01\n" +
+	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board\"\x92\x01\n" +
+	"\x14CreateProjectRequest\x12\x12\n" +
+	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1b\n" +
+	"\x06prefix\x18\x02 \x01(\tH\x00R\x06prefix\x88\x01\x01\x12>\n" +
+	"\acontext\x18\x03 \x01(\v2$.cardamom.private.v1.MutationContextR\acontextB\t\n" +
+	"\a_prefix\"O\n" +
+	"\x15CreateProjectResponse\x126\n" +
+	"\aproject\x18\x01 \x01(\v2\x1c.cardamom.private.v1.ProjectR\aproject\"\xd2\x01\n" +
 	"\x12CreateBoardRequest\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12\x12\n" +
@@ -916,13 +1033,14 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x05_nameB\x15\n" +
 	"\x13_description_source\"G\n" +
 	"\x13UpdateBoardResponse\x120\n" +
-	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board2\xd6\x04\n" +
+	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board2\xbe\x05\n" +
 	"\x0eProjectService\x12c\n" +
 	"\fListProjects\x12(.cardamom.private.v1.ListProjectsRequest\x1a).cardamom.private.v1.ListProjectsResponse\x12]\n" +
 	"\n" +
 	"ListBoards\x12&.cardamom.private.v1.ListBoardsRequest\x1a'.cardamom.private.v1.ListBoardsResponse\x12c\n" +
 	"\fGetBootstrap\x12(.cardamom.private.v1.GetBootstrapRequest\x1a).cardamom.private.v1.GetBootstrapResponse\x12W\n" +
-	"\bGetBoard\x12$.cardamom.private.v1.GetBoardRequest\x1a%.cardamom.private.v1.GetBoardResponse\x12`\n" +
+	"\bGetBoard\x12$.cardamom.private.v1.GetBoardRequest\x1a%.cardamom.private.v1.GetBoardResponse\x12f\n" +
+	"\rCreateProject\x12).cardamom.private.v1.CreateProjectRequest\x1a*.cardamom.private.v1.CreateProjectResponse\x12`\n" +
 	"\vCreateBoard\x12'.cardamom.private.v1.CreateBoardRequest\x1a(.cardamom.private.v1.CreateBoardResponse\x12`\n" +
 	"\vUpdateBoard\x12'.cardamom.private.v1.UpdateBoardRequest\x1a(.cardamom.private.v1.UpdateBoardResponseB\xd8\x01\n" +
 	"\x17com.cardamom.private.v1B\fProjectProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
@@ -939,7 +1057,7 @@ func file_cardamom_private_v1_project_proto_rawDescGZIP() []byte {
 	return file_cardamom_private_v1_project_proto_rawDescData
 }
 
-var file_cardamom_private_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 15)
+var file_cardamom_private_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_cardamom_private_v1_project_proto_goTypes = []any{
 	(*Project)(nil),               // 0: cardamom.private.v1.Project
 	(*BoardSummary)(nil),          // 1: cardamom.private.v1.BoardSummary
@@ -952,47 +1070,53 @@ var file_cardamom_private_v1_project_proto_goTypes = []any{
 	(*GetBootstrapResponse)(nil),  // 8: cardamom.private.v1.GetBootstrapResponse
 	(*GetBoardRequest)(nil),       // 9: cardamom.private.v1.GetBoardRequest
 	(*GetBoardResponse)(nil),      // 10: cardamom.private.v1.GetBoardResponse
-	(*CreateBoardRequest)(nil),    // 11: cardamom.private.v1.CreateBoardRequest
-	(*CreateBoardResponse)(nil),   // 12: cardamom.private.v1.CreateBoardResponse
-	(*UpdateBoardRequest)(nil),    // 13: cardamom.private.v1.UpdateBoardRequest
-	(*UpdateBoardResponse)(nil),   // 14: cardamom.private.v1.UpdateBoardResponse
-	(*MarkdownContent)(nil),       // 15: cardamom.private.v1.MarkdownContent
-	(*timestamppb.Timestamp)(nil), // 16: google.protobuf.Timestamp
-	(IssueType)(0),                // 17: cardamom.private.v1.IssueType
-	(IssueStatus)(0),              // 18: cardamom.private.v1.IssueStatus
-	(*MutationContext)(nil),       // 19: cardamom.private.v1.MutationContext
+	(*CreateProjectRequest)(nil),  // 11: cardamom.private.v1.CreateProjectRequest
+	(*CreateProjectResponse)(nil), // 12: cardamom.private.v1.CreateProjectResponse
+	(*CreateBoardRequest)(nil),    // 13: cardamom.private.v1.CreateBoardRequest
+	(*CreateBoardResponse)(nil),   // 14: cardamom.private.v1.CreateBoardResponse
+	(*UpdateBoardRequest)(nil),    // 15: cardamom.private.v1.UpdateBoardRequest
+	(*UpdateBoardResponse)(nil),   // 16: cardamom.private.v1.UpdateBoardResponse
+	(*MarkdownContent)(nil),       // 17: cardamom.private.v1.MarkdownContent
+	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
+	(IssueType)(0),                // 19: cardamom.private.v1.IssueType
+	(IssueStatus)(0),              // 20: cardamom.private.v1.IssueStatus
+	(*MutationContext)(nil),       // 21: cardamom.private.v1.MutationContext
 }
 var file_cardamom_private_v1_project_proto_depIdxs = []int32{
-	15, // 0: cardamom.private.v1.Board.description:type_name -> cardamom.private.v1.MarkdownContent
-	16, // 1: cardamom.private.v1.Board.created_at:type_name -> google.protobuf.Timestamp
+	17, // 0: cardamom.private.v1.Board.description:type_name -> cardamom.private.v1.MarkdownContent
+	18, // 1: cardamom.private.v1.Board.created_at:type_name -> google.protobuf.Timestamp
 	0,  // 2: cardamom.private.v1.ListProjectsResponse.projects:type_name -> cardamom.private.v1.Project
 	1,  // 3: cardamom.private.v1.ListBoardsResponse.boards:type_name -> cardamom.private.v1.BoardSummary
 	0,  // 4: cardamom.private.v1.GetBootstrapResponse.projects:type_name -> cardamom.private.v1.Project
 	1,  // 5: cardamom.private.v1.GetBootstrapResponse.boards:type_name -> cardamom.private.v1.BoardSummary
-	17, // 6: cardamom.private.v1.GetBootstrapResponse.issue_types:type_name -> cardamom.private.v1.IssueType
-	18, // 7: cardamom.private.v1.GetBootstrapResponse.issue_statuses:type_name -> cardamom.private.v1.IssueStatus
+	19, // 6: cardamom.private.v1.GetBootstrapResponse.issue_types:type_name -> cardamom.private.v1.IssueType
+	20, // 7: cardamom.private.v1.GetBootstrapResponse.issue_statuses:type_name -> cardamom.private.v1.IssueStatus
 	2,  // 8: cardamom.private.v1.GetBoardResponse.board:type_name -> cardamom.private.v1.Board
-	19, // 9: cardamom.private.v1.CreateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
-	2,  // 10: cardamom.private.v1.CreateBoardResponse.board:type_name -> cardamom.private.v1.Board
-	19, // 11: cardamom.private.v1.UpdateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
-	2,  // 12: cardamom.private.v1.UpdateBoardResponse.board:type_name -> cardamom.private.v1.Board
-	3,  // 13: cardamom.private.v1.ProjectService.ListProjects:input_type -> cardamom.private.v1.ListProjectsRequest
-	5,  // 14: cardamom.private.v1.ProjectService.ListBoards:input_type -> cardamom.private.v1.ListBoardsRequest
-	7,  // 15: cardamom.private.v1.ProjectService.GetBootstrap:input_type -> cardamom.private.v1.GetBootstrapRequest
-	9,  // 16: cardamom.private.v1.ProjectService.GetBoard:input_type -> cardamom.private.v1.GetBoardRequest
-	11, // 17: cardamom.private.v1.ProjectService.CreateBoard:input_type -> cardamom.private.v1.CreateBoardRequest
-	13, // 18: cardamom.private.v1.ProjectService.UpdateBoard:input_type -> cardamom.private.v1.UpdateBoardRequest
-	4,  // 19: cardamom.private.v1.ProjectService.ListProjects:output_type -> cardamom.private.v1.ListProjectsResponse
-	6,  // 20: cardamom.private.v1.ProjectService.ListBoards:output_type -> cardamom.private.v1.ListBoardsResponse
-	8,  // 21: cardamom.private.v1.ProjectService.GetBootstrap:output_type -> cardamom.private.v1.GetBootstrapResponse
-	10, // 22: cardamom.private.v1.ProjectService.GetBoard:output_type -> cardamom.private.v1.GetBoardResponse
-	12, // 23: cardamom.private.v1.ProjectService.CreateBoard:output_type -> cardamom.private.v1.CreateBoardResponse
-	14, // 24: cardamom.private.v1.ProjectService.UpdateBoard:output_type -> cardamom.private.v1.UpdateBoardResponse
-	19, // [19:25] is the sub-list for method output_type
-	13, // [13:19] is the sub-list for method input_type
-	13, // [13:13] is the sub-list for extension type_name
-	13, // [13:13] is the sub-list for extension extendee
-	0,  // [0:13] is the sub-list for field type_name
+	21, // 9: cardamom.private.v1.CreateProjectRequest.context:type_name -> cardamom.private.v1.MutationContext
+	0,  // 10: cardamom.private.v1.CreateProjectResponse.project:type_name -> cardamom.private.v1.Project
+	21, // 11: cardamom.private.v1.CreateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	2,  // 12: cardamom.private.v1.CreateBoardResponse.board:type_name -> cardamom.private.v1.Board
+	21, // 13: cardamom.private.v1.UpdateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	2,  // 14: cardamom.private.v1.UpdateBoardResponse.board:type_name -> cardamom.private.v1.Board
+	3,  // 15: cardamom.private.v1.ProjectService.ListProjects:input_type -> cardamom.private.v1.ListProjectsRequest
+	5,  // 16: cardamom.private.v1.ProjectService.ListBoards:input_type -> cardamom.private.v1.ListBoardsRequest
+	7,  // 17: cardamom.private.v1.ProjectService.GetBootstrap:input_type -> cardamom.private.v1.GetBootstrapRequest
+	9,  // 18: cardamom.private.v1.ProjectService.GetBoard:input_type -> cardamom.private.v1.GetBoardRequest
+	11, // 19: cardamom.private.v1.ProjectService.CreateProject:input_type -> cardamom.private.v1.CreateProjectRequest
+	13, // 20: cardamom.private.v1.ProjectService.CreateBoard:input_type -> cardamom.private.v1.CreateBoardRequest
+	15, // 21: cardamom.private.v1.ProjectService.UpdateBoard:input_type -> cardamom.private.v1.UpdateBoardRequest
+	4,  // 22: cardamom.private.v1.ProjectService.ListProjects:output_type -> cardamom.private.v1.ListProjectsResponse
+	6,  // 23: cardamom.private.v1.ProjectService.ListBoards:output_type -> cardamom.private.v1.ListBoardsResponse
+	8,  // 24: cardamom.private.v1.ProjectService.GetBootstrap:output_type -> cardamom.private.v1.GetBootstrapResponse
+	10, // 25: cardamom.private.v1.ProjectService.GetBoard:output_type -> cardamom.private.v1.GetBoardResponse
+	12, // 26: cardamom.private.v1.ProjectService.CreateProject:output_type -> cardamom.private.v1.CreateProjectResponse
+	14, // 27: cardamom.private.v1.ProjectService.CreateBoard:output_type -> cardamom.private.v1.CreateBoardResponse
+	16, // 28: cardamom.private.v1.ProjectService.UpdateBoard:output_type -> cardamom.private.v1.UpdateBoardResponse
+	22, // [22:29] is the sub-list for method output_type
+	15, // [15:22] is the sub-list for method input_type
+	15, // [15:15] is the sub-list for extension type_name
+	15, // [15:15] is the sub-list for extension extendee
+	0,  // [0:15] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_project_proto_init() }
@@ -1007,13 +1131,14 @@ func file_cardamom_private_v1_project_proto_init() {
 	file_cardamom_private_v1_project_proto_msgTypes[8].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[11].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[13].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[15].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_v1_project_proto_rawDesc), len(file_cardamom_private_v1_project_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   15,
+			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/project.proto.
  */
 export const file_cardamom_private_v1_project: GenFile = /*@__PURE__*/
-  fileDesc("CiFjYXJkYW1vbS9wcml2YXRlL3YxL3Byb2plY3QucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiIwoHUHJvamVjdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJIjwKDEJvYXJkU3VtbWFyeRIKCgJpZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEgwKBG5hbWUYAyABKAkitQEKBUJvYXJkEgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSDAoEbmFtZRgDIAEoCRI+CgtkZXNjcmlwdGlvbhgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SACIAQESLgoKY3JlYXRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCDgoMX2Rlc2NyaXB0aW9uIhUKE0xpc3RQcm9qZWN0c1JlcXVlc3QiRgoUTGlzdFByb2plY3RzUmVzcG9uc2USLgoIcHJvamVjdHMYASADKAsyHC5jYXJkYW1vbS5wcml2YXRlLnYxLlByb2plY3QiEwoRTGlzdEJvYXJkc1JlcXVlc3QiRwoSTGlzdEJvYXJkc1Jlc3BvbnNlEjEKBmJvYXJkcxgBIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5IhUKE0dldEJvb3RzdHJhcFJlcXVlc3Qi1QIKFEdldEJvb3RzdHJhcFJlc3BvbnNlEi4KCHByb2plY3RzGAEgAygLMhwuY2FyZGFtb20ucHJpdmF0ZS52MS5Qcm9qZWN0EjEKBmJvYXJkcxgCIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5EiQKF3NlcnZlcl9kZWZhdWx0X2JvYXJkX2lkGAMgASgJSACIAQESMwoLaXNzdWVfdHlwZXMYBCADKA4yHi5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlVHlwZRI4Cg5pc3N1ZV9zdGF0dXNlcxgFIAMoDjIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdGF0dXMSEQoJaWRfcHJlZml4GAYgASgJEhYKDnNjaGVtYV92ZXJzaW9uGAcgASgEQhoKGF9zZXJ2ZXJfZGVmYXVsdF9ib2FyZF9pZCIjCg9HZXRCb2FyZFJlcXVlc3QSEAoIYm9hcmRfaWQYASABKAkiPQoQR2V0Qm9hcmRSZXNwb25zZRIpCgVib2FyZBgBIAEoCzIaLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmQipQEKEkNyZWF0ZUJvYXJkUmVxdWVzdBISCgpwcm9qZWN0X2lkGAEgASgJEgwKBG5hbWUYAiABKAkSHwoSZGVzY3JpcHRpb25fc291cmNlGAMgASgJSACIAQESNQoHY29udGV4dBgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTXV0YXRpb25Db250ZXh0QhUKE19kZXNjcmlwdGlvbl9zb3VyY2UiQAoTQ3JlYXRlQm9hcmRSZXNwb25zZRIpCgVib2FyZBgBIAEoCzIaLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmQisQEKElVwZGF0ZUJvYXJkUmVxdWVzdBIQCghib2FyZF9pZBgBIAEoCRIRCgRuYW1lGAIgASgJSACIAQESHwoSZGVzY3JpcHRpb25fc291cmNlGAMgASgJSAGIAQESNQoHY29udGV4dBgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTXV0YXRpb25Db250ZXh0QgcKBV9uYW1lQhUKE19kZXNjcmlwdGlvbl9zb3VyY2UiQAoTVXBkYXRlQm9hcmRSZXNwb25zZRIpCgVib2FyZBgBIAEoCzIaLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmQy1gQKDlByb2plY3RTZXJ2aWNlEmMKDExpc3RQcm9qZWN0cxIoLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdFByb2plY3RzUmVxdWVzdBopLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdFByb2plY3RzUmVzcG9uc2USXQoKTGlzdEJvYXJkcxImLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdEJvYXJkc1JlcXVlc3QaJy5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RCb2FyZHNSZXNwb25zZRJjCgxHZXRCb290c3RyYXASKC5jYXJkYW1vbS5wcml2YXRlLnYxLkdldEJvb3RzdHJhcFJlcXVlc3QaKS5jYXJkYW1vbS5wcml2YXRlLnYxLkdldEJvb3RzdHJhcFJlc3BvbnNlElcKCEdldEJvYXJkEiQuY2FyZGFtb20ucHJpdmF0ZS52MS5HZXRCb2FyZFJlcXVlc3QaJS5jYXJkYW1vbS5wcml2YXRlLnYxLkdldEJvYXJkUmVzcG9uc2USYAoLQ3JlYXRlQm9hcmQSJy5jYXJkYW1vbS5wcml2YXRlLnYxLkNyZWF0ZUJvYXJkUmVxdWVzdBooLmNhcmRhbW9tLnByaXZhdGUudjEuQ3JlYXRlQm9hcmRSZXNwb25zZRJgCgtVcGRhdGVCb2FyZBInLmNhcmRhbW9tLnByaXZhdGUudjEuVXBkYXRlQm9hcmRSZXF1ZXN0GiguY2FyZGFtb20ucHJpdmF0ZS52MS5VcGRhdGVCb2FyZFJlc3BvbnNlQtgBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUIMUHJvamVjdFByb3RvUAFaP2dvLmFiaGcuZGV2L2NhcmRhbW9tL2ludGVybmFsL2dlbi9jYXJkYW1vbS9wcml2YXRlL3YxO3ByaXZhdGV2MaICA0NQWKoCE0NhcmRhbW9tLlByaXZhdGUuVjHKAhRDYXJkYW1vbVxQcml2YXRlX1xWMeICIENhcmRhbW9tXFByaXZhdGVfXFYxXEdQQk1ldGFkYXRh6gIVQ2FyZGFtb206OlByaXZhdGU6OlYxYgZwcm90bzM", [file_cardamom_private_v1_content, file_cardamom_private_v1_issue, file_cardamom_private_v1_mutation, file_google_protobuf_timestamp]);
+  fileDesc("CiFjYXJkYW1vbS9wcml2YXRlL3YxL3Byb2plY3QucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiIwoHUHJvamVjdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJIjwKDEJvYXJkU3VtbWFyeRIKCgJpZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEgwKBG5hbWUYAyABKAkitQEKBUJvYXJkEgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSDAoEbmFtZRgDIAEoCRI+CgtkZXNjcmlwdGlvbhgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SACIAQESLgoKY3JlYXRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCDgoMX2Rlc2NyaXB0aW9uIhUKE0xpc3RQcm9qZWN0c1JlcXVlc3QiRgoUTGlzdFByb2plY3RzUmVzcG9uc2USLgoIcHJvamVjdHMYASADKAsyHC5jYXJkYW1vbS5wcml2YXRlLnYxLlByb2plY3QiEwoRTGlzdEJvYXJkc1JlcXVlc3QiRwoSTGlzdEJvYXJkc1Jlc3BvbnNlEjEKBmJvYXJkcxgBIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5IhUKE0dldEJvb3RzdHJhcFJlcXVlc3Qi1QIKFEdldEJvb3RzdHJhcFJlc3BvbnNlEi4KCHByb2plY3RzGAEgAygLMhwuY2FyZGFtb20ucHJpdmF0ZS52MS5Qcm9qZWN0EjEKBmJvYXJkcxgCIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5EiQKF3NlcnZlcl9kZWZhdWx0X2JvYXJkX2lkGAMgASgJSACIAQESMwoLaXNzdWVfdHlwZXMYBCADKA4yHi5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlVHlwZRI4Cg5pc3N1ZV9zdGF0dXNlcxgFIAMoDjIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdGF0dXMSEQoJaWRfcHJlZml4GAYgASgJEhYKDnNjaGVtYV92ZXJzaW9uGAcgASgEQhoKGF9zZXJ2ZXJfZGVmYXVsdF9ib2FyZF9pZCIjCg9HZXRCb2FyZFJlcXVlc3QSEAoIYm9hcmRfaWQYASABKAkiPQoQR2V0Qm9hcmRSZXNwb25zZRIpCgVib2FyZBgBIAEoCzIaLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmQiewoUQ3JlYXRlUHJvamVjdFJlcXVlc3QSDAoEbmFtZRgBIAEoCRITCgZwcmVmaXgYAiABKAlIAIgBARI1Cgdjb250ZXh0GAMgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCCQoHX3ByZWZpeCJGChVDcmVhdGVQcm9qZWN0UmVzcG9uc2USLQoHcHJvamVjdBgBIAEoCzIcLmNhcmRhbW9tLnByaXZhdGUudjEuUHJvamVjdCKlAQoSQ3JlYXRlQm9hcmRSZXF1ZXN0EhIKCnByb2plY3RfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIfChJkZXNjcmlwdGlvbl9zb3VyY2UYAyABKAlIAIgBARI1Cgdjb250ZXh0GAQgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCFQoTX2Rlc2NyaXB0aW9uX3NvdXJjZSJAChNDcmVhdGVCb2FyZFJlc3BvbnNlEikKBWJvYXJkGAEgASgLMhouY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZCKxAQoSVXBkYXRlQm9hcmRSZXF1ZXN0EhAKCGJvYXJkX2lkGAEgASgJEhEKBG5hbWUYAiABKAlIAIgBARIfChJkZXNjcmlwdGlvbl9zb3VyY2UYAyABKAlIAYgBARI1Cgdjb250ZXh0GAQgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCBwoFX25hbWVCFQoTX2Rlc2NyaXB0aW9uX3NvdXJjZSJAChNVcGRhdGVCb2FyZFJlc3BvbnNlEikKBWJvYXJkGAEgASgLMhouY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZDK+BQoOUHJvamVjdFNlcnZpY2USYwoMTGlzdFByb2plY3RzEiguY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0UHJvamVjdHNSZXF1ZXN0GikuY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0UHJvamVjdHNSZXNwb25zZRJdCgpMaXN0Qm9hcmRzEiYuY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0Qm9hcmRzUmVxdWVzdBonLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdEJvYXJkc1Jlc3BvbnNlEmMKDEdldEJvb3RzdHJhcBIoLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9vdHN0cmFwUmVxdWVzdBopLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9vdHN0cmFwUmVzcG9uc2USVwoIR2V0Qm9hcmQSJC5jYXJkYW1vbS5wcml2YXRlLnYxLkdldEJvYXJkUmVxdWVzdBolLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9hcmRSZXNwb25zZRJmCg1DcmVhdGVQcm9qZWN0EikuY2FyZGFtb20ucHJpdmF0ZS52MS5DcmVhdGVQcm9qZWN0UmVxdWVzdBoqLmNhcmRhbW9tLnByaXZhdGUudjEuQ3JlYXRlUHJvamVjdFJlc3BvbnNlEmAKC0NyZWF0ZUJvYXJkEicuY2FyZGFtb20ucHJpdmF0ZS52MS5DcmVhdGVCb2FyZFJlcXVlc3QaKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNyZWF0ZUJvYXJkUmVzcG9uc2USYAoLVXBkYXRlQm9hcmQSJy5jYXJkYW1vbS5wcml2YXRlLnYxLlVwZGF0ZUJvYXJkUmVxdWVzdBooLmNhcmRhbW9tLnByaXZhdGUudjEuVXBkYXRlQm9hcmRSZXNwb25zZULYAQoXY29tLmNhcmRhbW9tLnByaXZhdGUudjFCDFByb2plY3RQcm90b1ABWj9nby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS92MTtwcml2YXRldjGiAgNDUFiqAhNDYXJkYW1vbS5Qcml2YXRlLlYxygIUQ2FyZGFtb21cUHJpdmF0ZV9cVjHiAiBDYXJkYW1vbVxQcml2YXRlX1xWMVxHUEJNZXRhZGF0YeoCFUNhcmRhbW9tOjpQcml2YXRlOjpWMWIGcHJvdG8z", [file_cardamom_private_v1_content, file_cardamom_private_v1_issue, file_cardamom_private_v1_mutation, file_google_protobuf_timestamp]);
 
 /**
  * Project identifies a project namespace available to the browser.
@@ -325,6 +325,62 @@ export const GetBoardResponseSchema: GenMessage<GetBoardResponse> = /*@__PURE__*
   messageDesc(file_cardamom_private_v1_project, 10);
 
 /**
+ * CreateProjectRequest creates one project in the current store.
+ *
+ * @generated from message cardamom.private.v1.CreateProjectRequest
+ */
+export type CreateProjectRequest = Message<"cardamom.private.v1.CreateProjectRequest"> & {
+  /**
+   * name is the new project's human-readable name.
+   *
+   * @generated from field: string name = 1;
+   */
+  name: string;
+
+  /**
+   * prefix explicitly sets the project issue ID prefix when present.
+   *
+   * @generated from field: optional string prefix = 2;
+   */
+  prefix?: string | undefined;
+
+  /**
+   * context supplies attribution for the project mutation.
+   *
+   * @generated from field: cardamom.private.v1.MutationContext context = 3;
+   */
+  context?: MutationContext | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.CreateProjectRequest.
+ * Use `create(CreateProjectRequestSchema)` to create a new message.
+ */
+export const CreateProjectRequestSchema: GenMessage<CreateProjectRequest> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_project, 11);
+
+/**
+ * CreateProjectResponse contains the created project.
+ *
+ * @generated from message cardamom.private.v1.CreateProjectResponse
+ */
+export type CreateProjectResponse = Message<"cardamom.private.v1.CreateProjectResponse"> & {
+  /**
+   * project is the authoritative created project record.
+   *
+   * @generated from field: cardamom.private.v1.Project project = 1;
+   */
+  project?: Project | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.CreateProjectResponse.
+ * Use `create(CreateProjectResponseSchema)` to create a new message.
+ */
+export const CreateProjectResponseSchema: GenMessage<CreateProjectResponse> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_project, 12);
+
+/**
  * CreateBoardRequest creates a board in one explicit project.
  *
  * @generated from message cardamom.private.v1.CreateBoardRequest
@@ -364,7 +420,7 @@ export type CreateBoardRequest = Message<"cardamom.private.v1.CreateBoardRequest
  * Use `create(CreateBoardRequestSchema)` to create a new message.
  */
 export const CreateBoardRequestSchema: GenMessage<CreateBoardRequest> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_project, 11);
+  messageDesc(file_cardamom_private_v1_project, 13);
 
 /**
  * CreateBoardResponse contains the created board.
@@ -385,7 +441,7 @@ export type CreateBoardResponse = Message<"cardamom.private.v1.CreateBoardRespon
  * Use `create(CreateBoardResponseSchema)` to create a new message.
  */
 export const CreateBoardResponseSchema: GenMessage<CreateBoardResponse> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_project, 12);
+  messageDesc(file_cardamom_private_v1_project, 14);
 
 /**
  * UpdateBoardRequest atomically replaces the supplied board settings.
@@ -427,7 +483,7 @@ export type UpdateBoardRequest = Message<"cardamom.private.v1.UpdateBoardRequest
  * Use `create(UpdateBoardRequestSchema)` to create a new message.
  */
 export const UpdateBoardRequestSchema: GenMessage<UpdateBoardRequest> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_project, 13);
+  messageDesc(file_cardamom_private_v1_project, 15);
 
 /**
  * UpdateBoardResponse contains the updated board.
@@ -448,7 +504,7 @@ export type UpdateBoardResponse = Message<"cardamom.private.v1.UpdateBoardRespon
  * Use `create(UpdateBoardResponseSchema)` to create a new message.
  */
 export const UpdateBoardResponseSchema: GenMessage<UpdateBoardResponse> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_project, 14);
+  messageDesc(file_cardamom_private_v1_project, 16);
 
 /**
  * ProjectService exposes startup catalog reads and project-owned board
@@ -496,6 +552,16 @@ export const ProjectService: GenService<{
     methodKind: "unary";
     input: typeof GetBoardRequestSchema;
     output: typeof GetBoardResponseSchema;
+  },
+  /**
+   * CreateProject establishes one project in the current store.
+   *
+   * @generated from rpc cardamom.private.v1.ProjectService.CreateProject
+   */
+  createProject: {
+    methodKind: "unary";
+    input: typeof CreateProjectRequestSchema;
+    output: typeof CreateProjectResponseSchema;
   },
   /**
    * CreateBoard establishes a board in an explicitly identified project.
