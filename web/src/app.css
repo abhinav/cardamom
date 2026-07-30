@@ -1107,6 +1107,14 @@ button:disabled {
   font-family: inherit;
 }
 
+.issue-card .issue-label {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .issue-label:hover {
   border-color: var(--accent);
   background: var(--surface);
