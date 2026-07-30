@@ -1,4 +1,5 @@
-// Package main tests the card command at its process boundary.
+//go:build script
+
 package main
 
 import "flag"

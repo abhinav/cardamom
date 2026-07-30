@@ -26,10 +26,36 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
       - run: mise run lint
 
-  test:
-    name: Test
+  test-unit:
+    name: Test / Unit
     runs-on: ubuntu-latest
     # TODO: Add Windows testing when the suite is ready for that host.
+    steps:
+      - uses: actions/checkout@v6
+        name: Check out repository
+      - uses: jdx/mise-action@v4
+        with:
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/go-cache
+      - run: mise run test:unit --race
+
+  test-script:
+    name: Test / Script
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        name: Check out repository
+      - uses: jdx/mise-action@v4
+        with:
+          cache: true
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/go-cache
+      - run: mise run test:script --race
+
+  test-web:
+    name: Test / Web
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         name: Check out repository
@@ -40,17 +66,18 @@ jobs:
       - name: Build
         run: mise run build
         shell: bash
-      - name: Test
-        run: mise run test --race
+      - run: mise run test:web
 
   ok:
     name: OK
     runs-on: ubuntu-latest
-    needs: [lint, test]
+    needs: [lint, test-unit, test-script, test-web]
     if: always()
     steps:
       - run: exit 1
         if: >-
           needs.lint.result != 'success' ||
-          needs.test.result != 'success'
+          needs.test-unit.result != 'success' ||
+          needs.test-script.result != 'success' ||
+          needs.test-web.result != 'success'
       - run: exit 0
