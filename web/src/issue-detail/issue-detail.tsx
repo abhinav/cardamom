@@ -81,8 +81,10 @@ interface IssueDetailPageProps {
   attachmentClient: AttachmentClient;
   collapsedDetailsBoardIds: readonly string[];
   issueId: string;
+  relationsOpen: boolean;
   selectLabel: SelectLabel;
   setDetailsCollapsed: (boardId: string, collapsed: boolean) => void;
+  setRelationsOpen: (open: boolean) => void;
 }
 
 /** dependencySearchInput selects title matches from one board. */
@@ -286,8 +288,10 @@ export function IssueDetailPage({
   attachmentClient,
   collapsedDetailsBoardIds,
   issueId,
+  relationsOpen,
   selectLabel,
   setDetailsCollapsed,
+  setRelationsOpen,
 }: IssueDetailPageProps) {
   const transport = useTransport();
   const queryClient = useQueryClient();
@@ -509,10 +513,12 @@ export function IssueDetailPage({
         dependencyQuery={dependencyQuery}
         detail={detail}
         pending={mutation.status === "pending"}
+        relationsOpen={relationsOpen}
         removeDependency={(id) =>
           void changeDependency(id, "remove")
         }
         setDependencyQuery={setDependencyQuery}
+        setRelationsOpen={setRelationsOpen}
         addDependency={(id) => void changeDependency(id, "add")}
       />
       <IssueLog
@@ -920,15 +926,19 @@ export function RelationshipBand({
   dependencyQuery,
   detail,
   pending,
+  relationsOpen,
   removeDependency,
   setDependencyQuery,
+  setRelationsOpen,
 }: {
   addDependency: (id: string) => void;
   dependencyQuery: string;
   detail: IssueDetail;
   pending: boolean;
+  relationsOpen: boolean;
   removeDependency: (id: string) => void;
   setDependencyQuery: (query: string) => void;
+  setRelationsOpen: (open: boolean) => void;
 }) {
   const issue = detail.issue;
   if (issue === undefined) {
@@ -944,7 +954,11 @@ export function RelationshipBand({
     return null;
   }
   return (
-    <details className="issue-detail-section issue-relations">
+    <details
+      className="issue-detail-section issue-relations"
+      open={relationsOpen}
+      onToggle={(event) => setRelationsOpen(event.currentTarget.open)}
+    >
       <summary>
         <h2 id="relations-title">Relations</h2>
       </summary>

@@ -17,6 +17,7 @@ export interface Preferences {
   boardView: BoardViewPreferences;
   collapsedIssueDetailsBoardIds: string[];
   listView: IssueViewPreferences;
+  relationsOpen: boolean;
 }
 
 export interface PreferencesStorage {
@@ -30,10 +31,11 @@ export const defaultPreferences: Preferences = {
   boardView: defaultBoardView,
   collapsedIssueDetailsBoardIds: [],
   listView: defaultListView,
+  relationsOpen: true,
 };
 
 const storageKey = "cardamom.preferences";
-const storageVersion = 3;
+const storageVersion = 4;
 
 export function loadPreferences(storage: PreferencesStorage): Preferences {
   try {
@@ -56,6 +58,7 @@ export function loadPreferences(storage: PreferencesStorage): Preferences {
         boardView: defaultBoardView,
         collapsedIssueDetailsBoardIds: [],
         listView: defaultListView,
+        relationsOpen: true,
       };
     }
     return {
@@ -68,6 +71,11 @@ export function loadPreferences(storage: PreferencesStorage): Preferences {
               value.collapsedIssueDetailsBoardIds,
             ),
       listView: parseListView(value.listView),
+      relationsOpen:
+        value.version === storageVersion &&
+        typeof value.relationsOpen === "boolean"
+          ? value.relationsOpen
+          : true,
     };
   } catch {
     return defaultPreferences;
@@ -109,7 +117,7 @@ export function setIssueDetailsCollapsed(
 }
 
 function isPersistedPreferences(value: unknown): value is Preferences & {
-  version: 1 | 2 | 3;
+  version: 1 | 2 | 3 | 4;
 } {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -118,6 +126,7 @@ function isPersistedPreferences(value: unknown): value is Preferences & {
   return (
     (candidate.version === 1 ||
       candidate.version === 2 ||
+      candidate.version === 3 ||
       candidate.version === storageVersion) &&
     typeof candidate.actor === "string" &&
     isTheme(candidate.theme) &&

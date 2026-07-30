@@ -303,8 +303,10 @@ describe("issue detail presentation", () => {
               attachmentClient: {} as AttachmentClient,
               collapsedDetailsBoardIds: [],
               issueId,
+              relationsOpen: true,
               selectLabel: vi.fn(),
               setDetailsCollapsed: vi.fn(),
+              setRelationsOpen: vi.fn(),
             }),
           ),
         ),
@@ -336,7 +338,7 @@ describe("issue detail presentation", () => {
     );
     expect(markup).not.toContain('id="lifecycle-title"');
     expect(markup).toContain(
-      '<details class="issue-detail-section issue-relations"><summary>',
+      '<details class="issue-detail-section issue-relations" open=""><summary>',
     );
   });
 
@@ -376,8 +378,10 @@ describe("issue detail presentation", () => {
               dependencyQuery: "",
               detail,
               pending: false,
+              relationsOpen: true,
               removeDependency: vi.fn(),
               setDependencyQuery: vi.fn(),
+              setRelationsOpen: vi.fn(),
             }),
           ),
         ),
@@ -388,6 +392,55 @@ describe("issue detail presentation", () => {
     expect(markup).not.toContain("Dependencies");
     expect(markup).not.toContain("Hierarchy");
     expect(markup).not.toContain("Dependents");
+  });
+
+  it("keeps Relations collapsed when the remembered preference is closed", () => {
+    const issueId = "cm-collapsed-relations";
+    const detail = create(IssueDetailSchema, {
+      issue: create(IssueSummarySchema, {
+        id: issueId,
+        boardId: "board-1",
+        title: "Collapsed relations",
+      }),
+      prerequisites: [
+        create(RelatedIssueSchema, {
+          id: "cm-prerequisite",
+          title: "Prerequisite",
+        }),
+      ],
+    });
+    const transport = createRouterTransport(() => {});
+    const markup = renderToStaticMarkup(
+      createElement(
+        TransportProvider,
+        { transport },
+        createElement(
+          QueryClientProvider,
+          { client: new QueryClient() },
+          createElement(
+            MemoryRouter,
+            null,
+            createElement(RelationshipBand, {
+              addDependency: vi.fn(),
+              dependencyQuery: "",
+              detail,
+              pending: false,
+              relationsOpen: false,
+              removeDependency: vi.fn(),
+              setDependencyQuery: vi.fn(),
+              setRelationsOpen: vi.fn(),
+            }),
+          ),
+        ),
+      ),
+    );
+
+    expect(markup).toContain(
+      '<details class="issue-detail-section issue-relations"><summary>',
+    );
+    expect(markup).not.toContain(
+      '<details class="issue-detail-section issue-relations" open="">',
+    );
   });
 
   it("keeps retained issue content stable during a background refresh", () => {
@@ -444,8 +497,10 @@ describe("issue detail presentation", () => {
               attachmentClient: {} as AttachmentClient,
               collapsedDetailsBoardIds: [],
               issueId,
+              relationsOpen: true,
               selectLabel: vi.fn(),
               setDetailsCollapsed: vi.fn(),
+              setRelationsOpen: vi.fn(),
             }),
           ),
         ),
