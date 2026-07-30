@@ -1,0 +1,81 @@
+[!assets] skip 'requires embedded web assets'
+
+exec git init -b main
+at 2026-07-18T12:00:00Z
+exec card init --prefix web-
+
+# Invalid store configuration does not prevent the selected board's browser
+# shell and bootstrap catalog from serving.
+exec sh -c 'printf "version: [\n" > .cardamom/config.yaml'
+exec sh probe-web.sh
+cmp stdout $WORK/golden/probe.txt
+cmpjson catalog.json $WORK/golden/catalog.json
+
+-- probe-web.sh --
+#!/bin/sh
+set -eu
+
+board_id=board_00000000000000000000
+card web --bind 127.0.0.1 --port 0 --no-browser >web.out 2>web.err &
+pid=$!
+trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+
+i=0
+url=
+while [ "$i" -lt 100 ]; do
+  url=$(sed -n 's/^web application available at //p' web.out | head -n 1)
+  [ -n "$url" ] && break
+  if ! kill -0 "$pid" 2>/dev/null; then
+    cat web.err >&2
+    wait "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+[ -n "$url" ]
+
+curl --fail --silent "$url/" >shell.body
+grep '<div id="app"></div>' shell.body >/dev/null
+
+curl --fail --silent --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Connect-Protocol-Version: 1' \
+  --data '{}' \
+  "$url/cardamom.private.v1.ProjectService/GetBootstrap" >bootstrap.json
+
+jq '{
+  projects: (.projects // []),
+  boards: (.boards // []),
+  serverDefaultBoardId: (.serverDefaultBoardId // null)
+}' bootstrap.json >catalog.json
+
+configuration_status=$(curl --silent --output configuration.body \
+  --write-out '%{http_code}' \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Connect-Protocol-Version: 1' \
+  --data "{\"boardId\":\"$board_id\"}" \
+  "$url/cardamom.private.v1.ConfigurationService/GetConfiguration")
+[ "$configuration_status" = 500 ]
+jq -e '.code == "internal"' configuration.body >/dev/null
+
+mutation_status=$(curl --silent --output mutation.body \
+  --write-out '%{http_code}' \
+  --request POST \
+  --header 'Content-Type: application/json' \
+  --header 'Connect-Protocol-Version: 1' \
+  --data "{\"boardId\":\"$board_id\",\"title\":\"Unavailable\",\"type\":\"ISSUE_TYPE_TASK\",\"priority\":2,\"context\":{\"actor\":\"script\"}}" \
+  "$url/cardamom.private.v1.PlanningService/CreateIssue")
+[ "$mutation_status" = 500 ]
+jq -e '.code == "internal"' mutation.body >/dev/null
+
+kill -TERM "$pid"
+wait "$pid" 2>/dev/null || true
+trap - EXIT
+echo 'invalid configuration web probe passed'
+
+-- golden/catalog.json --
+{"projects":[{"id":"project_00000000000000000000","name":"script-web_invalid_configuration"}],"boards":[{"id":"board_00000000000000000000","projectId":"project_00000000000000000000","name":"script-web_invalid_configuration"}],"serverDefaultBoardId":"board_00000000000000000000"}
+-- golden/probe.txt --
+invalid configuration web probe passed

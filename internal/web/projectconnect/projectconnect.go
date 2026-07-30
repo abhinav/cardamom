@@ -73,9 +73,6 @@ type Config struct {
 	// ServerDefaultBoardID identifies the board selected at server startup.
 	ServerDefaultBoardID *board.ID
 
-	// IDPrefix reports the issue identity prefix configured for this store.
-	IDPrefix string
-
 	// SchemaVersion reports the store schema served by this process.
 	SchemaVersion uint64
 }
@@ -88,7 +85,6 @@ type Service struct {
 	boards               Boards
 	markdown             MarkdownRenderer
 	serverDefaultBoardID *board.ID
-	idPrefix             string
 	schemaVersion        uint64
 }
 
@@ -110,7 +106,6 @@ func New(cfg Config) *Service {
 		boards:               cfg.Boards,
 		markdown:             cfg.Markdown,
 		serverDefaultBoardID: cloneBoardID(cfg.ServerDefaultBoardID),
-		idPrefix:             cfg.IDPrefix,
 		schemaVersion:        cfg.SchemaVersion,
 	}
 }
@@ -162,7 +157,6 @@ func (s *Service) GetBootstrap(
 		Boards:        boards,
 		IssueTypes:    validIssueTypes(),
 		IssueStatuses: validIssueStatuses(),
-		IdPrefix:      s.idPrefix,
 		SchemaVersion: s.schemaVersion,
 	}
 	if s.serverDefaultBoardID != nil {
