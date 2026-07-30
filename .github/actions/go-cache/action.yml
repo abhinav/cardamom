@@ -1,0 +1,21 @@
+name: Restore Go cache
+description: Restore Go module and compiler caches.
+
+runs:
+  using: composite
+  steps:
+    - name: Locate Go caches
+      id: go-env
+      shell: bash
+      run: |
+        echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+        echo "module=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+    - name: Restore Go caches
+      uses: actions/cache@v5
+      with:
+        path: |
+          ${{ steps.go-env.outputs.build }}
+          ${{ steps.go-env.outputs.module }}
+        key: ${{ runner.os }}-go-${{ hashFiles('mise.lock', 'go.sum') }}
+        restore-keys: |
+          ${{ runner.os }}-go-

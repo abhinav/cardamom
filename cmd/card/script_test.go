@@ -1,9 +1,8 @@
-//go:build !webdev
+//go:build script && !webdev
 
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -11,7 +10,6 @@ import (
 	"time"
 
 	"github.com/rogpeppe/go-internal/testscript"
-	"github.com/stretchr/testify/assert"
 )
 
 // TestScript runs the process-boundary CLI scenarios in isolated workspaces.
@@ -32,29 +30,6 @@ func TestScript(t *testing.T) {
 			"cmpjson": cmdCmpJSON,
 		},
 	})
-}
-
-func TestCompareJSON(t *testing.T) {
-	tests := []struct {
-		name     string
-		actual   string
-		expected string
-		negated  bool
-	}{
-		{name: "MalformedActual", actual: `{"name":`, expected: `{"name":"alpha"}`},
-		{name: "MalformedExpected", actual: `{"name":"alpha"}`, expected: `{"name":`},
-		{name: "MalformedActualNegated", actual: `{"name":`, expected: `{"name":"alpha"}`, negated: true},
-	}
-
-	for _, test := range tests {
-		t.Run(test.name, func(t *testing.T) {
-			satisfied, malformed, diagnostic := compareJSON(test.actual, test.expected, test.negated)
-
-			assert.False(t, satisfied)
-			assert.True(t, malformed)
-			assert.NotEmpty(t, diagnostic)
-		})
-	}
 }
 
 // setupTestScript isolates actor and Git identity from the host machine.
@@ -110,26 +85,4 @@ func cmdCmpJSON(ts *testscript.TestScript, neg bool, args []string) {
 		ts.Fatalf("%s and %s do not differ", args[0], args[1])
 	}
 	ts.Fatalf("%s and %s differ:\n%s", args[0], args[1], diagnostic)
-}
-
-// compareJSON applies Testify JSONEq semantics and reports whether the result
-// satisfies the command's possibly negated expectation. Malformed JSON never
-// satisfies the expectation.
-func compareJSON(actual, expected string, negated bool) (satisfied, malformed bool, diagnostic string) {
-	failure := jsonAssertionFailure{}
-	equal := assert.JSONEq(&failure, expected, actual)
-	malformed = !json.Valid([]byte(actual)) || !json.Valid([]byte(expected))
-	return !malformed && equal == !negated, malformed, failure.message
-}
-
-// jsonAssertionFailure captures a Testify diagnostic for testscript to report
-// with the script path and line of the failed cmpjson command.
-type jsonAssertionFailure struct {
-	// message is Testify's formatted JSONEq failure output.
-	message string
-}
-
-// Errorf records the assertion diagnostic emitted by Testify JSONEq.
-func (jaf *jsonAssertionFailure) Errorf(format string, args ...any) {
-	jaf.message = fmt.Sprintf(format, args...)
 }

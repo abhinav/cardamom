@@ -132,8 +132,43 @@ description = "Run all tests"
 usage = '''
 flag "--race" default="false" help="Enable data race detection"
 '''
+depends = [
+  { task = "test:unit", env = { CARDAMOM_TEST_RACE = "{{usage.race}}" } },
+  { task = "test:script", env = { CARDAMOM_TEST_RACE = "{{usage.race}}" } },
+  "test:web",
+]
+
+[tasks."test:unit"]
+description = "Run Go unit tests"
+usage = '''
+flag "--race" default="false" env="CARDAMOM_TEST_RACE" help="Enable data race detection"
+'''
+run = 'go test -count=1 -race="${usage_race?}" ./...'
+
+[tasks."test:script"]
+description = "Run process-boundary test scripts"
+usage = '''
+flag "--race" default="false" env="CARDAMOM_TEST_RACE" help="Enable data race detection"
+flag "--run <pattern>" default="." help="Run matching test scripts"
+flag "--update" help="Update cmp golden files"
+'''
+run = '''
+update=
+if [ "${usage_update:-false}" = "true" ]; then
+  update=-update
+fi
+go test \
+  -count=1 \
+  -race="${usage_race?}" \
+  -tags=script \
+  -run "TestScript/${usage_run?}" \
+  ./cmd/card \
+  $update
+'''
+
+[tasks."test:web"]
+description = "Run web unit tests"
 run = [
-  "go test -count=1 -race={{usage.race}} ./...",
   "CI=true pnpm --dir web install --frozen-lockfile",
   "pnpm --dir web test",
 ]
