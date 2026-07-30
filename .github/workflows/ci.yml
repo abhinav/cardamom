@@ -24,6 +24,7 @@ jobs:
         with:
           cache: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/go-cache
       - run: mise run lint
 
   test-unit:
@@ -63,6 +64,7 @@ jobs:
         with:
           cache: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: ./.github/actions/go-cache
       - name: Build
         run: mise run build
         shell: bash
