@@ -1,5 +1,12 @@
 # Getting started
 
+Start Claude Code or Codex in the project you want to coordinate,
+then ask the agent:
+
+```text
+Use the Cardamom skill to plan and coordinate this work.
+```
+
 Cardamom task-management commands are primarily for agents.
 This example shows a hypothetical coordinator and two workers
 using them in parallel.

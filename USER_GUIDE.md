@@ -18,9 +18,7 @@
 
 ## Installation
 
-Install the Cardamom plugin for your agent host.
-The plugin supplies the Cardamom skill
-and makes the matching `card` CLI available when the agent needs it.
+Install Cardamom for Claude Code, Codex, or as a standalone command.
 
 ### Claude Code
 
@@ -36,6 +34,13 @@ and makes the matching `card` CLI available when the agent needs it.
    claude plugin install cardamom@cardamom
    ```
 
+To update the plugin:
+
+```bash
+claude plugin marketplace update cardamom
+claude plugin update cardamom@cardamom
+```
+
 ### Codex
 
 1. Add the Cardamom repository marketplace.
@@ -50,48 +55,17 @@ and makes the matching `card` CLI available when the agent needs it.
    codex plugin add cardamom@cardamom
    ```
 
-### First use
+To update the plugin:
 
-Start Claude Code or Codex in the project you want to coordinate,
-then ask the agent:
-
-```text
-Use the Cardamom skill to plan and coordinate this work.
+```bash
+codex plugin marketplace upgrade cardamom
+codex plugin add cardamom@cardamom
 ```
 
-The plugin uses an existing `card` executable from `PATH` when one is available.
-Otherwise,
-its packaged launcher downloads and verifies the Cardamom release
-that matches the plugin version.
-On macOS and Linux,
-the launcher caches that executable at
-`~/.cache/cardamom-skill/versions/<version>/cardamom`.
-On Windows,
-it uses
-`%LOCALAPPDATA%\cardamom-skill\versions\<version>\cardamom.exe`.
-Updating the plugin selects the matching release and cache directory.
+### Standalone command
 
-### Updates
-
-- **Claude Code**
-
-  ```bash
-  claude plugin marketplace update cardamom
-  claude plugin update cardamom@cardamom
-  ```
-
-- **Codex**
-
-  ```bash
-  codex plugin marketplace upgrade cardamom
-  codex plugin add cardamom@cardamom
-  ```
-
-### Direct CLI installation
-
-Install the public `card` command directly
-when you want to use Cardamom from your shell
-or need a recovery path that does not use the plugin launcher.
+Install the public `card` command directly to use Cardamom from your shell
+or with another agent host.
 
 - **Homebrew** or **Linuxbrew**
 
@@ -110,11 +84,10 @@ or need a recovery path that does not use the plugin launcher.
     tar -xz -C "$HOME/.local/bin" card
   ```
 
-- **Source checkout**
+- **Install from source**
 
-  Clone the repository,
-  set up [Mise](https://mise.jdx.dev/),
-  and run:
+  To build and install Cardamom from source, clone the repository,
+  set up [Mise](https://mise.jdx.dev/), and run:
 
   ```bash
   mise run build
