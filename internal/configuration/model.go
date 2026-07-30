@@ -82,6 +82,27 @@ type InitializationPrefix struct {
 	RetainedProject *Prefix
 }
 
+// SelectProjectCreationPrefix returns the project-level prefix override for a
+// new project. Nil preserves an active store-level prefix.
+func SelectProjectCreationPrefix(
+	projectName string,
+	requested *string,
+	store Overrides,
+) (*Prefix, error) {
+	if requested != nil {
+		prefix, err := NewPrefix(*requested)
+		if err != nil {
+			return nil, err
+		}
+		return &prefix, nil
+	}
+	if store.Issue.ID.Prefix != nil {
+		return nil, nil
+	}
+	prefix := InferredPrefix(projectName)
+	return &prefix, nil
+}
+
 // SelectInitializationPrefix applies explicit, store, and inferred prefix
 // precedence for one initialization request.
 func SelectInitializationPrefix(
@@ -89,23 +110,19 @@ func SelectInitializationPrefix(
 	requested *string,
 	store Overrides,
 ) (InitializationPrefix, error) {
+	freshProject, err := SelectProjectCreationPrefix(
+		projectName,
+		requested,
+		store,
+	)
+	if err != nil {
+		return InitializationPrefix{}, err
+	}
+	selected := InitializationPrefix{FreshProject: freshProject}
 	if requested != nil {
-		prefix, err := NewPrefix(*requested)
-		if err != nil {
-			return InitializationPrefix{}, err
-		}
-		return InitializationPrefix{
-			FreshProject:    &prefix,
-			RetainedProject: &prefix,
-		}, nil
+		selected.RetainedProject = freshProject
 	}
-	if prefix := store.Issue.ID.Prefix; prefix != nil {
-		return InitializationPrefix{}, nil
-	}
-	prefix := InferredPrefix(projectName)
-	return InitializationPrefix{
-		FreshProject: &prefix,
-	}, nil
+	return selected, nil
 }
 
 // String returns the configured issue ID prefix.

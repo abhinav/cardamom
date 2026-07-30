@@ -9,13 +9,15 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/must"
 	"go.abhg.dev/cardamom/internal/project"
+	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
 var (
-	_ board.Changes    = (*Repository)(nil)
-	_ project.Projects = (*Repository)(nil)
-	_ board.Catalog    = (*Repository)(nil)
+	_ board.Changes            = (*Repository)(nil)
+	_ project.Projects         = (*Repository)(nil)
+	_ projectcreation.Projects = (*Repository)(nil)
+	_ board.Catalog            = (*Repository)(nil)
 )
 
 // Clock supplies durable namespace timestamps.

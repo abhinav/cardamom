@@ -71,16 +71,51 @@ func TestProjectAndInformationProtocolUsesFreshStoreOperations(t *testing.T) {
 	require.Len(t, boardList.Msg.GetBoards(), 1)
 	assert.Equal(t, *namespace.BoardID, boardList.Msg.GetBoards()[0].GetId())
 
-	created, err := projects.CreateBoard(
+	invalidPrefix := "INVALID"
+	_, err = projects.CreateProject(
+		t.Context(),
+		connect.NewRequest(&privatev1.CreateProjectRequest{
+			Name:   "Invalid Project",
+			Prefix: &invalidPrefix,
+		}),
+	)
+	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
+
+	projectPrefix := "secondary-"
+	createdProject, err := projects.CreateProject(
+		t.Context(),
+		connect.NewRequest(&privatev1.CreateProjectRequest{
+			Name:    "Secondary Project",
+			Prefix:  &projectPrefix,
+			Context: &privatev1.MutationContext{Actor: new("protocol-engineer")},
+		}),
+	)
+	require.NoError(t, err)
+
+	projectList, err = projects.ListProjects(
+		t.Context(),
+		connect.NewRequest(&privatev1.ListProjectsRequest{}),
+	)
+	require.NoError(t, err)
+	require.Len(t, projectList.Msg.GetProjects(), 2)
+	assert.Equal(t, createdProject.Msg.GetProject().GetId(), projectList.Msg.GetProjects()[1].GetId())
+	boardList, err = projects.ListBoards(
+		t.Context(),
+		connect.NewRequest(&privatev1.ListBoardsRequest{}),
+	)
+	require.NoError(t, err)
+	assert.Len(t, boardList.Msg.GetBoards(), 1)
+
+	createdBoard, err := projects.CreateBoard(
 		t.Context(),
 		connect.NewRequest(&privatev1.CreateBoardRequest{
-			ProjectId: *namespace.ProjectID,
+			ProjectId: createdProject.Msg.GetProject().GetId(),
 			Name:      "Secondary",
 			Context:   &privatev1.MutationContext{Actor: new("protocol-engineer")},
 		}),
 	)
 	require.NoError(t, err)
-	createdBoardID := created.Msg.GetBoard().GetId()
+	createdBoardID := createdBoard.Msg.GetBoard().GetId()
 
 	updated, err := projects.UpdateBoard(
 		t.Context(),
@@ -105,10 +140,10 @@ func TestProjectAndInformationProtocolUsesFreshStoreOperations(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, filepath.Join(cfg.CWD, ".cardamom"), informationResponse.Msg.GetStore().GetDirectory())
-	assert.Equal(t, *namespace.ProjectID, informationResponse.Msg.GetProject().GetId())
+	assert.Equal(t, createdProject.Msg.GetProject().GetId(), informationResponse.Msg.GetProject().GetId())
 	assert.Equal(t, createdBoardID, informationResponse.Msg.GetBoard().GetId())
-	assert.Equal(t, "mission-", informationResponse.Msg.GetConfiguration().GetIssue().GetId().GetPrefix())
-	assert.Equal(t, uint64(3), informationResponse.Msg.GetRevision().GetCurrent())
+	assert.Equal(t, "secondary-", informationResponse.Msg.GetConfiguration().GetIssue().GetId().GetPrefix())
+	assert.Equal(t, uint64(4), informationResponse.Msg.GetRevision().GetCurrent())
 	assert.Zero(t, informationResponse.Msg.GetIssues().GetTotal())
 
 	require.NoError(t, closeStore())
@@ -126,7 +161,7 @@ func TestProjectAndInformationProtocolUsesFreshStoreOperations(t *testing.T) {
 	require.Equal(t, cli.ExitSuccess, shown.code, shown.stderr)
 	assert.JSONEq(t, `{
 		"id":"`+createdBoardID+`",
-		"project_id":"`+*namespace.ProjectID+`",
+		"project_id":"`+createdProject.Msg.GetProject().GetId()+`",
 		"name":"Renamed",
 		"created":1784376000,
 		"description":null

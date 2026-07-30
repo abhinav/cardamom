@@ -44,6 +44,9 @@ const (
 	ProjectServiceGetBootstrapProcedure = "/cardamom.private.v1.ProjectService/GetBootstrap"
 	// ProjectServiceGetBoardProcedure is the fully-qualified name of the ProjectService's GetBoard RPC.
 	ProjectServiceGetBoardProcedure = "/cardamom.private.v1.ProjectService/GetBoard"
+	// ProjectServiceCreateProjectProcedure is the fully-qualified name of the ProjectService's
+	// CreateProject RPC.
+	ProjectServiceCreateProjectProcedure = "/cardamom.private.v1.ProjectService/CreateProject"
 	// ProjectServiceCreateBoardProcedure is the fully-qualified name of the ProjectService's
 	// CreateBoard RPC.
 	ProjectServiceCreateBoardProcedure = "/cardamom.private.v1.ProjectService/CreateBoard"
@@ -62,6 +65,8 @@ type ProjectServiceClient interface {
 	GetBootstrap(context.Context, *connect.Request[v1.GetBootstrapRequest]) (*connect.Response[v1.GetBootstrapResponse], error)
 	// GetBoard returns one board and its rendered shared context.
 	GetBoard(context.Context, *connect.Request[v1.GetBoardRequest]) (*connect.Response[v1.GetBoardResponse], error)
+	// CreateProject establishes one project in the current store.
+	CreateProject(context.Context, *connect.Request[v1.CreateProjectRequest]) (*connect.Response[v1.CreateProjectResponse], error)
 	// CreateBoard establishes a board in an explicitly identified project.
 	CreateBoard(context.Context, *connect.Request[v1.CreateBoardRequest]) (*connect.Response[v1.CreateBoardResponse], error)
 	// UpdateBoard replaces the supplied settings for one board.
@@ -103,6 +108,12 @@ func NewProjectServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(projectServiceMethods.ByName("GetBoard")),
 			connect.WithClientOptions(opts...),
 		),
+		createProject: connect.NewClient[v1.CreateProjectRequest, v1.CreateProjectResponse](
+			httpClient,
+			baseURL+ProjectServiceCreateProjectProcedure,
+			connect.WithSchema(projectServiceMethods.ByName("CreateProject")),
+			connect.WithClientOptions(opts...),
+		),
 		createBoard: connect.NewClient[v1.CreateBoardRequest, v1.CreateBoardResponse](
 			httpClient,
 			baseURL+ProjectServiceCreateBoardProcedure,
@@ -120,12 +131,13 @@ func NewProjectServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 
 // projectServiceClient implements ProjectServiceClient.
 type projectServiceClient struct {
-	listProjects *connect.Client[v1.ListProjectsRequest, v1.ListProjectsResponse]
-	listBoards   *connect.Client[v1.ListBoardsRequest, v1.ListBoardsResponse]
-	getBootstrap *connect.Client[v1.GetBootstrapRequest, v1.GetBootstrapResponse]
-	getBoard     *connect.Client[v1.GetBoardRequest, v1.GetBoardResponse]
-	createBoard  *connect.Client[v1.CreateBoardRequest, v1.CreateBoardResponse]
-	updateBoard  *connect.Client[v1.UpdateBoardRequest, v1.UpdateBoardResponse]
+	listProjects  *connect.Client[v1.ListProjectsRequest, v1.ListProjectsResponse]
+	listBoards    *connect.Client[v1.ListBoardsRequest, v1.ListBoardsResponse]
+	getBootstrap  *connect.Client[v1.GetBootstrapRequest, v1.GetBootstrapResponse]
+	getBoard      *connect.Client[v1.GetBoardRequest, v1.GetBoardResponse]
+	createProject *connect.Client[v1.CreateProjectRequest, v1.CreateProjectResponse]
+	createBoard   *connect.Client[v1.CreateBoardRequest, v1.CreateBoardResponse]
+	updateBoard   *connect.Client[v1.UpdateBoardRequest, v1.UpdateBoardResponse]
 }
 
 // ListProjects calls cardamom.private.v1.ProjectService.ListProjects.
@@ -148,6 +160,11 @@ func (c *projectServiceClient) GetBoard(ctx context.Context, req *connect.Reques
 	return c.getBoard.CallUnary(ctx, req)
 }
 
+// CreateProject calls cardamom.private.v1.ProjectService.CreateProject.
+func (c *projectServiceClient) CreateProject(ctx context.Context, req *connect.Request[v1.CreateProjectRequest]) (*connect.Response[v1.CreateProjectResponse], error) {
+	return c.createProject.CallUnary(ctx, req)
+}
+
 // CreateBoard calls cardamom.private.v1.ProjectService.CreateBoard.
 func (c *projectServiceClient) CreateBoard(ctx context.Context, req *connect.Request[v1.CreateBoardRequest]) (*connect.Response[v1.CreateBoardResponse], error) {
 	return c.createBoard.CallUnary(ctx, req)
@@ -168,6 +185,8 @@ type ProjectServiceHandler interface {
 	GetBootstrap(context.Context, *connect.Request[v1.GetBootstrapRequest]) (*connect.Response[v1.GetBootstrapResponse], error)
 	// GetBoard returns one board and its rendered shared context.
 	GetBoard(context.Context, *connect.Request[v1.GetBoardRequest]) (*connect.Response[v1.GetBoardResponse], error)
+	// CreateProject establishes one project in the current store.
+	CreateProject(context.Context, *connect.Request[v1.CreateProjectRequest]) (*connect.Response[v1.CreateProjectResponse], error)
 	// CreateBoard establishes a board in an explicitly identified project.
 	CreateBoard(context.Context, *connect.Request[v1.CreateBoardRequest]) (*connect.Response[v1.CreateBoardResponse], error)
 	// UpdateBoard replaces the supplied settings for one board.
@@ -205,6 +224,12 @@ func NewProjectServiceHandler(svc ProjectServiceHandler, opts ...connect.Handler
 		connect.WithSchema(projectServiceMethods.ByName("GetBoard")),
 		connect.WithHandlerOptions(opts...),
 	)
+	projectServiceCreateProjectHandler := connect.NewUnaryHandler(
+		ProjectServiceCreateProjectProcedure,
+		svc.CreateProject,
+		connect.WithSchema(projectServiceMethods.ByName("CreateProject")),
+		connect.WithHandlerOptions(opts...),
+	)
 	projectServiceCreateBoardHandler := connect.NewUnaryHandler(
 		ProjectServiceCreateBoardProcedure,
 		svc.CreateBoard,
@@ -227,6 +252,8 @@ func NewProjectServiceHandler(svc ProjectServiceHandler, opts ...connect.Handler
 			projectServiceGetBootstrapHandler.ServeHTTP(w, r)
 		case ProjectServiceGetBoardProcedure:
 			projectServiceGetBoardHandler.ServeHTTP(w, r)
+		case ProjectServiceCreateProjectProcedure:
+			projectServiceCreateProjectHandler.ServeHTTP(w, r)
 		case ProjectServiceCreateBoardProcedure:
 			projectServiceCreateBoardHandler.ServeHTTP(w, r)
 		case ProjectServiceUpdateBoardProcedure:
@@ -254,6 +281,10 @@ func (UnimplementedProjectServiceHandler) GetBootstrap(context.Context, *connect
 
 func (UnimplementedProjectServiceHandler) GetBoard(context.Context, *connect.Request[v1.GetBoardRequest]) (*connect.Response[v1.GetBoardResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.ProjectService.GetBoard is not implemented"))
+}
+
+func (UnimplementedProjectServiceHandler) CreateProject(context.Context, *connect.Request[v1.CreateProjectRequest]) (*connect.Response[v1.CreateProjectResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.ProjectService.CreateProject is not implemented"))
 }
 
 func (UnimplementedProjectServiceHandler) CreateBoard(context.Context, *connect.Request[v1.CreateBoardRequest]) (*connect.Response[v1.CreateBoardResponse], error) {

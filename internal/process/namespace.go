@@ -14,6 +14,7 @@ import (
 	"go.abhg.dev/cardamom/internal/issue/planning"
 	"go.abhg.dev/cardamom/internal/issue/record"
 	"go.abhg.dev/cardamom/internal/project"
+	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
 	repositoryboard "go.abhg.dev/cardamom/internal/repository/board"
 	repositoryproject "go.abhg.dev/cardamom/internal/repository/project"
 	"go.abhg.dev/cardamom/internal/repository/store"
@@ -23,16 +24,17 @@ import (
 // namespaceRuntime owns one open store and the process services that select
 // and operate on project boards in that store.
 type namespaceRuntime struct {
-	directory     string
-	store         *store.Store
-	configuration *configuration.Service
-	catalog       *repositoryproject.Repository
-	projects      *project.Service
-	boards        *board.Service
-	locator       *repositoryboard.Locator
-	selection     *selection.Resolver
-	clock         Clock
-	entropy       io.Reader
+	directory      string
+	store          *store.Store
+	configuration  *configuration.Service
+	catalog        *repositoryproject.Repository
+	projects       *project.Service
+	projectCreator *projectcreation.Service
+	boards         *board.Service
+	locator        *repositoryboard.Locator
+	selection      *selection.Resolver
+	clock          Clock
+	entropy        io.Reader
 }
 
 // openNamespace resolves one physical store and composes its project namespace.
@@ -88,6 +90,10 @@ func composeNamespace(
 	)
 	configurationService.SetStoreIdentity(directory)
 	projects := project.NewService(catalog)
+	projectCreator := projectcreation.NewService(
+		settingsStore{directory: directory},
+		catalog,
+	)
 	boards := board.NewService(catalog, catalog)
 	locator := repositoryboard.NewLocator(persistence)
 	bindingPath, err := storelocation.BoardBindingPath(cfg.CWD)
@@ -95,13 +101,14 @@ func composeNamespace(
 		return nil, errors.Join(err, persistence.Close())
 	}
 	return &namespaceRuntime{
-		directory:     directory,
-		store:         persistence,
-		configuration: configurationService,
-		catalog:       catalog,
-		projects:      projects,
-		boards:        boards,
-		locator:       locator,
+		directory:      directory,
+		store:          persistence,
+		configuration:  configurationService,
+		catalog:        catalog,
+		projects:       projects,
+		projectCreator: projectCreator,
+		boards:         boards,
+		locator:        locator,
 		selection: selection.NewResolver(
 			boards,
 			&checkoutBoardBinding{path: bindingPath},

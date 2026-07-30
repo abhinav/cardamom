@@ -94,7 +94,9 @@ func (o *webOperation) open(
 		return webHandlerBinding{}, nil, errors.Join(err, runtime.close())
 	}
 	projectHandler := projectconnect.New(projectconnect.Config{
-		Projects: runtime.projects, Boards: runtime.boards,
+		Projects:             runtime.projects,
+		ProjectCreator:       runtime.projectCreator,
+		Boards:               runtime.boards,
 		Markdown:             markdownRenderer,
 		ServerDefaultBoardID: &defaultBoardID,
 		IDPrefix:             configuration.Effective.Issue.ID.Prefix.String(),

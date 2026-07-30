@@ -103,6 +103,24 @@ message GetBoardResponse {
   Board board = 1;
 }
 
+// CreateProjectRequest creates one project in the current store.
+message CreateProjectRequest {
+  // name is the new project's human-readable name.
+  string name = 1;
+
+  // prefix explicitly sets the project issue ID prefix when present.
+  optional string prefix = 2;
+
+  // context supplies attribution for the project mutation.
+  MutationContext context = 3;
+}
+
+// CreateProjectResponse contains the created project.
+message CreateProjectResponse {
+  // project is the authoritative created project record.
+  Project project = 1;
+}
+
 // CreateBoardRequest creates a board in one explicit project.
 message CreateBoardRequest {
   // project_id identifies the project that will own the board.
@@ -159,6 +177,9 @@ service ProjectService {
 
   // GetBoard returns one board and its rendered shared context.
   rpc GetBoard(GetBoardRequest) returns (GetBoardResponse);
+
+  // CreateProject establishes one project in the current store.
+  rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);
 
   // CreateBoard establishes a board in an explicitly identified project.
   rpc CreateBoard(CreateBoardRequest) returns (CreateBoardResponse);
