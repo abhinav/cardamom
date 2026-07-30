@@ -1,4 +1,4 @@
-//go:build webassets && !webdev
+//go:build assets && !webdev
 
 package process
 

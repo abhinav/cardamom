@@ -1,4 +1,4 @@
-//go:build webassets
+//go:build assets
 
 package server
 

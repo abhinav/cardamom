@@ -1,5 +1,5 @@
-//go:build script && !webassets
+//go:build script && !assets
 
 package main
 
-const webAssetsBuild = false
+const assetsBuild = false

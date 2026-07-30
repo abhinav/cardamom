@@ -1,0 +1,50 @@
+# Skill installation is independent of Cardamom store and board selection.
+env CARDAMOM_STORE=$WORK/missing-store
+env CARDAMOM_BOARD=missing-board
+
+# A missing skills directory receives the complete runtime skill.
+exec card skill install $WORK/skills
+cmpenv stdout $WORK/golden/installed.txt
+! stderr .
+exists skills/cardamom/SKILL.md
+exists skills/cardamom/references/execution.md
+exists skills/cardamom/scripts/cardamom
+exec test -x skills/cardamom/scripts/cardamom
+! exists skills/cardamom/tests
+! exists .cardamom
+cp skills/cardamom/SKILL.md original-skill.md
+
+# Reinstalling identical content reports an unchanged destination.
+exec card --json skill install $WORK/skills
+cmpenv stdout $WORK/golden/unchanged.json
+! stderr .
+
+# A different destination is preserved unless replacement is requested.
+cp $WORK/changed-skill.md skills/cardamom/SKILL.md
+cp $WORK/stale-reference.md skills/cardamom/references/stale.md
+! exec card skill install $WORK/skills
+! stdout .
+cmpenv stderr $WORK/golden/conflict.txt
+cmp skills/cardamom/SKILL.md $WORK/changed-skill.md
+cmp skills/cardamom/references/stale.md $WORK/stale-reference.md
+
+# Forced installation publishes the complete embedded tree.
+exec card skill install $WORK/skills --force
+cmpenv stdout $WORK/golden/replaced.txt
+! stderr .
+cmp skills/cardamom/SKILL.md original-skill.md
+! exists skills/cardamom/references/stale.md
+! exists skills/cardamom/tests
+
+-- changed-skill.md --
+changed
+-- stale-reference.md --
+stale
+-- golden/installed.txt --
+installed Cardamom skill at $WORK/skills/cardamom
+-- golden/unchanged.json --
+{"destination":"$WORK/skills/cardamom","status":"unchanged"}
+-- golden/conflict.txt --
+error: skill destination "$WORK/skills/cardamom" differs from the embedded Cardamom skill; rerun with --force to replace it
+-- golden/replaced.txt --
+replaced Cardamom skill at $WORK/skills/cardamom

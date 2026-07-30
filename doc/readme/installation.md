@@ -75,3 +75,16 @@ or with another agent host.
     mise run build
     cp bin/card "$HOME/.local/bin"
     ```
+
+After installing `card`,
+install its embedded Cardamom skill into an agent host's parent skills
+directory:
+
+```bash
+card skill install ~/.agents/skills
+```
+
+The command writes the skill to `~/.agents/skills/cardamom`.
+An identical destination is left unchanged.
+If the destination differs,
+inspect it before passing `--force` to replace the complete directory.

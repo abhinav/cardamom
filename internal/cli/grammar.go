@@ -45,6 +45,7 @@ type commandTree struct {
 
 	Info       infoCommand       `cmd:"" group:"process" help:"Show store identity and inventory."`
 	Version    versionCommand    `cmd:"" group:"process" help:"Print version information."`
+	Skill      skillCommand      `cmd:"" group:"process" help:"Install the embedded Cardamom skill."`
 	Web        webCommand        `cmd:"" group:"process" help:"Launch the local web application."`
 	Completion completionCommand `cmd:"" group:"process" help:"Generate shell completion."`
 }

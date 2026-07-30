@@ -75,11 +75,13 @@ mise run build
 The build installs the locked web dependencies under `web/`,
 builds the React application with Vite,
 generates `internal/web/server/static.tar.gz`,
-and embeds the archive in the `card` binary with the `webassets` build tag.
+generates `internal/skill/cardamom.tar.gz`,
+and embeds both archives in the `card` binary with the `assets` build tag.
 
-A source build without the `webassets` or `webdev` build tag remains usable
-for non-web commands.
-Its `card web` command reports that embedded web assets are unavailable.
+A source build without the `assets` build tag remains usable for commands
+that do not require embedded assets.
+`card web` requires either `assets` or `webdev`;
+`card skill install` requires `assets`.
 
 ## Run live web development
 
