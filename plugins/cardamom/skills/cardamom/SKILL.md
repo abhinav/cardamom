@@ -19,6 +19,13 @@ but `--store` or `CARDAMOM_STORE` may select another physical store directory.
 The collaboration runtime owns agent dispatch, liveness, and worktrees;
 `card` owns durable coordination state.
 
+Run workflow commands with `card` directly.
+If the shell reports that `card` is unavailable,
+retry the same command with `scripts/cardamom` from this skill directory
+on macOS or Linux,
+or `scripts/cardamom.ps1` on Windows.
+The launcher preserves every argument.
+
 ## Establish identity and scope
 
 Choose one stable actor name before the first `card` invocation.

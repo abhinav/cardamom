@@ -1,10 +1,55 @@
 # Installation
 
-Use one of the following options to install Cardamom on your system.
+Install Cardamom for Claude Code, Codex, or as a standalone command.
 
-- **Homebrew** or **Linuxbrew**:
+## Claude Code
 
-    Install a pre-built binary of Cardamom from the official Homebrew tap:
+1. Add the Cardamom repository marketplace.
+
+    ```bash
+    claude plugin marketplace add abhinav/cardamom
+    ```
+
+2. Install the plugin.
+
+    ```bash
+    claude plugin install cardamom@cardamom
+    ```
+
+To update the plugin:
+
+```bash
+claude plugin marketplace update cardamom
+claude plugin update cardamom@cardamom
+```
+
+## Codex
+
+1. Add the Cardamom repository marketplace.
+
+    ```bash
+    codex plugin marketplace add abhinav/cardamom
+    ```
+
+2. Install the plugin.
+
+    ```bash
+    codex plugin add cardamom@cardamom
+    ```
+
+To update the plugin:
+
+```bash
+codex plugin marketplace upgrade cardamom
+codex plugin add cardamom@cardamom
+```
+
+## Standalone command
+
+Install the public `card` command directly to use Cardamom from your shell
+or with another agent host.
+
+- **Homebrew** or **Linuxbrew**
 
     ```bash
     brew install --cask abhinav/tap/cardamom

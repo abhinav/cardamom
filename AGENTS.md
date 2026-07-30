@@ -95,4 +95,5 @@ Author new stable production repository SQL for sqlc generation;
 repository ownership does not permit handwritten runtime queries.
 `internal/process` owns process lifetime and dependency composition.
 
-Read `.agents/docs/skill.md` before changing `skills/cardamom`.
+Read `.agents/docs/skill.md` before changing
+`plugins/cardamom/skills/cardamom`.

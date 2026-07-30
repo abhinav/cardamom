@@ -38,11 +38,43 @@ The old prefix reflects persisted identity from before the command rename.
 - Claims `an-k9c` unchanged rather than rewriting or replacing the ID.
 - Uses `cm-` only for newly allocated example identities.
 
+## Recover the plugin command after shell failure
+
+### Initial prompt
+
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md`
+and its linked references.
+
+The skill came from an installed Cardamom plugin.
+The user asks you to inspect an existing selected board.
+State the next read-only command.
+Do not modify files or external state.
+
+### Initial expectations
+
+- Invokes `card` directly with one stable actor name.
+- Does not add a command lookup or other preflight check.
+
+### Next stage
+
+The shell reports that `card` is unavailable.
+State the retry command.
+
+### Final expectations
+
+- Uses the platform launcher from the loaded skill's `scripts` directory.
+- Uses the Bash launcher on macOS or Linux,
+    or the PowerShell launcher on Windows.
+- Retries the same command and actor arguments through the launcher.
+- Does not invent an installation procedure,
+    globally install a command,
+    or manually manage the launcher's cache.
+
 ## Add a project to an existing store
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 An existing selected Cardamom store contains the `Inventory` project and its
 board.
@@ -76,7 +108,7 @@ The active store prefix should apply to the new project.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A Cardamom store has two boards and no board is selected in this checkout.
 The store path is `/srv/cardamom`.
@@ -109,7 +141,7 @@ The message or lease operation also needs to update a board issue.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 Two actors in one Cardamom store own separate claimed issues.
 Either actor may reset the same shared test environment.
@@ -201,7 +233,7 @@ but actors occasionally perform exclusive configuration maintenance.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A worker holds the lease for a shared hardware test rack.
 The worker process has terminated and cannot resume.
@@ -265,7 +297,7 @@ but a later revocation reports that `worker-b` holds the lease.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 An existing selected board needs one release workstream,
 two parallel validation tasks,
@@ -339,7 +371,7 @@ with one dependency and one label.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 An existing selected board coordinates one change through preparation,
 verification, external authorization, and activation.
@@ -418,7 +450,7 @@ and can be retried without reopening another phase's work.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A staff architect has written a child task named
 `Split persistence ownership`.
@@ -481,7 +513,7 @@ The only prerequisite generates the schema those operations consume.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A user asks you to coordinate a reusable compatibility audit with `card` in an
 existing checkout.
@@ -562,7 +594,7 @@ run.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 One store contains the selected board `board-release` and unrelated boards.
 `board-release` has no root workstream for a small release.
@@ -613,7 +645,7 @@ the labels as workstream membership because the release starts in ten minutes.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A coordinator has selected ready task `cm-27`, actor `index-worker`,
 store `/srv/project/.cardamom`, board `release`,
@@ -656,7 +688,7 @@ implementation.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A parent workstream coordinates a session-cache migration.
 The coordinator has a compact name,
@@ -722,7 +754,7 @@ one issue or containment subtree.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md`.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md`.
 
 An existing release workstream has issue `cm-release` and acceptance task
 `cm-accept`.
@@ -794,7 +826,7 @@ and a related log entry only repeats that conclusion without useful chronology.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md`
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md`
 and the planning and execution workflows it tells you to load.
 Do not execute commands or modify state.
 
@@ -851,7 +883,7 @@ A one-line record intentionally documents the two characters backslash and `n`.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 Do not execute commands or modify state.
 
 A coordinator is preparing one workstream.
@@ -900,7 +932,7 @@ The State contains one connected two-sentence observation.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A worker receives a ready task ID and actor identity.
 The summary or details may contain a contract gap.
@@ -1021,7 +1053,7 @@ failure, or blocker.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 You own claimed issue `cm-parser` as actor `parser-worker`.
 Its current State says
@@ -1120,7 +1152,7 @@ or evidence that changes downstream work.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 You own claimed issue `cm-cache` as actor `cache-worker`.
 Its current State says that implementation is underway.
@@ -1184,7 +1216,7 @@ and the existing State still accurately describes implementation in progress.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 `signing-worker` owns claimed issue `cm-sign`.
 The implementation is partially complete,
@@ -1264,7 +1296,7 @@ stage.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 You are `export-worker` and already own claimed task `cm-91`.
 The current State has the next implementation area as its planned action.
@@ -1353,7 +1385,7 @@ and the work reveals no new constraint, failure, or workaround.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 While implementing one task,
 a worker discovers a separately ownable validation outcome.
@@ -1381,7 +1413,7 @@ Do not execute commands.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A migration implementation must pass an externally authorized
 production-readiness gate before deployment.
@@ -1410,7 +1442,7 @@ Do not mutate the board.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 Root decides that `worker-old` will not continue and may terminate that worker
 before reassignment.
@@ -1493,7 +1525,7 @@ Cardamom does not provide a force-release operation.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 A weekly database verification has a stable reusable procedure and needs one
 bounded issue per firing.
@@ -1578,7 +1610,7 @@ The operating procedure itself changes after a durable policy decision.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 An existing selected board has a claimed issue `cm-audit`.
 A local analyzer produced `/tmp/route-audit.ndjson`.
@@ -1643,7 +1675,7 @@ The first associated-attachment page returns `next_page_token`.
 
 ### Prompt
 
-Use the skill at `/path/to/skills/cardamom/SKILL.md` and its linked references.
+Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md` and its linked references.
 
 You are revising the skill after adding a new `card inspect-cache` command.
 Agents need the command only during evidence-first recovery when a cache lease

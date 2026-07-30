@@ -7,8 +7,8 @@ give the runner only the available-skill catalog and scenario prompt;
 do not provide the target skill path or body.
 For an application scenario,
 prefix the runner input with a neutral instruction to read
-`skills/cardamom/SKILL.md` and the reference files that the scenario exercises
-before answering.
+`plugins/cardamom/skills/cardamom/SKILL.md` and the reference files that the
+scenario exercises before answering.
 Put that loading instruction and the unchanged scenario prompt in the same
 runner turn.
 Keep the prefix limited to file loading;
