@@ -71,7 +71,7 @@ trap - EXIT
 echo 'web probe passed'
 
 -- golden/bootstrap.json --
-{"projects":[{"id":"project_00000000000000000000","name":"script-web_startup"}],"boards":[{"id":"board_00000000000000000000","projectId":"project_00000000000000000000","name":"script-web_startup"}],"serverDefaultBoardId":"board_00000000000000000000","issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"idPrefix":"web-","schemaVersion":"20260729090000"}
+{"projects":[{"id":"project_00000000000000000000","name":"script-web_startup"}],"boards":[{"id":"board_00000000000000000000","projectId":"project_00000000000000000000","name":"script-web_startup"}],"serverDefaultBoardId":"board_00000000000000000000","issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"schemaVersion":"20260729090000"}
 -- golden/dev-error.txt --
 error: unknown flag --dev
 -- golden/probe.txt --

@@ -439,8 +439,6 @@ type GetBootstrapResponse struct {
 	IssueTypes []IssueType `protobuf:"varint,4,rep,packed,name=issue_types,json=issueTypes,proto3,enum=cardamom.private.v1.IssueType" json:"issue_types,omitempty"`
 	// issue_statuses lists effective statuses supported by browser filters.
 	IssueStatuses []IssueStatus `protobuf:"varint,5,rep,packed,name=issue_statuses,json=issueStatuses,proto3,enum=cardamom.private.v1.IssueStatus" json:"issue_statuses,omitempty"`
-	// id_prefix is the configured prefix for newly allocated issue IDs.
-	IdPrefix string `protobuf:"bytes,6,opt,name=id_prefix,json=idPrefix,proto3" json:"id_prefix,omitempty"`
 	// schema_version is the active Cardamom store schema version.
 	SchemaVersion uint64 `protobuf:"varint,7,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -510,13 +508,6 @@ func (x *GetBootstrapResponse) GetIssueStatuses() []IssueStatus {
 		return x.IssueStatuses
 	}
 	return nil
-}
-
-func (x *GetBootstrapResponse) GetIdPrefix() string {
-	if x != nil {
-		return x.IdPrefix
-	}
-	return ""
 }
 
 func (x *GetBootstrapResponse) GetSchemaVersion() uint64 {
@@ -994,17 +985,16 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x11ListBoardsRequest\"O\n" +
 	"\x12ListBoardsResponse\x129\n" +
 	"\x06boards\x18\x01 \x03(\v2!.cardamom.private.v1.BoardSummaryR\x06boards\"\x15\n" +
-	"\x13GetBootstrapRequest\"\xb1\x03\n" +
+	"\x13GetBootstrapRequest\"\xa5\x03\n" +
 	"\x14GetBootstrapResponse\x128\n" +
 	"\bprojects\x18\x01 \x03(\v2\x1c.cardamom.private.v1.ProjectR\bprojects\x129\n" +
 	"\x06boards\x18\x02 \x03(\v2!.cardamom.private.v1.BoardSummaryR\x06boards\x12:\n" +
 	"\x17server_default_board_id\x18\x03 \x01(\tH\x00R\x14serverDefaultBoardId\x88\x01\x01\x12?\n" +
 	"\vissue_types\x18\x04 \x03(\x0e2\x1e.cardamom.private.v1.IssueTypeR\n" +
 	"issueTypes\x12G\n" +
-	"\x0eissue_statuses\x18\x05 \x03(\x0e2 .cardamom.private.v1.IssueStatusR\rissueStatuses\x12\x1b\n" +
-	"\tid_prefix\x18\x06 \x01(\tR\bidPrefix\x12%\n" +
+	"\x0eissue_statuses\x18\x05 \x03(\x0e2 .cardamom.private.v1.IssueStatusR\rissueStatuses\x12%\n" +
 	"\x0eschema_version\x18\a \x01(\x04R\rschemaVersionB\x1a\n" +
-	"\x18_server_default_board_id\",\n" +
+	"\x18_server_default_board_idJ\x04\b\x06\x10\aR\tid_prefix\",\n" +
 	"\x0fGetBoardRequest\x12\x19\n" +
 	"\bboard_id\x18\x01 \x01(\tR\aboardId\"D\n" +
 	"\x10GetBoardResponse\x120\n" +

@@ -1,0 +1,5 @@
+kind: Fixed
+body: >-
+  Allow `card web` to serve the browser and board catalog when the selected
+  store configuration is invalid.
+time: 2026-07-30T08:48:58.860156-07:00
