@@ -6,11 +6,7 @@ if ($Installed) {
     exit $LASTEXITCODE
 }
 
-$PluginRoot = (Resolve-Path (Join-Path $PSScriptRoot "..\..\..")).Path
-$Version = (Get-Content (Join-Path $PluginRoot "VERSION") -Raw).Trim()
-if ($Version -notmatch "^[0-9A-Za-z.+-]+$") {
-    throw "cardamom: invalid plugin version in $PluginRoot\VERSION"
-}
+$Version = "0.1.0-beta.2"
 
 $CacheRoot = $env:LOCALAPPDATA
 if (-not $CacheRoot) {

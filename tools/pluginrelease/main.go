@@ -1,101 +1,155 @@
-// Command pluginrelease synchronizes the Cardamom plugin version metadata.
+// Command pluginrelease synchronizes release versions in the Cardamom plugin.
 //
-// Run pluginrelease from the Cardamom repository root:
+// Run it from the repository root:
 //
-//	go run ./tools/pluginrelease check [<version>]
-//	go run ./tools/pluginrelease materialize <version>
-//
-// A version may be prefixed with "v", as in "v1.2.3", or supplied without the
-// prefix. The check operation validates plugins/cardamom/VERSION and the Claude
-// and Codex manifests under plugins/cardamom. When an expected version is
-// supplied, check also verifies that the repository metadata matches it. The
-// materialize operation first validates all existing metadata, then writes the
-// requested version to VERSION and both manifests. Manifest output uses
-// deterministic JSON formatting and preserves unknown top-level members.
-//
-// Successful operations write one status line to standard output. A malformed
-// command, invalid version, unreadable or inconsistent metadata file, failed
-// write, or standard-output failure returns a non-zero status after writing a
-// diagnostic to standard error. Materialize performs no writes until every
-// existing metadata file has passed validation.
+//	pluginrelease <version>
+//	pluginrelease -check <version>
 package main
 
 import (
+	"bytes"
 	"errors"
+	"flag"
 	"fmt"
 	"io"
+	"log"
 	"os"
-)
+	"path/filepath"
+	"regexp"
+	"strings"
 
-const (
-	commandUsage     = "usage: pluginrelease (check [<version>] | materialize <version>)"
-	checkUsage       = "usage: pluginrelease check [<version>]"
-	materializeUsage = "usage: pluginrelease materialize <version>"
+	"github.com/tidwall/gjson"
+	"github.com/tidwall/sjson"
+	"golang.org/x/mod/semver"
 )
 
 func main() {
-	if err := run(".", os.Stdout, os.Args[1:]); err != nil {
-		fmt.Fprintln(os.Stderr, "pluginrelease:", err)
-		os.Exit(1)
-	}
+	os.Exit(run(".", os.Stderr, os.Args[1:]))
 }
 
-func run(root string, stdout io.Writer, args []string) error {
-	if len(args) == 0 {
-		return errors.New(commandUsage)
+func run(root string, stderr io.Writer, args []string) int {
+	log := log.New(stderr, "pluginrelease: ", 0)
+	flags := flag.NewFlagSet("pluginrelease", flag.ContinueOnError)
+	flags.SetOutput(io.Discard)
+	check := flags.Bool("check", false, "check without writing")
+	if err := flags.Parse(args); err != nil {
+		log.Print(err)
+		return 2
+	}
+	if flags.NArg() != 1 {
+		log.Print("usage: pluginrelease [-check] <version>")
+		return 2
 	}
 
-	metadata := pluginMetadata{root: root}
-	switch args[0] {
-	case "check":
-		if len(args) > 2 {
-			return errors.New(checkUsage)
-		}
-
-		var expected *pluginVersion
-		if len(args) == 2 {
-			version, err := parseReleaseVersion(args[1])
-			if err != nil {
-				return err
-			}
-			expected = &version
-		}
-
-		version, err := metadata.check(expected)
-		if err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(
-			stdout,
-			"plugin version %s is consistent\n",
-			version,
-		); err != nil {
-			return fmt.Errorf("write check result: %w", err)
-		}
-		return nil
-
-	case "materialize":
-		if len(args) != 2 {
-			return errors.New(materializeUsage)
-		}
-
-		version, err := parseReleaseVersion(args[1])
-		if err != nil {
-			return err
-		}
-		if err := metadata.materialize(version); err != nil {
-			return err
-		}
-		if _, err := fmt.Fprintf(
-			stdout,
-			"materialized plugin version %s\n",
-			version,
-		); err != nil {
-			return fmt.Errorf("write materialize result: %w", err)
-		}
-		return nil
-
-	default:
-		return fmt.Errorf("unknown operation %q: %s", args[0], commandUsage)
+	version := flags.Arg(0)
+	if !strings.HasPrefix(version, "v") {
+		version = "v" + version
 	}
+	if !semver.IsValid(version) {
+		log.Printf("release version %q is not valid SemVer", flags.Arg(0))
+		return 2
+	}
+	version = strings.TrimPrefix(version, "v")
+
+	if err := synchronize(root, log, version, *check); err != nil {
+		log.Print(err)
+		return 1
+	}
+	return 0
+}
+
+func synchronize(
+	root string,
+	logger *log.Logger,
+	version string,
+	check bool,
+) error {
+	files := []struct {
+		path   string
+		render func([]byte, string) ([]byte, error)
+	}{
+		{"plugins/cardamom/.claude-plugin/plugin.json", renderJSON},
+		{"plugins/cardamom/.codex-plugin/plugin.json", renderJSON},
+		{"plugins/cardamom/skills/cardamom/scripts/cardamom", renderBash},
+		{
+			"plugins/cardamom/skills/cardamom/scripts/cardamom.ps1",
+			renderPowerShell,
+		},
+	}
+
+	changed := 0
+	for _, file := range files {
+		path := filepath.Join(root, file.path)
+		body, err := os.ReadFile(path)
+		if err != nil {
+			return fmt.Errorf("read %q: %w", file.path, err)
+		}
+		rendered, err := file.render(body, version)
+		if err != nil {
+			return fmt.Errorf("update %q: %w", file.path, err)
+		}
+		if bytes.Equal(body, rendered) {
+			continue
+		}
+		if check {
+			logger.Printf("would update: %s", file.path)
+			changed++
+			continue
+		}
+		if err := os.WriteFile(path, rendered, 0o644); err != nil {
+			return fmt.Errorf("write %q: %w", file.path, err)
+		}
+	}
+
+	if check && changed > 0 {
+		return fmt.Errorf("%d files would be changed", changed)
+	}
+	return nil
+}
+
+func renderJSON(body []byte, version string) ([]byte, error) {
+	if !gjson.ValidBytes(body) {
+		return nil, errors.New("invalid JSON")
+	}
+	current := gjson.GetBytes(body, "version")
+	if !current.Exists() {
+		return nil, errors.New("version field is missing")
+	}
+	if current.Type != gjson.String {
+		return nil, errors.New("version field must be a string")
+	}
+
+	rendered, err := sjson.SetBytes(body, "version", version)
+	if err != nil {
+		return nil, fmt.Errorf("set version field: %w", err)
+	}
+	return rendered, nil
+}
+
+var bashVersionPattern = regexp.MustCompile(
+	`(?m)^readonly VERSION='[^']*'$`,
+)
+
+func renderBash(body []byte, version string) ([]byte, error) {
+	if len(bashVersionPattern.FindAllIndex(body, 2)) != 1 {
+		return nil, errors.New("expected one version constant")
+	}
+	return bashVersionPattern.ReplaceAllLiteral(
+		body,
+		[]byte("readonly VERSION='"+version+"'"),
+	), nil
+}
+
+var powerShellVersionPattern = regexp.MustCompile(
+	`(?m)^\$Version = "[^"]*"$`,
+)
+
+func renderPowerShell(body []byte, version string) ([]byte, error) {
+	if len(powerShellVersionPattern.FindAllIndex(body, 2)) != 1 {
+		return nil, errors.New("expected one version constant")
+	}
+	return powerShellVersionPattern.ReplaceAllLiteral(
+		body,
+		[]byte(`$Version = "`+version+`"`),
+	), nil
 }

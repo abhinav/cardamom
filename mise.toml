@@ -191,11 +191,11 @@ run = [
 [tasks."release:prepare"]
 description = "Prepare release changelog and plugin metadata"
 usage = '''
-arg "<version>" help="Version to prepare, such as v1.2.3"
+arg "<version>" help="Version or increment to prepare, such as patch, minor, or v1.2.3"
 '''
 run = [
-  "go run ./tools/pluginrelease check",
+  'go run ./tools/pluginrelease -check "$(changie latest)"',
   "changie batch {{usage.version|quote}}",
   "changie merge",
-  "go run ./tools/pluginrelease materialize {{usage.version|quote}}",
+  'go run ./tools/pluginrelease "$(changie latest)"',
 ]

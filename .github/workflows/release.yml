@@ -39,7 +39,7 @@ jobs:
           fi
 
       - name: Verify plugin version
-        run: go run ./tools/pluginrelease check "v$VERSION"
+        run: go run ./tools/pluginrelease -check "$VERSION"
 
       - name: Extract changelog
         run: |

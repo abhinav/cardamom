@@ -6,22 +6,15 @@ if command -v card >/dev/null 2>&1; then
 	exec card "$@"
 fi
 
+readonly VERSION='0.1.0-beta.2'
+
 fail() {
 	printf 'cardamom: %s\n' "$*" >&2
 	exit 1
 }
 
-script_dir=$(CDPATH= cd -P "$(dirname "$0")" && pwd)
-plugin_dir=$(CDPATH= cd -P "$script_dir/../../.." && pwd)
-version=$(cat "$plugin_dir/VERSION")
-case "$version" in
-	""|*[!0-9A-Za-z.+-]*)
-		fail "invalid plugin version in $plugin_dir/VERSION"
-		;;
-esac
-
 cache_root=${XDG_CACHE_HOME:-"${HOME:?HOME is not set}/.cache"}
-cache_dir=$cache_root/cardamom-skill/versions/$version
+cache_dir=$cache_root/cardamom-skill/versions/$VERSION
 executable=$cache_dir/cardamom
 if [ -x "$executable" ]; then
 	exec "$executable" "$@"
@@ -40,7 +33,7 @@ temp_dir=$(mktemp -d "$cache_dir/.install.XXXXXX")
 trap 'rm -rf "$temp_dir"' 0 HUP INT TERM
 
 archive_name=cardamom.$os-$arch.tar.gz
-release_url=https://github.com/abhinav/cardamom/releases/download/v$version
+release_url=https://github.com/abhinav/cardamom/releases/download/v$VERSION
 archive=$temp_dir/$archive_name
 checksums=$temp_dir/checksums.txt
 curl --fail --location --silent --show-error \
