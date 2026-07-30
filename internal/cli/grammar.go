@@ -12,9 +12,10 @@ type commandTree struct {
 	JSON          bool   `name:"json" group:"global" help:"Emit machine-readable JSON or JSON Lines output."`
 	Quiet         bool   `name:"quiet" short:"q" group:"global" help:"Suppress status notices while preserving requested output and errors."`
 
-	Init   initCommand          `cmd:"" group:"starting" help:"Initialize a store, project, and first board."`
-	Board  boardCommand         `cmd:"" group:"starting" help:"Create, select, and inspect coordination boards."`
-	Config configurationCommand `cmd:"" group:"configuration" help:"Inspect and update typed configuration."`
+	Init    initCommand          `cmd:"" group:"starting" help:"Initialize a store, project, and first board."`
+	Project projectCommand       `cmd:"" group:"starting" help:"Create and list project namespaces."`
+	Board   boardCommand         `cmd:"" group:"starting" help:"Create, select, and inspect coordination boards."`
+	Config  configurationCommand `cmd:"" group:"configuration" help:"Inspect and update typed configuration."`
 
 	Create createCommand    `cmd:"" group:"planning" help:"Create a board-scoped issue."`
 	Apply  applyCommand     `cmd:"" group:"planning" help:"Apply an issue graph from JSON."`

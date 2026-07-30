@@ -21,12 +21,15 @@ Inspect discovery and board selection without changing either:
 
 ```bash
 card --actor coordinator --json info
+card --actor coordinator --json project list
 card --actor coordinator --json board list
 card --actor coordinator --board <board-id> --json board show
 ```
 
 `info` requires a selected board and identifies that board's physical store,
 project, schema, and effective configuration.
+`project list` and `board list` inspect the selected store's catalogs without
+requiring one board to be selected.
 If `board show` cannot resolve one board,
 use `board list` to report the available identities and stop unless the user
 explicitly asked to select one.
@@ -60,11 +63,23 @@ the user explicitly requests that operation:
 
 ```bash
 card --actor coordinator init --board-name "<board-name>"
+card --actor coordinator --json project create \
+  --prefix <prefix> "<project-name>"
 card --actor coordinator --json board create \
   --project <project-id> "<board-name>"
 card --actor coordinator board use <board-id-or-exact-name>
 ```
 
+Use `project create` when an existing selected store needs another repository
+or product namespace.
+Parse its structured result for the stable project ID,
+then pass that ID to `board create`.
+Omit `--prefix` when the project should inherit an active store prefix
+or infer one from its name.
+Duplicate project names are valid,
+so use the stable ID when later name selection is ambiguous.
+
+Creating a project does not create or select a board.
 Creating or selecting a board does not change the physical store.
 Changing the selected board does not select a different mailbox,
 subscription namespace, or lease namespace.

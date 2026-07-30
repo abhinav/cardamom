@@ -127,6 +127,22 @@ stdout 'board use'
 stdout 'board show'
 stdout 'board edit'
 
+exec card project --help
+stdout 'Create and list project namespaces'
+stdout 'project list'
+stdout 'project create'
+stdout 'without selecting or creating'
+stdout 'a board'
+
+exec card project create --help
+stdout 'Create one project in the selected physical store'
+stdout 'duplicate exact names make later name selection ambiguous'
+stdout 'the project ID'
+stdout '--prefix=PREFIX'
+stdout 'inherits an active store prefix'
+stdout 'persists a prefix inferred'
+stdout 'does not create or select a board'
+
 exec card board create --help
 stdout 'Create one board in a project'
 stdout 'A project is a repository or product namespace. A board is a non-nested shared'
@@ -156,4 +172,5 @@ stdout 'Initialize a physical Cardamom store and project namespace'
 stdout '--board-name'
 stdout '--no-board'
 stdout '--no-config'
+stdout 'card project create NAME'
 ! stdout '--stealth'

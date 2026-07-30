@@ -73,6 +73,7 @@ This checkout now excludes Cardamom's local database and attachment blob files. 
 {"id":"board_11111111111111111111","project_id":"project_00000000000000000000","name":"Second board","created":1784116800}
 -- golden/repeated-init.txt --
 already initialized: .cardamom; kept existing projects and boards
+Use card project create NAME to add another project.
 -- golden/repeated-init.json --
 {"dir":".cardamom","id_prefix":"inferred-","id_strategy":"random","schema_version":20260729090000,"config_written":false,"db_written":false,"project_created":false,"project_id":null,"project_name":null,"board_created":false,"board_id":null,"board_name":null,"already_initialized":true}
 -- golden/repeated-boards.jsonl --

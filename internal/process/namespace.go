@@ -216,6 +216,12 @@ func provideProjectService(
 	return runtime.projects
 }
 
+func provideProjectCreationService(
+	runtime *namespaceRuntime,
+) *projectcreation.Service {
+	return runtime.projectCreator
+}
+
 func provideConfigurationService(
 	runtime *namespaceRuntime,
 ) *configuration.Service {
