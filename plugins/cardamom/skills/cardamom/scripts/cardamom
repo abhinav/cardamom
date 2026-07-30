@@ -1,5 +1,6 @@
-#!/bin/sh
-set -eu
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$'\n\t'
 
 if command -v card >/dev/null 2>&1; then
 	exec card "$@"
@@ -28,23 +29,6 @@ fi
 
 os=$(uname -s)
 arch=$(uname -m)
-case "$os:$arch" in
-	Darwin:arm64)
-		target=Darwin-arm64
-		;;
-	Darwin:x86_64)
-		target=Darwin-x86_64
-		;;
-	Linux:aarch64|Linux:arm64)
-		target=Linux-aarch64
-		;;
-	Linux:x86_64|Linux:amd64)
-		target=Linux-x86_64
-		;;
-	*)
-		fail "unsupported platform $os/$arch; install card and place it on PATH"
-		;;
-esac
 
 command -v curl >/dev/null 2>&1 ||
 	fail "curl is required to download card"
@@ -55,7 +39,7 @@ mkdir -p "$cache_dir"
 temp_dir=$(mktemp -d "$cache_dir/.install.XXXXXX")
 trap 'rm -rf "$temp_dir"' 0 HUP INT TERM
 
-archive_name=cardamom.$target.tar.gz
+archive_name=cardamom.$os-$arch.tar.gz
 release_url=https://github.com/abhinav/cardamom/releases/download/v$version
 archive=$temp_dir/$archive_name
 checksums=$temp_dir/checksums.txt

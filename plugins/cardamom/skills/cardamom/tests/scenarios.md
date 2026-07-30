@@ -38,27 +38,34 @@ The old prefix reflects persisted identity from before the command rename.
 - Claims `an-k9c` unchanged rather than rewriting or replacing the ID.
 - Uses `cm-` only for newly allocated example identities.
 
-## Resolve the plugin command
+## Recover the plugin command after shell failure
 
-### Prompt
+### Initial prompt
 
 Use the skill at `/path/to/plugins/cardamom/skills/cardamom/SKILL.md`
 and its linked references.
 
 The skill came from an installed Cardamom plugin.
-The user asks you to inspect an existing board,
-but `card` is not available on `PATH`.
-State the next action and the read-only command shape.
+The user asks you to inspect an existing selected board.
+State the next read-only command.
 Do not modify files or external state.
 
-### Expectations
+### Initial expectations
+
+- Invokes `card` directly with one stable actor name.
+- Does not add a command lookup or other preflight check.
+
+### Next stage
+
+The shell reports that `card` is unavailable.
+State the retry command.
+
+### Final expectations
 
 - Uses the platform launcher from the loaded skill's `scripts` directory.
-- Uses the POSIX launcher on a POSIX host
+- Uses the Bash launcher on macOS or Linux,
     or the PowerShell launcher on Windows.
-- Substitutes the resolved launcher for `card`
-    without changing the workflow arguments.
-- Supplies one stable actor name.
+- Retries the same command and actor arguments through the launcher.
 - Does not invent an installation procedure,
     globally install a command,
     or manually manage the launcher's cache.

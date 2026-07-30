@@ -147,7 +147,7 @@ func TestRun_RejectsInvalidSemVer(t *testing.T) {
 	assert.ErrorContains(t, err, "not valid SemVer")
 }
 
-func TestPOSIXLauncher_PrefersPath(t *testing.T) {
+func TestBashLauncher_PrefersPath(t *testing.T) {
 	root := repositoryRoot(t)
 	binDir := t.TempDir()
 	writeExecutable(t, filepath.Join(binDir, "card"), `#!/bin/sh
@@ -177,7 +177,7 @@ exit 99
 	assert.Equal(t, "path:show cm-task\n", string(out))
 }
 
-func TestPOSIXLauncher_DownloadsAndCachesRelease(t *testing.T) {
+func TestBashLauncher_DownloadsAndCachesRelease(t *testing.T) {
 	root := repositoryRoot(t)
 	fixtures := t.TempDir()
 	binDir := t.TempDir()
@@ -228,7 +228,7 @@ printf 'downloaded:%s\n' "$*"
 	assert.NotZero(t, info.Mode()&0o111)
 }
 
-func TestPOSIXLauncher_RejectsChecksumMismatch(t *testing.T) {
+func TestBashLauncher_RejectsChecksumMismatch(t *testing.T) {
 	root := repositoryRoot(t)
 	fixtures := t.TempDir()
 	binDir := t.TempDir()
