@@ -40,15 +40,16 @@ type Config struct {
 	Authorizer Authorizer // required
 
 	// DefaultBoardID scopes path-only requests to the board selected when the
-	// server started. A board_id query selects another board in the same store.
-	DefaultBoardID board.ID // required
+	// server started. It is nil when path-only requests have no board scope.
+	// A board_id query selects another board in the same store.
+	DefaultBoardID *board.ID
 }
 
 // Handler serves the one non-Connect browser content resource.
 type Handler struct {
 	attachments    Attachments
 	authorizer     Authorizer
-	defaultBoardID board.ID
+	defaultBoardID *board.ID
 }
 
 var _ http.Handler = (*Handler)(nil)
@@ -57,9 +58,14 @@ var _ http.Handler = (*Handler)(nil)
 func New(cfg Config) *Handler {
 	must.NotBeNilf(cfg.Attachments, "attachmentcontent: attachments are required")
 	must.NotBeNilf(cfg.Authorizer, "attachmentcontent: authorizer is required")
+	var defaultBoardID *board.ID
+	if cfg.DefaultBoardID != nil {
+		value := *cfg.DefaultBoardID
+		defaultBoardID = &value
+	}
 	return &Handler{
 		attachments: cfg.Attachments, authorizer: cfg.Authorizer,
-		defaultBoardID: cfg.DefaultBoardID,
+		defaultBoardID: defaultBoardID,
 	}
 }
 
@@ -77,7 +83,7 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	boardID := h.defaultBoardID
+	var boardID board.ID
 	if value := r.URL.Query().Get("board_id"); value != "" {
 		parsed, err := board.NewID(value)
 		if err != nil {
@@ -85,6 +91,11 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		boardID = parsed
+	} else if h.defaultBoardID == nil {
+		http.NotFound(w, r)
+		return
+	} else {
+		boardID = *h.defaultBoardID
 	}
 	if _, err := board.NewID(boardID.String()); err != nil {
 		http.NotFound(w, r)

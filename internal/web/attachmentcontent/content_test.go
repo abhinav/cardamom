@@ -180,9 +180,27 @@ func TestHandlerRejectsPathsAndMethodsOutsideRawRoute(t *testing.T) {
 	assert.Zero(t, opener.opens)
 }
 
+func TestHandlerRequiresDefaultOrExplicitBoard(t *testing.T) {
+	opener := &testContentOpener{content: []byte("content")}
+	handler := New(Config{
+		Attachments: opener,
+		Authorizer:  testContentAuthorizer{},
+	})
+
+	response := serveContentRequest(t, handler, http.MethodGet, contentURL(""), nil)
+	assert.Equal(t, http.StatusNotFound, response.Code)
+	assert.Zero(t, opener.opens)
+
+	response = serveContentRequest(t, handler, http.MethodGet, contentURL("board-2"), nil)
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, board.ID("board-2"), opener.lastRequest.BoardID)
+	assert.Equal(t, 1, opener.opens)
+}
+
 func testContentHandler(opener *testContentOpener, authorizer testContentAuthorizer) http.Handler {
+	defaultBoardID := board.ID("board-1")
 	return New(Config{
-		Attachments: opener, Authorizer: authorizer, DefaultBoardID: "board-1",
+		Attachments: opener, Authorizer: authorizer, DefaultBoardID: &defaultBoardID,
 	})
 }
 

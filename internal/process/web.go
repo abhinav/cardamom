@@ -8,6 +8,8 @@ import (
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/cli"
+	"go.abhg.dev/cardamom/internal/configuration"
+	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/markdown"
@@ -71,7 +73,10 @@ func (o *webOperation) open(
 	}
 	selectedBoard, err := runtime.selectBoard(ctx, request.Board, nil)
 	if err != nil {
-		return webHandlerBinding{}, nil, errors.Join(err, runtime.close())
+		if request.Board != "" || errkind.Of(err) != errkind.NotFound {
+			return webHandlerBinding{}, nil, errors.Join(err, runtime.close())
+		}
+		selectedBoard = nil
 	}
 	attachments, err := provideAttachmentService(runtime)
 	if err != nil {
@@ -88,18 +93,24 @@ func (o *webOperation) open(
 	changes := changeconnect.NewPollingSource(changeconnect.PollingConfig{
 		Revisions: runtime.store, Boards: runtime.catalog,
 	})
-	defaultBoardID := selectedBoard.ID()
-	configuration, err := runtime.configuration.Resolve(ctx, defaultBoardID)
-	if err != nil {
-		return webHandlerBinding{}, nil, errors.Join(err, runtime.close())
+	idPrefix := configuration.Defaults().Issue.ID.Prefix.String()
+	var defaultBoardID *board.ID
+	if selectedBoard != nil {
+		value := selectedBoard.ID()
+		defaultBoardID = &value
+		configurationView, err := runtime.configuration.Resolve(ctx, value)
+		if err != nil {
+			return webHandlerBinding{}, nil, errors.Join(err, runtime.close())
+		}
+		idPrefix = configurationView.Effective.Issue.ID.Prefix.String()
 	}
 	projectHandler := projectconnect.New(projectconnect.Config{
 		Projects:             runtime.projects,
 		ProjectCreator:       runtime.projectCreator,
 		Boards:               runtime.boards,
 		Markdown:             markdownRenderer,
-		ServerDefaultBoardID: &defaultBoardID,
-		IDPrefix:             configuration.Effective.Issue.ID.Prefix.String(),
+		ServerDefaultBoardID: defaultBoardID,
+		IDPrefix:             idPrefix,
 		SchemaVersion:        uint64(store.SchemaVersion()),
 	})
 	informationHandler := informationconnect.New(runtime.informationService())
