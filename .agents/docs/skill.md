@@ -1,6 +1,6 @@
 # Cardamom skill maintenance
 
-Use this guide when changing `skills/cardamom`.
+Use this guide when changing `plugins/cardamom/skills/cardamom`.
 Also load the `writing-and-updating-skills` skill before drafting a change.
 
 ## Purpose
