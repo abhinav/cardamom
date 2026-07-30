@@ -1,0 +1,45 @@
+name: Prepare release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to prepare (e.g. v1.2.3).
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  generate-pr:
+    name: Generate release PR
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v6
+
+      - name: Install tools
+        uses: jdx/mise-action@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prepare release
+        id: prepare
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          mise run release:prepare "$VERSION"
+          latest="$(changie latest)"
+          printf 'latest=%s\n' "$latest" >> "$GITHUB_OUTPUT"
+
+      - name: Create pull request
+        uses: peter-evans/create-pull-request@v8
+        with:
+          branch: release/${{ steps.prepare.outputs.latest }}
+          commit-message: Release ${{ steps.prepare.outputs.latest }}
+          title: Release ${{ steps.prepare.outputs.latest }}
+          token: ${{ secrets.PAT }}
+          body: ''
