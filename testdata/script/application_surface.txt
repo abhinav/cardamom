@@ -15,4 +15,4 @@ stderr 'unknown flag --bogus'
 ! exists $WORK/missing
 
 -- golden/version.txt --
-dev go1.26.5
+dev
