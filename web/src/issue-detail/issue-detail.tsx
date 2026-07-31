@@ -639,7 +639,10 @@ export function IssueBreadcrumbs({
                 copyText={reference}
                 title={issue.title}
               >
-                <Link to={`/issues/${encodeURIComponent(issue.id)}`}>
+                <Link
+                  className="issue-containment-link"
+                  to={`/issues/${encodeURIComponent(issue.id)}`}
+                >
                   {reference}
                 </Link>
               </ClipboardPill>

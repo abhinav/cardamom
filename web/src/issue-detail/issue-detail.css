@@ -51,6 +51,15 @@
   color: var(--muted);
 }
 
+.issue-containment-breadcrumb .issue-containment-link {
+  color: inherit;
+}
+
+.issue-containment-breadcrumb .issue-containment-link:hover,
+.issue-containment-breadcrumb .issue-containment-link:focus-visible {
+  color: var(--accent-strong);
+}
+
 .metadata-chip.issue-external-key {
   max-width: 100%;
   overflow-wrap: anywhere;
