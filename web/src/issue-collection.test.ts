@@ -175,6 +175,18 @@ describe("board view preferences", () => {
   it("defaults to current work with natural ordering", () => {
     expect(defaultBoardView.filters.lifecycle).toBe("current");
     expect(defaultBoardView.sort).toBe("natural");
+    expect(defaultBoardView.showEmptyColumns).toBe(false);
+  });
+
+  it("loads the empty-column choice while defaulting missing values off", () => {
+    expect(parseBoardView({
+      ...defaultBoardView,
+      showEmptyColumns: true,
+    }).showEmptyColumns).toBe(true);
+    expect(parseBoardView({
+      ...defaultBoardView,
+      showEmptyColumns: undefined,
+    }).showEmptyColumns).toBe(false);
   });
 
   it("rejects the removed priority grouping from persisted preferences", () => {

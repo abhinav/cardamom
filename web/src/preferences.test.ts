@@ -19,6 +19,7 @@ describe("preferences", () => {
       boardView: {
         ...defaultBoardView,
         grouping: "type" as const,
+        showEmptyColumns: true,
         filters: { ...defaultBoardView.filters, label: "urgent" },
       },
       collapsedIssueDetailsBoardIds: ["board-1"],

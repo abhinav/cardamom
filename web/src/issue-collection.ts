@@ -50,6 +50,7 @@ export interface IssueViewPreferences {
 
 export interface BoardViewPreferences extends IssueViewPreferences {
   grouping: IssueGrouping;
+  showEmptyColumns: boolean;
 }
 
 export interface IssueGroup {
@@ -60,6 +61,7 @@ export interface IssueGroup {
 
 export const defaultBoardView: BoardViewPreferences = {
   grouping: "status",
+  showEmptyColumns: false,
   filters: {
     lifecycle: "current",
     status: "all",
@@ -191,6 +193,9 @@ export function parseBoardView(value: unknown): BoardViewPreferences {
     grouping: isGrouping(value.grouping)
       ? value.grouping
       : defaultBoardView.grouping,
+    showEmptyColumns: typeof value.showEmptyColumns === "boolean"
+      ? value.showEmptyColumns
+      : defaultBoardView.showEmptyColumns,
   };
 }
 
