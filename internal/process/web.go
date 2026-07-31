@@ -107,6 +107,7 @@ func (o *webOperation) open(
 		Markdown:             markdownRenderer,
 		ServerDefaultBoardID: defaultBoardID,
 		SchemaVersion:        uint64(store.SchemaVersion()),
+		Version:              o.config.Version,
 	})
 	informationHandler := informationconnect.New(runtime.informationService())
 	issueHandler := issueconnect.New(issueconnect.Config{

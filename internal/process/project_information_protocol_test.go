@@ -16,6 +16,7 @@ import (
 )
 
 func TestProjectAndInformationProtocolUsesFreshStoreOperations(t *testing.T) {
+	t.Setenv("CARDAMOM_STORE", "")
 	cfg := testConfig(t)
 	initialized := execute(
 		t,
@@ -62,6 +63,12 @@ func TestProjectAndInformationProtocolUsesFreshStoreOperations(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, projectList.Msg.GetProjects(), 1)
 	assert.Equal(t, *namespace.ProjectID, projectList.Msg.GetProjects()[0].GetId())
+	bootstrap, err := projects.GetBootstrap(
+		t.Context(),
+		connect.NewRequest(&privatev1.GetBootstrapRequest{}),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, cfg.Version, bootstrap.Msg.GetVersion())
 
 	boardList, err := projects.ListBoards(
 		t.Context(),

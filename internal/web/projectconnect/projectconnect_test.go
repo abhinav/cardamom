@@ -37,6 +37,7 @@ func TestServiceBootstrapAndBoard(t *testing.T) {
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       markdown.New(), ServerDefaultBoardID: &defaultBoard,
 		SchemaVersion: 20260718164341,
+		Version:       "v1.2.3",
 	})
 
 	projects, err := client.ListProjects(
@@ -65,6 +66,7 @@ func TestServiceBootstrapAndBoard(t *testing.T) {
 	require.Len(t, bootstrap.Msg.GetBoards(), 2)
 	assert.Equal(t, "board-2", bootstrap.Msg.GetServerDefaultBoardId())
 	assert.Equal(t, uint64(20260718164341), bootstrap.Msg.GetSchemaVersion())
+	assert.Equal(t, "v1.2.3", bootstrap.Msg.GetVersion())
 	assert.Len(t, bootstrap.Msg.GetIssueTypes(), 4)
 	assert.Len(t, bootstrap.Msg.GetIssueStatuses(), 6)
 

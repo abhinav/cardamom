@@ -1,4 +1,5 @@
 .issue-detail-page {
+  min-width: 0;
   display: grid;
   gap: 1.5rem;
 }
@@ -134,6 +135,8 @@
 }
 
 .issue-markdown {
+  min-width: 0;
+  max-width: 100%;
   color: var(--text);
   line-height: 1.65;
   overflow-wrap: anywhere;
@@ -185,7 +188,8 @@
 .issue-markdown pre {
   max-width: 100%;
   padding: 0.75rem;
-  overflow: auto;
+  overflow-x: auto;
+  overflow-y: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--surface-subtle);

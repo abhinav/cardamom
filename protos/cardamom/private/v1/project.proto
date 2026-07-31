@@ -89,6 +89,9 @@ message GetBootstrapResponse {
 
   // schema_version is the active Cardamom store schema version.
   uint64 schema_version = 7;
+
+  // version is the running Cardamom binary version.
+  string version = 8;
 }
 
 // GetBoardRequest identifies one board by stable ID.

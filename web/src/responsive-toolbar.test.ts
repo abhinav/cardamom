@@ -42,6 +42,7 @@ describe("responsive toolbar", () => {
       openConfiguration: vi.fn(),
       selectedBoard: undefined,
       updatePreferences: vi.fn(),
+      version: "v1.2.3",
     }));
 
     expect(markup).toContain('aria-label="Settings"');
@@ -50,5 +51,6 @@ describe("responsive toolbar", () => {
     expect(markup).not.toContain("session-board-control");
     expect(markup).not.toContain(">All boards<");
     expect(markup).not.toContain(">Board settings<");
+    expect(markup).toContain("Cardamom version v1.2.3");
   });
 });

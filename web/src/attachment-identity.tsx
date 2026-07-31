@@ -13,7 +13,7 @@ export function AttachmentIdentity({
 }) {
   return (
     <div className="attachment-identity">
-      <strong>{attachment.filename}</strong>
+      <strong title={attachment.filename}>{attachment.filename}</strong>
       <ClipboardPill
         copyLabel={`Copy attachment ID ${attachment.id}`}
         copyText={attachment.id}

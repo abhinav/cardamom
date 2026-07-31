@@ -75,6 +75,9 @@ type Config struct {
 
 	// SchemaVersion reports the store schema served by this process.
 	SchemaVersion uint64
+
+	// Version reports the running Cardamom binary version.
+	Version string
 }
 
 // Service adapts project catalog operations to generated ProjectService RPCs.
@@ -86,6 +89,7 @@ type Service struct {
 	markdown             MarkdownRenderer
 	serverDefaultBoardID *board.ID
 	schemaVersion        uint64
+	version              string
 }
 
 var _ privatev1connect.ProjectServiceHandler = (*Service)(nil)
@@ -107,6 +111,7 @@ func New(cfg Config) *Service {
 		markdown:             cfg.Markdown,
 		serverDefaultBoardID: cloneBoardID(cfg.ServerDefaultBoardID),
 		schemaVersion:        cfg.SchemaVersion,
+		version:              cfg.Version,
 	}
 }
 
@@ -158,6 +163,7 @@ func (s *Service) GetBootstrap(
 		IssueTypes:    validIssueTypes(),
 		IssueStatuses: validIssueStatuses(),
 		SchemaVersion: s.schemaVersion,
+		Version:       s.version,
 	}
 	if s.serverDefaultBoardID != nil {
 		value := s.serverDefaultBoardID.String()

@@ -148,6 +148,7 @@ function LoadedApp({
       storage={storage}
       streamStatus={streamStatus}
       updatePreferences={updatePreferences}
+      version={bootstrap.version}
     />
   );
 }
@@ -162,6 +163,7 @@ interface ApplicationShellProps {
   storage: PreferencesStorage;
   streamStatus: StreamStatus;
   updatePreferences: (preferences: Preferences) => void;
+  version: string;
 }
 
 function ApplicationShell({
@@ -174,6 +176,7 @@ function ApplicationShell({
   storage,
   streamStatus,
   updatePreferences,
+  version,
 }: ApplicationShellProps) {
   const navigate = useNavigate();
   const collectionRoute = isCollectionRoute(useLocation().pathname);
@@ -224,6 +227,7 @@ function ApplicationShell({
             selectedBoard={selectedBoard}
             openConfiguration={() => navigate("/configuration")}
             updatePreferences={updatePreferences}
+            version={version}
           />
         </header>
 
@@ -283,6 +287,7 @@ interface SettingsControlProps {
   openConfiguration: () => void;
   selectedBoard: BoardSummary | undefined;
   updatePreferences: (preferences: Preferences) => void;
+  version: string;
 }
 
 export function SettingsControl({
@@ -290,6 +295,7 @@ export function SettingsControl({
   preferences,
   selectedBoard,
   updatePreferences,
+  version,
 }: SettingsControlProps) {
   return (
     <details className="settings-control">
@@ -341,6 +347,7 @@ export function SettingsControl({
             </button>
           )}
         </div>
+        <p className="settings-version">Cardamom version {version}</p>
       </div>
     </details>
   );
