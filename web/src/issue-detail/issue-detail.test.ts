@@ -115,8 +115,12 @@ describe("issue detail presentation", () => {
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
     expect(positions).not.toContain(-1);
     expect(markup).toContain('aria-label="Issue containment"');
-    expect(markup).toContain('href="/issues/cm-root"');
-    expect(markup).toContain('href="/issues/cm-parent"');
+    expect(markup).toContain(
+      'class="issue-containment-link" href="/issues/cm-root"',
+    );
+    expect(markup).toContain(
+      'class="issue-containment-link" href="/issues/cm-parent"',
+    );
     expect(markup).not.toContain('href="/issues/cm-current"');
     expect(markup).toContain('aria-current="page"');
     expect(markup).toContain('title="Root workstream"');

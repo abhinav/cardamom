@@ -1,0 +1,3 @@
+kind: Fixed
+body: Render ancestor issue IDs in containment breadcrumbs without persistent link emphasis while preserving hover and keyboard-focus feedback.
+time: 2026-07-31T13:53:08.866449-07:00
