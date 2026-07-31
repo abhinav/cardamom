@@ -104,7 +104,7 @@ function IssueCollectionRoute(props: IssueCollectionRouteProps) {
         className="route-state"
         aria-label={props.mode === "board" ? "Issue board" : "Issue list"}
       >
-        <p>Select a board in Settings to load issues.</p>
+        <p>Select a board to load issues.</p>
       </section>
     );
   }
