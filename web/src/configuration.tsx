@@ -57,6 +57,7 @@ interface ConfigurationRouteProps {
   actor: string;
   boardId: string | undefined;
   boardName: string | undefined;
+  canMutateServer: boolean;
 }
 
 /** ConfigurationRoute selects the concrete-board configuration workflow. */
@@ -64,6 +65,7 @@ export function ConfigurationRoute({
   actor,
   boardId,
   boardName,
+  canMutateServer,
 }: ConfigurationRouteProps) {
   if (boardId === undefined || boardName === undefined) {
     return (
@@ -81,6 +83,7 @@ export function ConfigurationRoute({
       actor={actor}
       boardId={boardId}
       boardName={boardName}
+      canMutateServer={canMutateServer}
     />
   );
 }
@@ -89,12 +92,14 @@ interface BoardConfigurationRouteProps {
   actor: string;
   boardId: string;
   boardName: string;
+  canMutateServer: boolean;
 }
 
 function BoardConfigurationRoute({
   actor,
   boardId,
   boardName,
+  canMutateServer,
 }: BoardConfigurationRouteProps) {
   const transport = useTransport();
   const updateConfiguration = useMutation(
@@ -179,6 +184,7 @@ function BoardConfigurationRoute({
     <>
       <ConfigurationContent
         boardName={boardName}
+        canMutateServer={canMutateServer}
         view={view}
         onBeginEdit={(mode, layer, field) => {
           const scope = layer.source?.scope ?? ConfigurationScope.UNSPECIFIED;
@@ -236,6 +242,7 @@ function ConfigurationLoadState({
 
 interface ConfigurationContentProps {
   boardName: string;
+  canMutateServer: boolean;
   onBeginEdit: (
     mode: ConfigurationEditorMode,
     layer: ConfigurationLayer,
@@ -247,6 +254,7 @@ interface ConfigurationContentProps {
 /** ConfigurationContent renders effective values before their source layers. */
 export function ConfigurationContent({
   boardName,
+  canMutateServer,
   onBeginEdit,
   view,
 }: ConfigurationContentProps) {
@@ -302,6 +310,7 @@ export function ConfigurationContent({
               key={`${layer.source?.scope ?? 0}-${layer.source?.identity ?? index}`}
               index={index}
               layer={layer}
+              canMutateServer={canMutateServer}
               view={view}
               onBeginEdit={onBeginEdit}
             />
@@ -313,11 +322,13 @@ export function ConfigurationContent({
 }
 
 function ConfigurationLayerView({
+  canMutateServer,
   index,
   layer,
   onBeginEdit,
   view,
 }: {
+  canMutateServer: boolean;
   index: number;
   layer: ConfigurationLayer;
   onBeginEdit: ConfigurationContentProps["onBeginEdit"];
@@ -352,7 +363,7 @@ function ConfigurationLayerView({
               <span className="configuration-layer-effective">
                 Effective for board: {fieldDisplayValue(field.path, effective)} from {scopeLabel(origin?.scope)}
               </span>
-              {!readOnly && (
+              {canMutateServer && !readOnly && (
                 <div className="configuration-field-actions">
                   <button
                     type="button"

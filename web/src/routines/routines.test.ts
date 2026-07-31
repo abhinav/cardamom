@@ -55,7 +55,7 @@ describe("Routines RPC boundary", () => {
           status: IssueStatus.READY,
         },
         "browser-actor",
-        false,
+        true,
       ),
     ).toEqual({
       state: "Available",
@@ -73,7 +73,7 @@ describe("Routines RPC boundary", () => {
           activeClaim: { actor: "browser-actor" },
         },
         "browser-actor",
-        false,
+        true,
       ),
     ).toEqual({
       state: "Claimed by browser-actor",
@@ -90,7 +90,7 @@ describe("Routines RPC boundary", () => {
           status: IssueStatus.BLOCKED,
         },
         "browser-actor",
-        false,
+        true,
       ),
     ).toEqual({
       state: "Blocked",
@@ -103,7 +103,7 @@ describe("Routines RPC boundary", () => {
           status: IssueStatus.CLOSED,
         },
         "browser-actor",
-        false,
+        true,
       ),
     ).toEqual({
       state: "Closed",
@@ -111,16 +111,16 @@ describe("Routines RPC boundary", () => {
     });
   });
 
-  it("removes mutation actions in aggregate or actorless sessions", () => {
+  it("removes mutation actions without effective capability or an actor", () => {
     const routine = {
       lifecycle: IssueLifecycle.OPEN,
       status: IssueStatus.READY,
     };
 
-    expect(routinePresentation(routine, "browser-actor", true).actions).toEqual(
+    expect(routinePresentation(routine, "browser-actor", false).actions).toEqual(
       [],
     );
-    expect(routinePresentation(routine, "", false).actions).toEqual([]);
+    expect(routinePresentation(routine, "", true).actions).toEqual([]);
   });
 
   it("claims routines through ExecutionService with the browser actor", async () => {

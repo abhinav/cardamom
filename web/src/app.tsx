@@ -50,6 +50,11 @@ import {
   type ThemePreference,
 } from "./preferences.ts";
 import { RoutinesRoute } from "./routines/routines.tsx";
+import {
+  effectiveMutationCapability,
+  ServerAccessProvider,
+  useServerAccess,
+} from "./server-access.tsx";
 
 interface AppProps {
   client: WebClient;
@@ -138,18 +143,20 @@ function LoadedApp({
   };
 
   return (
-    <ApplicationShell
-      attachmentClient={attachmentClient}
-      boards={bootstrap.boards}
-      preferences={preferences}
-      projects={bootstrap.projects}
-      scope={scope}
-      selection={selection}
-      storage={storage}
-      streamStatus={streamStatus}
-      updatePreferences={updatePreferences}
-      version={bootstrap.version}
-    />
+    <ServerAccessProvider accessMode={bootstrap.accessMode}>
+      <ApplicationShell
+        attachmentClient={attachmentClient}
+        boards={bootstrap.boards}
+        preferences={preferences}
+        projects={bootstrap.projects}
+        scope={scope}
+        selection={selection}
+        storage={storage}
+        streamStatus={streamStatus}
+        updatePreferences={updatePreferences}
+        version={bootstrap.version}
+      />
+    </ServerAccessProvider>
   );
 }
 
@@ -178,6 +185,7 @@ function ApplicationShell({
   updatePreferences,
   version,
 }: ApplicationShellProps) {
+  const { canMutateServer } = useServerAccess();
   const navigate = useNavigate();
   const collectionRoute = isCollectionRoute(useLocation().pathname);
   const [boardSettingsBoardId, setBoardSettingsBoardId] = useState<
@@ -216,7 +224,9 @@ function ApplicationShell({
             boards={boards}
             projects={projects}
             selection={selection}
-            onOpenBoardSettings={setBoardSettingsBoardId}
+            onOpenBoardSettings={
+              canMutateServer ? setBoardSettingsBoardId : undefined
+            }
             onSelectScope={(boardScope) =>
               updatePreferences({ ...preferences, boardScope })
             }
@@ -256,6 +266,7 @@ function ApplicationShell({
           <RouteContent
             attachmentClient={attachmentClient}
             boards={boards}
+            canMutateServer={canMutateServer}
             preferences={preferences}
             scope={scope}
             selection={selection}
@@ -264,7 +275,7 @@ function ApplicationShell({
             updatePreferences={updatePreferences}
           />
         </main>
-        {boardSettingsBoardId !== undefined && (
+        {canMutateServer && boardSettingsBoardId !== undefined && (
           <BoardSettingsDialog
             key={boardSettingsBoardId}
             actor={preferences.actor}
@@ -366,6 +377,7 @@ function StreamState({ status }: { status: StreamStatus }) {
 function RouteContent({
   attachmentClient,
   boards,
+  canMutateServer,
   preferences,
   scope,
   selection,
@@ -375,6 +387,7 @@ function RouteContent({
 }: {
   attachmentClient: AttachmentClient;
   boards: readonly BoardSummary[];
+  canMutateServer: boolean;
   preferences: Preferences;
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
@@ -391,6 +404,7 @@ function RouteContent({
             actor={preferences.actor}
             attachmentClient={attachmentClient}
             boards={boards}
+            canMutateServer={canMutateServer}
             selection={selection}
             selectLabel={selectLabel}
             view={preferences.boardView}
@@ -404,6 +418,7 @@ function RouteContent({
         path="/approvals"
         element={
           <ApprovalsPage
+            canMutateServer={canMutateServer}
             preferences={preferences}
             scope={scope}
             selection={selection}
@@ -417,6 +432,7 @@ function RouteContent({
             actor={preferences.actor}
             attachmentClient={attachmentClient}
             boards={boards}
+            canMutateServer={canMutateServer}
             selection={selection}
             selectLabel={selectLabel}
             view={preferences.listView}
@@ -430,6 +446,7 @@ function RouteContent({
         path="/routines"
         element={
           <RoutinesPage
+            canMutateServer={canMutateServer}
             preferences={preferences}
             scope={scope}
             selection={selection}
@@ -449,6 +466,7 @@ function RouteContent({
                 ? boards.find((board) => board.id === selection.boardId)?.name
                 : undefined
             }
+            canMutateServer={canMutateServer}
           />
         }
       />
@@ -469,33 +487,44 @@ function RouteContent({
 }
 
 function ApprovalsPage({
+  canMutateServer,
   preferences,
   scope,
   selection,
 }: {
+  canMutateServer: boolean;
   preferences: Preferences;
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
 }) {
   const requestKey = scopeKey(selection);
+  const scopeAllowsMutations = selection.kind !== "all";
+  const canResolveCheckpoints = effectiveMutationCapability(
+    canMutateServer,
+    scopeAllowsMutations,
+  );
   return (
     <ApprovalsRoute
       key={requestKey}
       actor={preferences.actor}
-      readOnly={selection.kind === "all"}
+      canResolveCheckpoints={canResolveCheckpoints}
       requestKey={requestKey}
       scope={scope}
+      showDecisionControls={canMutateServer}
+      showScopeMutationNotice={canMutateServer && !scopeAllowsMutations}
     />
   );
 }
 
 function RoutinesPage({
+  canMutateServer,
   preferences,
   scope,
   selection,
   selectLabel,
   storage,
 }: {
+  canMutateServer: boolean;
   preferences: Preferences;
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
@@ -503,14 +532,20 @@ function RoutinesPage({
   storage: PreferencesStorage;
 }) {
   const requestKey = scopeKey(selection);
+  const scopeAllowsMutations = selection.kind !== "all";
+  const canMutateRoutines = effectiveMutationCapability(
+    canMutateServer,
+    scopeAllowsMutations,
+  );
   return (
     <RoutinesRoute
       key={requestKey}
       actor={preferences.actor}
-      readOnly={selection.kind === "all"}
+      canMutateRoutines={canMutateRoutines}
       requestKey={requestKey}
       scope={scope}
       selectLabel={selectLabel}
+      showScopeMutationNotice={canMutateServer && !scopeAllowsMutations}
       storage={storage}
     />
   );

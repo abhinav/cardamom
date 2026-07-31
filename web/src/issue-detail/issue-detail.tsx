@@ -63,6 +63,7 @@ import {
   runInvalidatingMutation,
   unaryRouteQueryOptions,
 } from "../query-runtime.ts";
+import { useServerAccess } from "../server-access.tsx";
 import { IssueHierarchy } from "./hierarchy.tsx";
 import { IssueReferenceLink } from "./issue-reference.tsx";
 import {
@@ -293,6 +294,7 @@ export function IssueDetailPage({
   setDetailsCollapsed,
   setRelationsOpen,
 }: IssueDetailPageProps) {
+  const { canMutateServer } = useServerAccess();
   const transport = useTransport();
   const queryClient = useQueryClient();
   const lifecycleMutations: LifecycleMutations = {
@@ -472,15 +474,19 @@ export function IssueDetailPage({
         summary={issue}
         externalKeys={detail.externalKeys}
       />
-      <IssueActions
-        actor={actor}
-        pending={mutation.status === "pending"}
-        summary={issue}
-        changeLifecycle={(action) => void changeLifecycle(action)}
-        edit={openMetadataEditor}
-      />
-      {metadataEditor === undefined && <MutationResult mutation={mutation} />}
-      {metadataEditor !== undefined && (
+      {canMutateServer && (
+        <IssueActions
+          actor={actor}
+          pending={mutation.status === "pending"}
+          summary={issue}
+          changeLifecycle={(action) => void changeLifecycle(action)}
+          edit={openMetadataEditor}
+        />
+      )}
+      {canMutateServer && metadataEditor === undefined && (
+        <MutationResult mutation={mutation} />
+      )}
+      {canMutateServer && metadataEditor !== undefined && (
         <EditIssueDialog
           actor={actor}
           draft={metadataEditor}
@@ -510,6 +516,7 @@ export function IssueDetailPage({
         issueId={issue.id}
       />
       <RelationshipBand
+        canMutate={canMutateServer}
         dependencyQuery={dependencyQuery}
         detail={detail}
         pending={mutation.status === "pending"}
@@ -528,32 +535,38 @@ export function IssueDetailPage({
         retry={() => void logRequest.refetch()}
       />
       <CurrentIssueState state={state} />
-      <IssueLogComposer
-        body={logBody}
-        pending={mutation.status === "pending"}
-        setBody={setLogBody}
-        submit={(event) => {
-          event.preventDefault();
-          if (logBody.trim() !== "") {
-            void addLogEntry();
-          }
-        }}
-      />
+      {canMutateServer && (
+        <IssueLogComposer
+          body={logBody}
+          pending={mutation.status === "pending"}
+          setBody={setLogBody}
+          submit={(event) => {
+            event.preventDefault();
+            if (logBody.trim() !== "") {
+              void addLogEntry();
+            }
+          }}
+        />
+      )}
       <CheckpointRecord detail={detail} />
-      <CheckpointControls
-        actor={actor}
-        pending={mutation.status === "pending"}
-        reason={checkpointReason}
-        setReason={setCheckpointReason}
-        summary={issue}
-        decide={(decision) => void decideCheckpoint(decision)}
-      />
-      <AttachmentUploadPanel
-        actor={actor}
-        boardId={issue.boardId}
-        client={attachmentClient}
-        issueId={issue.id}
-      />
+      {canMutateServer && (
+        <CheckpointControls
+          actor={actor}
+          pending={mutation.status === "pending"}
+          reason={checkpointReason}
+          setReason={setCheckpointReason}
+          summary={issue}
+          decide={(decision) => void decideCheckpoint(decision)}
+        />
+      )}
+      {canMutateServer && (
+        <AttachmentUploadPanel
+          actor={actor}
+          boardId={issue.boardId}
+          client={attachmentClient}
+          issueId={issue.id}
+        />
+      )}
     </article>
   );
 }
@@ -923,6 +936,7 @@ function MutationResult({ mutation }: { mutation: MutationState }) {
 
 export function RelationshipBand({
   addDependency,
+  canMutate = true,
   dependencyQuery,
   detail,
   pending,
@@ -932,6 +946,7 @@ export function RelationshipBand({
   setRelationsOpen,
 }: {
   addDependency: (id: string) => void;
+  canMutate?: boolean;
   dependencyQuery: string;
   detail: IssueDetail;
   pending: boolean;
@@ -964,13 +979,13 @@ export function RelationshipBand({
       </summary>
       <div className="issue-relationship-band" aria-labelledby="relations-title">
         <DependencyPanel
-          add={addDependency}
+          add={canMutate ? addDependency : undefined}
           boardId={issue.boardId}
           currentIssueId={issue.id}
           dependencies={detail.prerequisites}
           pending={pending}
           query={dependencyQuery}
-          remove={removeDependency}
+          remove={canMutate ? removeDependency : undefined}
           setQuery={setDependencyQuery}
         />
         <HierarchyPanel detail={detail} />
@@ -997,13 +1012,13 @@ function DependencyPanel({
   remove,
   setQuery,
 }: {
-  add: (id: string) => void;
+  add?: (id: string) => void;
   boardId: string;
   currentIssueId: string;
   dependencies: readonly RelatedIssue[];
   pending: boolean;
   query: string;
-  remove: (id: string) => void;
+  remove?: (id: string) => void;
   setQuery: (query: string) => void;
 }) {
   const transport = useTransport();
@@ -1019,7 +1034,7 @@ function DependencyPanel({
       dependencySearchInput(boardId, normalizedQuery),
       transport,
     ),
-    enabled: searchOpen && normalizedQuery !== "",
+    enabled: add !== undefined && searchOpen && normalizedQuery !== "",
     select: (response) =>
       dependencyCandidates(response.issues, excludedIssueIds),
   });
@@ -1029,17 +1044,19 @@ function DependencyPanel({
     <section className="issue-relationship-panel" aria-labelledby="dependencies-title">
       <div className="issue-panel-heading">
         <h2 id="dependencies-title">Dependencies</h2>
-        <button
-          type="button"
-          className="issue-add-dependency"
-          aria-expanded={searchOpen}
-          aria-controls="dependency-search"
-          aria-label="Add dependency"
-          title="Add dependency"
-          onClick={() => setSearchOpen((open) => !open)}
-        >
-          +
-        </button>
+        {add !== undefined && (
+          <button
+            type="button"
+            className="issue-add-dependency"
+            aria-expanded={searchOpen}
+            aria-controls="dependency-search"
+            aria-label="Add dependency"
+            title="Add dependency"
+            onClick={() => setSearchOpen((open) => !open)}
+          >
+            +
+          </button>
+        )}
       </div>
       <RelationshipList
         empty="No dependencies."
@@ -1047,7 +1064,7 @@ function DependencyPanel({
         remove={remove}
         pending={pending}
       />
-      {searchOpen && (
+      {add !== undefined && searchOpen && (
         <form
           id="dependency-search"
           className="issue-dependency-search"

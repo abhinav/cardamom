@@ -100,6 +100,7 @@ describe("Configuration workflow", () => {
     const markup = renderToStaticMarkup(
       <ConfigurationContent
         boardName="Default"
+        canMutateServer
         onBeginEdit={vi.fn()}
         view={configurationView()}
       />,
@@ -115,6 +116,23 @@ describe("Configuration workflow", () => {
     expect(markup).toContain("/tmp/test-store/.cardamom");
     expect(markup.match(/class="configuration-layer"/g)).toHaveLength(4);
     expect(markup).not.toContain("Save all");
+  });
+
+  it("keeps resolved layers readable without configuration controls", () => {
+    const markup = renderToStaticMarkup(
+      <ConfigurationContent
+        boardName="Default"
+        canMutateServer={false}
+        onBeginEdit={vi.fn()}
+        view={configurationView()}
+      />,
+    );
+
+    expect(markup).toContain("Effective for Default");
+    expect(markup).toContain("Resolution layers");
+    expect(markup).not.toContain("configuration-field-actions");
+    expect(markup).not.toContain(">Edit</button>");
+    expect(markup).not.toContain(">Reset</button>");
   });
 });
 

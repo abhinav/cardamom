@@ -33,7 +33,7 @@ interface BoardSelectorProps {
   boards: readonly AvailableBoard[];
   projects: readonly AvailableProject[];
   selection: BoardScopeSelection;
-  onOpenBoardSettings: (boardId: string) => void;
+  onOpenBoardSettings?: (boardId: string) => void;
   onSelectScope: (selection: BoardScopePreference) => void;
 }
 
@@ -86,10 +86,14 @@ export function BoardSelector({
       selection={selection}
       triggerRef={triggerRef}
       onDismiss={dismiss}
-      onOpenBoardSettings={(boardId) => {
-        dismiss();
-        onOpenBoardSettings(boardId);
-      }}
+      onOpenBoardSettings={
+        onOpenBoardSettings === undefined
+          ? undefined
+          : (boardId) => {
+              dismiss();
+              onOpenBoardSettings(boardId);
+            }
+      }
       onQueryChange={setQuery}
       onSelectScope={(nextSelection) => {
         onSelectScope(nextSelection);
@@ -285,7 +289,7 @@ interface BoardSelectorBoardRowProps {
   board: AvailableBoard;
   projectName: string;
   selectedBoardId: string | undefined;
-  onOpenBoardSettings: (boardId: string) => void;
+  onOpenBoardSettings?: (boardId: string) => void;
   onSelectScope: (selection: BoardScopePreference) => void;
 }
 
@@ -316,15 +320,19 @@ export function BoardSelectorBoardRow({
           </span>
         </span>
       </button>
-      <button
-        type="button"
-        className="board-selector-action"
-        aria-label={`Open settings for ${board.name}`}
-        title={`Board settings: ${board.name}`}
-        onClick={() => onOpenBoardSettings(board.id)}
-      >
-        <Settings aria-hidden="true" />
-      </button>
+      {onOpenBoardSettings === undefined ? (
+        <span className="board-selector-action-space" aria-hidden="true" />
+      ) : (
+        <button
+          type="button"
+          className="board-selector-action"
+          aria-label={`Open settings for ${board.name}`}
+          title={`Board settings: ${board.name}`}
+          onClick={() => onOpenBoardSettings(board.id)}
+        >
+          <Settings aria-hidden="true" />
+        </button>
+      )}
     </div>
   );
 }

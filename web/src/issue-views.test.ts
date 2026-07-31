@@ -111,6 +111,21 @@ describe("kanban board", () => {
     );
     expect(markup).not.toContain("kanban-column");
   });
+
+  it("omits creation guidance when issue creation is unavailable", () => {
+    const markup = renderKanban({
+      boards: [],
+      canCreateIssue: false,
+      grouping: "status",
+      streams: [pageStream(`status:${IssueStatus.READY}`, "Open", [])],
+      loadMore: vi.fn(),
+      selectLabel: vi.fn(),
+      showBoard: false,
+    });
+
+    expect(markup).toContain("No issues here.");
+    expect(markup).not.toContain("Create");
+  });
 });
 
 function renderKanban(
