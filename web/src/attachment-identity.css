@@ -6,6 +6,7 @@
 }
 
 .attachment-identity strong {
+  max-width: 100%;
   min-width: 0;
   overflow: hidden;
   font-size: 0.82rem;

@@ -23,4 +23,15 @@ describe("attachment identity", () => {
     expect(markup).not.toContain("attachment:");
     expect(markup).not.toContain("Markdown reference");
   });
+
+  it("retains the full filename when the visible label truncates", () => {
+    const filename = `2026-06-13-${"merge-roadmap-".repeat(8)}plan.md`;
+    const markup = renderToStaticMarkup(
+      createElement(AttachmentIdentity, {
+        attachment: { ...attachment, filename },
+      }),
+    );
+
+    expect(markup).toContain(`<strong title="${filename}">${filename}</strong>`);
+  });
 });

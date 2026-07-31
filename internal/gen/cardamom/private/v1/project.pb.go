@@ -441,6 +441,8 @@ type GetBootstrapResponse struct {
 	IssueStatuses []IssueStatus `protobuf:"varint,5,rep,packed,name=issue_statuses,json=issueStatuses,proto3,enum=cardamom.private.v1.IssueStatus" json:"issue_statuses,omitempty"`
 	// schema_version is the active Cardamom store schema version.
 	SchemaVersion uint64 `protobuf:"varint,7,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
+	// version is the running Cardamom binary version.
+	Version       string `protobuf:"bytes,8,opt,name=version,proto3" json:"version,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -515,6 +517,13 @@ func (x *GetBootstrapResponse) GetSchemaVersion() uint64 {
 		return x.SchemaVersion
 	}
 	return 0
+}
+
+func (x *GetBootstrapResponse) GetVersion() string {
+	if x != nil {
+		return x.Version
+	}
+	return ""
 }
 
 // GetBoardRequest identifies one board by stable ID.
@@ -985,7 +994,7 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x11ListBoardsRequest\"O\n" +
 	"\x12ListBoardsResponse\x129\n" +
 	"\x06boards\x18\x01 \x03(\v2!.cardamom.private.v1.BoardSummaryR\x06boards\"\x15\n" +
-	"\x13GetBootstrapRequest\"\xa5\x03\n" +
+	"\x13GetBootstrapRequest\"\xbf\x03\n" +
 	"\x14GetBootstrapResponse\x128\n" +
 	"\bprojects\x18\x01 \x03(\v2\x1c.cardamom.private.v1.ProjectR\bprojects\x129\n" +
 	"\x06boards\x18\x02 \x03(\v2!.cardamom.private.v1.BoardSummaryR\x06boards\x12:\n" +
@@ -993,7 +1002,8 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\vissue_types\x18\x04 \x03(\x0e2\x1e.cardamom.private.v1.IssueTypeR\n" +
 	"issueTypes\x12G\n" +
 	"\x0eissue_statuses\x18\x05 \x03(\x0e2 .cardamom.private.v1.IssueStatusR\rissueStatuses\x12%\n" +
-	"\x0eschema_version\x18\a \x01(\x04R\rschemaVersionB\x1a\n" +
+	"\x0eschema_version\x18\a \x01(\x04R\rschemaVersion\x12\x18\n" +
+	"\aversion\x18\b \x01(\tR\aversionB\x1a\n" +
 	"\x18_server_default_board_idJ\x04\b\x06\x10\aR\tid_prefix\",\n" +
 	"\x0fGetBoardRequest\x12\x19\n" +
 	"\bboard_id\x18\x01 \x01(\tR\aboardId\"D\n" +
