@@ -38,7 +38,13 @@ describe("responsive toolbar", () => {
 
   it("presents global settings as an accessible header icon", () => {
     const markup = renderToStaticMarkup(createElement(SettingsControl, {
-      preferences: defaultPreferences,
+      preferences: {
+        ...defaultPreferences,
+        boardView: {
+          ...defaultPreferences.boardView,
+          showEmptyColumns: true,
+        },
+      },
       openConfiguration: vi.fn(),
       selectedBoard: undefined,
       updatePreferences: vi.fn(),
@@ -51,6 +57,9 @@ describe("responsive toolbar", () => {
     expect(markup).not.toContain("session-board-control");
     expect(markup).not.toContain(">All boards<");
     expect(markup).not.toContain(">Board settings<");
+    expect(markup).toContain('type="checkbox"');
+    expect(markup).toContain('checked=""');
+    expect(markup).toContain("Show empty columns");
     expect(markup).toContain("Cardamom version v1.2.3");
   });
 });

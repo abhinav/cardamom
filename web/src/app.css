@@ -499,6 +499,29 @@ button:disabled {
   font-weight: 500;
 }
 
+.session-controls .session-toggle {
+  grid-column: 1 / -1;
+  min-height: 2rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.35rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.78rem;
+}
+
+.session-controls .session-toggle input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  padding: 0;
+  accent-color: var(--accent);
+}
+
 .settings-version {
   margin: 0.85rem 0 0;
   padding-top: 0.75rem;

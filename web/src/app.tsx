@@ -345,6 +345,22 @@ export function SettingsControl({
               <option value="light">Light</option>
             </select>
           </label>
+          <label className="session-toggle">
+            <input
+              type="checkbox"
+              checked={preferences.boardView.showEmptyColumns}
+              onChange={(event) =>
+                updatePreferences({
+                  ...preferences,
+                  boardView: {
+                    ...preferences.boardView,
+                    showEmptyColumns: event.currentTarget.checked,
+                  },
+                })
+              }
+            />
+            <span>Show empty columns</span>
+          </label>
           {selectedBoard !== undefined && (
             <button
               type="button"

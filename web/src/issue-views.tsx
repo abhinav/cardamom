@@ -63,6 +63,7 @@ export function BoardRoute({ view, updateView, ...shared }: BoardRouteProps) {
       mode="board"
       view={view}
       grouping={view.grouping}
+      showEmptyColumns={view.showEmptyColumns}
       updateGrouping={(grouping) => updateView({ ...view, grouping })}
       updateView={(next) => updateView({ ...view, ...next })}
     />
@@ -89,6 +90,7 @@ interface IssueCollectionRouteProps extends SharedRouteProps {
   mode: "board" | "list";
   view: IssueViewPreferences;
   grouping?: IssueGrouping;
+  showEmptyColumns?: boolean;
   updateGrouping?: (grouping: IssueGrouping) => void;
   updateView: (view: IssueViewPreferences) => void;
 }
@@ -212,6 +214,7 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
           showBoard={props.selection.kind === "all"}
           canCreateIssue={canCreateIssue}
           showCreationGuidance={props.canMutateServer}
+          showEmptyColumns={props.showEmptyColumns}
         />
       ) : (
         <IssueList
@@ -479,6 +482,7 @@ export function KanbanBoard({
   selectLabel,
   showBoard,
   showCreationGuidance = true,
+  showEmptyColumns = false,
 }: {
   boards: readonly BoardSummary[];
   canCreateIssue?: boolean;
@@ -488,10 +492,11 @@ export function KanbanBoard({
   selectLabel: SelectLabel;
   showBoard: boolean;
   showCreationGuidance?: boolean;
+  showEmptyColumns?: boolean;
 }) {
-  const visibleStreams = streams.filter(
-    (stream) => stream.status !== "ready" || stream.totalCount > 0,
-  );
+  const visibleStreams = showEmptyColumns
+    ? streams
+    : streams.filter((stream) => stream.totalCount > 0);
   if (visibleStreams.length === 0) {
     return (
       <div className="kanban-empty" role="status">

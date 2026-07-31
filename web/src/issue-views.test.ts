@@ -62,12 +62,11 @@ describe("kanban board", () => {
       boards: [],
       grouping: "status",
       streams: [
-        pageStream(
-          `status:${IssueStatus.READY}`,
-          "Open",
-          [issueWithStatus("cm-open", IssueStatus.READY)],
-        ),
-        pageStream(`status:${IssueStatus.BLOCKED}`, "Blocked", []),
+        pageStream(`status:${IssueStatus.READY}`, "Open", []),
+        {
+          ...pageStream(`status:${IssueStatus.BLOCKED}`, "Blocked", []),
+          status: "loading",
+        },
         pageStream(
           `status:${IssueStatus.IN_PROGRESS}`,
           "In progress",
@@ -75,7 +74,7 @@ describe("kanban board", () => {
         ),
         {
           ...pageStream(`status:${IssueStatus.WAITING}`, "Waiting", []),
-          status: "loading",
+          status: "error",
         },
       ],
       loadMore: vi.fn(),
@@ -83,13 +82,43 @@ describe("kanban board", () => {
       showBoard: false,
     });
 
+    expect(markup).not.toContain(">Open</h2>");
     expect(markup).not.toContain(">Blocked</h2>");
-    expect(markup).toContain(">Waiting</h2>");
+    expect(markup).toContain(">In progress</h2>");
+    expect(markup).not.toContain(">Waiting</h2>");
+    expect(markup.match(/class="kanban-column"/g)).toHaveLength(1);
+  });
+
+  it("shows empty columns in their existing order when enabled", () => {
+    const markup = renderKanban({
+      boards: [],
+      grouping: "status",
+      streams: [
+        pageStream(`status:${IssueStatus.READY}`, "Open", []),
+        pageStream(
+          `status:${IssueStatus.BLOCKED}`,
+          "Blocked",
+          [issueWithStatus("cm-blocked", IssueStatus.BLOCKED)],
+        ),
+        pageStream(`status:${IssueStatus.IN_PROGRESS}`, "In progress", []),
+      ],
+      loadMore: vi.fn(),
+      selectLabel: vi.fn(),
+      showBoard: false,
+      showEmptyColumns: true,
+    });
+
+    expect(markup).toContain(">Open</h2>");
+    expect(markup).toContain(">Blocked</h2>");
+    expect(markup).toContain(">In progress</h2>");
     expect(markup.indexOf(">Open</h2>")).toBeLessThan(
+      markup.indexOf(">Blocked</h2>"),
+    );
+    expect(markup.indexOf(">Blocked</h2>")).toBeLessThan(
       markup.indexOf(">In progress</h2>"),
     );
-    expect(markup.indexOf(">In progress</h2>")).toBeLessThan(
-      markup.indexOf(">Waiting</h2>"),
+    expect(markup.match(/<p class="empty-column">No issues<\/p>/g)).toHaveLength(
+      2,
     );
   });
 
