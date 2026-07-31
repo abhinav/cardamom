@@ -10,7 +10,7 @@ import { createWebClient } from "./api.ts";
 import { App } from "./app.tsx";
 import { bootstrapQueryOptions } from "./query-runtime.ts";
 
-describe("application identity", () => {
+describe("application shell", () => {
   it("names Cardamom while startup metadata is loading", () => {
     const markup = renderApp(new QueryClient());
 
@@ -18,18 +18,43 @@ describe("application identity", () => {
     expect(markup).toContain(">Cardamom</div>");
   });
 
-  it("names Cardamom in the loaded application shell", () => {
+  it("shows the selected board and project in the header selector", () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
-      boards: [{ id: "board-1", name: "Primary" }],
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
       serverDefaultBoardId: "board-1",
     });
 
     const markup = renderApp(queryClient, transport);
 
-    expect(markup).toContain('class="brand"');
-    expect(markup).toContain(">Cardamom</a>");
+    expect(markup).toContain('aria-label="Select board scope: Primary"');
+    expect(markup).toContain(
+      '<span class="board-selector-trigger-primary">Primary</span>',
+    );
+    expect(markup).toContain(
+      '<span class="board-selector-trigger-secondary">Cardamom</span>',
+    );
+  });
+
+  it("directs an unresolved board scope without naming a control location", () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-2", projectId: "project-1", name: "Secondary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+
+    const markup = renderApp(queryClient, transport);
+
+    expect(markup).toContain("Select a board to load issues.");
+    expect(markup).not.toContain("Select a board in Settings");
   });
 });
 

@@ -38,11 +38,8 @@ describe("responsive toolbar", () => {
 
   it("presents global settings as an accessible header icon", () => {
     const markup = renderToStaticMarkup(createElement(SettingsControl, {
-      boards: [],
       preferences: defaultPreferences,
-      openBoardSettings: vi.fn(),
       openConfiguration: vi.fn(),
-      selection: { kind: "all" },
       selectedBoard: undefined,
       updatePreferences: vi.fn(),
     }));
@@ -50,5 +47,8 @@ describe("responsive toolbar", () => {
     expect(markup).toContain('aria-label="Settings"');
     expect(markup).toContain('title="Settings"');
     expect(markup).toContain("lucide-settings");
+    expect(markup).not.toContain("session-board-control");
+    expect(markup).not.toContain(">All boards<");
+    expect(markup).not.toContain(">Board settings<");
   });
 });

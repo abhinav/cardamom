@@ -18,19 +18,19 @@ import type { AttachmentClient, ChangeClient, WebClient } from "./api.ts";
 import { ApprovalsRoute } from "./approvals/approvals.tsx";
 import {
   BoardSettingsDialog,
-  boardSettingsBoardId,
 } from "./board-settings.tsx";
+import { BoardSelector } from "./board-selector.tsx";
 import { ConfigurationRoute } from "./configuration.tsx";
 import {
   resolveBoardScope,
   scopeKey,
   toBoardScopeMessage,
-  type BoardScopePreference,
   type BoardScopeSelection,
 } from "./board-scope.ts";
 import type {
   BoardSummary,
   GetBootstrapResponse,
+  Project,
 } from "./gen/cardamom/private/v1/project_pb.ts";
 import type { BoardScope } from "./gen/cardamom/private/v1/scope_pb.ts";
 import { DocumentTitle } from "./document-title.tsx";
@@ -142,6 +142,7 @@ function LoadedApp({
       attachmentClient={attachmentClient}
       boards={bootstrap.boards}
       preferences={preferences}
+      projects={bootstrap.projects}
       scope={scope}
       selection={selection}
       storage={storage}
@@ -155,6 +156,7 @@ interface ApplicationShellProps {
   attachmentClient: AttachmentClient;
   boards: readonly BoardSummary[];
   preferences: Preferences;
+  projects: readonly Project[];
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
   storage: PreferencesStorage;
@@ -166,6 +168,7 @@ function ApplicationShell({
   attachmentClient,
   boards,
   preferences,
+  projects,
   scope,
   selection,
   storage,
@@ -174,7 +177,9 @@ function ApplicationShell({
 }: ApplicationShellProps) {
   const navigate = useNavigate();
   const collectionRoute = isCollectionRoute(useLocation().pathname);
-  const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
+  const [boardSettingsBoardId, setBoardSettingsBoardId] = useState<
+    string | undefined
+  >();
   const selectedBoard =
     selection.kind === "board"
       ? boards.find((board) => board.id === selection.boardId)
@@ -185,7 +190,6 @@ function ApplicationShell({
       : selection.kind === "all"
         ? "All boards"
         : (selectedBoard?.name ?? `${selection.boardId} unavailable`);
-  const settingsBoardId = boardSettingsBoardId(selection);
   const selectLabel = (label: string) => {
     updatePreferences({
       ...preferences,
@@ -205,19 +209,19 @@ function ApplicationShell({
           Skip to content
         </a>
         <header className="app-header">
-          <div className="brand-block">
-            <Link className="brand" to="/">
-              Cardamom
-            </Link>
-            <span className="scope-name">{boardName}</span>
-          </div>
+          <BoardSelector
+            boards={boards}
+            projects={projects}
+            selection={selection}
+            onOpenBoardSettings={setBoardSettingsBoardId}
+            onSelectScope={(boardScope) =>
+              updatePreferences({ ...preferences, boardScope })
+            }
+          />
           <StreamState status={streamStatus} />
           <SettingsControl
-            boards={boards}
             preferences={preferences}
-            selection={selection}
             selectedBoard={selectedBoard}
-            openBoardSettings={() => setBoardSettingsOpen(true)}
             openConfiguration={() => navigate("/configuration")}
             updatePreferences={updatePreferences}
           />
@@ -256,13 +260,13 @@ function ApplicationShell({
             updatePreferences={updatePreferences}
           />
         </main>
-        {boardSettingsOpen && settingsBoardId !== undefined && (
+        {boardSettingsBoardId !== undefined && (
           <BoardSettingsDialog
-            key={settingsBoardId}
+            key={boardSettingsBoardId}
             actor={preferences.actor}
-            boardId={settingsBoardId}
-            onDismiss={() => setBoardSettingsOpen(false)}
-            onSaved={() => setBoardSettingsOpen(false)}
+            boardId={boardSettingsBoardId}
+            onDismiss={() => setBoardSettingsBoardId(undefined)}
+            onSaved={() => setBoardSettingsBoardId(undefined)}
           />
         )}
       </div>
@@ -275,26 +279,18 @@ export function isCollectionRoute(pathname: string): boolean {
 }
 
 interface SettingsControlProps {
-  boards: readonly BoardSummary[];
   preferences: Preferences;
-  openBoardSettings: () => void;
   openConfiguration: () => void;
-  selection: BoardScopeSelection;
   selectedBoard: BoardSummary | undefined;
   updatePreferences: (preferences: Preferences) => void;
 }
 
 export function SettingsControl({
-  boards,
-  openBoardSettings,
   openConfiguration,
   preferences,
-  selection,
   selectedBoard,
   updatePreferences,
 }: SettingsControlProps) {
-  const unavailableSelection =
-    selection.kind === "board" && selectedBoard === undefined;
   return (
     <details className="settings-control">
       <summary className="icon-control" aria-label="Settings" title="Settings">
@@ -302,37 +298,6 @@ export function SettingsControl({
       </summary>
       <div className="settings-panel">
         <div className="session-controls">
-          <label className="session-board-control">
-            <span>Board</span>
-            <select
-              value={scopeKey(selection)}
-              onChange={(event) => {
-                const value = event.currentTarget.value;
-                const boardScope: BoardScopePreference =
-                  value === "all"
-                    ? { kind: "all" }
-                    : { kind: "board", boardId: value.slice("board:".length) };
-                updatePreferences({ ...preferences, boardScope });
-              }}
-            >
-              {selection.kind === "unresolved" && (
-                <option value="unresolved" disabled>
-                  Select a board
-                </option>
-              )}
-              {unavailableSelection && (
-                <option value={scopeKey(selection)} disabled>
-                  {selection.boardId} (unavailable)
-                </option>
-              )}
-              <option value="all">All boards</option>
-              {boards.map((board) => (
-                <option key={board.id} value={`board:${board.id}`}>
-                  {board.name}
-                </option>
-              ))}
-            </select>
-          </label>
           <label>
             <span>Actor</span>
             <input
@@ -364,28 +329,16 @@ export function SettingsControl({
             </select>
           </label>
           {selectedBoard !== undefined && (
-            <>
-              <button
-                type="button"
-                className="session-action"
-                onClick={(event) => {
-                  event.currentTarget.closest("details")?.removeAttribute("open");
-                  openConfiguration();
-                }}
-              >
-                Configuration
-              </button>
-              <button
-                type="button"
-                className="session-action"
-                onClick={(event) => {
-                  event.currentTarget.closest("details")?.removeAttribute("open");
-                  openBoardSettings();
-                }}
-              >
-                Board settings
-              </button>
-            </>
+            <button
+              type="button"
+              className="session-action"
+              onClick={(event) => {
+                event.currentTarget.closest("details")?.removeAttribute("open");
+                openConfiguration();
+              }}
+            >
+              Configuration
+            </button>
           )}
         </div>
       </div>

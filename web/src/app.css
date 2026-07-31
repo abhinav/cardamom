@@ -168,27 +168,248 @@ button:disabled {
   background: var(--surface);
 }
 
-.brand-block {
+.board-selector {
+  position: relative;
+  width: min(22rem, 100%);
   min-width: 0;
+}
+
+.board-selector-trigger {
+  width: 100%;
+  height: 2.75rem;
+  min-height: 0;
   display: flex;
-  align-items: baseline;
-  gap: 0.75rem;
-}
-
-.brand {
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.65rem;
+  border-color: var(--border);
+  background: var(--surface-subtle);
   color: var(--text);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 1.35rem;
-  font-weight: 800;
-  text-decoration: none;
+  text-align: left;
 }
 
-.scope-name {
+.board-selector-trigger:hover,
+.board-selector-trigger[aria-expanded="true"] {
+  border-color: var(--accent);
+}
+
+.board-selector-trigger-copy,
+.board-selector-option-copy {
+  min-width: 0;
+  display: grid;
+  gap: 0.08rem;
+}
+
+.board-selector-trigger-copy {
+  flex: 1;
+}
+
+.board-selector-trigger-primary,
+.board-selector-trigger-secondary,
+.board-selector-option-primary,
+.board-selector-option-secondary {
   overflow: hidden;
-  color: var(--muted);
-  font-size: 0.88rem;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.board-selector-trigger-primary {
+  font-size: 0.86rem;
+  font-weight: 750;
+}
+
+.board-selector-trigger-secondary {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.board-selector-disclosure {
+  width: 1rem;
+  height: 1rem;
+  flex: none;
+  transition: transform 120ms ease;
+}
+
+.board-selector-disclosure[data-open="true"] {
+  transform: rotate(180deg);
+}
+
+.board-selector-dialog {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 0.45rem);
+  left: 0;
+  width: min(27rem, calc(100vw - 2rem));
+  max-height: min(34rem, calc(100vh - 6rem));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-overlay);
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+}
+
+.board-selector-search {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: grid;
+  grid-template-columns: 1rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.65rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.board-selector-search svg {
+  width: 1rem;
+  height: 1rem;
+}
+
+.board-selector-search input {
+  width: 100%;
+  height: 2.15rem;
+  min-width: 0;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface-subtle);
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.board-selector-results {
+  min-height: 0;
+  max-height: 27rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 0.45rem;
+}
+
+.board-selector-row {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.board-selector-option {
+  width: 100%;
+  min-width: 0;
+  min-height: 3rem;
+  display: grid;
+  grid-template-columns: 1.1rem minmax(0, 1fr);
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.35rem 0.45rem;
+  border-color: transparent;
+  background: transparent;
+  color: var(--text);
+  text-align: left;
+}
+
+.board-selector-option:hover {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+}
+
+.board-selector-option[aria-current="true"] {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+}
+
+.board-selector-selection-mark {
+  width: 1.1rem;
+  height: 1.1rem;
+  display: grid;
+  place-items: center;
+  color: var(--accent);
+}
+
+.board-selector-selection-mark svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.board-selector-option-primary {
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.board-selector-option-secondary {
+  color: var(--muted);
+  font-size: 0.68rem;
+}
+
+.board-selector-action,
+.board-selector-action-space {
+  width: 2rem;
+  height: 2rem;
+}
+
+.board-selector-action {
+  min-height: 2rem;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+  color: var(--muted);
+}
+
+.board-selector-action:hover {
+  border-color: var(--border);
+  background: var(--surface-subtle);
+  color: var(--text);
+}
+
+.board-selector-action svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+
+.board-selector-project {
+  margin: 0.35rem 0;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.board-selector-project .board-selector-row {
+  padding: 0 0.25rem;
+}
+
+.board-selector-project-heading {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.45rem 0.55rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-subtle);
+  color: var(--muted);
+  font-size: 0.65rem;
+  font-weight: 750;
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.board-selector-project-heading span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.board-selector-empty {
+  margin: 0;
+  padding: 1rem 0.55rem;
+  color: var(--muted);
+  font-size: 0.78rem;
+  text-align: center;
 }
 
 .stream-state {
@@ -278,7 +499,6 @@ button:disabled {
   font-weight: 500;
 }
 
-.session-board-control,
 .session-action {
   grid-column: 1 / -1;
 }
@@ -1313,18 +1533,36 @@ button:disabled {
 
   .app-header {
     position: relative;
+    z-index: 11;
+    height: 3.75rem;
     min-height: 3.75rem;
     grid-template-columns: minmax(0, 1fr) auto auto;
     gap: 0.6rem;
     padding: 0.6rem 1rem;
   }
 
-  .brand-block {
-    gap: 0.5rem;
+  .board-selector {
+    position: static;
+    width: 100%;
   }
 
-  .scope-name {
-    font-size: 0.78rem;
+  .board-selector-trigger {
+    height: 2.55rem;
+  }
+
+  .board-selector-dialog {
+    top: 100%;
+    right: 0;
+    left: 0;
+    width: 100%;
+    max-height: calc(100dvh - 3.75rem - 3.5rem);
+    border-right: 0;
+    border-left: 0;
+    border-radius: 0;
+  }
+
+  .board-selector-results {
+    max-height: none;
   }
 
   .stream-state {
