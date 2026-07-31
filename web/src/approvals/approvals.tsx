@@ -26,9 +26,11 @@ import "./approvals.css";
 
 interface ApprovalsRouteProps {
   actor: string;
-  readOnly: boolean;
+  canResolveCheckpoints: boolean;
   requestKey: string;
   scope: BoardScope | undefined;
+  showDecisionControls: boolean;
+  showScopeMutationNotice: boolean;
 }
 
 /** resolveActionableCheckpoint normalizes browser attribution at the RPC boundary. */
@@ -49,9 +51,11 @@ export function resolveActionableCheckpoint(
 
 export function ApprovalsRoute({
   actor,
-  readOnly,
+  canResolveCheckpoints,
   requestKey,
   scope,
+  showDecisionControls,
+  showScopeMutationNotice,
 }: ApprovalsRouteProps) {
   const transport = useTransport();
   const queryClient = useQueryClient();
@@ -168,12 +172,12 @@ export function ApprovalsRoute({
         awaiting decision
       </p>
 
-      {readOnly && (
+      {showScopeMutationNotice && (
         <Notice>
           All boards is read-only. Select one board to approve or deny a checkpoint.
         </Notice>
       )}
-      {!readOnly && actorMissing && (
+      {canResolveCheckpoints && actorMissing && (
         <Notice>Set an actor in Settings before recording a decision.</Notice>
       )}
       {approvals.isError && data !== undefined && (
@@ -203,10 +207,11 @@ export function ApprovalsRoute({
               <ApprovalCard
                 key={issueID}
                 checkpoint={checkpoint}
-                disabled={readOnly || actorMissing}
+                disabled={!canResolveCheckpoints || actorMissing}
                 error={mutationErrors[issueID]}
                 pending={pendingIDs.has(issueID)}
                 resolve={resolve}
+                showDecisionControls={showDecisionControls}
               />
             );
           })}
@@ -226,6 +231,7 @@ interface ApprovalCardProps {
     outcome: CheckpointOutcome,
     reason: string,
   ) => Promise<void>;
+  showDecisionControls: boolean;
 }
 
 interface ApprovalPresentation {
@@ -261,6 +267,7 @@ function ApprovalCard({
   error,
   pending,
   resolve,
+  showDecisionControls,
 }: ApprovalCardProps) {
   const [reason, setReason] = useState("");
   const presentation = approvalPresentation(checkpoint);
@@ -289,38 +296,40 @@ function ApprovalCard({
 
       <Markdown content={presentation.description} />
 
-      <div className="approval-decision">
-        <label htmlFor={presentation.reasonID}>Reason (optional)</label>
-        <textarea
-          id={presentation.reasonID}
-          value={reason}
-          rows={2}
-          disabled={disabled || pending}
-          onInput={(event) => setReason(event.currentTarget.value)}
-        />
-        {error !== undefined && (
-          <p className="approval-mutation-error" role="alert">
-            Decision failed: {error}
-          </p>
-        )}
-        <div className="approval-actions">
-          <button
-            type="button"
+      {showDecisionControls && (
+        <div className="approval-decision">
+          <label htmlFor={presentation.reasonID}>Reason (optional)</label>
+          <textarea
+            id={presentation.reasonID}
+            value={reason}
+            rows={2}
             disabled={disabled || pending}
-            onClick={() => void resolve(checkpoint, CheckpointOutcome.APPROVED, reason)}
-          >
-            {pending ? "Recording..." : "Approve"}
-          </button>
-          <button
-            className="danger-button"
-            type="button"
-            disabled={disabled || pending}
-            onClick={() => void resolve(checkpoint, CheckpointOutcome.DENIED, reason)}
-          >
-            Deny
-          </button>
+            onInput={(event) => setReason(event.currentTarget.value)}
+          />
+          {error !== undefined && (
+            <p className="approval-mutation-error" role="alert">
+              Decision failed: {error}
+            </p>
+          )}
+          <div className="approval-actions">
+            <button
+              type="button"
+              disabled={disabled || pending}
+              onClick={() => void resolve(checkpoint, CheckpointOutcome.APPROVED, reason)}
+            >
+              {pending ? "Recording..." : "Approve"}
+            </button>
+            <button
+              className="danger-button"
+              type="button"
+              disabled={disabled || pending}
+              onClick={() => void resolve(checkpoint, CheckpointOutcome.DENIED, reason)}
+            >
+              Deny
+            </button>
+          </div>
         </div>
-      </div>
+      )}
     </article>
   );
 }

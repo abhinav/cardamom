@@ -42,10 +42,11 @@ const showRetiredStorageKey = "cardamom.routines.showRetired";
 
 interface RoutinesRouteProps {
   actor: string;
-  readOnly: boolean;
+  canMutateRoutines: boolean;
   requestKey: string;
   scope: BoardScope | undefined;
   selectLabel: SelectLabel;
+  showScopeMutationNotice: boolean;
   storage: PreferencesStorage;
 }
 
@@ -141,7 +142,7 @@ export async function changeRoutineLifecycle(
 export function routinePresentation(
   routine: RoutineStateSource,
   actor: string,
-  readOnly: boolean,
+  canMutate: boolean,
 ): RoutinePresentation {
   let state: RoutinePresentation["state"];
   if (routine.lifecycle === IssueLifecycle.CLOSED) {
@@ -156,7 +157,7 @@ export function routinePresentation(
     state = "Available";
   }
 
-  if (readOnly || actor.trim() === "") {
+  if (!canMutate || actor.trim() === "") {
     return { state, actions: [] };
   }
   if (
@@ -200,10 +201,11 @@ export function saveShowRetired(
 
 export function RoutinesRoute({
   actor,
-  readOnly,
+  canMutateRoutines,
   requestKey,
   scope,
   selectLabel,
+  showScopeMutationNotice,
   storage,
 }: RoutinesRouteProps) {
   const transport = useTransport();
@@ -334,12 +336,12 @@ export function RoutinesRoute({
         </label>
       </header>
 
-      {readOnly && (
+      {showScopeMutationNotice && (
         <Notice>
           All boards is read-only. Select one board to change a routine.
         </Notice>
       )}
-      {!readOnly && actorMissing && (
+      {canMutateRoutines && actorMissing && (
         <Notice>Set an actor in Settings before changing a routine.</Notice>
       )}
       {routines.isError && data !== undefined && (
@@ -378,11 +380,11 @@ export function RoutinesRoute({
             <RoutineCard
               key={issue.id}
               actor={actor}
+              canMutate={canMutateRoutines}
               error={mutationErrors[issue.id]}
               issue={issue}
               mutate={mutate}
               pending={pendingIDs.has(issue.id)}
-              readOnly={readOnly}
               selectLabel={selectLabel}
             />
           ))}
@@ -394,22 +396,22 @@ export function RoutinesRoute({
 
 function RoutineCard({
   actor,
+  canMutate,
   error,
   issue,
   mutate,
   pending,
-  readOnly,
   selectLabel,
 }: {
   actor: string;
+  canMutate: boolean;
   error: string | undefined;
   issue: IssueSummary;
   mutate: (issue: IssueSummary, action: LifecycleActionValue) => Promise<void>;
   pending: boolean;
-  readOnly: boolean;
   selectLabel: SelectLabel;
 }) {
-  const presentation = routinePresentation(issue, actor, readOnly);
+  const presentation = routinePresentation(issue, actor, canMutate);
   const stateKind = routineStateKind(issue);
   const updatedDate = timestampDate(issue.updatedAt);
 

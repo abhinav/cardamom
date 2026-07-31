@@ -35,12 +35,14 @@ import {
   RecordService,
   StateRecordSchema,
 } from "../gen/cardamom/private/v1/record_pb.ts";
+import { AccessMode } from "../gen/cardamom/private/v1/project_pb.ts";
 import { LifecycleAction } from "../issue-lifecycle.ts";
 import {
   attachmentListInput,
   nextAttachmentPageToken,
 } from "../attachments.tsx";
 import { unaryRouteQueryOptions } from "../query-runtime.ts";
+import { ServerAccessProvider } from "../server-access.tsx";
 import {
   addIssueLogEntryInput,
   changeIssueLifecycle,
@@ -288,30 +290,35 @@ describe("issue detail presentation", () => {
       ),
     );
 
-    const markup = renderToStaticMarkup(
+    const renderPage = (accessMode: AccessMode) => renderToStaticMarkup(
       createElement(
-        TransportProvider,
-        { transport },
+        ServerAccessProvider,
+        { accessMode },
         createElement(
-          QueryClientProvider,
-          { client: queryClient },
+          TransportProvider,
+          { transport },
           createElement(
-            MemoryRouter,
-            null,
-            createElement(IssueDetailPage, {
-              actor: "observer",
-              attachmentClient: {} as AttachmentClient,
-              collapsedDetailsBoardIds: [],
-              issueId,
-              relationsOpen: true,
-              selectLabel: vi.fn(),
-              setDetailsCollapsed: vi.fn(),
-              setRelationsOpen: vi.fn(),
-            }),
+            QueryClientProvider,
+            { client: queryClient },
+            createElement(
+              MemoryRouter,
+              null,
+              createElement(IssueDetailPage, {
+                actor: "observer",
+                attachmentClient: {} as AttachmentClient,
+                collapsedDetailsBoardIds: [],
+                issueId,
+                relationsOpen: true,
+                selectLabel: vi.fn(),
+                setDetailsCollapsed: vi.fn(),
+                setRelationsOpen: vi.fn(),
+              }),
+            ),
           ),
         ),
       ),
     );
+    const markup = renderPage(AccessMode.READ_WRITE);
     const positions = [
       'id="record-title"',
       'id="summary-title"',
@@ -340,6 +347,19 @@ describe("issue detail presentation", () => {
     expect(markup).toContain(
       '<details class="issue-detail-section issue-relations" open=""><summary>',
     );
+
+    const readOnlyMarkup = renderPage(AccessMode.READ_ONLY);
+    expect(readOnlyMarkup).toContain("Summary record.");
+    expect(readOnlyMarkup).toContain("reading-flow.txt");
+    expect(readOnlyMarkup).toContain("Service first.");
+    expect(readOnlyMarkup).toContain("Dependencies");
+    expect(readOnlyMarkup).not.toContain("Issue actions");
+    expect(readOnlyMarkup).not.toContain("Add dependency");
+    expect(readOnlyMarkup).not.toContain(">Remove</button>");
+    expect(readOnlyMarkup).not.toContain("Log composer");
+    expect(readOnlyMarkup).not.toContain("Add log entry");
+    expect(readOnlyMarkup).not.toContain("Attachment controls");
+    expect(readOnlyMarkup).not.toContain("Add a file");
   });
 
   it("omits Relations when hierarchy contains only the current issue", () => {

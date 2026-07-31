@@ -45,6 +45,7 @@ import {
 interface SharedRouteProps {
   attachmentClient: AttachmentClient;
   boards: readonly BoardSummary[];
+  canMutateServer: boolean;
   selection: BoardScopeSelection;
   actor: string;
   selectLabel: SelectLabel;
@@ -175,6 +176,7 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
   const navigate = useNavigate();
   const [creating, setCreating] = useState(false);
   const creationBoardId = issueCreationBoardId(props.selection);
+  const canCreateIssue = props.canMutateServer && creationBoardId !== undefined;
   const loadedIssues = issuePageIssues(props.pages);
   const totalIssues = props.pages.streams.reduce(
     (total, stream) => total + stream.totalCount,
@@ -196,9 +198,7 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
           loadedCount={loadedIssues.length}
           totalCount={totalIssues}
           readOnly={props.selection.kind === "all"}
-          createIssue={
-            creationBoardId === undefined ? undefined : () => setCreating(true)
-          }
+          createIssue={canCreateIssue ? () => setCreating(true) : undefined}
         />
       </header>
 
@@ -210,6 +210,8 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
           loadMore={props.loadMore}
           selectLabel={props.selectLabel}
           showBoard={props.selection.kind === "all"}
+          canCreateIssue={canCreateIssue}
+          showCreationGuidance={props.canMutateServer}
         />
       ) : (
         <IssueList
@@ -470,18 +472,22 @@ function FilterFields({
 
 export function KanbanBoard({
   boards,
+  canCreateIssue = true,
   grouping,
   streams,
   loadMore,
   selectLabel,
   showBoard,
+  showCreationGuidance = true,
 }: {
   boards: readonly BoardSummary[];
+  canCreateIssue?: boolean;
   grouping: IssueGrouping;
   streams: readonly IssuePageStream[];
   loadMore: (key: string) => void;
   selectLabel: SelectLabel;
   showBoard: boolean;
+  showCreationGuidance?: boolean;
 }) {
   const visibleStreams = streams.filter(
     (stream) => stream.status !== "ready" || stream.totalCount > 0,
@@ -489,9 +495,11 @@ export function KanbanBoard({
   if (visibleStreams.length === 0) {
     return (
       <div className="kanban-empty" role="status">
-        {showBoard
-          ? "No issues here. Select a board to create a new issue."
-          : "No issues here. Create a new issue to get started."}
+        {canCreateIssue
+          ? "No issues here. Create a new issue to get started."
+          : showCreationGuidance && showBoard
+            ? "No issues here. Select a board to create a new issue."
+            : "No issues here."}
       </div>
     );
   }

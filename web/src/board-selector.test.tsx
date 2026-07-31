@@ -75,6 +75,23 @@ describe("board selector", () => {
     expect(markup).toContain("lucide-check");
   });
 
+  it("preserves board selection without exposing board settings", () => {
+    const markup = renderToStaticMarkup(BoardSelectorView({
+      boards,
+      open: true,
+      projects,
+      query: "",
+      selection: { kind: "board", boardId: "board-m" },
+      onDismiss: vi.fn(),
+      onQueryChange: vi.fn(),
+      onSelectScope: vi.fn(),
+      onToggle: vi.fn(),
+    }));
+
+    expect(markup).toContain('aria-label="Select Operations"');
+    expect(markup).not.toContain("Open settings for");
+  });
+
   it("exposes toggle, selection, settings, and Escape interactions", () => {
     const onDismiss = vi.fn();
     const onOpenBoardSettings = vi.fn();
