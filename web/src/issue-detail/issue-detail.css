@@ -554,11 +554,15 @@ button.issue-add-dependency {
 }
 
 .issue-log-list {
+  min-width: 0;
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 1rem;
 }
 
 .issue-log-list > li {
+  min-width: 0;
+  max-width: 100%;
   padding-bottom: 1rem;
   padding-inline-start: 0.75rem;
   scroll-margin-block-start: 5rem;
@@ -569,6 +573,12 @@ button.issue-add-dependency {
 .issue-log-list > li:target {
   border-inline-start-color: var(--accent-strong);
   background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+
+.issue-log-list article,
+.issue-log-list .issue-markdown {
+  min-width: 0;
+  max-width: 100%;
 }
 
 .issue-log-list article > header {

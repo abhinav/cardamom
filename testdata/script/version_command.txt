@@ -11,4 +11,4 @@ exec card create --help
 stderr 'unknown flag --version'
 
 -- golden/version.txt --
-dev go1.26.5
+dev

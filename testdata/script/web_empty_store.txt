@@ -71,7 +71,7 @@ trap - EXIT
 echo 'empty web probe passed'
 
 -- golden/bootstrap.json --
-{"issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"schemaVersion":"20260729090000","version":"dev go1.26.5"}
+{"issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"schemaVersion":"20260729090000","version":"dev"}
 -- golden/catalog.json --
 {"projects":[],"boards":[],"serverDefaultBoardId":null}
 -- golden/invalid-board.txt --
