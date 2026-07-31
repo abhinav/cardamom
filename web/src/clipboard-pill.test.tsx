@@ -26,6 +26,22 @@ describe("clipboard pill", () => {
     expect(markup).toContain('aria-live="polite"');
   });
 
+  it("exposes caller-supplied hover text", () => {
+    const markup = renderToStaticMarkup(
+      <ClipboardPill
+        copyLabel="Copy issue ID %cm-task"
+        copyText="%cm-task"
+        title="Issue title"
+      >
+        <span>%cm-task</span>
+      </ClipboardPill>,
+    );
+
+    expect(markup).toContain(
+      'class="clipboard-pill" data-copy-status="idle" title="Issue title"',
+    );
+  });
+
   it("copies only the supplied text", async () => {
     const writeText = vi.fn(async () => undefined);
     const fallback = vi.fn(() => true);

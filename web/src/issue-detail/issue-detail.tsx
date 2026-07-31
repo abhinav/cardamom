@@ -6,10 +6,11 @@ import {
 } from "@bufbuild/protobuf";
 import { useMutation, useTransport } from "@connectrpc/connect-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Pencil } from "lucide-react";
+import { ChevronRight, Pencil } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
+import { Link } from "react-router";
 
 import type {
   AttachmentClient,
@@ -24,6 +25,7 @@ import { CheckpointService } from "../gen/cardamom/private/v1/checkpoint_pb.ts";
 import type { MarkdownContent } from "../gen/cardamom/private/v1/content_pb.ts";
 import { ExecutionService } from "../gen/cardamom/private/v1/execution_pb.ts";
 import type {
+  AncestorContext,
   IssueDetail,
   RelatedIssue,
   IssueSummary,
@@ -471,6 +473,7 @@ export function IssueDetailPage({
       <RequestRefreshError request={issueRequest} recordName="issue" />
       <RequestRefreshError request={stateRequest} recordName="state" />
       <IssueHeader
+        ancestors={detail.context?.ancestors ?? []}
         summary={issue}
         externalKeys={detail.externalKeys}
       />
@@ -578,22 +581,18 @@ type MutationState =
   | { status: "error"; message: string };
 
 export function IssueHeader({
+  ancestors = [],
   summary,
   externalKeys,
 }: {
+  ancestors?: readonly AncestorContext[];
   summary: IssueSummary;
   externalKeys: string[];
 }) {
-  const issueReference = `%${summary.id}`;
   return (
     <header className="issue-detail-header">
       <div className="issue-detail-id">
-        <ClipboardPill
-          copyLabel={`Copy issue ID ${issueReference}`}
-          copyText={issueReference}
-        >
-          <span>{issueReference}</span>
-        </ClipboardPill>
+        <IssueBreadcrumbs ancestors={ancestors} current={summary} />
         {externalKeys.map((externalKey) => (
           <span
             className="metadata-chip issue-external-key"
@@ -610,6 +609,55 @@ export function IssueHeader({
         <span className="metadata-chip">P{summary.priority}</span>
       </div>
     </header>
+  );
+}
+
+/** IssueBreadcrumbs presents the containment path in inherited context order. */
+export function IssueBreadcrumbs({
+  ancestors,
+  current,
+}: {
+  ancestors: readonly AncestorContext[];
+  current: IssueSummary;
+}) {
+  const ancestorIssues = ancestors.flatMap(({ issue }) =>
+    issue === undefined ? [] : [issue],
+  );
+  const currentReference = `%${current.id}`;
+  return (
+    <nav
+      className="issue-containment-breadcrumb"
+      aria-label="Issue containment"
+    >
+      <ol>
+        {ancestorIssues.map((issue) => {
+          const reference = `%${issue.id}`;
+          return (
+            <li key={issue.id}>
+              <ClipboardPill
+                copyLabel={`Copy issue ID ${reference}`}
+                copyText={reference}
+                title={issue.title}
+              >
+                <Link to={`/issues/${encodeURIComponent(issue.id)}`}>
+                  {reference}
+                </Link>
+              </ClipboardPill>
+              <ChevronRight aria-hidden="true" />
+            </li>
+          );
+        })}
+        <li>
+          <ClipboardPill
+            copyLabel={`Copy issue ID ${currentReference}`}
+            copyText={currentReference}
+            title={current.title}
+          >
+            <span aria-current="page">{currentReference}</span>
+          </ClipboardPill>
+        </li>
+      </ol>
+    </nav>
   );
 }
 

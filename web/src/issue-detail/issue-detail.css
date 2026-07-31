@@ -24,6 +24,33 @@
   font-weight: 750;
 }
 
+.issue-containment-breadcrumb {
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.issue-containment-breadcrumb ol,
+.issue-containment-breadcrumb li {
+  display: flex;
+  align-items: center;
+}
+
+.issue-containment-breadcrumb ol {
+  width: max-content;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.issue-containment-breadcrumb li > svg {
+  width: 0.85rem;
+  height: 0.85rem;
+  margin-inline: 0.2rem;
+  flex: none;
+  color: var(--muted);
+}
+
 .metadata-chip.issue-external-key {
   max-width: 100%;
   overflow-wrap: anywhere;

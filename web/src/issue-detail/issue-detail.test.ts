@@ -19,6 +19,7 @@ import {
 } from "../gen/cardamom/private/v1/attachment_pb.ts";
 import { MarkdownContentSchema } from "../gen/cardamom/private/v1/content_pb.ts";
 import {
+  AncestorContextSchema,
   CheckpointOutcome,
   IssueDetailSchema,
   IssueLifecycle,
@@ -77,6 +78,50 @@ describe("issue detail presentation", () => {
     expect(markup).toContain("%cm-43px");
     expect(markup).toContain('aria-label="Copy issue ID %cm-43px"');
     expect(markup).not.toContain(">cm-43px<");
+  });
+
+  it("orders containment breadcrumbs and links only ancestors", () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        MemoryRouter,
+        null,
+        IssueHeader({
+          ancestors: [
+            create(AncestorContextSchema, {
+              issue: create(RelatedIssueSchema, {
+                id: "cm-root",
+                title: "Root workstream",
+              }),
+            }),
+            create(AncestorContextSchema, {
+              issue: create(RelatedIssueSchema, {
+                id: "cm-parent",
+                title: "Parent workstream",
+              }),
+            }),
+          ],
+          summary: create(IssueSummarySchema, {
+            id: "cm-current",
+            title: "Current task",
+          }),
+          externalKeys: [],
+        }),
+      ),
+    );
+
+    const positions = ["%cm-root", "%cm-parent", "%cm-current"].map(
+      (reference) => markup.indexOf(reference),
+    );
+    expect(positions).toEqual([...positions].sort((left, right) => left - right));
+    expect(positions).not.toContain(-1);
+    expect(markup).toContain('aria-label="Issue containment"');
+    expect(markup).toContain('href="/issues/cm-root"');
+    expect(markup).toContain('href="/issues/cm-parent"');
+    expect(markup).not.toContain('href="/issues/cm-current"');
+    expect(markup).toContain('aria-current="page"');
+    expect(markup).toContain('title="Root workstream"');
+    expect(markup).toContain('title="Parent workstream"');
+    expect(markup).toContain('title="Current task"');
   });
 
   it("renders distinct producer keys in supplied order as noninteractive metadata", () => {

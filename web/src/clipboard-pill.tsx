@@ -32,19 +32,21 @@ export async function copyClipboardText(
   }
 }
 
-/** ClipboardPill pairs inline content with an accessible copy control. */
+/** ClipboardPill pairs inline content and optional hover context with a copy control. */
 export function ClipboardPill({
   children,
   copyLabel,
   copyText,
+  title,
 }: {
   children: ReactNode;
   copyLabel: string;
   copyText: string;
+  title?: string;
 }) {
   const [status, setStatus] = useState<CopyStatus>("idle");
   return (
-    <span className="clipboard-pill" data-copy-status={status}>
+    <span className="clipboard-pill" data-copy-status={status} title={title}>
       <span className="clipboard-pill-content">{children}</span>
       <button
         type="button"
