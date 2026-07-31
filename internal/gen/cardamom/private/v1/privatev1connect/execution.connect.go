@@ -94,12 +94,14 @@ func NewExecutionServiceClient(httpClient connect.HTTPClient, baseURL string, op
 			httpClient,
 			baseURL+ExecutionServiceListReadyIssuesProcedure,
 			connect.WithSchema(executionServiceMethods.ByName("ListReadyIssues")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listBlockedIssues: connect.NewClient[v1.ListBlockedIssuesRequest, v1.ListBlockedIssuesResponse](
 			httpClient,
 			baseURL+ExecutionServiceListBlockedIssuesProcedure,
 			connect.WithSchema(executionServiceMethods.ByName("ListBlockedIssues")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		claimIssue: connect.NewClient[v1.ClaimIssueRequest, v1.ClaimIssueResponse](
@@ -224,12 +226,14 @@ func NewExecutionServiceHandler(svc ExecutionServiceHandler, opts ...connect.Han
 		ExecutionServiceListReadyIssuesProcedure,
 		svc.ListReadyIssues,
 		connect.WithSchema(executionServiceMethods.ByName("ListReadyIssues")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	executionServiceListBlockedIssuesHandler := connect.NewUnaryHandler(
 		ExecutionServiceListBlockedIssuesProcedure,
 		svc.ListBlockedIssues,
 		connect.WithSchema(executionServiceMethods.ByName("ListBlockedIssues")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	executionServiceClaimIssueHandler := connect.NewUnaryHandler(

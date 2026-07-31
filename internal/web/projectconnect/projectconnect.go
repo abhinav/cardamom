@@ -78,6 +78,9 @@ type Config struct {
 
 	// Version reports the running Cardamom binary version.
 	Version string
+
+	// AccessMode reports the server-side write policy for this web invocation.
+	AccessMode web.AccessMode
 }
 
 // Service adapts project catalog operations to generated ProjectService RPCs.
@@ -90,6 +93,7 @@ type Service struct {
 	serverDefaultBoardID *board.ID
 	schemaVersion        uint64
 	version              string
+	accessMode           web.AccessMode
 }
 
 var _ privatev1connect.ProjectServiceHandler = (*Service)(nil)
@@ -112,6 +116,7 @@ func New(cfg Config) *Service {
 		serverDefaultBoardID: cloneBoardID(cfg.ServerDefaultBoardID),
 		schemaVersion:        cfg.SchemaVersion,
 		version:              cfg.Version,
+		accessMode:           cfg.AccessMode,
 	}
 }
 
@@ -164,12 +169,24 @@ func (s *Service) GetBootstrap(
 		IssueStatuses: validIssueStatuses(),
 		SchemaVersion: s.schemaVersion,
 		Version:       s.version,
+		AccessMode:    bootstrapAccessMode(s.accessMode),
 	}
 	if s.serverDefaultBoardID != nil {
 		value := s.serverDefaultBoardID.String()
 		response.ServerDefaultBoardId = &value
 	}
 	return connect.NewResponse(response), nil
+}
+
+func bootstrapAccessMode(mode web.AccessMode) privatev1.AccessMode {
+	switch mode {
+	case web.AccessModeReadWrite:
+		return privatev1.AccessMode_ACCESS_MODE_READ_WRITE
+	case web.AccessModeReadOnly:
+		return privatev1.AccessMode_ACCESS_MODE_READ_ONLY
+	default:
+		panic(fmt.Sprintf("projectconnect: unsupported access mode %d", mode))
+	}
 }
 
 func (s *Service) listProjects(ctx context.Context) ([]*privatev1.Project, error) {

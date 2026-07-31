@@ -2134,15 +2134,15 @@ const file_cardamom_private_v1_attachment_proto_rawDesc = "" +
 	"\x1eATTACHMENT_UPLOAD_STATE_ACTIVE\x10\x01\x12%\n" +
 	"!ATTACHMENT_UPLOAD_STATE_COMMITTED\x10\x02\x12#\n" +
 	"\x1fATTACHMENT_UPLOAD_STATE_ABORTED\x10\x03\x12#\n" +
-	"\x1fATTACHMENT_UPLOAD_STATE_EXPIRED\x10\x042\xab\t\n" +
+	"\x1fATTACHMENT_UPLOAD_STATE_EXPIRED\x10\x042\xb5\t\n" +
 	"\x11AttachmentService\x12~\n" +
 	"\x15BeginAttachmentUpload\x121.cardamom.private.v1.BeginAttachmentUploadRequest\x1a2.cardamom.private.v1.BeginAttachmentUploadResponse\x12{\n" +
 	"\x14WriteAttachmentChunk\x120.cardamom.private.v1.WriteAttachmentChunkRequest\x1a1.cardamom.private.v1.WriteAttachmentChunkResponse\x12x\n" +
 	"\x13GetAttachmentUpload\x12/.cardamom.private.v1.GetAttachmentUploadRequest\x1a0.cardamom.private.v1.GetAttachmentUploadResponse\x12\x81\x01\n" +
 	"\x16CommitAttachmentUpload\x122.cardamom.private.v1.CommitAttachmentUploadRequest\x1a3.cardamom.private.v1.CommitAttachmentUploadResponse\x12~\n" +
-	"\x15AbortAttachmentUpload\x121.cardamom.private.v1.AbortAttachmentUploadRequest\x1a2.cardamom.private.v1.AbortAttachmentUploadResponse\x12f\n" +
-	"\rGetAttachment\x12).cardamom.private.v1.GetAttachmentRequest\x1a*.cardamom.private.v1.GetAttachmentResponse\x12l\n" +
-	"\x0fListAttachments\x12+.cardamom.private.v1.ListAttachmentsRequest\x1a,.cardamom.private.v1.ListAttachmentsResponse\x12o\n" +
+	"\x15AbortAttachmentUpload\x121.cardamom.private.v1.AbortAttachmentUploadRequest\x1a2.cardamom.private.v1.AbortAttachmentUploadResponse\x12k\n" +
+	"\rGetAttachment\x12).cardamom.private.v1.GetAttachmentRequest\x1a*.cardamom.private.v1.GetAttachmentResponse\"\x03\x90\x02\x01\x12q\n" +
+	"\x0fListAttachments\x12+.cardamom.private.v1.ListAttachmentsRequest\x1a,.cardamom.private.v1.ListAttachmentsResponse\"\x03\x90\x02\x01\x12o\n" +
 	"\x10RemoveAttachment\x12,.cardamom.private.v1.RemoveAttachmentRequest\x1a-.cardamom.private.v1.RemoveAttachmentResponse\x12o\n" +
 	"\x10VerifyAttachment\x12,.cardamom.private.v1.VerifyAttachmentRequest\x1a-.cardamom.private.v1.VerifyAttachmentResponse\x12c\n" +
 	"\fCollectBlobs\x12(.cardamom.private.v1.CollectBlobsRequest\x1a).cardamom.private.v1.CollectBlobsResponseB\xdb\x01\n" +

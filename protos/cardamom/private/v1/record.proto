@@ -289,13 +289,17 @@ message SetResultResponse {
 // RecordService exposes immutable log entries, mutable state, and durable results.
 service RecordService {
   // ListLogEntries returns immutable log entries in requested order.
-  rpc ListLogEntries(ListLogEntriesRequest) returns (ListLogEntriesResponse);
+  rpc ListLogEntries(ListLogEntriesRequest) returns (ListLogEntriesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // AddLogEntry appends one immutable attributed log entry.
   rpc AddLogEntry(AddLogEntryRequest) returns (AddLogEntryResponse);
 
   // GetState returns one issue's current mutable recovery state.
-  rpc GetState(GetStateRequest) returns (GetStateResponse);
+  rpc GetState(GetStateRequest) returns (GetStateResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // SetState replaces one issue's complete mutable recovery state.
   rpc SetState(SetStateRequest) returns (SetStateResponse);
@@ -310,7 +314,9 @@ service RecordService {
   rpc CommitState(CommitStateRequest) returns (CommitStateResponse);
 
   // GetResult returns one issue's current durable outcome.
-  rpc GetResult(GetResultRequest) returns (GetResultResponse);
+  rpc GetResult(GetResultRequest) returns (GetResultResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // SetResult replaces one issue's durable outcome.
   rpc SetResult(SetResultRequest) returns (SetResultResponse);

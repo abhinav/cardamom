@@ -353,9 +353,9 @@ const file_cardamom_private_v1_checkpoint_proto_rawDesc = "" +
 	"\n" +
 	"checkpoint\x18\x02 \x01(\v2!.cardamom.private.v1.IssueSummaryR\n" +
 	"checkpoint\x12T\n" +
-	"\x14cancelled_dependents\x18\x03 \x03(\v2!.cardamom.private.v1.IssueSummaryR\x13cancelledDependents2\x94\x02\n" +
-	"\x11CheckpointService\x12\x8a\x01\n" +
-	"\x19ListActionableCheckpoints\x125.cardamom.private.v1.ListActionableCheckpointsRequest\x1a6.cardamom.private.v1.ListActionableCheckpointsResponse\x12r\n" +
+	"\x14cancelled_dependents\x18\x03 \x03(\v2!.cardamom.private.v1.IssueSummaryR\x13cancelledDependents2\x99\x02\n" +
+	"\x11CheckpointService\x12\x8f\x01\n" +
+	"\x19ListActionableCheckpoints\x125.cardamom.private.v1.ListActionableCheckpointsRequest\x1a6.cardamom.private.v1.ListActionableCheckpointsResponse\"\x03\x90\x02\x01\x12r\n" +
 	"\x11ResolveCheckpoint\x12-.cardamom.private.v1.ResolveCheckpointRequest\x1a..cardamom.private.v1.ResolveCheckpointResponseB\xdb\x01\n" +
 	"\x17com.cardamom.private.v1B\x0fCheckpointProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 

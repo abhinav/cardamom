@@ -134,12 +134,14 @@ func NewAttachmentServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			httpClient,
 			baseURL+AttachmentServiceGetAttachmentProcedure,
 			connect.WithSchema(attachmentServiceMethods.ByName("GetAttachment")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listAttachments: connect.NewClient[v1.ListAttachmentsRequest, v1.ListAttachmentsResponse](
 			httpClient,
 			baseURL+AttachmentServiceListAttachmentsProcedure,
 			connect.WithSchema(attachmentServiceMethods.ByName("ListAttachments")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		removeAttachment: connect.NewClient[v1.RemoveAttachmentRequest, v1.RemoveAttachmentResponse](
@@ -293,12 +295,14 @@ func NewAttachmentServiceHandler(svc AttachmentServiceHandler, opts ...connect.H
 		AttachmentServiceGetAttachmentProcedure,
 		svc.GetAttachment,
 		connect.WithSchema(attachmentServiceMethods.ByName("GetAttachment")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	attachmentServiceListAttachmentsHandler := connect.NewUnaryHandler(
 		AttachmentServiceListAttachmentsProcedure,
 		svc.ListAttachments,
 		connect.WithSchema(attachmentServiceMethods.ByName("ListAttachments")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	attachmentServiceRemoveAttachmentHandler := connect.NewUnaryHandler(

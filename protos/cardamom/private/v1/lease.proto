@@ -146,8 +146,12 @@ service LeaseService {
   rpc RevokeLease(RevokeLeaseRequest) returns (RevokeLeaseResponse);
 
   // GetLease returns one active resource lease.
-  rpc GetLease(GetLeaseRequest) returns (GetLeaseResponse);
+  rpc GetLease(GetLeaseRequest) returns (GetLeaseResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // ListLeases returns every active resource lease in name order.
-  rpc ListLeases(ListLeasesRequest) returns (ListLeasesResponse);
+  rpc ListLeases(ListLeasesRequest) returns (ListLeasesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }

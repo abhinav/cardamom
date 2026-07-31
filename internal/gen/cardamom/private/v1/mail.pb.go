@@ -1188,15 +1188,15 @@ const file_cardamom_private_v1_mail_proto_rawDesc = "" +
 	"\apattern\x18\x02 \x01(\tR\apattern\"P\n" +
 	"\x1aRemoveSubscriptionResponse\x12\x18\n" +
 	"\apattern\x18\x01 \x01(\tR\apattern\x12\x18\n" +
-	"\aremoved\x18\x02 \x01(\bR\aremoved2\xa6\x06\n" +
+	"\aremoved\x18\x02 \x01(\bR\aremoved2\xb0\x06\n" +
 	"\vMailService\x12W\n" +
 	"\bSendMail\x12$.cardamom.private.v1.SendMailRequest\x1a%.cardamom.private.v1.SendMailResponse\x12`\n" +
 	"\vPublishMail\x12'.cardamom.private.v1.PublishMailRequest\x1a(.cardamom.private.v1.PublishMailResponse\x12`\n" +
-	"\vReceiveMail\x12'.cardamom.private.v1.ReceiveMailRequest\x1a(.cardamom.private.v1.ReceiveMailResponse\x12W\n" +
-	"\bPeekMail\x12$.cardamom.private.v1.PeekMailRequest\x1a%.cardamom.private.v1.PeekMailResponse\x12Z\n" +
+	"\vReceiveMail\x12'.cardamom.private.v1.ReceiveMailRequest\x1a(.cardamom.private.v1.ReceiveMailResponse\x12\\\n" +
+	"\bPeekMail\x12$.cardamom.private.v1.PeekMailRequest\x1a%.cardamom.private.v1.PeekMailResponse\"\x03\x90\x02\x01\x12Z\n" +
 	"\tClearMail\x12%.cardamom.private.v1.ClearMailRequest\x1a&.cardamom.private.v1.ClearMailResponse\x12Z\n" +
-	"\tSubscribe\x12%.cardamom.private.v1.SubscribeRequest\x1a&.cardamom.private.v1.SubscribeResponse\x12r\n" +
-	"\x11ListSubscriptions\x12-.cardamom.private.v1.ListSubscriptionsRequest\x1a..cardamom.private.v1.ListSubscriptionsResponse\x12u\n" +
+	"\tSubscribe\x12%.cardamom.private.v1.SubscribeRequest\x1a&.cardamom.private.v1.SubscribeResponse\x12w\n" +
+	"\x11ListSubscriptions\x12-.cardamom.private.v1.ListSubscriptionsRequest\x1a..cardamom.private.v1.ListSubscriptionsResponse\"\x03\x90\x02\x01\x12u\n" +
 	"\x12RemoveSubscription\x12..cardamom.private.v1.RemoveSubscriptionRequest\x1a/.cardamom.private.v1.RemoveSubscriptionResponseB\xd5\x01\n" +
 	"\x17com.cardamom.private.v1B\tMailProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 

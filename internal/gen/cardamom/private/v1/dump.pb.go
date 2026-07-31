@@ -618,10 +618,10 @@ const file_cardamom_private_v1_dump_proto_rawDesc = "" +
 	"\bmanifest\x18\x01 \x01(\v2!.cardamom.private.v1.DumpManifestH\x00R\bmanifest\x12C\n" +
 	"\n" +
 	"file_chunk\x18\x02 \x01(\v2\".cardamom.private.v1.DumpFileChunkH\x00R\tfileChunkB\a\n" +
-	"\x05frame2n\n" +
-	"\vDumpService\x12_\n" +
+	"\x05frame2s\n" +
+	"\vDumpService\x12d\n" +
 	"\n" +
-	"RenderDump\x12&.cardamom.private.v1.RenderDumpRequest\x1a'.cardamom.private.v1.RenderDumpResponse0\x01B\xd5\x01\n" +
+	"RenderDump\x12&.cardamom.private.v1.RenderDumpRequest\x1a'.cardamom.private.v1.RenderDumpResponse\"\x03\x90\x02\x010\x01B\xd5\x01\n" +
 	"\x17com.cardamom.private.v1B\tDumpProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 
 var (

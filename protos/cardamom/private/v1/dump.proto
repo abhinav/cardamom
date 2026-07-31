@@ -100,5 +100,7 @@ message RenderDumpResponse {
 // publication.
 service DumpService {
   // RenderDump streams one manifest followed by bounded file chunks.
-  rpc RenderDump(RenderDumpRequest) returns (stream RenderDumpResponse);
+  rpc RenderDump(RenderDumpRequest) returns (stream RenderDumpResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }

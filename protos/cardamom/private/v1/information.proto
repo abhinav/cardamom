@@ -81,5 +81,7 @@ message GetInformationResponse {
 // InformationService exposes typed store identity and inventory.
 service InformationService {
   // GetInformation returns information for one explicitly selected board.
-  rpc GetInformation(GetInformationRequest) returns (GetInformationResponse);
+  rpc GetInformation(GetInformationRequest) returns (GetInformationResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }

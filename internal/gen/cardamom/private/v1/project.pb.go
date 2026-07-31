@@ -22,6 +22,59 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// AccessMode identifies the server-side write policy for this web invocation.
+type AccessMode int32
+
+const (
+	// ACCESS_MODE_UNSPECIFIED does not identify an active server policy.
+	AccessMode_ACCESS_MODE_UNSPECIFIED AccessMode = 0
+	// ACCESS_MODE_READ_WRITE permits reads and mutations.
+	AccessMode_ACCESS_MODE_READ_WRITE AccessMode = 1
+	// ACCESS_MODE_READ_ONLY permits only side-effect-free reads.
+	AccessMode_ACCESS_MODE_READ_ONLY AccessMode = 2
+)
+
+// Enum value maps for AccessMode.
+var (
+	AccessMode_name = map[int32]string{
+		0: "ACCESS_MODE_UNSPECIFIED",
+		1: "ACCESS_MODE_READ_WRITE",
+		2: "ACCESS_MODE_READ_ONLY",
+	}
+	AccessMode_value = map[string]int32{
+		"ACCESS_MODE_UNSPECIFIED": 0,
+		"ACCESS_MODE_READ_WRITE":  1,
+		"ACCESS_MODE_READ_ONLY":   2,
+	}
+)
+
+func (x AccessMode) Enum() *AccessMode {
+	p := new(AccessMode)
+	*p = x
+	return p
+}
+
+func (x AccessMode) String() string {
+	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
+}
+
+func (AccessMode) Descriptor() protoreflect.EnumDescriptor {
+	return file_cardamom_private_v1_project_proto_enumTypes[0].Descriptor()
+}
+
+func (AccessMode) Type() protoreflect.EnumType {
+	return &file_cardamom_private_v1_project_proto_enumTypes[0]
+}
+
+func (x AccessMode) Number() protoreflect.EnumNumber {
+	return protoreflect.EnumNumber(x)
+}
+
+// Deprecated: Use AccessMode.Descriptor instead.
+func (AccessMode) EnumDescriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{0}
+}
+
 // Project identifies a project namespace available to the browser.
 type Project struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -442,7 +495,9 @@ type GetBootstrapResponse struct {
 	// schema_version is the active Cardamom store schema version.
 	SchemaVersion uint64 `protobuf:"varint,7,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
 	// version is the running Cardamom binary version.
-	Version       string `protobuf:"bytes,8,opt,name=version,proto3" json:"version,omitempty"`
+	Version string `protobuf:"bytes,8,opt,name=version,proto3" json:"version,omitempty"`
+	// access_mode is the server-side write policy for this web invocation.
+	AccessMode    AccessMode `protobuf:"varint,9,opt,name=access_mode,json=accessMode,proto3,enum=cardamom.private.v1.AccessMode" json:"access_mode,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -524,6 +579,13 @@ func (x *GetBootstrapResponse) GetVersion() string {
 		return x.Version
 	}
 	return ""
+}
+
+func (x *GetBootstrapResponse) GetAccessMode() AccessMode {
+	if x != nil {
+		return x.AccessMode
+	}
+	return AccessMode_ACCESS_MODE_UNSPECIFIED
 }
 
 // GetBoardRequest identifies one board by stable ID.
@@ -994,7 +1056,7 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x11ListBoardsRequest\"O\n" +
 	"\x12ListBoardsResponse\x129\n" +
 	"\x06boards\x18\x01 \x03(\v2!.cardamom.private.v1.BoardSummaryR\x06boards\"\x15\n" +
-	"\x13GetBootstrapRequest\"\xbf\x03\n" +
+	"\x13GetBootstrapRequest\"\x81\x04\n" +
 	"\x14GetBootstrapResponse\x128\n" +
 	"\bprojects\x18\x01 \x03(\v2\x1c.cardamom.private.v1.ProjectR\bprojects\x129\n" +
 	"\x06boards\x18\x02 \x03(\v2!.cardamom.private.v1.BoardSummaryR\x06boards\x12:\n" +
@@ -1003,7 +1065,9 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"issueTypes\x12G\n" +
 	"\x0eissue_statuses\x18\x05 \x03(\x0e2 .cardamom.private.v1.IssueStatusR\rissueStatuses\x12%\n" +
 	"\x0eschema_version\x18\a \x01(\x04R\rschemaVersion\x12\x18\n" +
-	"\aversion\x18\b \x01(\tR\aversionB\x1a\n" +
+	"\aversion\x18\b \x01(\tR\aversion\x12@\n" +
+	"\vaccess_mode\x18\t \x01(\x0e2\x1f.cardamom.private.v1.AccessModeR\n" +
+	"accessModeB\x1a\n" +
 	"\x18_server_default_board_idJ\x04\b\x06\x10\aR\tid_prefix\",\n" +
 	"\x0fGetBoardRequest\x12\x19\n" +
 	"\bboard_id\x18\x01 \x01(\tR\aboardId\"D\n" +
@@ -1033,13 +1097,18 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x05_nameB\x15\n" +
 	"\x13_description_source\"G\n" +
 	"\x13UpdateBoardResponse\x120\n" +
-	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board2\xbe\x05\n" +
-	"\x0eProjectService\x12c\n" +
-	"\fListProjects\x12(.cardamom.private.v1.ListProjectsRequest\x1a).cardamom.private.v1.ListProjectsResponse\x12]\n" +
+	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board*`\n" +
 	"\n" +
-	"ListBoards\x12&.cardamom.private.v1.ListBoardsRequest\x1a'.cardamom.private.v1.ListBoardsResponse\x12c\n" +
-	"\fGetBootstrap\x12(.cardamom.private.v1.GetBootstrapRequest\x1a).cardamom.private.v1.GetBootstrapResponse\x12W\n" +
-	"\bGetBoard\x12$.cardamom.private.v1.GetBoardRequest\x1a%.cardamom.private.v1.GetBoardResponse\x12f\n" +
+	"AccessMode\x12\x1b\n" +
+	"\x17ACCESS_MODE_UNSPECIFIED\x10\x00\x12\x1a\n" +
+	"\x16ACCESS_MODE_READ_WRITE\x10\x01\x12\x19\n" +
+	"\x15ACCESS_MODE_READ_ONLY\x10\x022\xd2\x05\n" +
+	"\x0eProjectService\x12h\n" +
+	"\fListProjects\x12(.cardamom.private.v1.ListProjectsRequest\x1a).cardamom.private.v1.ListProjectsResponse\"\x03\x90\x02\x01\x12b\n" +
+	"\n" +
+	"ListBoards\x12&.cardamom.private.v1.ListBoardsRequest\x1a'.cardamom.private.v1.ListBoardsResponse\"\x03\x90\x02\x01\x12h\n" +
+	"\fGetBootstrap\x12(.cardamom.private.v1.GetBootstrapRequest\x1a).cardamom.private.v1.GetBootstrapResponse\"\x03\x90\x02\x01\x12\\\n" +
+	"\bGetBoard\x12$.cardamom.private.v1.GetBoardRequest\x1a%.cardamom.private.v1.GetBoardResponse\"\x03\x90\x02\x01\x12f\n" +
 	"\rCreateProject\x12).cardamom.private.v1.CreateProjectRequest\x1a*.cardamom.private.v1.CreateProjectResponse\x12`\n" +
 	"\vCreateBoard\x12'.cardamom.private.v1.CreateBoardRequest\x1a(.cardamom.private.v1.CreateBoardResponse\x12`\n" +
 	"\vUpdateBoard\x12'.cardamom.private.v1.UpdateBoardRequest\x1a(.cardamom.private.v1.UpdateBoardResponseB\xd8\x01\n" +
@@ -1057,66 +1126,69 @@ func file_cardamom_private_v1_project_proto_rawDescGZIP() []byte {
 	return file_cardamom_private_v1_project_proto_rawDescData
 }
 
+var file_cardamom_private_v1_project_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
 var file_cardamom_private_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
 var file_cardamom_private_v1_project_proto_goTypes = []any{
-	(*Project)(nil),               // 0: cardamom.private.v1.Project
-	(*BoardSummary)(nil),          // 1: cardamom.private.v1.BoardSummary
-	(*Board)(nil),                 // 2: cardamom.private.v1.Board
-	(*ListProjectsRequest)(nil),   // 3: cardamom.private.v1.ListProjectsRequest
-	(*ListProjectsResponse)(nil),  // 4: cardamom.private.v1.ListProjectsResponse
-	(*ListBoardsRequest)(nil),     // 5: cardamom.private.v1.ListBoardsRequest
-	(*ListBoardsResponse)(nil),    // 6: cardamom.private.v1.ListBoardsResponse
-	(*GetBootstrapRequest)(nil),   // 7: cardamom.private.v1.GetBootstrapRequest
-	(*GetBootstrapResponse)(nil),  // 8: cardamom.private.v1.GetBootstrapResponse
-	(*GetBoardRequest)(nil),       // 9: cardamom.private.v1.GetBoardRequest
-	(*GetBoardResponse)(nil),      // 10: cardamom.private.v1.GetBoardResponse
-	(*CreateProjectRequest)(nil),  // 11: cardamom.private.v1.CreateProjectRequest
-	(*CreateProjectResponse)(nil), // 12: cardamom.private.v1.CreateProjectResponse
-	(*CreateBoardRequest)(nil),    // 13: cardamom.private.v1.CreateBoardRequest
-	(*CreateBoardResponse)(nil),   // 14: cardamom.private.v1.CreateBoardResponse
-	(*UpdateBoardRequest)(nil),    // 15: cardamom.private.v1.UpdateBoardRequest
-	(*UpdateBoardResponse)(nil),   // 16: cardamom.private.v1.UpdateBoardResponse
-	(*MarkdownContent)(nil),       // 17: cardamom.private.v1.MarkdownContent
-	(*timestamppb.Timestamp)(nil), // 18: google.protobuf.Timestamp
-	(IssueType)(0),                // 19: cardamom.private.v1.IssueType
-	(IssueStatus)(0),              // 20: cardamom.private.v1.IssueStatus
-	(*MutationContext)(nil),       // 21: cardamom.private.v1.MutationContext
+	(AccessMode)(0),               // 0: cardamom.private.v1.AccessMode
+	(*Project)(nil),               // 1: cardamom.private.v1.Project
+	(*BoardSummary)(nil),          // 2: cardamom.private.v1.BoardSummary
+	(*Board)(nil),                 // 3: cardamom.private.v1.Board
+	(*ListProjectsRequest)(nil),   // 4: cardamom.private.v1.ListProjectsRequest
+	(*ListProjectsResponse)(nil),  // 5: cardamom.private.v1.ListProjectsResponse
+	(*ListBoardsRequest)(nil),     // 6: cardamom.private.v1.ListBoardsRequest
+	(*ListBoardsResponse)(nil),    // 7: cardamom.private.v1.ListBoardsResponse
+	(*GetBootstrapRequest)(nil),   // 8: cardamom.private.v1.GetBootstrapRequest
+	(*GetBootstrapResponse)(nil),  // 9: cardamom.private.v1.GetBootstrapResponse
+	(*GetBoardRequest)(nil),       // 10: cardamom.private.v1.GetBoardRequest
+	(*GetBoardResponse)(nil),      // 11: cardamom.private.v1.GetBoardResponse
+	(*CreateProjectRequest)(nil),  // 12: cardamom.private.v1.CreateProjectRequest
+	(*CreateProjectResponse)(nil), // 13: cardamom.private.v1.CreateProjectResponse
+	(*CreateBoardRequest)(nil),    // 14: cardamom.private.v1.CreateBoardRequest
+	(*CreateBoardResponse)(nil),   // 15: cardamom.private.v1.CreateBoardResponse
+	(*UpdateBoardRequest)(nil),    // 16: cardamom.private.v1.UpdateBoardRequest
+	(*UpdateBoardResponse)(nil),   // 17: cardamom.private.v1.UpdateBoardResponse
+	(*MarkdownContent)(nil),       // 18: cardamom.private.v1.MarkdownContent
+	(*timestamppb.Timestamp)(nil), // 19: google.protobuf.Timestamp
+	(IssueType)(0),                // 20: cardamom.private.v1.IssueType
+	(IssueStatus)(0),              // 21: cardamom.private.v1.IssueStatus
+	(*MutationContext)(nil),       // 22: cardamom.private.v1.MutationContext
 }
 var file_cardamom_private_v1_project_proto_depIdxs = []int32{
-	17, // 0: cardamom.private.v1.Board.description:type_name -> cardamom.private.v1.MarkdownContent
-	18, // 1: cardamom.private.v1.Board.created_at:type_name -> google.protobuf.Timestamp
-	0,  // 2: cardamom.private.v1.ListProjectsResponse.projects:type_name -> cardamom.private.v1.Project
-	1,  // 3: cardamom.private.v1.ListBoardsResponse.boards:type_name -> cardamom.private.v1.BoardSummary
-	0,  // 4: cardamom.private.v1.GetBootstrapResponse.projects:type_name -> cardamom.private.v1.Project
-	1,  // 5: cardamom.private.v1.GetBootstrapResponse.boards:type_name -> cardamom.private.v1.BoardSummary
-	19, // 6: cardamom.private.v1.GetBootstrapResponse.issue_types:type_name -> cardamom.private.v1.IssueType
-	20, // 7: cardamom.private.v1.GetBootstrapResponse.issue_statuses:type_name -> cardamom.private.v1.IssueStatus
-	2,  // 8: cardamom.private.v1.GetBoardResponse.board:type_name -> cardamom.private.v1.Board
-	21, // 9: cardamom.private.v1.CreateProjectRequest.context:type_name -> cardamom.private.v1.MutationContext
-	0,  // 10: cardamom.private.v1.CreateProjectResponse.project:type_name -> cardamom.private.v1.Project
-	21, // 11: cardamom.private.v1.CreateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
-	2,  // 12: cardamom.private.v1.CreateBoardResponse.board:type_name -> cardamom.private.v1.Board
-	21, // 13: cardamom.private.v1.UpdateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
-	2,  // 14: cardamom.private.v1.UpdateBoardResponse.board:type_name -> cardamom.private.v1.Board
-	3,  // 15: cardamom.private.v1.ProjectService.ListProjects:input_type -> cardamom.private.v1.ListProjectsRequest
-	5,  // 16: cardamom.private.v1.ProjectService.ListBoards:input_type -> cardamom.private.v1.ListBoardsRequest
-	7,  // 17: cardamom.private.v1.ProjectService.GetBootstrap:input_type -> cardamom.private.v1.GetBootstrapRequest
-	9,  // 18: cardamom.private.v1.ProjectService.GetBoard:input_type -> cardamom.private.v1.GetBoardRequest
-	11, // 19: cardamom.private.v1.ProjectService.CreateProject:input_type -> cardamom.private.v1.CreateProjectRequest
-	13, // 20: cardamom.private.v1.ProjectService.CreateBoard:input_type -> cardamom.private.v1.CreateBoardRequest
-	15, // 21: cardamom.private.v1.ProjectService.UpdateBoard:input_type -> cardamom.private.v1.UpdateBoardRequest
-	4,  // 22: cardamom.private.v1.ProjectService.ListProjects:output_type -> cardamom.private.v1.ListProjectsResponse
-	6,  // 23: cardamom.private.v1.ProjectService.ListBoards:output_type -> cardamom.private.v1.ListBoardsResponse
-	8,  // 24: cardamom.private.v1.ProjectService.GetBootstrap:output_type -> cardamom.private.v1.GetBootstrapResponse
-	10, // 25: cardamom.private.v1.ProjectService.GetBoard:output_type -> cardamom.private.v1.GetBoardResponse
-	12, // 26: cardamom.private.v1.ProjectService.CreateProject:output_type -> cardamom.private.v1.CreateProjectResponse
-	14, // 27: cardamom.private.v1.ProjectService.CreateBoard:output_type -> cardamom.private.v1.CreateBoardResponse
-	16, // 28: cardamom.private.v1.ProjectService.UpdateBoard:output_type -> cardamom.private.v1.UpdateBoardResponse
-	22, // [22:29] is the sub-list for method output_type
-	15, // [15:22] is the sub-list for method input_type
-	15, // [15:15] is the sub-list for extension type_name
-	15, // [15:15] is the sub-list for extension extendee
-	0,  // [0:15] is the sub-list for field type_name
+	18, // 0: cardamom.private.v1.Board.description:type_name -> cardamom.private.v1.MarkdownContent
+	19, // 1: cardamom.private.v1.Board.created_at:type_name -> google.protobuf.Timestamp
+	1,  // 2: cardamom.private.v1.ListProjectsResponse.projects:type_name -> cardamom.private.v1.Project
+	2,  // 3: cardamom.private.v1.ListBoardsResponse.boards:type_name -> cardamom.private.v1.BoardSummary
+	1,  // 4: cardamom.private.v1.GetBootstrapResponse.projects:type_name -> cardamom.private.v1.Project
+	2,  // 5: cardamom.private.v1.GetBootstrapResponse.boards:type_name -> cardamom.private.v1.BoardSummary
+	20, // 6: cardamom.private.v1.GetBootstrapResponse.issue_types:type_name -> cardamom.private.v1.IssueType
+	21, // 7: cardamom.private.v1.GetBootstrapResponse.issue_statuses:type_name -> cardamom.private.v1.IssueStatus
+	0,  // 8: cardamom.private.v1.GetBootstrapResponse.access_mode:type_name -> cardamom.private.v1.AccessMode
+	3,  // 9: cardamom.private.v1.GetBoardResponse.board:type_name -> cardamom.private.v1.Board
+	22, // 10: cardamom.private.v1.CreateProjectRequest.context:type_name -> cardamom.private.v1.MutationContext
+	1,  // 11: cardamom.private.v1.CreateProjectResponse.project:type_name -> cardamom.private.v1.Project
+	22, // 12: cardamom.private.v1.CreateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	3,  // 13: cardamom.private.v1.CreateBoardResponse.board:type_name -> cardamom.private.v1.Board
+	22, // 14: cardamom.private.v1.UpdateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	3,  // 15: cardamom.private.v1.UpdateBoardResponse.board:type_name -> cardamom.private.v1.Board
+	4,  // 16: cardamom.private.v1.ProjectService.ListProjects:input_type -> cardamom.private.v1.ListProjectsRequest
+	6,  // 17: cardamom.private.v1.ProjectService.ListBoards:input_type -> cardamom.private.v1.ListBoardsRequest
+	8,  // 18: cardamom.private.v1.ProjectService.GetBootstrap:input_type -> cardamom.private.v1.GetBootstrapRequest
+	10, // 19: cardamom.private.v1.ProjectService.GetBoard:input_type -> cardamom.private.v1.GetBoardRequest
+	12, // 20: cardamom.private.v1.ProjectService.CreateProject:input_type -> cardamom.private.v1.CreateProjectRequest
+	14, // 21: cardamom.private.v1.ProjectService.CreateBoard:input_type -> cardamom.private.v1.CreateBoardRequest
+	16, // 22: cardamom.private.v1.ProjectService.UpdateBoard:input_type -> cardamom.private.v1.UpdateBoardRequest
+	5,  // 23: cardamom.private.v1.ProjectService.ListProjects:output_type -> cardamom.private.v1.ListProjectsResponse
+	7,  // 24: cardamom.private.v1.ProjectService.ListBoards:output_type -> cardamom.private.v1.ListBoardsResponse
+	9,  // 25: cardamom.private.v1.ProjectService.GetBootstrap:output_type -> cardamom.private.v1.GetBootstrapResponse
+	11, // 26: cardamom.private.v1.ProjectService.GetBoard:output_type -> cardamom.private.v1.GetBoardResponse
+	13, // 27: cardamom.private.v1.ProjectService.CreateProject:output_type -> cardamom.private.v1.CreateProjectResponse
+	15, // 28: cardamom.private.v1.ProjectService.CreateBoard:output_type -> cardamom.private.v1.CreateBoardResponse
+	17, // 29: cardamom.private.v1.ProjectService.UpdateBoard:output_type -> cardamom.private.v1.UpdateBoardResponse
+	23, // [23:30] is the sub-list for method output_type
+	16, // [16:23] is the sub-list for method input_type
+	16, // [16:16] is the sub-list for extension type_name
+	16, // [16:16] is the sub-list for extension extendee
+	0,  // [0:16] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_project_proto_init() }
@@ -1137,13 +1209,14 @@ func file_cardamom_private_v1_project_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_v1_project_proto_rawDesc), len(file_cardamom_private_v1_project_proto_rawDesc)),
-			NumEnums:      0,
+			NumEnums:      1,
 			NumMessages:   17,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
 		GoTypes:           file_cardamom_private_v1_project_proto_goTypes,
 		DependencyIndexes: file_cardamom_private_v1_project_proto_depIdxs,
+		EnumInfos:         file_cardamom_private_v1_project_proto_enumTypes,
 		MessageInfos:      file_cardamom_private_v1_project_proto_msgTypes,
 	}.Build()
 	File_cardamom_private_v1_project_proto = out.File

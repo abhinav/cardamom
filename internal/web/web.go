@@ -15,6 +15,9 @@ import (
 // HandlerConfig supplies the generated service implementations mounted by
 // NewHandler.
 type HandlerConfig struct {
+	// AccessMode selects the server-side write policy for every Connect service.
+	AccessMode AccessMode
+
 	// Project serves project catalog and board RPCs.
 	Project privatev1connect.ProjectServiceHandler // required
 
@@ -71,6 +74,13 @@ func NewHandler(cfg HandlerConfig, opts ...connect.HandlerOption) (string, *http
 	must.NotBeNilf(cfg.Mail, "web: mail service handler is required")
 	must.NotBeNilf(cfg.Lease, "web: lease service handler is required")
 	must.NotBeNilf(cfg.Attachment, "web: attachment service handler is required")
+	switch cfg.AccessMode {
+	case AccessModeReadWrite:
+	case AccessModeReadOnly:
+		opts = append(opts, connect.WithInterceptors(readOnlyInterceptor{}))
+	default:
+		panic("web: unsupported access mode")
+	}
 
 	mux := http.NewServeMux()
 	path, handler := privatev1connect.NewProjectServiceHandler(cfg.Project, opts...)

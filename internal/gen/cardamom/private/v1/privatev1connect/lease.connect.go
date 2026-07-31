@@ -105,12 +105,14 @@ func NewLeaseServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+LeaseServiceGetLeaseProcedure,
 			connect.WithSchema(leaseServiceMethods.ByName("GetLease")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listLeases: connect.NewClient[v1.ListLeasesRequest, v1.ListLeasesResponse](
 			httpClient,
 			baseURL+LeaseServiceListLeasesProcedure,
 			connect.WithSchema(leaseServiceMethods.ByName("ListLeases")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -207,12 +209,14 @@ func NewLeaseServiceHandler(svc LeaseServiceHandler, opts ...connect.HandlerOpti
 		LeaseServiceGetLeaseProcedure,
 		svc.GetLease,
 		connect.WithSchema(leaseServiceMethods.ByName("GetLease")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	leaseServiceListLeasesHandler := connect.NewUnaryHandler(
 		LeaseServiceListLeasesProcedure,
 		svc.ListLeases,
 		connect.WithSchema(leaseServiceMethods.ByName("ListLeases")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/cardamom.private.v1.LeaseService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

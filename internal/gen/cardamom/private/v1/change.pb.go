@@ -224,9 +224,9 @@ const file_cardamom_private_v1_change_proto_rawDesc = "" +
 	"\x14WATCH_RESOURCE_BOARD\x10\x02\x12\x19\n" +
 	"\x15WATCH_RESOURCE_ISSUES\x10\x03\x12\x16\n" +
 	"\x12WATCH_RESOURCE_LOG\x10\x04\x12\x1c\n" +
-	"\x18WATCH_RESOURCE_APPROVALS\x10\x052v\n" +
-	"\rChangeService\x12e\n" +
-	"\fWatchChanges\x12(.cardamom.private.v1.WatchChangesRequest\x1a).cardamom.private.v1.WatchChangesResponse0\x01B\xd7\x01\n" +
+	"\x18WATCH_RESOURCE_APPROVALS\x10\x052{\n" +
+	"\rChangeService\x12j\n" +
+	"\fWatchChanges\x12(.cardamom.private.v1.WatchChangesRequest\x1a).cardamom.private.v1.WatchChangesResponse\"\x03\x90\x02\x010\x01B\xd7\x01\n" +
 	"\x17com.cardamom.private.v1B\vChangeProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 
 var (

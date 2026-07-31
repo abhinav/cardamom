@@ -95,6 +95,7 @@ func NewRecordServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+RecordServiceListLogEntriesProcedure,
 			connect.WithSchema(recordServiceMethods.ByName("ListLogEntries")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		addLogEntry: connect.NewClient[v1.AddLogEntryRequest, v1.AddLogEntryResponse](
@@ -107,6 +108,7 @@ func NewRecordServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+RecordServiceGetStateProcedure,
 			connect.WithSchema(recordServiceMethods.ByName("GetState")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		setState: connect.NewClient[v1.SetStateRequest, v1.SetStateResponse](
@@ -137,6 +139,7 @@ func NewRecordServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+RecordServiceGetResultProcedure,
 			connect.WithSchema(recordServiceMethods.ByName("GetResult")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		setResult: connect.NewClient[v1.SetResultRequest, v1.SetResultResponse](
@@ -239,6 +242,7 @@ func NewRecordServiceHandler(svc RecordServiceHandler, opts ...connect.HandlerOp
 		RecordServiceListLogEntriesProcedure,
 		svc.ListLogEntries,
 		connect.WithSchema(recordServiceMethods.ByName("ListLogEntries")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	recordServiceAddLogEntryHandler := connect.NewUnaryHandler(
@@ -251,6 +255,7 @@ func NewRecordServiceHandler(svc RecordServiceHandler, opts ...connect.HandlerOp
 		RecordServiceGetStateProcedure,
 		svc.GetState,
 		connect.WithSchema(recordServiceMethods.ByName("GetState")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	recordServiceSetStateHandler := connect.NewUnaryHandler(
@@ -281,6 +286,7 @@ func NewRecordServiceHandler(svc RecordServiceHandler, opts ...connect.HandlerOp
 		RecordServiceGetResultProcedure,
 		svc.GetResult,
 		connect.WithSchema(recordServiceMethods.ByName("GetResult")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	recordServiceSetResultHandler := connect.NewUnaryHandler(

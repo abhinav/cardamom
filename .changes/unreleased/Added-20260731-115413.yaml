@@ -1,0 +1,3 @@
+kind: Added
+body: Add `card web --read-only` to keep browser reads and attachment downloads available while rejecting operations that may change Cardamom state.
+time: 2026-07-31T11:54:13.49841-07:00

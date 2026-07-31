@@ -222,7 +222,9 @@ message UpdateConfigurationResponse {
 // ConfigurationService exposes typed configuration reads and mutations.
 service ConfigurationService {
   // GetConfiguration returns ordered layers, effective values, and origins.
-  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse);
+  rpc GetConfiguration(GetConfigurationRequest) returns (GetConfigurationResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // UpdateConfiguration applies one finite typed patch and returns its result.
   rpc UpdateConfiguration(UpdateConfigurationRequest) returns (UpdateConfigurationResponse);

@@ -59,6 +59,7 @@ func NewChangeServiceClient(httpClient connect.HTTPClient, baseURL string, opts 
 			httpClient,
 			baseURL+ChangeServiceWatchChangesProcedure,
 			connect.WithSchema(changeServiceMethods.ByName("WatchChanges")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -91,6 +92,7 @@ func NewChangeServiceHandler(svc ChangeServiceHandler, opts ...connect.HandlerOp
 		ChangeServiceWatchChangesProcedure,
 		svc.WatchChanges,
 		connect.WithSchema(changeServiceMethods.ByName("WatchChanges")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/cardamom.private.v1.ChangeService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

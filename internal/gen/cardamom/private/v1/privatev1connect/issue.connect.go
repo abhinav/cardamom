@@ -62,12 +62,14 @@ func NewIssueServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			httpClient,
 			baseURL+IssueServiceListIssuesProcedure,
 			connect.WithSchema(issueServiceMethods.ByName("ListIssues")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		getIssue: connect.NewClient[v1.GetIssueRequest, v1.GetIssueResponse](
 			httpClient,
 			baseURL+IssueServiceGetIssueProcedure,
 			connect.WithSchema(issueServiceMethods.ByName("GetIssue")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -108,12 +110,14 @@ func NewIssueServiceHandler(svc IssueServiceHandler, opts ...connect.HandlerOpti
 		IssueServiceListIssuesProcedure,
 		svc.ListIssues,
 		connect.WithSchema(issueServiceMethods.ByName("ListIssues")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	issueServiceGetIssueHandler := connect.NewUnaryHandler(
 		IssueServiceGetIssueProcedure,
 		svc.GetIssue,
 		connect.WithSchema(issueServiceMethods.ByName("GetIssue")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/cardamom.private.v1.IssueService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
