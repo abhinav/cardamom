@@ -1692,17 +1692,17 @@ const file_cardamom_private_v1_record_proto_rawDesc = "" +
 	"bodySource\x12>\n" +
 	"\acontext\x18\x03 \x01(\v2$.cardamom.private.v1.MutationContextR\acontext\"M\n" +
 	"\x11SetResultResponse\x128\n" +
-	"\x06result\x18\x01 \x01(\v2 .cardamom.private.v1.IssueResultR\x06result2\xe9\x06\n" +
-	"\rRecordService\x12i\n" +
-	"\x0eListLogEntries\x12*.cardamom.private.v1.ListLogEntriesRequest\x1a+.cardamom.private.v1.ListLogEntriesResponse\x12`\n" +
-	"\vAddLogEntry\x12'.cardamom.private.v1.AddLogEntryRequest\x1a(.cardamom.private.v1.AddLogEntryResponse\x12W\n" +
-	"\bGetState\x12$.cardamom.private.v1.GetStateRequest\x1a%.cardamom.private.v1.GetStateResponse\x12W\n" +
+	"\x06result\x18\x01 \x01(\v2 .cardamom.private.v1.IssueResultR\x06result2\xf8\x06\n" +
+	"\rRecordService\x12n\n" +
+	"\x0eListLogEntries\x12*.cardamom.private.v1.ListLogEntriesRequest\x1a+.cardamom.private.v1.ListLogEntriesResponse\"\x03\x90\x02\x01\x12`\n" +
+	"\vAddLogEntry\x12'.cardamom.private.v1.AddLogEntryRequest\x1a(.cardamom.private.v1.AddLogEntryResponse\x12\\\n" +
+	"\bGetState\x12$.cardamom.private.v1.GetStateRequest\x1a%.cardamom.private.v1.GetStateResponse\"\x03\x90\x02\x01\x12W\n" +
 	"\bSetState\x12$.cardamom.private.v1.SetStateRequest\x1a%.cardamom.private.v1.SetStateResponse\x12`\n" +
 	"\vAppendState\x12'.cardamom.private.v1.AppendStateRequest\x1a(.cardamom.private.v1.AppendStateResponse\x12]\n" +
 	"\n" +
 	"ClearState\x12&.cardamom.private.v1.ClearStateRequest\x1a'.cardamom.private.v1.ClearStateResponse\x12`\n" +
-	"\vCommitState\x12'.cardamom.private.v1.CommitStateRequest\x1a(.cardamom.private.v1.CommitStateResponse\x12Z\n" +
-	"\tGetResult\x12%.cardamom.private.v1.GetResultRequest\x1a&.cardamom.private.v1.GetResultResponse\x12Z\n" +
+	"\vCommitState\x12'.cardamom.private.v1.CommitStateRequest\x1a(.cardamom.private.v1.CommitStateResponse\x12_\n" +
+	"\tGetResult\x12%.cardamom.private.v1.GetResultRequest\x1a&.cardamom.private.v1.GetResultResponse\"\x03\x90\x02\x01\x12Z\n" +
 	"\tSetResult\x12%.cardamom.private.v1.SetResultRequest\x1a&.cardamom.private.v1.SetResultResponseB\xd7\x01\n" +
 	"\x17com.cardamom.private.v1B\vRecordProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 

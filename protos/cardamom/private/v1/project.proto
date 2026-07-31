@@ -7,6 +7,18 @@ import "cardamom/private/v1/issue.proto";
 import "cardamom/private/v1/mutation.proto";
 import "google/protobuf/timestamp.proto";
 
+// AccessMode identifies the server-side write policy for this web invocation.
+enum AccessMode {
+  // ACCESS_MODE_UNSPECIFIED does not identify an active server policy.
+  ACCESS_MODE_UNSPECIFIED = 0;
+
+  // ACCESS_MODE_READ_WRITE permits reads and mutations.
+  ACCESS_MODE_READ_WRITE = 1;
+
+  // ACCESS_MODE_READ_ONLY permits only side-effect-free reads.
+  ACCESS_MODE_READ_ONLY = 2;
+}
+
 // Project identifies a project namespace available to the browser.
 message Project {
   // id is the stable project ID.
@@ -92,6 +104,9 @@ message GetBootstrapResponse {
 
   // version is the running Cardamom binary version.
   string version = 8;
+
+  // access_mode is the server-side write policy for this web invocation.
+  AccessMode access_mode = 9;
 }
 
 // GetBoardRequest identifies one board by stable ID.
@@ -170,16 +185,24 @@ message UpdateBoardResponse {
 // settings on the browser transport.
 service ProjectService {
   // ListProjects returns every project in catalog order.
-  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse);
+  rpc ListProjects(ListProjectsRequest) returns (ListProjectsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // ListBoards returns every board in catalog order.
-  rpc ListBoards(ListBoardsRequest) returns (ListBoardsResponse);
+  rpc ListBoards(ListBoardsRequest) returns (ListBoardsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // GetBootstrap returns the project and board catalog plus server metadata.
-  rpc GetBootstrap(GetBootstrapRequest) returns (GetBootstrapResponse);
+  rpc GetBootstrap(GetBootstrapRequest) returns (GetBootstrapResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // GetBoard returns one board and its rendered shared context.
-  rpc GetBoard(GetBoardRequest) returns (GetBoardResponse);
+  rpc GetBoard(GetBoardRequest) returns (GetBoardResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // CreateProject establishes one project in the current store.
   rpc CreateProject(CreateProjectRequest) returns (CreateProjectResponse);

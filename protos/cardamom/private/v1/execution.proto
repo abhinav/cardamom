@@ -183,10 +183,14 @@ message ReopenIssuesResponse {
 // ExecutionService exposes eligibility, custody, and lifecycle operations.
 service ExecutionService {
   // ListReadyIssues returns claimable executable work in domain order.
-  rpc ListReadyIssues(ListReadyIssuesRequest) returns (ListReadyIssuesResponse);
+  rpc ListReadyIssues(ListReadyIssuesRequest) returns (ListReadyIssuesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // ListBlockedIssues returns unfinished work with unresolved prerequisites.
-  rpc ListBlockedIssues(ListBlockedIssuesRequest) returns (ListBlockedIssuesResponse);
+  rpc ListBlockedIssues(ListBlockedIssuesRequest) returns (ListBlockedIssuesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // ClaimIssue acquires custody of one explicitly identified issue.
   rpc ClaimIssue(ClaimIssueRequest) returns (ClaimIssueResponse);

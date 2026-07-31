@@ -58,6 +58,7 @@ func NewDumpServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+DumpServiceRenderDumpProcedure,
 			connect.WithSchema(dumpServiceMethods.ByName("RenderDump")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -90,6 +91,7 @@ func NewDumpServiceHandler(svc DumpServiceHandler, opts ...connect.HandlerOption
 		DumpServiceRenderDumpProcedure,
 		svc.RenderDump,
 		connect.WithSchema(dumpServiceMethods.ByName("RenderDump")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/cardamom.private.v1.DumpService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

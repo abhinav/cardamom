@@ -219,7 +219,9 @@ service MailService {
   rpc ReceiveMail(ReceiveMailRequest) returns (ReceiveMailResponse);
 
   // PeekMail reads selected messages without changing read state.
-  rpc PeekMail(PeekMailRequest) returns (PeekMailResponse);
+  rpc PeekMail(PeekMailRequest) returns (PeekMailResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // ClearMail marks selected unread messages read without returning them.
   rpc ClearMail(ClearMailRequest) returns (ClearMailResponse);
@@ -228,7 +230,9 @@ service MailService {
   rpc Subscribe(SubscribeRequest) returns (SubscribeResponse);
 
   // ListSubscriptions returns active registrations for every listener.
-  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse);
+  rpc ListSubscriptions(ListSubscriptionsRequest) returns (ListSubscriptionsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // RemoveSubscription removes one actor-owned registration.
   rpc RemoveSubscription(RemoveSubscriptionRequest) returns (RemoveSubscriptionResponse);

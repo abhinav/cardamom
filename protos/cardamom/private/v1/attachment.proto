@@ -411,10 +411,14 @@ service AttachmentService {
   rpc AbortAttachmentUpload(AbortAttachmentUploadRequest) returns (AbortAttachmentUploadResponse);
 
   // GetAttachment returns one board-scoped attachment.
-  rpc GetAttachment(GetAttachmentRequest) returns (GetAttachmentResponse);
+  rpc GetAttachment(GetAttachmentRequest) returns (GetAttachmentResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // ListAttachments returns one stable attachment page.
-  rpc ListAttachments(ListAttachmentsRequest) returns (ListAttachmentsResponse);
+  rpc ListAttachments(ListAttachmentsRequest) returns (ListAttachmentsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // RemoveAttachment creates or returns a monotonic tombstone.
   rpc RemoveAttachment(RemoveAttachmentRequest) returns (RemoveAttachmentResponse);

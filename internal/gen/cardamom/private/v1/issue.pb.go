@@ -1889,11 +1889,11 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\x11CheckpointOutcome\x12\"\n" +
 	"\x1eCHECKPOINT_OUTCOME_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bCHECKPOINT_OUTCOME_APPROVED\x10\x01\x12\x1d\n" +
-	"\x19CHECKPOINT_OUTCOME_DENIED\x10\x022\xc6\x01\n" +
-	"\fIssueService\x12]\n" +
+	"\x19CHECKPOINT_OUTCOME_DENIED\x10\x022\xd0\x01\n" +
+	"\fIssueService\x12b\n" +
 	"\n" +
-	"ListIssues\x12&.cardamom.private.v1.ListIssuesRequest\x1a'.cardamom.private.v1.ListIssuesResponse\x12W\n" +
-	"\bGetIssue\x12$.cardamom.private.v1.GetIssueRequest\x1a%.cardamom.private.v1.GetIssueResponseB\xd6\x01\n" +
+	"ListIssues\x12&.cardamom.private.v1.ListIssuesRequest\x1a'.cardamom.private.v1.ListIssuesResponse\"\x03\x90\x02\x01\x12\\\n" +
+	"\bGetIssue\x12$.cardamom.private.v1.GetIssueRequest\x1a%.cardamom.private.v1.GetIssueResponse\"\x03\x90\x02\x01B\xd6\x01\n" +
 	"\x17com.cardamom.private.v1B\n" +
 	"IssueProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 

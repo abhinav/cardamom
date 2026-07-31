@@ -88,24 +88,28 @@ func NewProjectServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			httpClient,
 			baseURL+ProjectServiceListProjectsProcedure,
 			connect.WithSchema(projectServiceMethods.ByName("ListProjects")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		listBoards: connect.NewClient[v1.ListBoardsRequest, v1.ListBoardsResponse](
 			httpClient,
 			baseURL+ProjectServiceListBoardsProcedure,
 			connect.WithSchema(projectServiceMethods.ByName("ListBoards")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		getBootstrap: connect.NewClient[v1.GetBootstrapRequest, v1.GetBootstrapResponse](
 			httpClient,
 			baseURL+ProjectServiceGetBootstrapProcedure,
 			connect.WithSchema(projectServiceMethods.ByName("GetBootstrap")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		getBoard: connect.NewClient[v1.GetBoardRequest, v1.GetBoardResponse](
 			httpClient,
 			baseURL+ProjectServiceGetBoardProcedure,
 			connect.WithSchema(projectServiceMethods.ByName("GetBoard")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		createProject: connect.NewClient[v1.CreateProjectRequest, v1.CreateProjectResponse](
@@ -204,24 +208,28 @@ func NewProjectServiceHandler(svc ProjectServiceHandler, opts ...connect.Handler
 		ProjectServiceListProjectsProcedure,
 		svc.ListProjects,
 		connect.WithSchema(projectServiceMethods.ByName("ListProjects")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	projectServiceListBoardsHandler := connect.NewUnaryHandler(
 		ProjectServiceListBoardsProcedure,
 		svc.ListBoards,
 		connect.WithSchema(projectServiceMethods.ByName("ListBoards")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	projectServiceGetBootstrapHandler := connect.NewUnaryHandler(
 		ProjectServiceGetBootstrapProcedure,
 		svc.GetBootstrap,
 		connect.WithSchema(projectServiceMethods.ByName("GetBootstrap")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	projectServiceGetBoardHandler := connect.NewUnaryHandler(
 		ProjectServiceGetBoardProcedure,
 		svc.GetBoard,
 		connect.WithSchema(projectServiceMethods.ByName("GetBoard")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	projectServiceCreateProjectHandler := connect.NewUnaryHandler(

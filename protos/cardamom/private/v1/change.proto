@@ -49,5 +49,7 @@ message WatchChangesResponse {
 // ChangeService streams coarse invalidation notifications to the browser.
 service ChangeService {
   // WatchChanges streams committed revisions for a selected board scope.
-  rpc WatchChanges(WatchChangesRequest) returns (stream WatchChangesResponse);
+  rpc WatchChanges(WatchChangesRequest) returns (stream WatchChangesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }

@@ -106,6 +106,7 @@ func NewMailServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+MailServicePeekMailProcedure,
 			connect.WithSchema(mailServiceMethods.ByName("PeekMail")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		clearMail: connect.NewClient[v1.ClearMailRequest, v1.ClearMailResponse](
@@ -124,6 +125,7 @@ func NewMailServiceClient(httpClient connect.HTTPClient, baseURL string, opts ..
 			httpClient,
 			baseURL+MailServiceListSubscriptionsProcedure,
 			connect.WithSchema(mailServiceMethods.ByName("ListSubscriptions")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		removeSubscription: connect.NewClient[v1.RemoveSubscriptionRequest, v1.RemoveSubscriptionResponse](
@@ -236,6 +238,7 @@ func NewMailServiceHandler(svc MailServiceHandler, opts ...connect.HandlerOption
 		MailServicePeekMailProcedure,
 		svc.PeekMail,
 		connect.WithSchema(mailServiceMethods.ByName("PeekMail")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	mailServiceClearMailHandler := connect.NewUnaryHandler(
@@ -254,6 +257,7 @@ func NewMailServiceHandler(svc MailServiceHandler, opts ...connect.HandlerOption
 		MailServiceListSubscriptionsProcedure,
 		svc.ListSubscriptions,
 		connect.WithSchema(mailServiceMethods.ByName("ListSubscriptions")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	mailServiceRemoveSubscriptionHandler := connect.NewUnaryHandler(

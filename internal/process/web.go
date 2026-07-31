@@ -95,6 +95,10 @@ func (o *webOperation) open(
 	changes := changeconnect.NewPollingSource(changeconnect.PollingConfig{
 		Revisions: runtime.store, Boards: runtime.catalog,
 	})
+	accessMode := web.AccessModeReadWrite
+	if request.ReadOnly {
+		accessMode = web.AccessModeReadOnly
+	}
 	var defaultBoardID *board.ID
 	if selectedBoard != nil {
 		value := selectedBoard.ID()
@@ -108,6 +112,7 @@ func (o *webOperation) open(
 		ServerDefaultBoardID: defaultBoardID,
 		SchemaVersion:        uint64(store.SchemaVersion()),
 		Version:              o.config.Version,
+		AccessMode:           accessMode,
 	})
 	informationHandler := informationconnect.New(runtime.informationService())
 	issueHandler := issueconnect.New(issueconnect.Config{
@@ -143,7 +148,8 @@ func (o *webOperation) open(
 	attachmentHandler := attachmentconnect.New(attachments)
 	configurationHandler := configurationconnect.New(runtime.configuration)
 	path, handler := web.NewHandler(web.HandlerConfig{
-		Project: projectHandler, Configuration: configurationHandler,
+		AccessMode: accessMode,
+		Project:    projectHandler, Configuration: configurationHandler,
 		Information: informationHandler,
 		Issue:       issueHandler, Planning: planningHandler,
 		Execution: executionHandler, Checkpoint: checkpointHandler,

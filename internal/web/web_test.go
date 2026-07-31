@@ -147,6 +147,168 @@ func TestNewHandlerMountsGeneratedServices(t *testing.T) {
 	assert.Equal(t, connect.CodeUnimplemented, connect.CodeOf(leaseErr))
 }
 
+func TestNewHandlerEnforcesReadOnlyAccess(t *testing.T) {
+	t.Run("ReadOnly", func(t *testing.T) {
+		project := new(recordingProjectService)
+		_, handler := NewHandler(HandlerConfig{
+			AccessMode:    AccessModeReadOnly,
+			Project:       project,
+			Configuration: unimplementedConfigurationService{},
+			Information:   unimplementedInformationService{},
+			Attachment:    unimplementedAttachmentService{},
+			Issue:         unimplementedIssueService{},
+			Planning:      unimplementedPlanningService{},
+			Execution:     unimplementedExecutionService{},
+			Checkpoint:    unimplementedCheckpointService{},
+			Record:        unimplementedRecordService{},
+			Change:        unimplementedChangeService{},
+			Dump:          unimplementedDumpService{},
+			Mail:          unimplementedMailService{},
+			Lease:         unimplementedLeaseService{},
+		})
+		client := privatev1connect.NewProjectServiceClient(
+			&http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				recorder := httptest.NewRecorder()
+				handler.ServeHTTP(recorder, request)
+				return recorder.Result(), nil
+			})},
+			"http://cardamom.test",
+		)
+
+		_, err := client.GetBootstrap(
+			t.Context(),
+			connect.NewRequest(&privatev1.GetBootstrapRequest{}),
+		)
+		require.NoError(t, err)
+		assert.True(t, project.bootstrapCalled)
+
+		_, err = client.CreateProject(
+			t.Context(),
+			connect.NewRequest(&privatev1.CreateProjectRequest{Name: "Blocked"}),
+		)
+		assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
+		assert.False(t, project.createCalled)
+	})
+
+	t.Run("ReadWrite", func(t *testing.T) {
+		project := new(recordingProjectService)
+		_, handler := NewHandler(HandlerConfig{
+			Project:       project,
+			Configuration: unimplementedConfigurationService{},
+			Information:   unimplementedInformationService{},
+			Attachment:    unimplementedAttachmentService{},
+			Issue:         unimplementedIssueService{},
+			Planning:      unimplementedPlanningService{},
+			Execution:     unimplementedExecutionService{},
+			Checkpoint:    unimplementedCheckpointService{},
+			Record:        unimplementedRecordService{},
+			Change:        unimplementedChangeService{},
+			Dump:          unimplementedDumpService{},
+			Mail:          unimplementedMailService{},
+			Lease:         unimplementedLeaseService{},
+		})
+		client := privatev1connect.NewProjectServiceClient(
+			&http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
+				recorder := httptest.NewRecorder()
+				handler.ServeHTTP(recorder, request)
+				return recorder.Result(), nil
+			})},
+			"http://cardamom.test",
+		)
+
+		_, err := client.CreateProject(
+			t.Context(),
+			connect.NewRequest(&privatev1.CreateProjectRequest{Name: "Allowed"}),
+		)
+		require.NoError(t, err)
+		assert.True(t, project.createCalled)
+	})
+}
+
+func TestReadOnlyInterceptorCoversStreamingHandlers(t *testing.T) {
+	tests := []struct {
+		name       string
+		give       connect.IdempotencyLevel
+		wantCalled bool
+		wantCode   connect.Code
+	}{
+		{
+			name: "NoSideEffects", give: connect.IdempotencyNoSideEffects,
+			wantCalled: true,
+		},
+		{
+			name: "Idempotent", give: connect.IdempotencyIdempotent,
+			wantCode: connect.CodePermissionDenied,
+		},
+		{
+			name: "Unspecified", give: connect.IdempotencyUnknown,
+			wantCode: connect.CodePermissionDenied,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			called := false
+			wrapped := readOnlyInterceptor{}.WrapStreamingHandler(
+				func(context.Context, connect.StreamingHandlerConn) error {
+					called = true
+					return nil
+				},
+			)
+
+			err := wrapped(t.Context(), &streamingHandlerConnection{
+				spec: connect.Spec{IdempotencyLevel: tt.give},
+			})
+
+			if tt.wantCalled {
+				require.NoError(t, err)
+			} else {
+				assert.Equal(t, tt.wantCode, connect.CodeOf(err))
+			}
+			assert.Equal(t, tt.wantCalled, called)
+		})
+	}
+}
+
+type recordingProjectService struct {
+	privatev1connect.UnimplementedProjectServiceHandler
+	bootstrapCalled bool
+	createCalled    bool
+}
+
+func (s *recordingProjectService) GetBootstrap(
+	context.Context,
+	*connect.Request[privatev1.GetBootstrapRequest],
+) (*connect.Response[privatev1.GetBootstrapResponse], error) {
+	s.bootstrapCalled = true
+	return connect.NewResponse(&privatev1.GetBootstrapResponse{}), nil
+}
+
+func (s *recordingProjectService) CreateProject(
+	context.Context,
+	*connect.Request[privatev1.CreateProjectRequest],
+) (*connect.Response[privatev1.CreateProjectResponse], error) {
+	s.createCalled = true
+	return connect.NewResponse(&privatev1.CreateProjectResponse{}), nil
+}
+
+type streamingHandlerConnection struct {
+	spec connect.Spec
+}
+
+func (c *streamingHandlerConnection) Spec() connect.Spec { return c.spec }
+
+func (*streamingHandlerConnection) Peer() connect.Peer { return connect.Peer{} }
+
+func (*streamingHandlerConnection) Receive(any) error { return nil }
+
+func (*streamingHandlerConnection) Send(any) error { return nil }
+
+func (*streamingHandlerConnection) RequestHeader() http.Header { return make(http.Header) }
+
+func (*streamingHandlerConnection) ResponseHeader() http.Header { return make(http.Header) }
+
+func (*streamingHandlerConnection) ResponseTrailer() http.Header { return make(http.Header) }
+
 type unimplementedProjectService struct {
 	privatev1connect.UnimplementedProjectServiceHandler
 }

@@ -768,6 +768,7 @@ type webCommand struct {
 	Bind      string `name:"bind" default:"127.0.0.1" placeholder:"ADDRESS" help:"Interface for the local HTTP listener. Defaults to 127.0.0.1."`
 	Port      int    `name:"port" default:"5757" placeholder:"PORT" help:"HTTP port. Defaults to 5757; use 0 for an ephemeral port."`
 	NoBrowser bool   `name:"no-browser" help:"Do not open a browser after the server is ready."`
+	ReadOnly  bool   `name:"read-only" help:"Reject browser operations that may change server state."`
 }
 
 // Help describes the long-running embedded web application contract.
@@ -790,6 +791,9 @@ type WebRequest struct {
 
 	// NoBrowser disables browser startup after the server is ready.
 	NoBrowser bool
+
+	// ReadOnly restricts the web transport to side-effect-free operations.
+	ReadOnly bool
 
 	// Development selects the live frontend under a webdev build.
 	Development bool
@@ -821,7 +825,7 @@ func (c *webCommand) Run(invocation *Invocation, operation WebOperation) error {
 	}
 	return operation.Run(invocation.Context, WebRequest{
 		Store: invocation.Store, Board: invocation.Board,
-		Bind: c.Bind, Port: c.Port, NoBrowser: c.NoBrowser,
+		Bind: c.Bind, Port: c.Port, NoBrowser: c.NoBrowser, ReadOnly: c.ReadOnly,
 		Development: c.Development, WebDir: c.WebDir,
 		Notice: notice, Diagnostic: invocation.Output.Stderr(),
 	})

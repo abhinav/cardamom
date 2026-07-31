@@ -766,6 +766,16 @@ or when the server runs without a desktop session:
 card --actor observer web --bind 127.0.0.1 --port 5757 --no-browser
 ```
 
+Use `--read-only` when the browser server must not change Cardamom state:
+
+```bash
+card --actor observer web --read-only
+```
+
+Read-only mode rejects browser API operations that may have side effects.
+Browser reads and raw attachment downloads remain available,
+and direct `card` CLI commands keep their ordinary access.
+
 ### Review without a live process
 
 Use a [Markdown collection](#markdown-collections)

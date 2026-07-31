@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"connectrpc.com/connect"
@@ -69,6 +71,11 @@ func TestProjectAndInformationProtocolUsesFreshStoreOperations(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, cfg.Version, bootstrap.Msg.GetVersion())
+	assert.Equal(
+		t,
+		privatev1.AccessMode_ACCESS_MODE_READ_WRITE,
+		bootstrap.Msg.GetAccessMode(),
+	)
 
 	boardList, err := projects.ListBoards(
 		t.Context(),
@@ -173,6 +180,101 @@ func TestProjectAndInformationProtocolUsesFreshStoreOperations(t *testing.T) {
 		"created":1784376000,
 		"description":null
 	}`, shown.stdout)
+}
+
+func TestWebProtocolReadOnlyAccess(t *testing.T) {
+	t.Setenv("CARDAMOM_STORE", "")
+	cfg := testConfig(t)
+	initialized := execute(
+		t,
+		cfg,
+		"--json",
+		"init",
+		"--prefix",
+		"mission-",
+		"--board-name",
+		"Primary",
+	)
+	require.Equal(t, cli.ExitSuccess, initialized.code, initialized.stderr)
+	var namespace cli.InitResult
+	require.NoError(t, json.Unmarshal([]byte(initialized.stdout), &namespace))
+	require.NotNil(t, namespace.BoardID)
+	attachmentPath := filepath.Join(cfg.CWD, "read-only.txt")
+	require.NoError(t, os.WriteFile(attachmentPath, []byte("read-only content"), 0o600))
+	added := execute(
+		t,
+		cfg,
+		"--board",
+		*namespace.BoardID,
+		"attachment",
+		"add",
+		attachmentPath,
+	)
+	require.Equal(t, cli.ExitSuccess, added.code, added.stderr)
+	attachmentID := strings.SplitN(added.stdout, "\n", 2)[0]
+
+	operation := &webOperation{config: cfg}
+	binding, closeStore, err := operation.open(t.Context(), cli.WebRequest{
+		Store:    filepath.Join(cfg.CWD, ".cardamom"),
+		Board:    *namespace.BoardID,
+		ReadOnly: true,
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, closeStore()) })
+	client := &http.Client{Transport: protocolRoundTripFunc(
+		func(request *http.Request) (*http.Response, error) {
+			recorder := httptest.NewRecorder()
+			binding.handler.ServeHTTP(recorder, request)
+			return recorder.Result(), nil
+		},
+	)}
+	projects := privatev1connect.NewProjectServiceClient(client, "http://cardamom.test")
+
+	bootstrap, err := projects.GetBootstrap(
+		t.Context(),
+		connect.NewRequest(&privatev1.GetBootstrapRequest{}),
+	)
+	require.NoError(t, err)
+	assert.Equal(
+		t,
+		privatev1.AccessMode_ACCESS_MODE_READ_ONLY,
+		bootstrap.Msg.GetAccessMode(),
+	)
+
+	_, err = projects.CreateProject(
+		t.Context(),
+		connect.NewRequest(&privatev1.CreateProjectRequest{
+			Name: "Blocked",
+			Context: &privatev1.MutationContext{
+				Actor: new("protocol-engineer"),
+			},
+		}),
+	)
+	assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
+	projectList, err := projects.ListProjects(
+		t.Context(),
+		connect.NewRequest(&privatev1.ListProjectsRequest{}),
+	)
+	require.NoError(t, err)
+	assert.Len(t, projectList.Msg.GetProjects(), 1)
+
+	for _, method := range []string{http.MethodGet, http.MethodHead} {
+		request := httptest.NewRequest(
+			method,
+			binding.attachmentContentPath+attachmentID+"/content",
+			nil,
+		)
+		response := httptest.NewRecorder()
+
+		binding.attachmentContent.ServeHTTP(response, request)
+
+		assert.Equal(t, http.StatusOK, response.Code)
+		if method == http.MethodGet {
+			assert.Equal(t, "read-only content", response.Body.String())
+		} else {
+			assert.Empty(t, response.Body.String())
+		}
+	}
 }
 
 type protocolRoundTripFunc func(*http.Request) (*http.Response, error)

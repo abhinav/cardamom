@@ -1390,9 +1390,9 @@ const file_cardamom_private_v1_configuration_proto_rawDesc = "" +
 	"\x1cConfigurationIssueIDStrategy\x12/\n" +
 	"+CONFIGURATION_ISSUE_ID_STRATEGY_UNSPECIFIED\x10\x00\x12*\n" +
 	"&CONFIGURATION_ISSUE_ID_STRATEGY_RANDOM\x10\x01\x12.\n" +
-	"*CONFIGURATION_ISSUE_ID_STRATEGY_SEQUENTIAL\x10\x022\x81\x02\n" +
-	"\x14ConfigurationService\x12o\n" +
-	"\x10GetConfiguration\x12,.cardamom.private.v1.GetConfigurationRequest\x1a-.cardamom.private.v1.GetConfigurationResponse\x12x\n" +
+	"*CONFIGURATION_ISSUE_ID_STRATEGY_SEQUENTIAL\x10\x022\x86\x02\n" +
+	"\x14ConfigurationService\x12t\n" +
+	"\x10GetConfiguration\x12,.cardamom.private.v1.GetConfigurationRequest\x1a-.cardamom.private.v1.GetConfigurationResponse\"\x03\x90\x02\x01\x12x\n" +
 	"\x13UpdateConfiguration\x12/.cardamom.private.v1.UpdateConfigurationRequest\x1a0.cardamom.private.v1.UpdateConfigurationResponseB\xde\x01\n" +
 	"\x17com.cardamom.private.v1B\x12ConfigurationProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 

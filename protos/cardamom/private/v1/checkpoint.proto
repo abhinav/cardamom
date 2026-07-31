@@ -66,7 +66,9 @@ message ResolveCheckpointResponse {
 // the browser transport.
 service CheckpointService {
   // ListActionableCheckpoints returns decisions ready for human action.
-  rpc ListActionableCheckpoints(ListActionableCheckpointsRequest) returns (ListActionableCheckpointsResponse);
+  rpc ListActionableCheckpoints(ListActionableCheckpointsRequest) returns (ListActionableCheckpointsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // ResolveCheckpoint approves or denies one actionable checkpoint.
   rpc ResolveCheckpoint(ResolveCheckpointRequest) returns (ResolveCheckpointResponse);

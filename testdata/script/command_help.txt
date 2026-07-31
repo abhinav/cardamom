@@ -118,6 +118,8 @@ stdout 'Acquire an absent or expired resource lease'
 
 exec card web --help
 stdout 'Serve the API and browser application from embedded assets'
+stdout '--read-only'
+stdout 'Reject browser operations that may change server state'
 
 exec card board --help
 stdout 'Create, select, and inspect coordination boards'

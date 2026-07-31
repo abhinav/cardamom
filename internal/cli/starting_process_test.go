@@ -281,7 +281,9 @@ func TestWebCommandDelegatesLongRunningInvocation(t *testing.T) {
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Store = "/repo/.cardamom"
 	invocation.Board = "Mission"
-	command := &webCommand{Bind: "0.0.0.0", Port: 9000, NoBrowser: true}
+	command := &webCommand{
+		Bind: "0.0.0.0", Port: 9000, NoBrowser: true, ReadOnly: true,
+	}
 
 	err := command.Run(invocation, operation)
 	require.NoError(t, err)
@@ -289,7 +291,7 @@ func TestWebCommandDelegatesLongRunningInvocation(t *testing.T) {
 	assert.True(t, operation.called)
 	assert.Equal(t, WebRequest{
 		Store: "/repo/.cardamom", Board: "Mission",
-		Bind: "0.0.0.0", Port: 9000, NoBrowser: true,
+		Bind: "0.0.0.0", Port: 9000, NoBrowser: true, ReadOnly: true,
 		Notice: &stdout, Diagnostic: &stderr,
 	}, operation.request)
 	assert.Same(t, invocation.Context, operation.ctx)

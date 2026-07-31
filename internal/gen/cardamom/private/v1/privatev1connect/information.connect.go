@@ -59,6 +59,7 @@ func NewInformationServiceClient(httpClient connect.HTTPClient, baseURL string, 
 			httpClient,
 			baseURL+InformationServiceGetInformationProcedure,
 			connect.WithSchema(informationServiceMethods.ByName("GetInformation")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 	}
@@ -92,6 +93,7 @@ func NewInformationServiceHandler(svc InformationServiceHandler, opts ...connect
 		InformationServiceGetInformationProcedure,
 		svc.GetInformation,
 		connect.WithSchema(informationServiceMethods.ByName("GetInformation")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	return "/cardamom.private.v1.InformationService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

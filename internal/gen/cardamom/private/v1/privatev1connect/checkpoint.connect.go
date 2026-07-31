@@ -64,6 +64,7 @@ func NewCheckpointServiceClient(httpClient connect.HTTPClient, baseURL string, o
 			httpClient,
 			baseURL+CheckpointServiceListActionableCheckpointsProcedure,
 			connect.WithSchema(checkpointServiceMethods.ByName("ListActionableCheckpoints")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
 		resolveCheckpoint: connect.NewClient[v1.ResolveCheckpointRequest, v1.ResolveCheckpointResponse](
@@ -111,6 +112,7 @@ func NewCheckpointServiceHandler(svc CheckpointServiceHandler, opts ...connect.H
 		CheckpointServiceListActionableCheckpointsProcedure,
 		svc.ListActionableCheckpoints,
 		connect.WithSchema(checkpointServiceMethods.ByName("ListActionableCheckpoints")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
 	checkpointServiceResolveCheckpointHandler := connect.NewUnaryHandler(

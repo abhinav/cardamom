@@ -403,8 +403,12 @@ message GetIssueResponse {
 // IssueService exposes issue collection and detail reads.
 service IssueService {
   // ListIssues returns one stable page from a selected issue collection.
-  rpc ListIssues(ListIssuesRequest) returns (ListIssuesResponse);
+  rpc ListIssues(ListIssuesRequest) returns (ListIssuesResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 
   // GetIssue returns one issue and its independently loaded context.
-  rpc GetIssue(GetIssueRequest) returns (GetIssueResponse);
+  rpc GetIssue(GetIssueRequest) returns (GetIssueResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
 }

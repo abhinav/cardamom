@@ -461,9 +461,9 @@ const file_cardamom_private_v1_information_proto_rawDesc = "" +
 	"\x06schema\x18\x04 \x01(\v2&.cardamom.private.v1.SchemaInformationR\x06schema\x12H\n" +
 	"\rconfiguration\x18\x05 \x01(\v2\".cardamom.private.v1.ConfigurationR\rconfiguration\x12D\n" +
 	"\brevision\x18\x06 \x01(\v2(.cardamom.private.v1.RevisionInformationR\brevision\x12;\n" +
-	"\x06issues\x18\a \x01(\v2#.cardamom.private.v1.IssueInventoryR\x06issues2\x7f\n" +
-	"\x12InformationService\x12i\n" +
-	"\x0eGetInformation\x12*.cardamom.private.v1.GetInformationRequest\x1a+.cardamom.private.v1.GetInformationResponseB\xdc\x01\n" +
+	"\x06issues\x18\a \x01(\v2#.cardamom.private.v1.IssueInventoryR\x06issues2\x84\x01\n" +
+	"\x12InformationService\x12n\n" +
+	"\x0eGetInformation\x12*.cardamom.private.v1.GetInformationRequest\x1a+.cardamom.private.v1.GetInformationResponse\"\x03\x90\x02\x01B\xdc\x01\n" +
 	"\x17com.cardamom.private.v1B\x10InformationProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 
 var (

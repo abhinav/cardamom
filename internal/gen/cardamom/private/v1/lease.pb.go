@@ -839,16 +839,16 @@ const file_cardamom_private_v1_lease_proto_rawDesc = "" +
 	"\x05lease\x18\x01 \x01(\v2\".cardamom.private.v1.ResourceLeaseR\x05lease\"\x13\n" +
 	"\x11ListLeasesRequest\"P\n" +
 	"\x12ListLeasesResponse\x12:\n" +
-	"\x06leases\x18\x01 \x03(\v2\".cardamom.private.v1.ResourceLeaseR\x06leases2\xd1\x04\n" +
+	"\x06leases\x18\x01 \x03(\v2\".cardamom.private.v1.ResourceLeaseR\x06leases2\xdb\x04\n" +
 	"\fLeaseService\x12c\n" +
 	"\fAcquireLease\x12(.cardamom.private.v1.AcquireLeaseRequest\x1a).cardamom.private.v1.AcquireLeaseResponse\x12]\n" +
 	"\n" +
 	"RenewLease\x12&.cardamom.private.v1.RenewLeaseRequest\x1a'.cardamom.private.v1.RenewLeaseResponse\x12c\n" +
 	"\fReleaseLease\x12(.cardamom.private.v1.ReleaseLeaseRequest\x1a).cardamom.private.v1.ReleaseLeaseResponse\x12`\n" +
-	"\vRevokeLease\x12'.cardamom.private.v1.RevokeLeaseRequest\x1a(.cardamom.private.v1.RevokeLeaseResponse\x12W\n" +
-	"\bGetLease\x12$.cardamom.private.v1.GetLeaseRequest\x1a%.cardamom.private.v1.GetLeaseResponse\x12]\n" +
+	"\vRevokeLease\x12'.cardamom.private.v1.RevokeLeaseRequest\x1a(.cardamom.private.v1.RevokeLeaseResponse\x12\\\n" +
+	"\bGetLease\x12$.cardamom.private.v1.GetLeaseRequest\x1a%.cardamom.private.v1.GetLeaseResponse\"\x03\x90\x02\x01\x12b\n" +
 	"\n" +
-	"ListLeases\x12&.cardamom.private.v1.ListLeasesRequest\x1a'.cardamom.private.v1.ListLeasesResponseB\xd6\x01\n" +
+	"ListLeases\x12&.cardamom.private.v1.ListLeasesRequest\x1a'.cardamom.private.v1.ListLeasesResponse\"\x03\x90\x02\x01B\xd6\x01\n" +
 	"\x17com.cardamom.private.v1B\n" +
 	"LeaseProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 
