@@ -254,10 +254,13 @@ describe("collection search control", () => {
 
 describe("collection shell", () => {
   it.each([
-    ["/", true],
-    ["/list", true],
-    ["/approvals", false],
-    ["/routines", false],
+    ["/", false],
+    ["/board/board-1", true],
+    ["/board/board-1/list", true],
+    ["/all", true],
+    ["/all/list", true],
+    ["/board/board-1/approvals", false],
+    ["/all/routines", false],
     ["/issues/cm-123", false],
   ])("classifies %s collection ownership", (pathname, expected) => {
     expect(isCollectionRoute(pathname)).toBe(expected);

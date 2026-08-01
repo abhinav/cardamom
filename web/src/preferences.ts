@@ -1,4 +1,3 @@
-import type { BoardScopePreference } from "./board-scope.ts";
 import {
   defaultBoardView,
   defaultListView,
@@ -13,7 +12,6 @@ export type ThemePreference = "light" | "dark";
 export interface Preferences {
   actor: string;
   theme: ThemePreference;
-  boardScope?: BoardScopePreference;
   boardView: BoardViewPreferences;
   collapsedIssueDetailsBoardIds: string[];
   listView: IssueViewPreferences;
@@ -50,7 +48,6 @@ export function loadPreferences(storage: PreferencesStorage): Preferences {
     const shellPreferences = {
       actor: value.actor,
       theme: value.theme,
-      ...(value.boardScope === undefined ? {} : { boardScope: value.boardScope }),
     };
     if (value.version === 1) {
       return {
@@ -89,7 +86,16 @@ export function savePreferences(
   try {
     storage.setItem(
       storageKey,
-      JSON.stringify({ version: storageVersion, ...preferences }),
+      JSON.stringify({
+        version: storageVersion,
+        actor: preferences.actor,
+        theme: preferences.theme,
+        boardView: preferences.boardView,
+        collapsedIssueDetailsBoardIds:
+          preferences.collapsedIssueDetailsBoardIds,
+        listView: preferences.listView,
+        relationsOpen: preferences.relationsOpen,
+      }),
     );
   } catch {
     // Preferences remain active for this session when storage is unavailable.
@@ -129,8 +135,7 @@ function isPersistedPreferences(value: unknown): value is Preferences & {
       candidate.version === 3 ||
       candidate.version === storageVersion) &&
     typeof candidate.actor === "string" &&
-    isTheme(candidate.theme) &&
-    (candidate.boardScope === undefined || isBoardScope(candidate.boardScope))
+    isTheme(candidate.theme)
   );
 }
 
@@ -150,17 +155,4 @@ function parseCollapsedIssueDetails(value: unknown): string[] {
 
 function isTheme(value: unknown): value is ThemePreference {
   return value === "light" || value === "dark";
-}
-
-function isBoardScope(value: unknown): value is BoardScopePreference {
-  if (typeof value !== "object" || value === null) {
-    return false;
-  }
-  const candidate = value as Record<string, unknown>;
-  return (
-    candidate.kind === "all" ||
-    (candidate.kind === "board" &&
-      typeof candidate.boardId === "string" &&
-      candidate.boardId !== "")
-  );
 }

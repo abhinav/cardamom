@@ -9,18 +9,18 @@ const boards = [
 
 describe("route document title", () => {
   it("identifies board routes with the selected board name", () => {
-    expect(routeDocumentTitle("/", "Primary", boards)).toBe(
+    expect(routeDocumentTitle("/board/board-primary", "Primary", boards)).toBe(
       "Primary - Cardamom",
     );
-    expect(routeDocumentTitle("/list", "All boards", boards)).toBe(
+    expect(routeDocumentTitle("/all/list", "All boards", boards)).toBe(
       "All boards - Cardamom",
     );
   });
 
   it("identifies settings before the selected board name", () => {
-    expect(routeDocumentTitle("/configuration", "Primary", boards)).toBe(
-      "Settings - Primary - Cardamom",
-    );
+    expect(
+      routeDocumentTitle("/board/board-primary/settings", "Primary", boards),
+    ).toBe("Settings - Primary - Cardamom");
   });
 
   it("adds issue metadata after the matching issue loads", () => {
@@ -55,7 +55,12 @@ describe("route document title", () => {
       ),
     ).toBe("cm-current - Primary - Cardamom");
     expect(
-      routeDocumentTitle("/configuration", "Primary", boards, previousIssue),
+      routeDocumentTitle(
+        "/board/board-primary/settings",
+        "Primary",
+        boards,
+        previousIssue,
+      ),
     ).toBe("Settings - Primary - Cardamom");
   });
 });

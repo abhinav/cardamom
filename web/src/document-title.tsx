@@ -50,7 +50,12 @@ export function routeDocumentTitle(
   boards: readonly Pick<BoardSummary, "id" | "name">[],
   issue?: IssueTitle,
 ): string {
-  if (matchPath({ path: "/configuration", end: true }, pathname) !== null) {
+  if (
+    matchPath(
+      { path: "/board/:boardId/settings", end: true },
+      pathname,
+    ) !== null
+  ) {
     return `Settings - ${boardName} - Cardamom`;
   }
 

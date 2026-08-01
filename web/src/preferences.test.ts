@@ -10,12 +10,11 @@ import {
 import { defaultBoardView, defaultListView } from "./issue-collection.ts";
 
 describe("preferences", () => {
-  it("round trips actor, theme, and board scope through browser storage", () => {
+  it("round trips presentation preferences without route identity", () => {
     const storage = new MemoryStorage();
     const preferences = {
       actor: "captain",
       theme: "dark" as const,
-      boardScope: { kind: "board" as const, boardId: "board-1" },
       boardView: {
         ...defaultBoardView,
         grouping: "type" as const,
@@ -37,7 +36,7 @@ describe("preferences", () => {
     expect(storage.getItem("cardamom.preferences")).not.toBeNull();
   });
 
-  it("resets version 1 collection views while preserving shell preferences", () => {
+  it("drops legacy board scope while preserving shell preferences", () => {
     const storage = new MemoryStorage(
       JSON.stringify({
         version: 1,
@@ -62,7 +61,6 @@ describe("preferences", () => {
     expect(loadPreferences(storage)).toEqual({
       actor: "captain",
       theme: "light",
-      boardScope: { kind: "board", boardId: "board-1" },
       boardView: defaultBoardView,
       collapsedIssueDetailsBoardIds: [],
       listView: defaultListView,
@@ -128,12 +126,25 @@ describe("preferences", () => {
         version: 99,
         actor: "stale",
         theme: "infrared",
-        boardScope: { kind: "board", boardId: "board-1" },
       }),
     );
 
     expect(loadPreferences(malformed)).toEqual(defaultPreferences);
     expect(loadPreferences(unsupported)).toEqual(defaultPreferences);
+  });
+
+  it("does not write board identity supplied by a legacy caller", () => {
+    const storage = new MemoryStorage();
+    const legacyPreferences = {
+      ...defaultPreferences,
+      boardScope: { kind: "board" as const, boardId: "board-1" },
+    };
+
+    savePreferences(storage, legacyPreferences);
+
+    expect(storage.getItem("cardamom.preferences")).not.toContain(
+      "boardScope",
+    );
   });
 
   it("defaults to dark and tolerates unavailable browser storage", () => {

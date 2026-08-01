@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Settings } from "lucide-react";
 import {
   Link,
+  matchPath,
   NavLink,
   Route,
   Routes,
@@ -19,10 +20,12 @@ import { ApprovalsRoute } from "./approvals/approvals.tsx";
 import {
   BoardSettingsDialog,
 } from "./board-settings.tsx";
-import { BoardSelector } from "./board-selector.tsx";
+import { BoardPickerRoute, BoardSelector } from "./board-selector.tsx";
 import { ConfigurationRoute } from "./configuration.tsx";
 import {
-  resolveBoardScope,
+  boardScopePath,
+  routeBoardPage,
+  routeBoardScope,
   scopeKey,
   toBoardScopeMessage,
   type BoardScopeSelection,
@@ -105,11 +108,8 @@ function LoadedApp({
 }: LoadedAppProps) {
   const [preferences, setPreferences] = useState(() => loadPreferences(storage));
   const queryClient = useQueryClient();
-  const selection = resolveBoardScope(
-    preferences.boardScope,
-    bootstrap.boards,
-    bootstrap.serverDefaultBoardId,
-  );
+  const pathname = useLocation().pathname;
+  const selection = routeBoardScope(pathname);
   const selectionKey = scopeKey(selection);
   const scope = useMemo(
     () => toBoardScopeMessage(selection),
@@ -187,17 +187,18 @@ function ApplicationShell({
 }: ApplicationShellProps) {
   const { canMutateServer } = useServerAccess();
   const navigate = useNavigate();
-  const collectionRoute = isCollectionRoute(useLocation().pathname);
-  const [boardSettingsBoardId, setBoardSettingsBoardId] = useState<
-    string | undefined
-  >();
+  const location = useLocation();
+  const collectionRoute = isCollectionRoute(location.pathname);
+  const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
+  const selectionIdentity = scopeKey(selection);
+  useEffect(() => setBoardSettingsOpen(false), [selectionIdentity]);
   const selectedBoard =
     selection.kind === "board"
       ? boards.find((board) => board.id === selection.boardId)
       : undefined;
   const boardName =
     selection.kind === "unresolved"
-      ? "Select a board"
+      ? "Boards"
       : selection.kind === "all"
         ? "All boards"
         : (selectedBoard?.name ?? `${selection.boardId} unavailable`);
@@ -206,7 +207,9 @@ function ApplicationShell({
       ...preferences,
       listView: listViewForLabel(preferences.listView, label),
     });
-    navigate("/list");
+    if (selection.kind !== "unresolved") {
+      navigate(boardScopePath(selection, "list"));
+    }
   };
 
   return (
@@ -225,35 +228,64 @@ function ApplicationShell({
             projects={projects}
             selection={selection}
             onOpenBoardSettings={
-              canMutateServer ? setBoardSettingsBoardId : undefined
+              canMutateServer && selectedBoard !== undefined
+                ? () => setBoardSettingsOpen(true)
+                : undefined
             }
-            onSelectScope={(boardScope) =>
-              updatePreferences({ ...preferences, boardScope })
+            onSelectScope={(nextSelection) =>
+              navigate(
+                boardScopePath(
+                  nextSelection,
+                  routeBoardPage(location.pathname),
+                ),
+              )
             }
           />
           <StreamState status={streamStatus} />
           <SettingsControl
             preferences={preferences}
             selectedBoard={selectedBoard}
-            openConfiguration={() => navigate("/configuration")}
+            openConfiguration={() => {
+              if (selection.kind === "board") {
+                navigate(boardScopePath(selection, "settings"));
+              }
+            }}
             updatePreferences={updatePreferences}
             version={version}
           />
         </header>
 
-        <nav className="primary-nav" aria-label="Primary">
-          <NavLink to="/" end>
-            Board
+        <nav
+          className={
+            `primary-nav${
+              selection.kind === "unresolved" ? " primary-nav-picker" : ""
+            }`
+          }
+          aria-label="Primary"
+        >
+          <NavLink
+            to={
+              selection.kind === "unresolved"
+                ? "/"
+                : boardScopePath(selection)
+            }
+            end
+          >
+            {selection.kind === "unresolved" ? "Boards" : "Board"}
           </NavLink>
-          <NavLink to="/approvals" end>
-            Approvals
-          </NavLink>
-          <NavLink to="/list" end>
-            List
-          </NavLink>
-          <NavLink to="/routines" end>
-            Routines
-          </NavLink>
+          {selection.kind !== "unresolved" && (
+            <>
+              <NavLink to={boardScopePath(selection, "approvals")} end>
+                Approvals
+              </NavLink>
+              <NavLink to={boardScopePath(selection, "list")} end>
+                List
+              </NavLink>
+              <NavLink to={boardScopePath(selection, "routines")} end>
+                Routines
+              </NavLink>
+            </>
+          )}
         </nav>
 
         <main
@@ -268,6 +300,7 @@ function ApplicationShell({
             boards={boards}
             canMutateServer={canMutateServer}
             preferences={preferences}
+            projects={projects}
             scope={scope}
             selection={selection}
             selectLabel={selectLabel}
@@ -275,13 +308,13 @@ function ApplicationShell({
             updatePreferences={updatePreferences}
           />
         </main>
-        {canMutateServer && boardSettingsBoardId !== undefined && (
+        {canMutateServer && boardSettingsOpen && selectedBoard !== undefined && (
           <BoardSettingsDialog
-            key={boardSettingsBoardId}
+            key={selectedBoard.id}
             actor={preferences.actor}
-            boardId={boardSettingsBoardId}
-            onDismiss={() => setBoardSettingsBoardId(undefined)}
-            onSaved={() => setBoardSettingsBoardId(undefined)}
+            boardId={selectedBoard.id}
+            onDismiss={() => setBoardSettingsOpen(false)}
+            onSaved={() => setBoardSettingsOpen(false)}
           />
         )}
       </div>
@@ -290,7 +323,12 @@ function ApplicationShell({
 }
 
 export function isCollectionRoute(pathname: string): boolean {
-  return pathname === "/" || pathname === "/list";
+  return [
+    "/all",
+    "/all/list",
+    "/board/:boardId",
+    "/board/:boardId/list",
+  ].some((path) => matchPath({ path, end: true }, pathname) !== null);
 }
 
 interface SettingsControlProps {
@@ -395,6 +433,7 @@ function RouteContent({
   boards,
   canMutateServer,
   preferences,
+  projects,
   scope,
   selection,
   selectLabel,
@@ -405,74 +444,75 @@ function RouteContent({
   boards: readonly BoardSummary[];
   canMutateServer: boolean;
   preferences: Preferences;
+  projects: readonly Project[];
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
   selectLabel: (label: string) => void;
   storage: PreferencesStorage;
   updatePreferences: (preferences: Preferences) => void;
 }) {
+  const boardRoute = (
+    <BoardRoute
+      actor={preferences.actor}
+      attachmentClient={attachmentClient}
+      boards={boards}
+      canMutateServer={canMutateServer}
+      selection={selection}
+      selectLabel={selectLabel}
+      view={preferences.boardView}
+      updateView={(boardView) =>
+        updatePreferences({ ...preferences, boardView })
+      }
+    />
+  );
+  const approvalsRoute = (
+    <ApprovalsPage
+      canMutateServer={canMutateServer}
+      preferences={preferences}
+      scope={scope}
+      selection={selection}
+    />
+  );
+  const listRoute = (
+    <ListRoute
+      actor={preferences.actor}
+      attachmentClient={attachmentClient}
+      boards={boards}
+      canMutateServer={canMutateServer}
+      selection={selection}
+      selectLabel={selectLabel}
+      view={preferences.listView}
+      updateView={(listView) =>
+        updatePreferences({ ...preferences, listView })
+      }
+    />
+  );
+  const routinesRoute = (
+    <RoutinesPage
+      canMutateServer={canMutateServer}
+      preferences={preferences}
+      scope={scope}
+      selection={selection}
+      selectLabel={selectLabel}
+      storage={storage}
+    />
+  );
   return (
     <Routes>
       <Route
         path="/"
-        element={
-          <BoardRoute
-            actor={preferences.actor}
-            attachmentClient={attachmentClient}
-            boards={boards}
-            canMutateServer={canMutateServer}
-            selection={selection}
-            selectLabel={selectLabel}
-            view={preferences.boardView}
-            updateView={(boardView) =>
-              updatePreferences({ ...preferences, boardView })
-            }
-          />
-        }
+        element={<BoardPickerRoute boards={boards} projects={projects} />}
       />
+      <Route path="/board/:boardId" element={boardRoute} />
+      <Route path="/all" element={boardRoute} />
+      <Route path="/board/:boardId/approvals" element={approvalsRoute} />
+      <Route path="/all/approvals" element={approvalsRoute} />
+      <Route path="/board/:boardId/list" element={listRoute} />
+      <Route path="/all/list" element={listRoute} />
+      <Route path="/board/:boardId/routines" element={routinesRoute} />
+      <Route path="/all/routines" element={routinesRoute} />
       <Route
-        path="/approvals"
-        element={
-          <ApprovalsPage
-            canMutateServer={canMutateServer}
-            preferences={preferences}
-            scope={scope}
-            selection={selection}
-          />
-        }
-      />
-      <Route
-        path="/list"
-        element={
-          <ListRoute
-            actor={preferences.actor}
-            attachmentClient={attachmentClient}
-            boards={boards}
-            canMutateServer={canMutateServer}
-            selection={selection}
-            selectLabel={selectLabel}
-            view={preferences.listView}
-            updateView={(listView) =>
-              updatePreferences({ ...preferences, listView })
-            }
-          />
-        }
-      />
-      <Route
-        path="/routines"
-        element={
-          <RoutinesPage
-            canMutateServer={canMutateServer}
-            preferences={preferences}
-            scope={scope}
-            selection={selection}
-            selectLabel={selectLabel}
-            storage={storage}
-          />
-        }
-      />
-      <Route
-        path="/configuration"
+        path="/board/:boardId/settings"
         element={
           <ConfigurationRoute
             actor={preferences.actor}
@@ -608,7 +648,7 @@ function NotFoundPage() {
     <section className="route-placeholder" aria-labelledby="route-title">
       <p className="route-kicker">404</p>
       <h1 id="route-title">Page not found</h1>
-      <Link to="/">Return to Board</Link>
+      <Link to="/">Return to board picker</Link>
     </section>
   );
 }
