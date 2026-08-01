@@ -1335,7 +1335,10 @@ export function CurrentIssueState({ state }: { state: StateRecord | undefined })
       id={state.snapshotLogEntryId}
       aria-labelledby="state-title"
     >
-      <h2 id="state-title">State</h2>
+      <header className="issue-current-state-heading">
+        <h2 id="state-title">State</h2>
+        <time>{formatTimestamp(state.updatedAt)}</time>
+      </header>
       <Markdown content={state.body} />
       <NextAction content={state.nextAction} label="Next action" />
     </section>

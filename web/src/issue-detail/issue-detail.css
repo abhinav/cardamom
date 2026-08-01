@@ -644,9 +644,22 @@ button.issue-add-dependency {
   content: "·";
 }
 
-.issue-log-list time {
+.issue-log-list time,
+.issue-current-state-heading time {
   color: var(--muted);
   font-size: 0.72rem;
+}
+
+.issue-current-state-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 0.85rem;
+}
+
+.issue-current-state-heading h2 {
+  margin: 0;
 }
 
 .issue-detail-state {
