@@ -1,4 +1,4 @@
-/** SelectLabel opens the List collection filtered to one label. */
+/** SelectLabel opens a scoped collection filtered to one label. */
 export type SelectLabel = (label: string) => void;
 
 /** IssueLabel renders one label as an explicit collection-navigation control. */

@@ -5,6 +5,7 @@ import {
   collectionRouteSearch,
   issueFiltersFromSearch,
   issueViewFromSearch,
+  labelCollectionLocation,
   routineRetiredFromSearch,
   routineRetiredSearch,
 } from "./collection-route.ts";
@@ -109,5 +110,90 @@ describe("collection route filters", () => {
     );
     expect(routineRetiredSearch(false)).toBe("");
     expect(routineRetiredSearch(true)).toBe("?retired=true");
+  });
+});
+
+describe("label collection navigation", () => {
+  it("retains Board and List modes in board scope", () => {
+    expect(
+      labelCollectionLocation(
+        "/board/board-1",
+        " area:web ",
+      ),
+    ).toEqual({
+      pathname: "/board/board-1",
+      search: "?label=area%3Aweb",
+    });
+    expect(
+      labelCollectionLocation(
+        "/board/board-1/list",
+        "area:web",
+      ),
+    ).toEqual({
+      pathname: "/board/board-1/list",
+      search: "?label=area%3Aweb",
+    });
+  });
+
+  it("retains Board and List modes across all boards", () => {
+    expect(labelCollectionLocation("/all", "area:web")).toEqual({
+      pathname: "/all",
+      search: "?label=area%3Aweb",
+    });
+    expect(labelCollectionLocation("/all/list", "area:web")).toEqual({
+      pathname: "/all/list",
+      search: "?label=area%3Aweb",
+    });
+  });
+
+  it("opens scoped List routes from non-collection pages", () => {
+    expect(
+      labelCollectionLocation(
+        "/board/board-2/issue/cm-task",
+        "area:web",
+      ),
+    ).toEqual({
+      pathname: "/board/board-2/list",
+      search: "?label=area%3Aweb",
+    });
+    expect(
+      labelCollectionLocation("/board/board-1/approvals", "area:web"),
+    ).toEqual({
+      pathname: "/board/board-1/list",
+      search: "?label=area%3Aweb",
+    });
+    expect(labelCollectionLocation("/all/routines", "area:web")).toEqual({
+      pathname: "/all/list",
+      search: "?label=area%3Aweb",
+    });
+    expect(
+      labelCollectionLocation("/board/board-1/settings", "area:web"),
+    ).toEqual({
+      pathname: "/board/board-1/list",
+      search: "?label=area%3Aweb",
+    });
+  });
+
+  it("does not infer scope outside canonical board routes", () => {
+    expect(labelCollectionLocation("/", "area:web")).toBeUndefined();
+    expect(labelCollectionLocation("/unknown", "area:web")).toBeUndefined();
+  });
+
+  it("makes the selected label visible through canonical controls", () => {
+    const location = labelCollectionLocation(
+      "/board/board-1",
+      "area:web",
+    );
+
+    expect(location).toBeDefined();
+    expect(
+      issueFiltersFromSearch(
+        new URLSearchParams(location?.search),
+        "board",
+      ),
+    ).toEqual({
+      ...defaultBoardView.filters,
+      label: "area:web",
+    });
   });
 });
