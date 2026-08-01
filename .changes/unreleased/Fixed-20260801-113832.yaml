@@ -1,0 +1,3 @@
+kind: Fixed
+body: Let linked Git worktrees inherit the primary checkout's selected board until they choose their own.
+time: 2026-08-01T11:38:32.308786-07:00

@@ -69,15 +69,17 @@ func TestResolveRejectsMalformedRedirect(t *testing.T) {
 	assert.Contains(t, err.Error(), "must contain one path")
 }
 
-func TestBoardBindingPathUsesNearestNonGitStore(t *testing.T) {
+func TestResolveBoardBindingPaths_usesNearestNonGitStore(t *testing.T) {
 	root := t.TempDir()
 	mustMkdirAll(t, filepath.Join(root, ".cardamom"))
 	child := filepath.Join(root, "a", "b")
 	mustMkdirAll(t, child)
 
-	got, err := BoardBindingPath(child)
+	got, err := ResolveBoardBindingPaths(child)
 	require.NoError(t, err)
-	assert.Equal(t, filepath.Join(root, ".cardamom-board"), got)
+	assert.Equal(t, BoardBindingPaths{
+		Checkout: filepath.Join(root, ".cardamom-board"),
+	}, got)
 }
 
 func mustMkdirAll(t *testing.T, path string) {

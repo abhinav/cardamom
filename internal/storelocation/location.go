@@ -1,5 +1,5 @@
-// Package storelocation resolves the filesystem directory that owns a
-// Cardamom store.
+// Package storelocation resolves filesystem locations for Cardamom stores and
+// checkout-local board bindings.
 package storelocation
 
 import (
@@ -224,30 +224,53 @@ func inspectGitWorktree(cwd string) (gitWorktree, error) {
 	}, nil
 }
 
-// BoardBindingPath returns the checkout-private file used for board selection.
-// Git checkouts use the current worktree's private administrative directory.
-// Non-Git checkouts use a sidecar beside the nearest discovered .cardamom entry, or
-// the current directory when no local entry exists.
-func BoardBindingPath(cwd string) (string, error) {
+// BoardBindingPaths names the files used to read and write checkout board
+// selection.
+type BoardBindingPaths struct {
+	// Checkout is the current checkout's read and write path.
+	Checkout string
+
+	// Primary is the primary checkout's read fallback for a linked worktree.
+	// It is empty for primary Git checkouts and non-Git directories.
+	Primary string
+}
+
+// ResolveBoardBindingPaths returns the checkout-private files used for board
+// selection.
+// Git checkouts use each worktree's private administrative directory.
+// A linked worktree may also read the primary checkout's binding.
+// Non-Git checkouts use a sidecar beside the nearest discovered .cardamom entry,
+// or the current directory when no local entry exists.
+func ResolveBoardBindingPaths(cwd string) (BoardBindingPaths, error) {
 	absCWD, err := filepath.Abs(cwd)
 	if err != nil {
-		return "", fmt.Errorf("resolve current directory %q: %w", cwd, err)
+		return BoardBindingPaths{}, fmt.Errorf("resolve current directory %q: %w", cwd, err)
 	}
 	git, err := inspectGitWorktree(absCWD)
 	if err == nil {
-		return filepath.Join(git.gitDir, "cardamom-board"), nil
+		paths := BoardBindingPaths{
+			Checkout: filepath.Join(git.gitDir, "cardamom-board"),
+		}
+		if git.linked {
+			paths.Primary = filepath.Join(git.commonDir, "cardamom-board")
+		}
+		return paths, nil
 	}
 	if !errors.Is(err, errNotGitRepository) {
-		return "", fmt.Errorf("inspect Git worktree: %w", err)
+		return BoardBindingPaths{}, fmt.Errorf("inspect Git worktree: %w", err)
 	}
 	store, err := findAncestorStore(absCWD)
 	if err != nil {
-		return "", err
+		return BoardBindingPaths{}, err
 	}
 	if store != "" {
-		return filepath.Join(filepath.Dir(store), ".cardamom-board"), nil
+		return BoardBindingPaths{
+			Checkout: filepath.Join(filepath.Dir(store), ".cardamom-board"),
+		}, nil
 	}
-	return filepath.Join(absCWD, ".cardamom-board"), nil
+	return BoardBindingPaths{
+		Checkout: filepath.Join(absCWD, ".cardamom-board"),
+	}, nil
 }
 
 func gitPrimaryWorktree(cwd string) (string, error) {

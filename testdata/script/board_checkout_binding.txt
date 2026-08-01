@@ -17,6 +17,8 @@ cmp stdout $WORK/golden/use-default.txt
 exists .git/cardamom-board
 exec git worktree add ../linked -b linked
 cd ../linked
+exec card create 'Inherited issue'
+cmp stdout $WORK/golden/inherited-issue.txt
 exec card board use board_11111111111111111111
 cmp stdout $WORK/golden/use-second.txt
 exists ../repo/.git/worktrees/linked/cardamom-board
@@ -50,9 +52,11 @@ board_11111111111111111111
 using board_00000000000000000000 (Default board)
 -- golden/use-second.txt --
 using board_11111111111111111111 (Second board)
--- golden/linked-issue.txt --
+-- golden/inherited-issue.txt --
 git-1
--- golden/primary-issue.txt --
+-- golden/linked-issue.txt --
 git-2
+-- golden/primary-issue.txt --
+git-3
 -- golden/nested-issue.txt --
 plain-1
