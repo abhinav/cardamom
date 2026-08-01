@@ -96,7 +96,7 @@ func composeNamespace(
 	)
 	boards := board.NewService(catalog, catalog)
 	locator := repositoryboard.NewLocator(persistence)
-	bindingPath, err := storelocation.BoardBindingPath(cfg.CWD)
+	bindingPaths, err := storelocation.ResolveBoardBindingPaths(cfg.CWD)
 	if err != nil {
 		return nil, errors.Join(err, persistence.Close())
 	}
@@ -111,7 +111,10 @@ func composeNamespace(
 		locator:        locator,
 		selection: selection.NewResolver(
 			boards,
-			&checkoutBoardBinding{path: bindingPath},
+			&checkoutBoardBinding{
+				checkoutPath: bindingPaths.Checkout,
+				primaryPath:  bindingPaths.Primary,
+			},
 			locator,
 		),
 		clock:   cfg.Clock,
