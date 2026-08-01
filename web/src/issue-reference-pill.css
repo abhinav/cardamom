@@ -1,0 +1,58 @@
+.issue-reference-pill {
+  position: relative;
+  max-width: 100%;
+  display: inline-flex;
+  vertical-align: baseline;
+}
+
+.issue-reference-preview {
+  position: fixed;
+  z-index: 20;
+  width: min(19rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-overlay);
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+  color: var(--text);
+  font-family: inherit;
+  line-height: 1.35;
+  text-align: start;
+}
+
+.issue-reference-preview[hidden] {
+  display: none;
+}
+
+.issue-reference-preview-id {
+  color: var(--muted);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 0.72rem;
+}
+
+.issue-reference-preview strong {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.issue-reference-preview-metadata {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.35rem 0.6rem;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.issue-reference-preview-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}

@@ -123,9 +123,9 @@ describe("issue detail presentation", () => {
     );
     expect(markup).not.toContain('href="/issues/cm-current"');
     expect(markup).toContain('aria-current="page"');
-    expect(markup).toContain('title="Root workstream"');
-    expect(markup).toContain('title="Parent workstream"');
-    expect(markup).toContain('title="Current task"');
+    expect(markup).toContain("<strong>Root workstream</strong>");
+    expect(markup).toContain("<strong>Parent workstream</strong>");
+    expect(markup).toContain("<strong>Current task</strong>");
   });
 
   it("renders distinct producer keys in supplied order as noninteractive metadata", () => {
