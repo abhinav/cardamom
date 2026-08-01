@@ -22,11 +22,11 @@ describe("issue reference pill", () => {
         }}
         issueID="cm-ja7as"
       >
-        <a href="/issues/cm-ja7as">%cm-ja7as</a>
+        <a href="/board/board-1/issue/cm-ja7as">%cm-ja7as</a>
       </IssueReferencePill>,
     );
 
-    expect(markup).toContain('<a href="/issues/cm-ja7as"');
+    expect(markup).toContain('<a href="/board/board-1/issue/cm-ja7as"');
     expect(markup).toContain("%cm-ja7as</a>");
     expect(markup).toContain('role="tooltip"');
     expect(markup).toContain("Design aggregate dashboard routing");
@@ -41,7 +41,7 @@ describe("issue reference pill", () => {
 
     const markup = renderToStaticMarkup(
       <IssueReferencePill issueID="cm-ja7as" loadIssue={loadIssue}>
-        <a href="/issues/cm-ja7as">%cm-ja7as</a>
+        <a href="/board/board-1/issue/cm-ja7as">%cm-ja7as</a>
       </IssueReferencePill>,
     );
 

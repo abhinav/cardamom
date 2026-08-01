@@ -39,7 +39,7 @@ func RunDevelopment(ctx context.Context, cfg DevelopmentConfig) error {
 	if err := validateBackendHandlers(
 		cfg.HandlerPath,
 		cfg.Handler,
-		cfg.AttachmentContentPath,
+		cfg.AttachmentContentPattern,
 		cfg.AttachmentContent,
 	); err != nil {
 		return err
@@ -67,19 +67,13 @@ func RunDevelopment(ctx context.Context, cfg DevelopmentConfig) error {
 		Host:   net.JoinHostPort("127.0.0.1", strconv.Itoa(backendPort)),
 	}
 	proxy := httputil.NewSingleHostReverseProxy(target)
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if serveBackendHandler(
-			w,
-			r,
-			cfg.HandlerPath,
-			cfg.Handler,
-			cfg.AttachmentContentPath,
-			cfg.AttachmentContent,
-		) {
-			return
-		}
-		proxy.ServeHTTP(w, r)
-	})
+	handler := composeApplicationHandler(
+		cfg.HandlerPath,
+		cfg.Handler,
+		cfg.AttachmentContentPattern,
+		cfg.AttachmentContent,
+		proxy,
+	)
 	if err := waitForDevelopmentBackend(
 		ctx,
 		target,

@@ -74,7 +74,7 @@ export function routeDocumentTitle(
 
 function issueRouteId(pathname: string): string | undefined {
   return matchPath(
-    { path: "/issues/:issueId", end: true },
+    { path: "/board/:boardId/issue/:issueId", end: true },
     pathname,
   )?.params.issueId;
 }

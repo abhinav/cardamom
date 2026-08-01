@@ -261,7 +261,7 @@ describe("collection shell", () => {
     ["/all/list", true],
     ["/board/board-1/approvals", false],
     ["/all/routines", false],
-    ["/issues/cm-123", false],
+    ["/board/board-1/issue/cm-123", false],
   ])("classifies %s collection ownership", (pathname, expected) => {
     expect(isCollectionRoute(pathname)).toBe(expected);
   });

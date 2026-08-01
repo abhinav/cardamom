@@ -90,18 +90,21 @@ describe("issue detail presentation", () => {
             create(AncestorContextSchema, {
               issue: create(RelatedIssueSchema, {
                 id: "cm-root",
+                boardId: "board-1",
                 title: "Root workstream",
               }),
             }),
             create(AncestorContextSchema, {
               issue: create(RelatedIssueSchema, {
                 id: "cm-parent",
+                boardId: "board-1",
                 title: "Parent workstream",
               }),
             }),
           ],
           summary: create(IssueSummarySchema, {
             id: "cm-current",
+            boardId: "board-1",
             title: "Current task",
           }),
           externalKeys: [],
@@ -116,12 +119,12 @@ describe("issue detail presentation", () => {
     expect(positions).not.toContain(-1);
     expect(markup).toContain('aria-label="Issue containment"');
     expect(markup).toContain(
-      'class="issue-containment-link" href="/issues/cm-root"',
+      'class="issue-containment-link" href="/board/board-1/issue/cm-root"',
     );
     expect(markup).toContain(
-      'class="issue-containment-link" href="/issues/cm-parent"',
+      'class="issue-containment-link" href="/board/board-1/issue/cm-parent"',
     );
-    expect(markup).not.toContain('href="/issues/cm-current"');
+    expect(markup).not.toContain('href="/board/board-1/issue/cm-current"');
     expect(markup).toContain('aria-current="page"');
     expect(markup).toContain("<strong>Root workstream</strong>");
     expect(markup).toContain("<strong>Parent workstream</strong>");
@@ -356,6 +359,7 @@ describe("issue detail presentation", () => {
                 actor: "observer",
                 attachmentClient: {} as AttachmentClient,
                 collapsedDetailsBoardIds: [],
+                expectedBoardId: "board-1",
                 issueId,
                 relationsOpen: true,
                 selectLabel: vi.fn(),
@@ -565,6 +569,7 @@ describe("issue detail presentation", () => {
               actor: "observer",
               attachmentClient: {} as AttachmentClient,
               collapsedDetailsBoardIds: [],
+              expectedBoardId: "board-1",
               issueId,
               relationsOpen: true,
               selectLabel: vi.fn(),
@@ -689,6 +694,7 @@ describe("issue detail presentation", () => {
       issues: [
         create(RelatedIssueSchema, {
           id: "cm-prerequisite",
+          boardId: "board-2",
           title: "Completed prerequisite",
           status: IssueStatus.CLOSED,
         }),
@@ -703,6 +709,9 @@ describe("issue detail presentation", () => {
     expect(markup).toContain('aria-label="Closed"');
     expect(markup).toContain("Completed prerequisite");
     expect(markup).toContain("cm-prerequisite");
+    expect(markup).toContain(
+      'href="/board/board-2/issue/cm-prerequisite"',
+    );
   });
 
   it("marks State snapshots without adding a label to ordinary posts", () => {

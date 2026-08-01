@@ -9,6 +9,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
+import { issuePath } from "../board-scope.ts";
 import { WatchResource } from "../gen/cardamom/private/v1/change_pb.ts";
 import { ExecutionService } from "../gen/cardamom/private/v1/execution_pb.ts";
 import type {
@@ -420,7 +421,7 @@ function RoutineCard({
       <header className="routine-card-heading">
         <div className="routine-card-title">
           <h2>
-            <a id={`routine-${issue.id}`} href={`/issues/${issue.id}`}>
+            <a id={`routine-${issue.id}`} href={issuePath(issue.boardId, issue.id)}>
               {issue.title}
             </a>
           </h2>

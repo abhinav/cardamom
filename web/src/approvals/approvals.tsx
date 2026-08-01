@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
+import { issuePath } from "../board-scope.ts";
 import type {
   ActionableCheckpoint,
   ResolveCheckpointResponse,
@@ -253,7 +254,7 @@ export function approvalPresentation(
   }
   return {
     description: checkpoint.summary,
-    issueHref: `/issues/${summary.id}`,
+    issueHref: issuePath(summary.boardId, summary.id),
     issueID: summary.id,
     readiness: "Ready",
     reasonID: `approval-reason-${summary.id}`,

@@ -25,11 +25,15 @@ describe("route document title", () => {
 
   it("adds issue metadata after the matching issue loads", () => {
     expect(
-      routeDocumentTitle("/issues/cm-title", "All boards", boards),
-    ).toBe("cm-title - All boards - Cardamom");
+      routeDocumentTitle(
+        "/board/board-secondary/issue/cm-title",
+        "Secondary",
+        boards,
+      ),
+    ).toBe("cm-title - Secondary - Cardamom");
 
     expect(
-      routeDocumentTitle("/issues/cm-title", "All boards", boards, {
+      routeDocumentTitle("/board/board-secondary/issue/cm-title", "Secondary", boards, {
         id: "cm-title",
         boardId: "board-secondary",
         title: "Set route-aware browser titles",
@@ -48,7 +52,7 @@ describe("route document title", () => {
 
     expect(
       routeDocumentTitle(
-        "/issues/cm-current",
+        "/board/board-primary/issue/cm-current",
         "Primary",
         boards,
         previousIssue,

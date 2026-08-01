@@ -22,6 +22,7 @@ import { Link } from "react-router";
 import type {
   AttachmentClient,
 } from "../api.ts";
+import { issuePath } from "../board-scope.ts";
 import {
   AttachmentRecords,
   AttachmentUploadPanel,
@@ -97,6 +98,7 @@ interface IssueDetailPageProps {
   actor: string;
   attachmentClient: AttachmentClient;
   collapsedDetailsBoardIds: readonly string[];
+  expectedBoardId: string;
   issueId: string;
   relationsOpen: boolean;
   selectLabel: SelectLabel;
@@ -304,6 +306,7 @@ export function IssueDetailPage({
   actor,
   attachmentClient,
   collapsedDetailsBoardIds,
+  expectedBoardId,
   issueId,
   relationsOpen,
   selectLabel,
@@ -340,6 +343,14 @@ export function IssueDetailPage({
     select(response) {
       if (response.issue === undefined) {
         throw new Error(`Issue ${issueId} was not returned by the server.`);
+      }
+      if (
+        response.issue.issue !== undefined &&
+        response.issue.issue.boardId !== expectedBoardId
+      ) {
+        throw new Error(
+          `Issue ${issueId} was not found in board ${expectedBoardId}.`,
+        );
       }
       return response.issue;
     },
@@ -669,7 +680,7 @@ export function IssueBreadcrumbs({
               <IssueReferencePill issue={issue} issueID={issue.id}>
                 <Link
                   className="issue-containment-link"
-                  to={`/issues/${encodeURIComponent(issue.id)}`}
+                  to={issuePath(issue.boardId, issue.id)}
                 >
                   {reference}
                 </Link>

@@ -70,6 +70,16 @@ export function boardScopePath(
   return `${base}/${page}`;
 }
 
+/** issuePath builds the canonical route for one board-owned issue. */
+export function issuePath(boardId: string, issueId: string): string {
+  return `${boardScopePath({ kind: "board", boardId })}/issue/${encodeURIComponent(issueId)}`;
+}
+
+/** attachmentPath builds the canonical raw route for one board-owned attachment. */
+export function attachmentPath(boardId: string, attachmentId: string): string {
+  return `${boardScopePath({ kind: "board", boardId })}/attachment/${encodeURIComponent(attachmentId)}`;
+}
+
 export function toBoardScopeMessage(
   selection: BoardScopeSelection,
 ): BoardScope | undefined {

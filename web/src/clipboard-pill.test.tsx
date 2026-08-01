@@ -14,12 +14,14 @@ describe("clipboard pill", () => {
         copyLabel="Copy issue ID %cm-task"
         copyText="%cm-task"
       >
-        <a href="/issues/cm-task">%cm-task</a>
+        <a href="/board/board-1/issue/cm-task">%cm-task</a>
       </ClipboardPill>,
     );
 
     expect(markup).toContain('class="clipboard-pill"');
-    expect(markup).toContain('<a href="/issues/cm-task">%cm-task</a>');
+    expect(markup).toContain(
+      '<a href="/board/board-1/issue/cm-task">%cm-task</a>',
+    );
     expect(markup).toContain('aria-label="Copy issue ID %cm-task"');
     expect(markup).toContain('title="Copy issue ID %cm-task"');
     expect(markup).toContain('role="status"');

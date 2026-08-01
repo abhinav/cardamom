@@ -55,15 +55,15 @@ func TestRenderer_RenderBoardResolvesTypedReferencesAcrossSources(t *testing.T) 
 	assert.Equal(t, []attachment.ID{attachmentID},
 		resolver.attachmentRequests[0].AttachmentIDs)
 	assert.Contains(t, rendered[0],
-		`<a href="/issues/known-1">%known-1</a>`)
+		`<a href="/board/board-1/issue/known-1">%known-1</a>`)
 	assert.Contains(t, rendered[0],
-		`<a href="/issues/owner-1#`+logID.String()+`">%`+logID.String()+`</a>`)
+		`<a href="/board/board-1/issue/owner-1#`+logID.String()+`">%`+logID.String()+`</a>`)
 	assert.Contains(t, rendered[0],
-		`<a href="/attachments/`+attachmentID.String()+
-			`/content?board_id=board-1">diagnostic report.pdf</a>`)
+		`<a href="/board/board-1/attachment/`+attachmentID.String()+
+			`">diagnostic report.pdf</a>`)
 	assert.Contains(t, rendered[1],
-		`<a href="/attachments/`+attachmentID.String()+
-			`/content?board_id=board-1">download</a>`)
+		`<a href="/board/board-1/attachment/`+attachmentID.String()+
+			`">download</a>`)
 	assert.Contains(t, rendered[0], `data-cardamom-reference="log"`)
 	assert.Contains(t, rendered[0], `data-cardamom-reference="attachment"`)
 }
@@ -91,6 +91,26 @@ func TestRenderer_RenderBoardLeavesUnavailableTypedReferencesAsText(t *testing.T
 	assert.NotContains(t, rendered[0], "data-cardamom-reference")
 }
 
+func TestRenderer_RenderBoardEscapesBoardIdentityAsOneRouteSegment(t *testing.T) {
+	resolver := &testBoardReferenceResolver{
+		issueReferences: []issue.ID{"known-1"},
+	}
+	renderer := markdown.NewWithReferences(resolver, resolver, resolver)
+
+	rendered, err := renderer.RenderBoard(
+		t.Context(),
+		"board/one",
+		[]string{"Open %known-1."},
+	)
+	require.NoError(t, err)
+
+	assert.Contains(
+		t,
+		rendered[0],
+		`<a href="/board/board%2Fone/issue/known-1">%known-1</a>`,
+	)
+}
+
 func TestRenderer_RenderBoardLeavesUnavailableIssueReferencesAsText(t *testing.T) {
 	resolver := &testBoardReferenceResolver{
 		issueReferences: []issue.ID{"known-1"},
@@ -107,9 +127,9 @@ func TestRenderer_RenderBoardLeavesUnavailableIssueReferencesAsText(t *testing.T
 		resolver.issueRequests[0].ids,
 	)
 	assert.Contains(t, rendered[0],
-		`<a href="/issues/known-1">%known-1</a>`)
+		`<a href="/board/board-1/issue/known-1">%known-1</a>`)
 	assert.Contains(t, rendered[0], "; keep %other-board-issue readable.")
-	assert.NotContains(t, rendered[0], `/issues/other-board-issue`)
+	assert.NotContains(t, rendered[0], `/issue/other-board-issue`)
 }
 
 func TestRenderer_RenderBoardBoundsIssueReferenceBatches(t *testing.T) {

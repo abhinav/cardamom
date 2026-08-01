@@ -38,11 +38,11 @@ type Config struct {
 	// Handler dispatches generated Connect procedures under HandlerPath.
 	Handler http.Handler // required
 
-	// AttachmentContentPath is the raw attachment route prefix.
-	AttachmentContentPath string // required
+	// AttachmentContentPattern is the raw attachment route pattern.
+	AttachmentContentPattern string // required
 
 	// AttachmentContent dispatches raw attachment GET and HEAD requests under
-	// AttachmentContentPath.
+	// AttachmentContentPattern.
 	AttachmentContent http.Handler // required
 }
 
@@ -56,7 +56,7 @@ func Run(ctx context.Context, cfg Config) error {
 		embeddedApplicationArchive,
 		cfg.HandlerPath,
 		cfg.Handler,
-		cfg.AttachmentContentPath,
+		cfg.AttachmentContentPattern,
 		cfg.AttachmentContent,
 	)
 	if err != nil {

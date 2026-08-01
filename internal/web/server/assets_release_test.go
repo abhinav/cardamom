@@ -29,7 +29,7 @@ func TestRun_servesConnectAndGeneratedAssetsOnOneListener(t *testing.T) {
 			Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = io.WriteString(w, "connect")
 			}),
-			AttachmentContentPath: "/attachments/",
+			AttachmentContentPattern: "/board/{boardID}/attachment/{attachmentID}",
 			AttachmentContent: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = io.WriteString(w, "attachment")
 			}),
@@ -77,7 +77,7 @@ func TestRun_servesConnectAndGeneratedAssetsOnOneListener(t *testing.T) {
 	request, err = http.NewRequestWithContext(
 		t.Context(),
 		http.MethodGet,
-		address+"/attachments/att_example/content",
+		address+"/board/board-1/attachment/att_example",
 		nil,
 	)
 	require.NoError(t, err)

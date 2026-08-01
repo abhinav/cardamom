@@ -3,7 +3,6 @@ package markdown
 import (
 	"context"
 	"fmt"
-	"net/url"
 	"strings"
 
 	"github.com/yuin/goldmark/ast"
@@ -442,9 +441,10 @@ func appendAttachmentLabel(node ast.Node, current, fallback string) {
 }
 
 func attachmentContentURL(boardID board.ID, attachmentID attachment.ID) string {
-	query := url.Values{"board_id": []string{boardID.String()}}
-	return (&url.URL{
-		Path:     "/attachments/" + attachmentID.String() + "/content",
-		RawQuery: query.Encode(),
-	}).String()
+	return boardEntityURL(
+		boardID,
+		"attachment",
+		attachmentID.String(),
+		"",
+	)
 }

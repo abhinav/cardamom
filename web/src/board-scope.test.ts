@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  attachmentPath,
   boardScopePath,
+  issuePath,
   routeBoardPage,
   routeBoardScope,
   scopeKey,
@@ -39,6 +41,15 @@ describe("board scope routes", () => {
       "/all/routines",
     );
     expect(boardScopePath({ kind: "all" }, "settings")).toBe("/all");
+  });
+
+  it("builds canonical board-owned entity routes", () => {
+    expect(issuePath("board one", "cm/task")).toBe(
+      "/board/board%20one/issue/cm%2Ftask",
+    );
+    expect(attachmentPath("board one", "att/value")).toBe(
+      "/board/board%20one/attachment/att%2Fvalue",
+    );
   });
 
   it("identifies the collection page preserved by board selection", () => {

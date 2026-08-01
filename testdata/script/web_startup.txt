@@ -59,7 +59,8 @@ done
 
 curl --fail --silent "$url/" >shell.body
 grep '<div id="app"></div>' shell.body >/dev/null
-curl --fail --silent "$url/issues/web-1" >spa.body
+curl --fail --silent \
+  "$url/board/board_00000000000000000000/issue/web-1" >spa.body
 cmp shell.body spa.body
 
 curl --silent --output missing.body --write-out '%{http_code}\n' \

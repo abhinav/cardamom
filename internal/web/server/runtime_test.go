@@ -67,8 +67,8 @@ func startBrowserFailureServer(
 				Bind: "127.0.0.1", Port: 0,
 				Notice: noticeWriter, Diagnostic: diagnostic,
 				HandlerPath: "/cardamom.private.v1.", Handler: http.NotFoundHandler(),
-				AttachmentContentPath: "/attachments/",
-				AttachmentContent:     http.NotFoundHandler(),
+				AttachmentContentPattern: "/board/{boardID}/attachment/{attachmentID}",
+				AttachmentContent:        http.NotFoundHandler(),
 			},
 			http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 				_, _ = io.WriteString(w, "cardamom")

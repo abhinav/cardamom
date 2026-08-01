@@ -51,7 +51,7 @@ describe("Approval card", () => {
 
     expect(approvalPresentation(checkpoint)).toEqual({
       description,
-      issueHref: "/issues/cm-check",
+      issueHref: "/board/private-board/issue/cm-check",
       issueID: "cm-check",
       readiness: "Ready",
       reasonID: "approval-reason-cm-check",

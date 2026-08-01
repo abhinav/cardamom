@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 
+import { issuePath } from "../board-scope.ts";
 import type { RelatedIssue } from "../gen/cardamom/private/v1/issue_pb.ts";
 import { IssueStatusDot } from "../issue-status.tsx";
 
@@ -14,7 +15,7 @@ export function IssueReferenceLink({
   return (
     <Link
       className="issue-reference-link"
-      to={`/issues/${encodeURIComponent(issue.id)}`}
+      to={issuePath(issue.boardId, issue.id)}
       aria-current={current ? "page" : undefined}
     >
       <span className="issue-reference-title">

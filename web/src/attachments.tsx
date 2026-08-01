@@ -8,6 +8,7 @@ import { useEffect, useState } from "react";
 
 import type { AttachmentClient } from "./api.ts";
 import { AttachmentIdentity } from "./attachment-identity.tsx";
+import { attachmentPath } from "./board-scope.ts";
 import {
   AttachmentLifecycle,
   AttachmentService,
@@ -162,7 +163,7 @@ export function attachmentContent(
     case BlobAvailability.VERIFIED:
       return {
         available: true,
-        href: `/attachments/${encodeURIComponent(attachment.id)}/content?board_id=${encodeURIComponent(boardId)}`,
+        href: attachmentPath(boardId, attachment.id),
         label: "Download",
       };
     case BlobAvailability.MISSING:

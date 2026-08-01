@@ -6,7 +6,6 @@ import (
 	"errors"
 	"mime"
 	"net/http"
-	"strings"
 	"time"
 
 	"go.abhg.dev/cardamom/internal/attachment"
@@ -14,9 +13,9 @@ import (
 	"go.abhg.dev/cardamom/internal/must"
 )
 
-// PathPrefix is the raw attachment content route prefix mounted before browser
+// PathPattern is the canonical raw attachment route mounted before browser
 // application fallbacks.
-const PathPrefix = "/attachments/"
+const PathPattern = "/board/{boardID}/attachment/{attachmentID}"
 
 // Attachments opens verified immutable attachment content.
 type Attachments interface {
@@ -38,18 +37,12 @@ type Config struct {
 
 	// Authorizer approves access before Attachments is called.
 	Authorizer Authorizer // required
-
-	// DefaultBoardID scopes path-only requests to the board selected when the
-	// server started. It is nil when path-only requests have no board scope.
-	// A board_id query selects another board in the same store.
-	DefaultBoardID *board.ID
 }
 
 // Handler serves the one non-Connect browser content resource.
 type Handler struct {
-	attachments    Attachments
-	authorizer     Authorizer
-	defaultBoardID *board.ID
+	attachments Attachments
+	authorizer  Authorizer
 }
 
 var _ http.Handler = (*Handler)(nil)
@@ -58,22 +51,19 @@ var _ http.Handler = (*Handler)(nil)
 func New(cfg Config) *Handler {
 	must.NotBeNilf(cfg.Attachments, "attachmentcontent: attachments are required")
 	must.NotBeNilf(cfg.Authorizer, "attachmentcontent: authorizer is required")
-	var defaultBoardID *board.ID
-	if cfg.DefaultBoardID != nil {
-		value := *cfg.DefaultBoardID
-		defaultBoardID = &value
-	}
-	return &Handler{
-		attachments: cfg.Attachments, authorizer: cfg.Authorizer,
-		defaultBoardID: defaultBoardID,
-	}
+	return &Handler{attachments: cfg.Attachments, authorizer: cfg.Authorizer}
 }
 
 // ServeHTTP validates the raw route identity, authorizes it, and delegates HTTP
 // content semantics to net/http over the verified seekable handle.
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	attachmentID, ok := routeAttachmentID(r.URL.Path)
-	if !ok {
+	boardID, err := board.NewID(r.PathValue("boardID"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	attachmentID, err := attachment.NewID(r.PathValue("attachmentID"))
+	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -83,24 +73,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var boardID board.ID
-	if value := r.URL.Query().Get("board_id"); value != "" {
-		parsed, err := board.NewID(value)
-		if err != nil {
-			http.NotFound(w, r)
-			return
-		}
-		boardID = parsed
-	} else if h.defaultBoardID == nil {
-		http.NotFound(w, r)
-		return
-	} else {
-		boardID = *h.defaultBoardID
-	}
-	if _, err := board.NewID(boardID.String()); err != nil {
-		http.NotFound(w, r)
-		return
-	}
 	if err := h.authorizer.AuthorizeAttachmentContent(
 		r.Context(),
 		boardID,
@@ -130,19 +102,6 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		contentDisposition(value.Filename, attachment.IsInlineMediaType(value.MediaType)),
 	)
 	http.ServeContent(w, r, value.Filename.String(), time.Time{}, opened.Handle)
-}
-
-func routeAttachmentID(requestPath string) (attachment.ID, bool) {
-	if !strings.HasPrefix(requestPath, PathPrefix) ||
-		!strings.HasSuffix(requestPath, "/content") {
-		return "", false
-	}
-	value := strings.TrimSuffix(strings.TrimPrefix(requestPath, PathPrefix), "/content")
-	if value == "" || strings.ContainsRune(value, '/') {
-		return "", false
-	}
-	id, err := attachment.NewID(value)
-	return id, err == nil
 }
 
 func attachmentContentErrorStatus(err error) int {
