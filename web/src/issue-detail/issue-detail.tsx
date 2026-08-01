@@ -8,7 +8,13 @@ import { useMutation, useTransport } from "@connectrpc/connect-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ChevronRight, Pencil } from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import { createRoot } from "react-dom/client";
 import { Link } from "react-router";
 
@@ -35,7 +41,6 @@ import {
   IssueSort,
   IssueLifecycle,
   IssueService,
-  IssueType,
   SortDirection,
   ListIssuesRequestSchema,
 } from "../gen/cardamom/private/v1/issue_pb.ts";
@@ -46,8 +51,13 @@ import {
   type StateRecord,
 } from "../gen/cardamom/private/v1/record_pb.ts";
 import { BoardScopeSchema } from "../gen/cardamom/private/v1/scope_pb.ts";
+import { issueTypeLabel } from "../issue-collection.ts";
 import { IssueStatusBadge } from "../issue-status.tsx";
 import { IssueLabel, type SelectLabel } from "../issue-label.tsx";
+import {
+  IssueReferencePill,
+  type LoadIssueReferencePreview,
+} from "../issue-reference-pill.tsx";
 import {
   IssueMetadataFields,
   metadataLabels,
@@ -78,6 +88,9 @@ import {
 } from "./model.ts";
 
 import "./issue-detail.css";
+
+const IssueReferencePreviewLoaderContext =
+  createContext<LoadIssueReferencePreview | undefined>(undefined);
 
 interface IssueDetailPageProps {
   actor: string;
@@ -346,6 +359,25 @@ export function IssueDetailPage({
     ),
     select: (response) => response.state,
   });
+  const loadIssueReferencePreview = useCallback<LoadIssueReferencePreview>(
+    async (referencedIssueID) => {
+      const response = await queryClient.fetchQuery(
+        unaryRouteQueryOptions(
+          IssueService.method.getIssue,
+          { issueId: referencedIssueID },
+          transport,
+        ),
+      );
+      const referencedIssue = response.issue?.issue;
+      if (referencedIssue === undefined) {
+        throw new Error(
+          `Issue ${referencedIssueID} was not returned by the server.`,
+        );
+      }
+      return referencedIssue;
+    },
+    [queryClient, transport],
+  );
   const detail = requestData(issueRequest);
 
   if (detail === undefined) {
@@ -469,108 +501,107 @@ export function IssueDetailPage({
   const logEntries = visibleIssueLogEntries(requestData(logRequest), state);
 
   return (
-    <article className="issue-detail-page" aria-labelledby="issue-title">
-      <RequestRefreshError request={issueRequest} recordName="issue" />
-      <RequestRefreshError request={stateRequest} recordName="state" />
-      <IssueHeader
-        ancestors={detail.context?.ancestors ?? []}
-        summary={issue}
-        externalKeys={detail.externalKeys}
-      />
-      {canMutateServer && (
-        <IssueActions
-          actor={actor}
-          pending={mutation.status === "pending"}
+    <IssueReferencePreviewLoaderContext.Provider
+      value={loadIssueReferencePreview}
+    >
+      <article className="issue-detail-page" aria-labelledby="issue-title">
+        <RequestRefreshError request={issueRequest} recordName="issue" />
+        <RequestRefreshError request={stateRequest} recordName="state" />
+        <IssueHeader
+          ancestors={detail.context?.ancestors ?? []}
           summary={issue}
-          changeLifecycle={(action) => void changeLifecycle(action)}
-          edit={openMetadataEditor}
+          externalKeys={detail.externalKeys}
         />
-      )}
-      {canMutateServer && metadataEditor === undefined && (
-        <MutationResult mutation={mutation} />
-      )}
-      {canMutateServer && metadataEditor !== undefined && (
-        <EditIssueDialog
-          actor={actor}
-          draft={metadataEditor}
-          error={mutation.status === "error" ? mutation.message : undefined}
-          issueId={issueId}
+        {canMutateServer && (
+          <IssueActions
+            actor={actor}
+            pending={mutation.status === "pending"}
+            summary={issue}
+            changeLifecycle={(action) => void changeLifecycle(action)}
+            edit={openMetadataEditor}
+          />
+        )}
+        {canMutateServer && metadataEditor === undefined && (
+          <MutationResult mutation={mutation} />
+        )}
+        {canMutateServer && metadataEditor !== undefined && (
+          <EditIssueDialog
+            actor={actor}
+            draft={metadataEditor}
+            error={mutation.status === "error" ? mutation.message : undefined}
+            issueId={issueId}
+            pending={mutation.status === "pending"}
+            onChange={(draft) => {
+              setMetadataEditor(draft);
+              if (mutation.status === "error") {
+                setMutation({ status: "idle" });
+              }
+            }}
+            onDismiss={() => setMetadataEditor(undefined)}
+            onSubmit={() => void saveMetadata()}
+          />
+        )}
+        <PrimaryRecord
+          detail={detail}
+          detailsOpen={!collapsedDetailsBoardIds.includes(issue.boardId)}
+          selectLabel={selectLabel}
+          setDetailsOpen={(open) =>
+            setDetailsCollapsed(issue.boardId, !open)
+          }
+        />
+        <AttachmentRecords boardId={issue.boardId} issueId={issue.id} />
+        <RelationshipBand
+          canMutate={canMutateServer}
+          dependencyQuery={dependencyQuery}
+          detail={detail}
           pending={mutation.status === "pending"}
-          onChange={(draft) => {
-            setMetadataEditor(draft);
-            if (mutation.status === "error") {
-              setMutation({ status: "idle" });
-            }
-          }}
-          onDismiss={() => setMetadataEditor(undefined)}
-          onSubmit={() => void saveMetadata()}
+          relationsOpen={relationsOpen}
+          removeDependency={(id) => void changeDependency(id, "remove")}
+          setDependencyQuery={setDependencyQuery}
+          setRelationsOpen={setRelationsOpen}
+          addDependency={(id) => void changeDependency(id, "add")}
         />
-      )}
-      <PrimaryRecord
-        detail={detail}
-        detailsOpen={!collapsedDetailsBoardIds.includes(issue.boardId)}
-        selectLabel={selectLabel}
-        setDetailsOpen={(open) =>
-          setDetailsCollapsed(issue.boardId, !open)
-        }
-      />
-      <AttachmentRecords
-        boardId={issue.boardId}
-        issueId={issue.id}
-      />
-      <RelationshipBand
-        canMutate={canMutateServer}
-        dependencyQuery={dependencyQuery}
-        detail={detail}
-        pending={mutation.status === "pending"}
-        relationsOpen={relationsOpen}
-        removeDependency={(id) =>
-          void changeDependency(id, "remove")
-        }
-        setDependencyQuery={setDependencyQuery}
-        setRelationsOpen={setRelationsOpen}
-        addDependency={(id) => void changeDependency(id, "add")}
-      />
-      <IssueLog
-        entries={logEntries}
-        state={state}
-        request={logRequest}
-        retry={() => void logRequest.refetch()}
-      />
-      <CurrentIssueState state={state} />
-      {canMutateServer && (
-        <IssueLogComposer
-          body={logBody}
-          pending={mutation.status === "pending"}
-          setBody={setLogBody}
-          submit={(event) => {
-            event.preventDefault();
-            if (logBody.trim() !== "") {
-              void addLogEntry();
-            }
-          }}
+        <IssueLog
+          entries={logEntries}
+          state={state}
+          request={logRequest}
+          retry={() => void logRequest.refetch()}
         />
-      )}
-      <CheckpointRecord detail={detail} />
-      {canMutateServer && (
-        <CheckpointControls
-          actor={actor}
-          pending={mutation.status === "pending"}
-          reason={checkpointReason}
-          setReason={setCheckpointReason}
-          summary={issue}
-          decide={(decision) => void decideCheckpoint(decision)}
-        />
-      )}
-      {canMutateServer && (
-        <AttachmentUploadPanel
-          actor={actor}
-          boardId={issue.boardId}
-          client={attachmentClient}
-          issueId={issue.id}
-        />
-      )}
-    </article>
+        <CurrentIssueState state={state} />
+        {canMutateServer && (
+          <IssueLogComposer
+            body={logBody}
+            pending={mutation.status === "pending"}
+            setBody={setLogBody}
+            submit={(event) => {
+              event.preventDefault();
+              if (logBody.trim() !== "") {
+                void addLogEntry();
+              }
+            }}
+          />
+        )}
+        <CheckpointRecord detail={detail} />
+        {canMutateServer && (
+          <CheckpointControls
+            actor={actor}
+            pending={mutation.status === "pending"}
+            reason={checkpointReason}
+            setReason={setCheckpointReason}
+            summary={issue}
+            decide={(decision) => void decideCheckpoint(decision)}
+          />
+        )}
+        {canMutateServer && (
+          <AttachmentUploadPanel
+            actor={actor}
+            boardId={issue.boardId}
+            client={attachmentClient}
+            issueId={issue.id}
+          />
+        )}
+      </article>
+    </IssueReferencePreviewLoaderContext.Provider>
   );
 }
 
@@ -605,7 +636,7 @@ export function IssueHeader({
       <h1 id="issue-title">{summary.title}</h1>
       <div className="issue-detail-badges" aria-label="Issue classification">
         <IssueStatusBadge status={summary.status} />
-        <span className="metadata-chip">{typeLabel(summary.type)}</span>
+        <span className="metadata-chip">{issueTypeLabel(summary.type)}</span>
         <span className="metadata-chip">P{summary.priority}</span>
       </div>
     </header>
@@ -634,30 +665,22 @@ export function IssueBreadcrumbs({
           const reference = `%${issue.id}`;
           return (
             <li key={issue.id}>
-              <ClipboardPill
-                copyLabel={`Copy issue ID ${reference}`}
-                copyText={reference}
-                title={issue.title}
-              >
+              <IssueReferencePill issue={issue} issueID={issue.id}>
                 <Link
                   className="issue-containment-link"
                   to={`/issues/${encodeURIComponent(issue.id)}`}
                 >
                   {reference}
                 </Link>
-              </ClipboardPill>
+              </IssueReferencePill>
               <ChevronRight aria-hidden="true" />
             </li>
           );
         })}
         <li>
-          <ClipboardPill
-            copyLabel={`Copy issue ID ${currentReference}`}
-            copyText={currentReference}
-            title={current.title}
-          >
+          <IssueReferencePill issue={current} issueID={current.id}>
             <span aria-current="page">{currentReference}</span>
-          </ClipboardPill>
+          </IssueReferencePill>
         </li>
       </ol>
     </nav>
@@ -1392,6 +1415,22 @@ export function Markdown({
   content: MarkdownContent | undefined;
   empty?: string;
 }) {
+  const loadIssue = useContext(IssueReferencePreviewLoaderContext);
+  const enhanceMarkdown = useCallback((element: HTMLDivElement | null) => {
+    if (element === null) {
+      return;
+    }
+    linkMarkdownImages(element);
+    const unmountIssues = loadIssue === undefined
+      ? () => undefined
+      : mountMarkdownIssueReferences(element, loadIssue);
+    const unmountObjects = mountMarkdownObjectReferences(element);
+    return () => {
+      unmountIssues();
+      unmountObjects();
+    };
+  }, [content?.renderedHtml, loadIssue]);
+
   if (content === undefined || content.source.trim() === "") {
     return empty === undefined ? null : (
       <p className="issue-detail-empty">{empty}</p>
@@ -1401,18 +1440,7 @@ export function Markdown({
     <div
       className="issue-markdown"
       dangerouslySetInnerHTML={{ __html: content.renderedHtml }}
-      ref={(element) => {
-        if (element === null) {
-          return;
-        }
-        linkMarkdownImages(element);
-        const unmountIssues = mountMarkdownIssueReferences(element);
-        const unmountObjects = mountMarkdownObjectReferences(element);
-        return () => {
-          unmountIssues();
-          unmountObjects();
-        };
-      }}
+      ref={enhanceMarkdown}
     />
   );
 }
@@ -1452,18 +1480,18 @@ export function markdownIssueReferenceTargets(
   return targets;
 }
 
-function mountMarkdownIssueReferences(root: HTMLDivElement): () => void {
+function mountMarkdownIssueReferences(
+  root: HTMLDivElement,
+  loadIssue: LoadIssueReferencePreview,
+): () => void {
   const roots = markdownIssueReferenceTargets(root).map(
     ({ element, href, id }) => {
       const issueReference = `%${id}`;
       const childRoot = createRoot(element);
       childRoot.render(
-        <ClipboardPill
-          copyLabel={`Copy issue ID ${issueReference}`}
-          copyText={issueReference}
-        >
+        <IssueReferencePill issueID={id} loadIssue={loadIssue}>
           <a href={href}>{issueReference}</a>
-        </ClipboardPill>,
+        </IssueReferencePill>,
       );
       return childRoot;
     },
@@ -1626,10 +1654,6 @@ function formatTimestamp(
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-}
-
-function typeLabel(type: IssueType): string {
-  return enumLabel(IssueType[type]);
 }
 
 function enumLabel(value: string | undefined): string {
