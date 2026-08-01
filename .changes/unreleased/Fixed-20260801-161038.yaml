@@ -1,0 +1,3 @@
+kind: Fixed
+body: Keep issue and object reference pills mounted when rendered Markdown rerenders.
+time: 2026-08-01T16:10:38.092989-07:00
