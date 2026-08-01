@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { Search, X } from "lucide-react";
 
+import type { IssueFilterNavigation } from "./collection-route.ts";
 import type { IssueFilters } from "./issue-collection.ts";
 
 interface CollectionSearchControlProps {
   filters: IssueFilters;
-  setFilters: (filters: IssueFilters) => void;
+  setFilters: (
+    filters: IssueFilters,
+    navigation: IssueFilterNavigation,
+  ) => void;
 }
 
 export function CollectionSearchControl(
@@ -61,10 +65,13 @@ export function CollectionSearchControlView(
             value={props.filters.query}
             placeholder="Search issue titles"
             onInput={(event) =>
-              props.setFilters({
-                ...props.filters,
-                query: event.currentTarget.value,
-              })
+              props.setFilters(
+                {
+                  ...props.filters,
+                  query: event.currentTarget.value,
+                },
+                "replace",
+              )
             }
           />
         </>
@@ -91,10 +98,13 @@ export function CollectionSearchControlView(
           aria-label="Clear search"
           title="Clear search"
           onClick={() =>
-            props.setFilters({
-              ...props.filters,
-              query: "",
-            })}
+            props.setFilters(
+              {
+                ...props.filters,
+                query: "",
+              },
+              "replace",
+            )}
         >
           <X aria-hidden="true" />
         </button>

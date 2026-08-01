@@ -16,6 +16,7 @@ describe("responsive toolbar", () => {
         filters: { ...defaultBoardView.filters, label: "area:web" },
       },
       grouping: "status",
+      updateFilters: vi.fn(),
       updateGrouping: vi.fn(),
       updateView: vi.fn(),
       createIssue: vi.fn(),

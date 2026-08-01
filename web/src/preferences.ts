@@ -33,7 +33,7 @@ export const defaultPreferences: Preferences = {
 };
 
 const storageKey = "cardamom.preferences";
-const storageVersion = 4;
+const storageVersion = 5;
 
 export function loadPreferences(storage: PreferencesStorage): Preferences {
   try {
@@ -58,18 +58,20 @@ export function loadPreferences(storage: PreferencesStorage): Preferences {
         relationsOpen: true,
       };
     }
+    const boardView = parseBoardView(value.boardView);
+    const listView = parseListView(value.listView);
     return {
       ...shellPreferences,
-      boardView: parseBoardView(value.boardView),
+      boardView: { ...boardView, filters: defaultBoardView.filters },
       collapsedIssueDetailsBoardIds:
         value.version === 2
           ? []
           : parseCollapsedIssueDetails(
               value.collapsedIssueDetailsBoardIds,
             ),
-      listView: parseListView(value.listView),
+      listView: { ...listView, filters: defaultListView.filters },
       relationsOpen:
-        value.version === storageVersion &&
+        value.version >= 4 &&
         typeof value.relationsOpen === "boolean"
           ? value.relationsOpen
           : true,
@@ -90,10 +92,18 @@ export function savePreferences(
         version: storageVersion,
         actor: preferences.actor,
         theme: preferences.theme,
-        boardView: preferences.boardView,
+        boardView: {
+          grouping: preferences.boardView.grouping,
+          showEmptyColumns: preferences.boardView.showEmptyColumns,
+          sort: preferences.boardView.sort,
+          direction: preferences.boardView.direction,
+        },
         collapsedIssueDetailsBoardIds:
           preferences.collapsedIssueDetailsBoardIds,
-        listView: preferences.listView,
+        listView: {
+          sort: preferences.listView.sort,
+          direction: preferences.listView.direction,
+        },
         relationsOpen: preferences.relationsOpen,
       }),
     );
@@ -123,7 +133,7 @@ export function setIssueDetailsCollapsed(
 }
 
 function isPersistedPreferences(value: unknown): value is Preferences & {
-  version: 1 | 2 | 3 | 4;
+  version: 1 | 2 | 3 | 4 | 5;
 } {
   if (typeof value !== "object" || value === null) {
     return false;
@@ -133,6 +143,7 @@ function isPersistedPreferences(value: unknown): value is Preferences & {
     (candidate.version === 1 ||
       candidate.version === 2 ||
       candidate.version === 3 ||
+      candidate.version === 4 ||
       candidate.version === storageVersion) &&
     typeof candidate.actor === "string" &&
     isTheme(candidate.theme)

@@ -10,7 +10,7 @@ import {
 import { defaultBoardView, defaultListView } from "./issue-collection.ts";
 
 describe("preferences", () => {
-  it("round trips presentation preferences without route identity", () => {
+  it("round trips presentation preferences without route identity or filters", () => {
     const storage = new MemoryStorage();
     const preferences = {
       actor: "captain",
@@ -32,8 +32,19 @@ describe("preferences", () => {
 
     savePreferences(storage, preferences);
 
-    expect(loadPreferences(storage)).toEqual(preferences);
+    expect(loadPreferences(storage)).toEqual({
+      ...preferences,
+      boardView: {
+        ...preferences.boardView,
+        filters: defaultBoardView.filters,
+      },
+      listView: {
+        ...preferences.listView,
+        filters: defaultListView.filters,
+      },
+    });
     expect(storage.getItem("cardamom.preferences")).not.toBeNull();
+    expect(storage.getItem("cardamom.preferences")).not.toContain("filters");
   });
 
   it("drops legacy board scope while preserving shell preferences", () => {

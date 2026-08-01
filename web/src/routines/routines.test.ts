@@ -8,14 +8,11 @@ import {
   SortDirection,
 } from "../gen/cardamom/private/v1/issue_pb.ts";
 import { LifecycleAction } from "../issue-lifecycle.ts";
-import type { PreferencesStorage } from "../preferences.ts";
 import {
   changeRoutineLifecycle,
   formatRecency,
   routineListInput,
-  loadShowRetired,
   routinePresentation,
-  saveShowRetired,
 } from "./routines.tsx";
 
 describe("Routines RPC boundary", () => {
@@ -165,21 +162,6 @@ describe("Routines RPC boundary", () => {
       rootIssueIds: ["cm-routine"],
       context: { actor: "browser-actor" },
     });
-  });
-});
-
-describe("Show retired preference", () => {
-  it("persists route-local visibility under the Cardamom product key", () => {
-    const values = new Map<string, string>();
-    const storage: PreferencesStorage = {
-      getItem: (key) => values.get(key) ?? null,
-      setItem: (key, value) => values.set(key, value),
-    };
-
-    expect(loadShowRetired(storage)).toBe(false);
-    saveShowRetired(storage, true);
-    expect(loadShowRetired(storage)).toBe(true);
-    expect(values.get("cardamom.routines.showRetired")).toBe("true");
   });
 });
 

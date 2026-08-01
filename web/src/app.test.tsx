@@ -71,11 +71,36 @@ describe("application shell", () => {
     );
 
     expect(markup).toContain('aria-label="Select board scope: Primary"');
-    expect(markup).toContain('href="/board/board-1"');
+    expect(markup).toContain('href="/board/board-1?lifecycle=all"');
     expect(markup).toContain('href="/board/board-1/approvals"');
     expect(markup).toContain('href="/board/board-1/list"');
     expect(markup).toContain('href="/board/board-1/routines"');
     expect(markup).not.toContain('href="/list"');
+  });
+
+  it("preserves effective filters between Board and List links", () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+
+    const markup = renderApp(
+      queryClient,
+      transport,
+      "/board/board-1?status=in-progress&title=route+filters",
+    );
+
+    expect(markup).toContain(
+      'href="/board/board-1?status=in-progress&amp;title=route+filters"',
+    );
+    expect(markup).toContain(
+      'href="/board/board-1/list?lifecycle=current&amp;status=in-progress&amp;' +
+        'title=route+filters"',
+    );
   });
 
   it("renders canonical all-board navigation", () => {

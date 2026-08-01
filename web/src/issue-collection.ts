@@ -301,17 +301,16 @@ function parseIssueView(
   fallback: IssueViewPreferences,
 ): IssueViewPreferences {
   if (
-    !isRecord(value) ||
-    !isSort(value.sort) ||
-    !isDirection(value.direction) ||
-    !isFilters(value.filters)
+    !isRecord(value)
   ) {
     return fallback;
   }
   return {
-    filters: value.filters,
-    sort: value.sort,
-    direction: value.direction,
+    filters: isFilters(value.filters) ? value.filters : fallback.filters,
+    sort: isSort(value.sort) ? value.sort : fallback.sort,
+    direction: isDirection(value.direction)
+      ? value.direction
+      : fallback.direction,
   };
 }
 

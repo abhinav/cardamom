@@ -11,6 +11,7 @@ import {
   type BoardScopeSelection,
 } from "./board-scope.ts";
 import { CollectionSearchControl } from "./collection-search-control.tsx";
+import type { IssueFilterNavigation } from "./collection-route.ts";
 import {
   CreateIssueDialog,
   issueCreationBoardId,
@@ -54,10 +55,19 @@ interface SharedRouteProps {
 
 interface BoardRouteProps extends SharedRouteProps {
   view: BoardViewPreferences;
+  updateFilters: (
+    filters: IssueFilters,
+    navigation: IssueFilterNavigation,
+  ) => void;
   updateView: (view: BoardViewPreferences) => void;
 }
 
-export function BoardRoute({ view, updateView, ...shared }: BoardRouteProps) {
+export function BoardRoute({
+  view,
+  updateFilters,
+  updateView,
+  ...shared
+}: BoardRouteProps) {
   return (
     <IssueCollectionRoute
       {...shared}
@@ -65,6 +75,7 @@ export function BoardRoute({ view, updateView, ...shared }: BoardRouteProps) {
       view={view}
       grouping={view.grouping}
       showEmptyColumns={view.showEmptyColumns}
+      updateFilters={updateFilters}
       updateGrouping={(grouping) => updateView({ ...view, grouping })}
       updateView={(next) => updateView({ ...view, ...next })}
     />
@@ -73,6 +84,10 @@ export function BoardRoute({ view, updateView, ...shared }: BoardRouteProps) {
 
 interface ListRouteProps extends SharedRouteProps {
   view: IssueViewPreferences;
+  updateFilters: (
+    filters: IssueFilters,
+    navigation: IssueFilterNavigation,
+  ) => void;
   updateView: (view: IssueViewPreferences) => void;
 }
 
@@ -92,6 +107,10 @@ interface IssueCollectionRouteProps extends SharedRouteProps {
   view: IssueViewPreferences;
   grouping?: IssueGrouping;
   showEmptyColumns?: boolean;
+  updateFilters: (
+    filters: IssueFilters,
+    navigation: IssueFilterNavigation,
+  ) => void;
   updateGrouping?: (grouping: IssueGrouping) => void;
   updateView: (view: IssueViewPreferences) => void;
 }
@@ -196,6 +215,7 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
           mode={props.mode}
           view={props.view}
           grouping={props.grouping}
+          updateFilters={props.updateFilters}
           updateGrouping={props.updateGrouping}
           updateView={props.updateView}
           loadedCount={loadedIssues.length}
@@ -250,14 +270,16 @@ interface IssueControlsProps {
   totalCount?: number;
   readOnly?: boolean;
   grouping?: IssueGrouping;
+  updateFilters: (
+    filters: IssueFilters,
+    navigation: IssueFilterNavigation,
+  ) => void;
   updateGrouping?: (grouping: IssueGrouping) => void;
   updateView: (view: IssueViewPreferences) => void;
   createIssue?: () => void;
 }
 
 export function IssueControls(props: IssueControlsProps) {
-  const setFilters = (filters: IssueFilters) =>
-    props.updateView({ ...props.view, filters });
   const defaultLifecycle = props.mode === "board" ? "current" : "all";
   const activeFilterCount = [
     props.view.filters.lifecycle !== defaultLifecycle,
@@ -284,7 +306,7 @@ export function IssueControls(props: IssueControlsProps) {
       )}
       <CollectionSearchControl
         filters={props.view.filters}
-        setFilters={setFilters}
+        setFilters={props.updateFilters}
       />
       <details className="collection-options" name="issue-collection-options">
         <summary className="icon-control" aria-label={filterLabel} title="Filters">
@@ -296,13 +318,17 @@ export function IssueControls(props: IssueControlsProps) {
           )}
         </summary>
         <div className="collection-options-panel">
-          <FilterFields filters={props.view.filters} setFilters={setFilters} />
+          <FilterFields
+            filters={props.view.filters}
+            setFilters={(filters) => props.updateFilters(filters, "push")}
+          />
           <div className="filter-actions">
             <button
               type="button"
               className="secondary-button"
               disabled={!canClearFilters}
-              onClick={() => setFilters(clearIssueFilters(props.mode))}
+              onClick={() =>
+                props.updateFilters(clearIssueFilters(props.mode), "push")}
             >
               Clear filters
             </button>
