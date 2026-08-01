@@ -609,6 +609,48 @@ describe("issue detail presentation", () => {
     );
   });
 
+  it("formats the State update time like a Log-entry timestamp", () => {
+    const updatedAt = create(TimestampSchema, {
+      seconds: BigInt(Date.UTC(2026, 6, 31, 18, 45) / 1_000),
+    });
+    const stateMarkup = renderToStaticMarkup(
+      CurrentIssueState({
+        state: create(StateRecordSchema, {
+          body: {
+            source: "Ready for acceptance.",
+            renderedHtml: "<p>Ready for acceptance.</p>",
+          },
+          updatedAt,
+        }),
+      }),
+    );
+    const logMarkup = renderToStaticMarkup(
+      LogEntryList({
+        entries: [
+          create(LogEntrySchema, {
+            id: "log-timestamp",
+            payload: {
+              case: "post",
+              value: {
+                actor: "observer",
+                body: {
+                  source: "Timestamp reference.",
+                  renderedHtml: "<p>Timestamp reference.</p>",
+                },
+                createdAt: updatedAt,
+              },
+            },
+          }),
+        ],
+      }),
+    );
+
+    const stateTimestamp = stateMarkup.match(/<time>([^<]+)<\/time>/)?.[1];
+    const logTimestamp = logMarkup.match(/<time>([^<]+)<\/time>/)?.[1];
+    expect(stateTimestamp).toBe(logTimestamp);
+    expect(stateTimestamp).toBeDefined();
+  });
+
   it("leaves legacy State Markdown unchanged without inventing an action block", () => {
     const markup = renderToStaticMarkup(
       CurrentIssueState({
