@@ -298,8 +298,26 @@ func TestWebCommandDelegatesLongRunningInvocation(t *testing.T) {
 	assert.Same(t, invocation.Context, operation.ctx)
 }
 
+func TestWebCommandRejectsAggregateWithLocalSelectors(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	operation := new(fakeWebOperation)
+	invocation := testInvocation(t, &stdout, &stderr)
+	invocation.Store = "/repo/.cardamom"
+	sourceURL, err := url.Parse("http://primary.test")
+	require.NoError(t, err)
+	command := &webCommand{
+		Sources: []WebSource{{Alias: "primary", URL: sourceURL}},
+	}
+
+	err = command.Run(invocation, operation)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be combined with --store or --board")
+	assert.False(t, operation.called)
+}
+
 func TestWebCommandParsesAndValidatesSources(t *testing.T) {
 	t.Run("RepeatedSources", func(t *testing.T) {
+		t.Setenv("CARDAMOM_STORE", "")
 		var stdout, stderr bytes.Buffer
 		operation := new(fakeWebOperation)
 		app, err := New(

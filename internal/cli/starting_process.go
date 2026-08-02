@@ -823,6 +823,9 @@ func (c *webCommand) Run(invocation *Invocation, operation WebOperation) error {
 	if invocation.Output.JSON() {
 		return UsageErrorf("web: --json is not supported")
 	}
+	if len(c.Sources) > 0 && (invocation.Store != "" || invocation.Board != "") {
+		return UsageErrorf("web: --source cannot be combined with --store or --board")
+	}
 	notice := invocation.Output.Stdout()
 	if invocation.Output.Quiet() {
 		notice = io.Discard

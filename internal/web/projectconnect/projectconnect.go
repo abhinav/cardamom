@@ -16,6 +16,7 @@ import (
 	"go.abhg.dev/cardamom/internal/project"
 	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
 	"go.abhg.dev/cardamom/internal/web"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -81,6 +82,10 @@ type Config struct {
 
 	// AccessMode reports the server-side write policy for this web invocation.
 	AccessMode web.AccessMode
+
+	// Source identifies the local store when it is published as an aggregate
+	// source. The source ID is empty for ordinary local web serving.
+	Source *privatev1.SourceRef
 }
 
 // Service adapts project catalog operations to generated ProjectService RPCs.
@@ -94,6 +99,7 @@ type Service struct {
 	schemaVersion        uint64
 	version              string
 	accessMode           web.AccessMode
+	source               *privatev1.SourceRef
 }
 
 var _ privatev1connect.ProjectServiceHandler = (*Service)(nil)
@@ -117,6 +123,7 @@ func New(cfg Config) *Service {
 		schemaVersion:        cfg.SchemaVersion,
 		version:              cfg.Version,
 		accessMode:           cfg.AccessMode,
+		source:               cloneSourceRef(cfg.Source),
 	}
 }
 
@@ -163,13 +170,26 @@ func (s *Service) GetBootstrap(
 		return nil, web.FromError(err)
 	}
 	response := &privatev1.GetBootstrapResponse{
-		Projects:      projects,
-		Boards:        boards,
-		IssueTypes:    validIssueTypes(),
-		IssueStatuses: validIssueStatuses(),
-		SchemaVersion: s.schemaVersion,
-		Version:       s.version,
-		AccessMode:    bootstrapAccessMode(s.accessMode),
+		Projects:        projects,
+		Boards:          boards,
+		IssueTypes:      validIssueTypes(),
+		IssueStatuses:   validIssueStatuses(),
+		SchemaVersion:   s.schemaVersion,
+		Version:         s.version,
+		AccessMode:      bootstrapAccessMode(s.accessMode),
+		ProtocolVersion: web.ProtocolVersion,
+		Capabilities:    web.ReadCapabilities(),
+	}
+	if s.source != nil {
+		response.Sources = []*privatev1.SourceCatalogEntry{{
+			Source:          cloneSourceRef(s.source),
+			Health:          privatev1.SourceHealth_SOURCE_HEALTH_HEALTHY,
+			Version:         s.version,
+			SchemaVersion:   s.schemaVersion,
+			ProtocolVersion: web.ProtocolVersion,
+			Capabilities:    web.ReadCapabilities(),
+			ReadOnly:        s.accessMode == web.AccessModeReadOnly,
+		}}
 	}
 	if s.serverDefaultBoardID != nil {
 		value := s.serverDefaultBoardID.String()
@@ -402,6 +422,13 @@ func cloneString(value *string) *string {
 	}
 	cloned := *value
 	return &cloned
+}
+
+func cloneSourceRef(value *privatev1.SourceRef) *privatev1.SourceRef {
+	if value == nil {
+		return nil
+	}
+	return proto.Clone(value).(*privatev1.SourceRef)
 }
 
 func mutationInvocation(value *privatev1.MutationContext) board.Invocation {

@@ -9,7 +9,7 @@ cmp stderr $WORK/golden/invalid-board.txt
 
 exec sh probe-empty-web.sh
 cmp stdout $WORK/golden/probe.txt
-cmpjson bootstrap.json $WORK/golden/bootstrap.json
+cmpjson bootstrap-stable.json $WORK/golden/bootstrap.json
 cmpjson catalog.json $WORK/golden/catalog.json
 
 -- probe-empty-web.sh --
@@ -56,6 +56,8 @@ while [ "$i" -lt 100 ]; do
   sleep 0.02
 done
 
+jq 'del(.sources[].source.storeLineageId)' bootstrap.json >bootstrap-stable.json
+
 jq '{
   projects: (.projects // []),
   boards: (.boards // []),
@@ -71,7 +73,7 @@ trap - EXIT
 echo 'empty web probe passed'
 
 -- golden/bootstrap.json --
-{"issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"schemaVersion":"20260729090000","version":"dev","accessMode":"ACCESS_MODE_READ_WRITE"}
+{"issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"schemaVersion":"20260729090000","version":"dev","accessMode":"ACCESS_MODE_READ_WRITE","protocolVersion":1,"capabilities":["board.catalog","board.read"],"sources":[{"source":{},"health":"SOURCE_HEALTH_HEALTHY","version":"dev","schemaVersion":"20260729090000","protocolVersion":1,"capabilities":["board.catalog","board.read"]}]}
 -- golden/catalog.json --
 {"projects":[],"boards":[],"serverDefaultBoardId":null}
 -- golden/invalid-board.txt --
