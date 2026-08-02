@@ -145,9 +145,11 @@ func (x *ListActionableCheckpointsRequest) GetScope() *BoardScope {
 type ListActionableCheckpointsResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// checkpoints contains currently actionable human decisions.
-	Checkpoints   []*ActionableCheckpoint `protobuf:"bytes,1,rep,name=checkpoints,proto3" json:"checkpoints,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Checkpoints []*ActionableCheckpoint `protobuf:"bytes,1,rep,name=checkpoints,proto3" json:"checkpoints,omitempty"`
+	// aggregate_status reports source completeness in aggregate mode.
+	AggregateStatus *AggregateStatus `protobuf:"bytes,2,opt,name=aggregate_status,json=aggregateStatus,proto3" json:"aggregate_status,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListActionableCheckpointsResponse) Reset() {
@@ -183,6 +185,13 @@ func (*ListActionableCheckpointsResponse) Descriptor() ([]byte, []int) {
 func (x *ListActionableCheckpointsResponse) GetCheckpoints() []*ActionableCheckpoint {
 	if x != nil {
 		return x.Checkpoints
+	}
+	return nil
+}
+
+func (x *ListActionableCheckpointsResponse) GetAggregateStatus() *AggregateStatus {
+	if x != nil {
+		return x.AggregateStatus
 	}
 	return nil
 }
@@ -328,7 +337,7 @@ var File_cardamom_private_v1_checkpoint_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_checkpoint_proto_rawDesc = "" +
 	"\n" +
-	"$cardamom/private/v1/checkpoint.proto\x12\x13cardamom.private.v1\x1a!cardamom/private/v1/content.proto\x1a\x1fcardamom/private/v1/issue.proto\x1a\"cardamom/private/v1/mutation.proto\x1a\x1fcardamom/private/v1/scope.proto\"\xb1\x02\n" +
+	"$cardamom/private/v1/checkpoint.proto\x12\x13cardamom.private.v1\x1a!cardamom/private/v1/content.proto\x1a\x1fcardamom/private/v1/issue.proto\x1a\"cardamom/private/v1/mutation.proto\x1a\x1fcardamom/private/v1/scope.proto\x1a cardamom/private/v1/source.proto\"\xb1\x02\n" +
 	"\x14ActionableCheckpoint\x12A\n" +
 	"\n" +
 	"checkpoint\x18\x01 \x01(\v2!.cardamom.private.v1.IssueSummaryR\n" +
@@ -339,9 +348,10 @@ const file_cardamom_private_v1_checkpoint_proto_rawDesc = "" +
 	"\n" +
 	"\b_summary\"Y\n" +
 	" ListActionableCheckpointsRequest\x125\n" +
-	"\x05scope\x18\x01 \x01(\v2\x1f.cardamom.private.v1.BoardScopeR\x05scope\"p\n" +
+	"\x05scope\x18\x01 \x01(\v2\x1f.cardamom.private.v1.BoardScopeR\x05scope\"\xc1\x01\n" +
 	"!ListActionableCheckpointsResponse\x12K\n" +
-	"\vcheckpoints\x18\x01 \x03(\v2).cardamom.private.v1.ActionableCheckpointR\vcheckpoints\"\xdf\x01\n" +
+	"\vcheckpoints\x18\x01 \x03(\v2).cardamom.private.v1.ActionableCheckpointR\vcheckpoints\x12O\n" +
+	"\x10aggregate_status\x18\x02 \x01(\v2$.cardamom.private.v1.AggregateStatusR\x0faggregateStatus\"\xdf\x01\n" +
 	"\x18ResolveCheckpointRequest\x12\x19\n" +
 	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12>\n" +
 	"\acontext\x18\x02 \x01(\v2$.cardamom.private.v1.MutationContextR\acontext\x12@\n" +
@@ -383,9 +393,10 @@ var file_cardamom_private_v1_checkpoint_proto_goTypes = []any{
 	(*IssueContext)(nil),                      // 7: cardamom.private.v1.IssueContext
 	(*RelatedIssue)(nil),                      // 8: cardamom.private.v1.RelatedIssue
 	(*BoardScope)(nil),                        // 9: cardamom.private.v1.BoardScope
-	(*MutationContext)(nil),                   // 10: cardamom.private.v1.MutationContext
-	(CheckpointOutcome)(0),                    // 11: cardamom.private.v1.CheckpointOutcome
-	(*CheckpointDecision)(nil),                // 12: cardamom.private.v1.CheckpointDecision
+	(*AggregateStatus)(nil),                   // 10: cardamom.private.v1.AggregateStatus
+	(*MutationContext)(nil),                   // 11: cardamom.private.v1.MutationContext
+	(CheckpointOutcome)(0),                    // 12: cardamom.private.v1.CheckpointOutcome
+	(*CheckpointDecision)(nil),                // 13: cardamom.private.v1.CheckpointDecision
 }
 var file_cardamom_private_v1_checkpoint_proto_depIdxs = []int32{
 	5,  // 0: cardamom.private.v1.ActionableCheckpoint.checkpoint:type_name -> cardamom.private.v1.IssueSummary
@@ -394,20 +405,21 @@ var file_cardamom_private_v1_checkpoint_proto_depIdxs = []int32{
 	8,  // 3: cardamom.private.v1.ActionableCheckpoint.blocked_issues:type_name -> cardamom.private.v1.RelatedIssue
 	9,  // 4: cardamom.private.v1.ListActionableCheckpointsRequest.scope:type_name -> cardamom.private.v1.BoardScope
 	0,  // 5: cardamom.private.v1.ListActionableCheckpointsResponse.checkpoints:type_name -> cardamom.private.v1.ActionableCheckpoint
-	10, // 6: cardamom.private.v1.ResolveCheckpointRequest.context:type_name -> cardamom.private.v1.MutationContext
-	11, // 7: cardamom.private.v1.ResolveCheckpointRequest.outcome:type_name -> cardamom.private.v1.CheckpointOutcome
-	12, // 8: cardamom.private.v1.ResolveCheckpointResponse.decision:type_name -> cardamom.private.v1.CheckpointDecision
-	5,  // 9: cardamom.private.v1.ResolveCheckpointResponse.checkpoint:type_name -> cardamom.private.v1.IssueSummary
-	5,  // 10: cardamom.private.v1.ResolveCheckpointResponse.cancelled_dependents:type_name -> cardamom.private.v1.IssueSummary
-	1,  // 11: cardamom.private.v1.CheckpointService.ListActionableCheckpoints:input_type -> cardamom.private.v1.ListActionableCheckpointsRequest
-	3,  // 12: cardamom.private.v1.CheckpointService.ResolveCheckpoint:input_type -> cardamom.private.v1.ResolveCheckpointRequest
-	2,  // 13: cardamom.private.v1.CheckpointService.ListActionableCheckpoints:output_type -> cardamom.private.v1.ListActionableCheckpointsResponse
-	4,  // 14: cardamom.private.v1.CheckpointService.ResolveCheckpoint:output_type -> cardamom.private.v1.ResolveCheckpointResponse
-	13, // [13:15] is the sub-list for method output_type
-	11, // [11:13] is the sub-list for method input_type
-	11, // [11:11] is the sub-list for extension type_name
-	11, // [11:11] is the sub-list for extension extendee
-	0,  // [0:11] is the sub-list for field type_name
+	10, // 6: cardamom.private.v1.ListActionableCheckpointsResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
+	11, // 7: cardamom.private.v1.ResolveCheckpointRequest.context:type_name -> cardamom.private.v1.MutationContext
+	12, // 8: cardamom.private.v1.ResolveCheckpointRequest.outcome:type_name -> cardamom.private.v1.CheckpointOutcome
+	13, // 9: cardamom.private.v1.ResolveCheckpointResponse.decision:type_name -> cardamom.private.v1.CheckpointDecision
+	5,  // 10: cardamom.private.v1.ResolveCheckpointResponse.checkpoint:type_name -> cardamom.private.v1.IssueSummary
+	5,  // 11: cardamom.private.v1.ResolveCheckpointResponse.cancelled_dependents:type_name -> cardamom.private.v1.IssueSummary
+	1,  // 12: cardamom.private.v1.CheckpointService.ListActionableCheckpoints:input_type -> cardamom.private.v1.ListActionableCheckpointsRequest
+	3,  // 13: cardamom.private.v1.CheckpointService.ResolveCheckpoint:input_type -> cardamom.private.v1.ResolveCheckpointRequest
+	2,  // 14: cardamom.private.v1.CheckpointService.ListActionableCheckpoints:output_type -> cardamom.private.v1.ListActionableCheckpointsResponse
+	4,  // 15: cardamom.private.v1.CheckpointService.ResolveCheckpoint:output_type -> cardamom.private.v1.ResolveCheckpointResponse
+	14, // [14:16] is the sub-list for method output_type
+	12, // [12:14] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_checkpoint_proto_init() }
@@ -419,6 +431,7 @@ func file_cardamom_private_v1_checkpoint_proto_init() {
 	file_cardamom_private_v1_issue_proto_init()
 	file_cardamom_private_v1_mutation_proto_init()
 	file_cardamom_private_v1_scope_proto_init()
+	file_cardamom_private_v1_source_proto_init()
 	file_cardamom_private_v1_checkpoint_proto_msgTypes[0].OneofWrappers = []any{}
 	file_cardamom_private_v1_checkpoint_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}

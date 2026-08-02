@@ -88,6 +88,9 @@ message ListLogEntriesRequest {
 message ListLogEntriesResponse {
   // log_entries contains immutable issue records in requested order.
   repeated LogEntry log_entries = 1;
+
+  // aggregate_status reports source completeness in aggregate mode.
+  AggregateStatus aggregate_status = 2;
 }
 
 // AddLogEntryRequest appends one attributed Markdown log entry.

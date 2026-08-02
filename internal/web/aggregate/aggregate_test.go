@@ -2,6 +2,7 @@ package aggregate
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -38,7 +39,7 @@ func TestNewBuildsBootstrapAndReadOnlyHandler(t *testing.T) {
 	assert.Equal(t, "lineage-primary", bootstrap.Msg.GetSources()[0].GetSource().GetStoreLineageId())
 	assert.Equal(t, v1.AccessMode_ACCESS_MODE_READ_ONLY, bootstrap.Msg.GetAccessMode())
 	assert.Equal(t, web.ProtocolVersion, bootstrap.Msg.GetProtocolVersion())
-	assert.Equal(t, []string{web.CapabilityBoardCatalog, web.CapabilityBoardRead}, bootstrap.Msg.GetCapabilities())
+	assert.Equal(t, web.ReadCapabilities(), bootstrap.Msg.GetCapabilities())
 	assert.Equal(t, "board-primary", bootstrap.Msg.GetBoards()[0].GetId())
 	assert.Equal(t, "primary", bootstrap.Msg.GetBoards()[0].GetRef().GetSource().GetSourceId())
 	_, ok := bootstrap.Msg.GetDefaultScope().GetSelection().(*v1.BoardScope_AllSources)
@@ -155,10 +156,197 @@ func TestProjectServiceGetBoardUsesCanonicalBoardRoute(t *testing.T) {
 	assert.Equal(t, board.GetId(), response.Msg.GetBoard().GetRef().GetBoardId())
 }
 
+func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
+	boardA := &v1.BoardSummary{Id: "board-a", ProjectId: "project-a", Name: "A"}
+	boardB := &v1.BoardSummary{Id: "board-b", ProjectId: "project-b", Name: "B"}
+	bootstrapA := sourceBootstrap(boardA, true)
+	bootstrapA.Sources[0].Source.StoreLineageId = "lineage-a"
+	bootstrapB := sourceBootstrap(boardB, true)
+	bootstrapB.Sources[0].Source.StoreLineageId = "lineage-b"
+
+	serverA := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: bootstrapA,
+		issues: func(_ context.Context, request *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
+			if request.Msg.GetPageToken() == "a2" {
+				return connect.NewResponse(&v1.ListIssuesResponse{
+					Issues: []*v1.IssueSummary{{Id: "issue-e", BoardId: "board-a", Title: "Echo", Priority: 1}},
+				}), nil
+			}
+			return connect.NewResponse(&v1.ListIssuesResponse{
+				Issues: []*v1.IssueSummary{
+					{Id: "issue-a", BoardId: "board-a", Title: "Alpha", Priority: 1},
+					{Id: "issue-c", BoardId: "board-a", Title: "Charlie", Priority: 1},
+				},
+				Truncated: true, NextPageToken: new("a2"), TotalCount: 3,
+			}), nil
+		},
+	})
+	serverB := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: bootstrapB,
+		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
+			return connect.NewResponse(&v1.ListIssuesResponse{
+				Issues: []*v1.IssueSummary{
+					{Id: "issue-b", BoardId: "board-b", Title: "Bravo", Priority: 1},
+					{Id: "issue-d", BoardId: "board-b", Title: "Delta", Priority: 1},
+				},
+				TotalCount: 2,
+			}), nil
+		},
+	})
+	offline := newSourceServer(t, sourceBootstrap(nil, true), nil)
+	offline.Close()
+
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{
+		{Alias: "alpha", URL: mustURL(t, serverA.URL)},
+		{Alias: "bravo", URL: mustURL(t, serverB.URL)},
+		{Alias: "offline", URL: mustURL(t, offline.URL)},
+	}})
+	require.NoError(t, err)
+	client := newAggregateIssueClient(t, aggregate)
+	request := &v1.ListIssuesRequest{
+		Scope: &v1.BoardScope{Selection: &v1.BoardScope_AllSources{AllSources: &v1.AllSources{}}},
+		Sort:  v1.IssueSort_ISSUE_SORT_TITLE,
+		Limit: 3,
+	}
+	first, err := client.ListIssues(t.Context(), connect.NewRequest(request))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Alpha", "Bravo", "Charlie"}, issueTitles(first.Msg.GetIssues()))
+	assert.Equal(t, uint32(5), first.Msg.GetTotalCount())
+	assert.False(t, first.Msg.GetAggregateStatus().GetComplete())
+	assert.Equal(t, "offline", first.Msg.GetAggregateStatus().GetProblems()[0].GetSourceId())
+	assert.Equal(t, "alpha", first.Msg.GetIssues()[0].GetRef().GetBoard().GetSource().GetSourceId())
+	require.NotNil(t, first.Msg.GetNextPageToken())
+
+	second, err := client.ListIssues(t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
+		Scope:     request.Scope,
+		Sort:      request.Sort,
+		Limit:     request.Limit,
+		PageToken: first.Msg.NextPageToken,
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Delta", "Echo"}, issueTitles(second.Msg.GetIssues()))
+	assert.False(t, second.Msg.GetTruncated())
+}
+
+func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-detail", ProjectId: "project", Name: "Detail"}
+	bootstrap := sourceBootstrap(board, true)
+	bootstrap.Sources[0].Source.StoreLineageId = "lineage-detail"
+	server := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: bootstrap,
+		issue: func(_ context.Context, _ *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {
+			return connect.NewResponse(&v1.GetIssueResponse{Issue: &v1.IssueDetail{
+				Issue: &v1.IssueSummary{Id: "issue-detail", BoardId: board.GetId(), Title: "Detail"},
+			}}), nil
+		},
+		logs: func(_ context.Context, _ *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error) {
+			return connect.NewResponse(&v1.ListLogEntriesResponse{LogEntries: []*v1.LogEntry{{
+				Id: "log-1", IssueId: "issue-detail",
+				Payload: &v1.LogEntry_Post{Post: &v1.LogPost{Actor: "actor", Body: &v1.MarkdownContent{Source: "body"}}},
+			}}}), nil
+		},
+	})
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{{Alias: "detail", URL: mustURL(t, server.URL)}}})
+	require.NoError(t, err)
+	issueClient := newAggregateIssueClient(t, aggregate)
+	ref := &v1.IssueRef{Board: &v1.BoardRef{
+		Source:  &v1.SourceRef{SourceId: "detail", StoreLineageId: "lineage-detail"},
+		BoardId: board.GetId(),
+	}, IssueId: "issue-detail"}
+	detail, err := issueClient.GetIssue(t.Context(), connect.NewRequest(&v1.GetIssueRequest{IssueId: "issue-detail", Issue: ref}))
+	require.NoError(t, err)
+	assert.Equal(t, "detail", detail.Msg.GetIssue().GetIssue().GetRef().GetBoard().GetSource().GetSourceId())
+
+	logs, err := newAggregateRecordClient(t, aggregate).ListLogEntries(t.Context(), connect.NewRequest(&v1.ListLogEntriesRequest{
+		IssueId: "issue-detail", Issue: ref,
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "detail", logs.Msg.GetLogEntries()[0].GetRef().GetIssue().GetBoard().GetSource().GetSourceId())
+	assert.True(t, logs.Msg.GetAggregateStatus().GetComplete())
+}
+
+func TestAggregateReadsApprovalsAndRoutines(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-work", ProjectId: "project", Name: "Work"}
+	bootstrap := sourceBootstrap(board, true)
+	bootstrap.Sources[0].Source.StoreLineageId = "lineage-work"
+	server := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: bootstrap,
+		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
+			return connect.NewResponse(&v1.ListIssuesResponse{Issues: []*v1.IssueSummary{{
+				Id: "routine-1", BoardId: board.GetId(), Title: "Routine", Type: v1.IssueType_ISSUE_TYPE_ROUTINE,
+			}}}), nil
+		},
+		approvals: func(_ context.Context, _ *connect.Request[v1.ListActionableCheckpointsRequest]) (*connect.Response[v1.ListActionableCheckpointsResponse], error) {
+			return connect.NewResponse(&v1.ListActionableCheckpointsResponse{Checkpoints: []*v1.ActionableCheckpoint{{
+				Checkpoint: &v1.IssueSummary{Id: "approval-1", BoardId: board.GetId(), Title: "Approval", Type: v1.IssueType_ISSUE_TYPE_CHECKPOINT},
+			}}}), nil
+		},
+	})
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{{Alias: "work", URL: mustURL(t, server.URL)}}})
+	require.NoError(t, err)
+
+	routines, err := newAggregateIssueClient(t, aggregate).ListIssues(t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
+		Scope: &v1.BoardScope{Selection: &v1.BoardScope_Source{Source: &v1.SourceRef{SourceId: "work", StoreLineageId: "lineage-work"}}},
+		Types: []v1.IssueType{v1.IssueType_ISSUE_TYPE_ROUTINE},
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "routine-1", routines.Msg.GetIssues()[0].GetId())
+	assert.Equal(t, "work", routines.Msg.GetIssues()[0].GetRef().GetBoard().GetSource().GetSourceId())
+
+	approvals, err := privatev1connect.NewCheckpointServiceClient(
+		&http.Client{Transport: handlerTransport{handler: aggregate.Binding().Handler}}, "http://aggregate.test",
+	).ListActionableCheckpoints(t.Context(), connect.NewRequest(&v1.ListActionableCheckpointsRequest{
+		Scope: &v1.BoardScope{Selection: &v1.BoardScope_AllSources{AllSources: &v1.AllSources{}}},
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "approval-1", approvals.Msg.GetCheckpoints()[0].GetCheckpoint().GetId())
+	assert.Equal(t, "work", approvals.Msg.GetCheckpoints()[0].GetCheckpoint().GetRef().GetBoard().GetSource().GetSourceId())
+}
+
+func TestAggregateChangeStreamReportsDegradedSource(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-live", ProjectId: "project", Name: "Live"}
+	bootstrap := sourceBootstrap(board, true)
+	bootstrap.Sources[0].Source.StoreLineageId = "lineage-live"
+	server := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: bootstrap,
+		changes: func(_ context.Context, _ *connect.Request[v1.WatchChangesRequest], stream *connect.ServerStream[v1.WatchChangesResponse]) error {
+			if err := stream.Send(&v1.WatchChangesResponse{BoardId: board.GetId(), Revision: 7}); err != nil {
+				return err
+			}
+			return errors.New("source stream ended")
+		},
+	})
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{{Alias: "live", URL: mustURL(t, server.URL)}}})
+	require.NoError(t, err)
+	aggregateHTTP := httptest.NewServer(aggregate.Binding().Handler)
+	t.Cleanup(aggregateHTTP.Close)
+	client := privatev1connect.NewChangeServiceClient(&http.Client{}, aggregateHTTP.URL)
+	stream, err := client.WatchChanges(t.Context(), connect.NewRequest(&v1.WatchChangesRequest{
+		Scope: &v1.BoardScope{Selection: &v1.BoardScope_BoardId{BoardId: board.GetId()}},
+	}))
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, stream.Close()) })
+	require.True(t, stream.Receive())
+	assert.Equal(t, "live", stream.Msg().GetSource().GetSourceId())
+	require.True(t, stream.Receive())
+	assert.Equal(t, v1.SourceHealth_SOURCE_HEALTH_DEGRADED, stream.Msg().GetHealth().GetHealth())
+	assert.Equal(t, "live", stream.Msg().GetHealth().GetSource().GetSourceId())
+}
+
 type sourceHandler struct {
 	privatev1connect.UnimplementedProjectServiceHandler
+	privatev1connect.UnimplementedIssueServiceHandler
+	privatev1connect.UnimplementedRecordServiceHandler
+	privatev1connect.UnimplementedCheckpointServiceHandler
+	privatev1connect.UnimplementedExecutionServiceHandler
+	privatev1connect.UnimplementedChangeServiceHandler
 	bootstrap *v1.GetBootstrapResponse
 	board     *v1.Board
+	issues    func(context.Context, *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error)
+	issue     func(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
+	logs      func(context.Context, *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error)
+	approvals func(context.Context, *connect.Request[v1.ListActionableCheckpointsRequest]) (*connect.Response[v1.ListActionableCheckpointsResponse], error)
+	changes   func(context.Context, *connect.Request[v1.WatchChangesRequest], *connect.ServerStream[v1.WatchChangesResponse]) error
 }
 
 func (s *sourceHandler) GetBootstrap(
@@ -178,14 +366,85 @@ func (s *sourceHandler) GetBoard(
 	return connect.NewResponse(&v1.GetBoardResponse{Board: s.board}), nil
 }
 
+func (s *sourceHandler) ListIssues(
+	ctx context.Context,
+	request *connect.Request[v1.ListIssuesRequest],
+) (*connect.Response[v1.ListIssuesResponse], error) {
+	if s.issues == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("issues not scripted"))
+	}
+	return s.issues(ctx, request)
+}
+
+func (s *sourceHandler) GetIssue(
+	ctx context.Context,
+	request *connect.Request[v1.GetIssueRequest],
+) (*connect.Response[v1.GetIssueResponse], error) {
+	if s.issue == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("issue not scripted"))
+	}
+	return s.issue(ctx, request)
+}
+
+func (s *sourceHandler) ListLogEntries(
+	ctx context.Context,
+	request *connect.Request[v1.ListLogEntriesRequest],
+) (*connect.Response[v1.ListLogEntriesResponse], error) {
+	if s.logs == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("logs not scripted"))
+	}
+	return s.logs(ctx, request)
+}
+
+func (s *sourceHandler) ListActionableCheckpoints(
+	ctx context.Context,
+	request *connect.Request[v1.ListActionableCheckpointsRequest],
+) (*connect.Response[v1.ListActionableCheckpointsResponse], error) {
+	if s.approvals == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("approvals not scripted"))
+	}
+	return s.approvals(ctx, request)
+}
+
+func (s *sourceHandler) WatchChanges(
+	ctx context.Context,
+	request *connect.Request[v1.WatchChangesRequest],
+	stream *connect.ServerStream[v1.WatchChangesResponse],
+) error {
+	if s.changes == nil {
+		return connect.NewError(connect.CodeUnimplemented, errors.New("changes not scripted"))
+	}
+	return s.changes(ctx, request, stream)
+}
+
 func newSourceServer(
 	t *testing.T,
 	bootstrap *v1.GetBootstrapResponse,
 	board *v1.Board,
 ) *httptest.Server {
 	t.Helper()
-	_, handler := privatev1connect.NewProjectServiceHandler(&sourceHandler{
+	return newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: bootstrap, board: board,
+	})
+}
+
+func newConfiguredSourceServer(t *testing.T, source *sourceHandler) *httptest.Server {
+	t.Helper()
+	_, handler := web.NewHandler(web.HandlerConfig{
+		AccessMode:    web.AccessModeReadOnly,
+		Project:       source,
+		Configuration: new(privatev1connect.UnimplementedConfigurationServiceHandler),
+		Information:   new(privatev1connect.UnimplementedInformationServiceHandler),
+		Issue:         source,
+		Planning:      new(privatev1connect.UnimplementedPlanningServiceHandler),
+		Execution:     source,
+		Checkpoint:    source,
+		Record:        source,
+		Change:        source,
+		Dump:          new(privatev1connect.UnimplementedDumpServiceHandler),
+		Mail:          new(privatev1connect.UnimplementedMailServiceHandler),
+		Lease:         new(privatev1connect.UnimplementedLeaseServiceHandler),
+		Attachment:    new(privatev1connect.UnimplementedAttachmentServiceHandler),
 	})
 	server := httptest.NewServer(handler)
 	t.Cleanup(server.Close)
@@ -217,6 +476,26 @@ func newAggregateClient(t *testing.T, aggregate *Server) privatev1connect.Projec
 	binding := aggregate.Binding()
 	client := &http.Client{Transport: handlerTransport{handler: binding.Handler}}
 	return privatev1connect.NewProjectServiceClient(client, "http://aggregate.test")
+}
+
+func newAggregateIssueClient(t *testing.T, aggregate *Server) privatev1connect.IssueServiceClient {
+	t.Helper()
+	client := &http.Client{Transport: handlerTransport{handler: aggregate.Binding().Handler}}
+	return privatev1connect.NewIssueServiceClient(client, "http://aggregate.test")
+}
+
+func newAggregateRecordClient(t *testing.T, aggregate *Server) privatev1connect.RecordServiceClient {
+	t.Helper()
+	client := &http.Client{Transport: handlerTransport{handler: aggregate.Binding().Handler}}
+	return privatev1connect.NewRecordServiceClient(client, "http://aggregate.test")
+}
+
+func issueTitles(values []*v1.IssueSummary) []string {
+	result := make([]string, 0, len(values))
+	for _, value := range values {
+		result = append(result, value.GetTitle())
+	}
+	return result
 }
 
 type handlerTransport struct {

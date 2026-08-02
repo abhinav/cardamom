@@ -395,6 +395,9 @@ message ListIssuesResponse {
 
   // total_count is the number of issues matching the complete request.
   uint32 total_count = 5;
+
+  // aggregate_status reports source completeness in aggregate mode.
+  AggregateStatus aggregate_status = 6;
 }
 
 // GetIssueRequest identifies one issue by stable ID.

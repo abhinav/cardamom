@@ -1565,9 +1565,11 @@ type ListIssuesResponse struct {
 	// next_page_token resumes after this page when truncated is true.
 	NextPageToken *string `protobuf:"bytes,4,opt,name=next_page_token,json=nextPageToken,proto3,oneof" json:"next_page_token,omitempty"`
 	// total_count is the number of issues matching the complete request.
-	TotalCount    uint32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	TotalCount uint32 `protobuf:"varint,5,opt,name=total_count,json=totalCount,proto3" json:"total_count,omitempty"`
+	// aggregate_status reports source completeness in aggregate mode.
+	AggregateStatus *AggregateStatus `protobuf:"bytes,6,opt,name=aggregate_status,json=aggregateStatus,proto3" json:"aggregate_status,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListIssuesResponse) Reset() {
@@ -1633,6 +1635,13 @@ func (x *ListIssuesResponse) GetTotalCount() uint32 {
 		return x.TotalCount
 	}
 	return 0
+}
+
+func (x *ListIssuesResponse) GetAggregateStatus() *AggregateStatus {
+	if x != nil {
+		return x.AggregateStatus
+	}
+	return nil
 }
 
 // GetIssueRequest identifies one issue by stable ID.
@@ -1877,14 +1886,15 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\f_ancestor_idB\b\n" +
 	"\x06_actorB\x0e\n" +
 	"\f_title_queryB\r\n" +
-	"\v_page_token\"\x93\x02\n" +
+	"\v_page_token\"\xe4\x02\n" +
 	"\x12ListIssuesResponse\x129\n" +
 	"\x06issues\x18\x01 \x03(\v2!.cardamom.private.v1.IssueSummaryR\x06issues\x12B\n" +
 	"\flabel_facets\x18\x02 \x03(\v2\x1f.cardamom.private.v1.LabelFacetR\vlabelFacets\x12\x1c\n" +
 	"\ttruncated\x18\x03 \x01(\bR\ttruncated\x12+\n" +
 	"\x0fnext_page_token\x18\x04 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x12\x1f\n" +
 	"\vtotal_count\x18\x05 \x01(\rR\n" +
-	"totalCountB\x12\n" +
+	"totalCount\x12O\n" +
+	"\x10aggregate_status\x18\x06 \x01(\v2$.cardamom.private.v1.AggregateStatusR\x0faggregateStatusB\x12\n" +
 	"\x10_next_page_token\"p\n" +
 	"\x0fGetIssueRequest\x12\x19\n" +
 	"\bissue_id\x18\x01 \x01(\tR\aissueId\x128\n" +
@@ -1973,6 +1983,7 @@ var file_cardamom_private_v1_issue_proto_goTypes = []any{
 	(*MarkdownContent)(nil),         // 23: cardamom.private.v1.MarkdownContent
 	(*IssueRef)(nil),                // 24: cardamom.private.v1.IssueRef
 	(*BoardScope)(nil),              // 25: cardamom.private.v1.BoardScope
+	(*AggregateStatus)(nil),         // 26: cardamom.private.v1.AggregateStatus
 }
 var file_cardamom_private_v1_issue_proto_depIdxs = []int32{
 	22, // 0: cardamom.private.v1.ActiveClaim.started_at:type_name -> google.protobuf.Timestamp
@@ -2023,17 +2034,18 @@ var file_cardamom_private_v1_issue_proto_depIdxs = []int32{
 	4,  // 45: cardamom.private.v1.ListIssuesRequest.direction:type_name -> cardamom.private.v1.SortDirection
 	9,  // 46: cardamom.private.v1.ListIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
 	17, // 47: cardamom.private.v1.ListIssuesResponse.label_facets:type_name -> cardamom.private.v1.LabelFacet
-	24, // 48: cardamom.private.v1.GetIssueRequest.issue:type_name -> cardamom.private.v1.IssueRef
-	16, // 49: cardamom.private.v1.GetIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
-	18, // 50: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest
-	20, // 51: cardamom.private.v1.IssueService.GetIssue:input_type -> cardamom.private.v1.GetIssueRequest
-	19, // 52: cardamom.private.v1.IssueService.ListIssues:output_type -> cardamom.private.v1.ListIssuesResponse
-	21, // 53: cardamom.private.v1.IssueService.GetIssue:output_type -> cardamom.private.v1.GetIssueResponse
-	52, // [52:54] is the sub-list for method output_type
-	50, // [50:52] is the sub-list for method input_type
-	50, // [50:50] is the sub-list for extension type_name
-	50, // [50:50] is the sub-list for extension extendee
-	0,  // [0:50] is the sub-list for field type_name
+	26, // 48: cardamom.private.v1.ListIssuesResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
+	24, // 49: cardamom.private.v1.GetIssueRequest.issue:type_name -> cardamom.private.v1.IssueRef
+	16, // 50: cardamom.private.v1.GetIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
+	18, // 51: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest
+	20, // 52: cardamom.private.v1.IssueService.GetIssue:input_type -> cardamom.private.v1.GetIssueRequest
+	19, // 53: cardamom.private.v1.IssueService.ListIssues:output_type -> cardamom.private.v1.ListIssuesResponse
+	21, // 54: cardamom.private.v1.IssueService.GetIssue:output_type -> cardamom.private.v1.GetIssueResponse
+	53, // [53:55] is the sub-list for method output_type
+	51, // [51:53] is the sub-list for method input_type
+	51, // [51:51] is the sub-list for extension type_name
+	51, // [51:51] is the sub-list for extension extendee
+	0,  // [0:51] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_issue_proto_init() }

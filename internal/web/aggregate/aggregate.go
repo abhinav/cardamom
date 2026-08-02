@@ -60,13 +60,20 @@ type Server struct {
 	boardList  []*v1.BoardSummary
 	version    string
 	capability []string
+	cursorsMu  sync.Mutex
+	cursors    map[string]*issueCursor
 }
 
 type source struct {
-	config    SourceConfig
-	client    privatev1connect.ProjectServiceClient
-	bootstrap *v1.GetBootstrapResponse
-	entry     *v1.SourceCatalogEntry
+	config      SourceConfig
+	project     privatev1connect.ProjectServiceClient
+	issues      privatev1connect.IssueServiceClient
+	records     privatev1connect.RecordServiceClient
+	checkpoints privatev1connect.CheckpointServiceClient
+	execution   privatev1connect.ExecutionServiceClient
+	changes     privatev1connect.ChangeServiceClient
+	bootstrap   *v1.GetBootstrapResponse
+	entry       *v1.SourceCatalogEntry
 }
 
 type boardRoute struct {
@@ -106,9 +113,15 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		if value.URL == nil || value.URL.Host == "" {
 			return nil, fmt.Errorf("aggregate source %q URL is required", value.Alias)
 		}
+		baseURL := value.URL.String()
 		configured[index] = source{
-			config: value,
-			client: privatev1connect.NewProjectServiceClient(client, value.URL.String()),
+			config:      value,
+			project:     privatev1connect.NewProjectServiceClient(client, baseURL),
+			issues:      privatev1connect.NewIssueServiceClient(client, baseURL),
+			records:     privatev1connect.NewRecordServiceClient(client, baseURL),
+			checkpoints: privatev1connect.NewCheckpointServiceClient(client, baseURL),
+			execution:   privatev1connect.NewExecutionServiceClient(client, baseURL),
+			changes:     privatev1connect.NewChangeServiceClient(client, baseURL),
 		}
 	}
 
@@ -121,10 +134,14 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		}(index)
 	}
 	wait.Wait()
+	slices.SortFunc(configured, func(left, right source) int {
+		return strings.Compare(left.config.Alias, right.config.Alias)
+	})
 
 	server := &Server{
 		sources:    configured,
 		boards:     make(map[string]boardRoute),
+		cursors:    make(map[string]*issueCursor),
 		version:    cfg.Version,
 		capability: web.ReadCapabilities(),
 	}
@@ -135,7 +152,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 }
 
 func probeSource(ctx context.Context, value *source) {
-	response, err := value.client.GetBootstrap(
+	response, err := value.project.GetBootstrap(
 		ctx, connect.NewRequest(&v1.GetBootstrapRequest{}),
 	)
 	if err != nil {
@@ -246,6 +263,18 @@ func (s *Server) buildCatalog() error {
 			s.boards[board.GetId()] = boardRoute{source: value, ref: boardRef}
 		}
 	}
+	slices.SortFunc(s.projects, func(left, right *v1.Project) int {
+		if result := strings.Compare(left.GetRef().GetSource().GetSourceId(), right.GetRef().GetSource().GetSourceId()); result != 0 {
+			return result
+		}
+		return strings.Compare(left.GetId(), right.GetId())
+	})
+	slices.SortFunc(s.boardList, func(left, right *v1.BoardSummary) int {
+		if result := strings.Compare(left.GetRef().GetSource().GetSourceId(), right.GetRef().GetSource().GetSourceId()); result != 0 {
+			return result
+		}
+		return strings.Compare(left.GetId(), right.GetId())
+	})
 	return nil
 }
 
@@ -257,12 +286,12 @@ func (s *Server) Binding() Binding {
 		Project:       &projectService{server: s},
 		Configuration: new(privatev1connect.UnimplementedConfigurationServiceHandler),
 		Information:   new(privatev1connect.UnimplementedInformationServiceHandler),
-		Issue:         new(privatev1connect.UnimplementedIssueServiceHandler),
+		Issue:         &issueService{server: s},
 		Planning:      new(privatev1connect.UnimplementedPlanningServiceHandler),
-		Execution:     new(privatev1connect.UnimplementedExecutionServiceHandler),
-		Checkpoint:    new(privatev1connect.UnimplementedCheckpointServiceHandler),
-		Record:        new(privatev1connect.UnimplementedRecordServiceHandler),
-		Change:        new(privatev1connect.UnimplementedChangeServiceHandler),
+		Execution:     &executionService{server: s},
+		Checkpoint:    &checkpointService{server: s},
+		Record:        &recordService{server: s},
+		Change:        &changeService{server: s},
 		Dump:          new(privatev1connect.UnimplementedDumpServiceHandler),
 		Mail:          new(privatev1connect.UnimplementedMailServiceHandler),
 		Lease:         new(privatev1connect.UnimplementedLeaseServiceHandler),
@@ -336,7 +365,7 @@ func (p *projectService) GetBoard(
 	if err != nil {
 		return nil, err
 	}
-	response, err := route.source.client.GetBoard(ctx, connect.NewRequest(
+	response, err := route.source.project.GetBoard(ctx, connect.NewRequest(
 		&v1.GetBoardRequest{BoardId: route.ref.GetBoardId()},
 	))
 	if err != nil {
