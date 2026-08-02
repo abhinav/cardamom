@@ -1,0 +1,73 @@
+# A selected global store does not associate an unrelated checkout.
+mkdir global-store
+mkdir unrelated
+cd unrelated
+env CARDAMOM_STORE=$WORK/global-store
+stdin $WORK/input/session-start.json
+exec card hook context
+! stdout .
+! stderr .
+! exists $WORK/global-store/board.sqlite3
+
+# A local Cardamom entry activates context without opening a database.
+mkdir .cardamom
+stdin $WORK/input/session-start.json
+exec card hook context
+cmp stdout $WORK/golden/session-start.json
+! stderr .
+! exists .cardamom/board.sqlite3
+
+# A non-Git checkout board binding also activates subagent context.
+cd ..
+mkdir plain
+exec sh -c 'printf "board_00000000000000000000\n" > plain/.cardamom-board'
+cd plain
+stdin $WORK/input/subagent-start.json
+exec card hook context
+cmp stdout $WORK/golden/subagent-start.json
+! stderr .
+
+# Git checkout bindings activate the primary checkout and linked worktrees that
+# inherit the primary binding.
+cd ..
+mkdir repo
+exec git -C repo init -b main
+exec sh -c 'printf "initial\n" > repo/README.md'
+exec git -C repo add README.md
+exec git -C repo commit -m initial
+exec sh -c 'printf "board_00000000000000000000\n" > repo/.git/cardamom-board'
+cd repo
+stdin $WORK/input/session-start.json
+exec card hook context
+cmp stdout $WORK/golden/session-start.json
+! stderr .
+exec git worktree add ../linked -b linked
+cd ../linked
+stdin $WORK/input/subagent-start.json
+exec card hook context
+cmp stdout $WORK/golden/subagent-start.json
+! stderr .
+! exists .cardamom
+
+# Malformed and unsupported hook input fail open without output.
+stdin $WORK/input/malformed.json
+exec card hook context
+! stdout .
+! stderr .
+stdin $WORK/input/unsupported.json
+exec card hook context
+! stdout .
+! stderr .
+
+-- input/session-start.json --
+{"hook_event_name":"SessionStart","source":"startup"}
+-- input/subagent-start.json --
+{"hook_event_name":"SubagentStart","agent_type":"Explore"}
+-- input/malformed.json --
+{
+-- input/unsupported.json --
+{"hook_event_name":"Stop"}
+-- golden/session-start.json --
+{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":"Load and follow the Cardamom skill for work in this checkout."}}
+-- golden/subagent-start.json --
+{"hookSpecificOutput":{"hookEventName":"SubagentStart","additionalContext":"Load and follow the Cardamom skill for work in this checkout."}}

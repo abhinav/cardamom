@@ -1,0 +1,27 @@
+{
+  "description": "Load Cardamom guidance for associated checkouts.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v card >/dev/null 2>&1 && card hook context 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "SubagentStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v card >/dev/null 2>&1 && card hook context 2>/dev/null || true",
+            "timeout": 5
+          }
+        ]
+      }
+    ]
+  }
+}
