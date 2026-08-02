@@ -1,5 +1,9 @@
 # Introduction
 
+<div align="center">
+  <img src="../img/logo.png" width="300"/>
+</div>
+
 Cardamom is a local work tracker for your AI agents.
 
 It carries context between tasks, agents, and processes.
