@@ -95,19 +95,6 @@ export function clearIssueFilters(mode: "board" | "list"): IssueFilters {
   return { ...defaults };
 }
 
-/** listViewForLabel opens one complete label collection in the existing order. */
-export function listViewForLabel(
-  current: IssueViewPreferences,
-  label: string,
-): IssueViewPreferences {
-  return {
-    ...defaultListView,
-    filters: { ...defaultListView.filters, label: label.trim() },
-    sort: current.sort,
-    direction: current.direction,
-  };
-}
-
 /** buildIssueQuery is the only translation from browser preferences to ListIssues. */
 export function buildIssueQuery(
   scope: BoardScope,

@@ -25,6 +25,7 @@ import {
   collectionRouteSearch,
   issueFiltersFromSearch,
   issueViewFromSearch,
+  labelCollectionLocation,
   routineRetiredFromSearch,
   routineRetiredSearch,
   type IssueCollectionMode,
@@ -53,7 +54,6 @@ import { IssueDetailPage } from "./issue-detail/issue-detail.tsx";
 import {
   defaultBoardView,
   defaultListView,
-  listViewForLabel,
   type IssueFilters,
 } from "./issue-collection.ts";
 import {
@@ -212,12 +212,9 @@ function ApplicationShell({
         ? "All boards"
         : (selectedBoard?.name ?? `${selection.boardId} unavailable`);
   const selectLabel = (label: string) => {
-    updatePreferences({
-      ...preferences,
-      listView: listViewForLabel(preferences.listView, label),
-    });
-    if (selection.kind !== "unresolved") {
-      navigate(boardScopePath(selection, "list"));
+    const destination = labelCollectionLocation(location.pathname, label);
+    if (destination !== undefined) {
+      navigate(destination);
     }
   };
   const activeCollectionMode: IssueCollectionMode =

@@ -1,3 +1,7 @@
+import {
+  boardScopePath,
+  routeBoardScope,
+} from "./board-scope.ts";
 import { IssueStatus, IssueType } from "./gen/cardamom/private/v1/issue_pb.ts";
 import {
   defaultBoardView,
@@ -78,6 +82,26 @@ export function collectionRouteSearch(
   setTextValue(search, "title", filters.query, defaults.query);
   const encoded = search.toString();
   return encoded === "" ? "" : `?${encoded}`;
+}
+
+/** labelCollectionLocation returns the canonical destination for a label. */
+export function labelCollectionLocation(
+  pathname: string,
+  label: string,
+): { pathname: string; search: string } | undefined {
+  const selection = routeBoardScope(pathname);
+  if (selection.kind === "unresolved") {
+    return undefined;
+  }
+  let mode: IssueCollectionMode = "list";
+  if (pathname === boardScopePath(selection, "board")) {
+    mode = "board";
+  }
+  const filters = defaultFilters(mode);
+  return {
+    pathname: boardScopePath(selection, mode),
+    search: collectionRouteSearch({ ...filters, label: label.trim() }, mode),
+  };
 }
 
 /** routineRetiredFromSearch reports whether retired routines are requested. */

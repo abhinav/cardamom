@@ -6,7 +6,6 @@ import {
   defaultBoardView,
   defaultListView,
   groupIssues,
-  listViewForLabel,
   parseBoardView,
   type IssueViewPreferences,
 } from "./issue-collection.ts";
@@ -200,31 +199,6 @@ describe("board view preferences", () => {
       ...defaultBoardView,
       filters: { ...defaultBoardView.filters, label: "ux" },
       sort: "updated",
-      direction: "ascending",
-    });
-  });
-});
-
-describe("label navigation", () => {
-  it("opens one label across all issues without retaining stale filters", () => {
-    const current = {
-      ...defaultListView,
-      filters: {
-        lifecycle: "open" as const,
-        status: IssueStatus.IN_PROGRESS,
-        type: IssueType.TASK,
-        actor: "worker-a",
-        label: "old-label",
-        query: "stale search",
-      },
-      sort: "title" as const,
-      direction: "ascending" as const,
-    };
-
-    expect(listViewForLabel(current, " area:web ")).toEqual({
-      ...defaultListView,
-      filters: { ...defaultListView.filters, label: "area:web" },
-      sort: "title",
       direction: "ascending",
     });
   });
