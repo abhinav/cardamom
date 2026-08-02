@@ -479,7 +479,9 @@ func (s *Server) getIssue(
 	if err != nil {
 		return nil, err
 	}
-	response, err := route.source.issues.GetIssue(ctx, connect.NewRequest(&v1.GetIssueRequest{IssueId: request.Msg.GetIssueId()}))
+	response, err := route.source.issues.GetIssue(ctx, connect.NewRequest(&v1.GetIssueRequest{
+		IssueId: request.Msg.GetIssueId(), Presentation: aggregatePresentation(),
+	}))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("source unavailable"))
 	}
@@ -501,7 +503,9 @@ func (s *Server) issueRoute(ctx context.Context, issueID string, ref *v1.IssueRe
 	unavailable := false
 	for index := range s.sources {
 		source := &s.sources[index]
-		response, err := source.issues.GetIssue(ctx, connect.NewRequest(&v1.GetIssueRequest{IssueId: issueID}))
+		response, err := source.issues.GetIssue(ctx, connect.NewRequest(&v1.GetIssueRequest{
+			IssueId: issueID, Presentation: aggregatePresentation(),
+		}))
 		if err != nil {
 			if connect.CodeOf(err) == connect.CodeNotFound {
 				continue
@@ -576,6 +580,7 @@ func (s *Server) listLogs(
 	}
 	response, err := route.source.records.ListLogEntries(ctx, connect.NewRequest(&v1.ListLogEntriesRequest{
 		IssueId: request.Msg.GetIssueId(), Direction: request.Msg.GetDirection(),
+		Presentation: aggregatePresentation(),
 	}))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("source unavailable"))
@@ -612,7 +617,9 @@ func (s *Server) listApprovals(
 	var checkpoints []*v1.ActionableCheckpoint
 	for _, target := range targets {
 		response, err := target.source.checkpoints.ListActionableCheckpoints(ctx, connect.NewRequest(
-			&v1.ListActionableCheckpointsRequest{Scope: targetScope(target)},
+			&v1.ListActionableCheckpointsRequest{
+				Scope: targetScope(target), Presentation: aggregatePresentation(),
+			},
 		))
 		if err != nil || response == nil || response.Msg == nil {
 			problems[target.source.config.Alias] = "source unavailable"

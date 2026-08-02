@@ -3,10 +3,13 @@ package aggregate
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strings"
 	"testing"
+	"time"
 
 	"connectrpc.com/connect"
 	"github.com/stretchr/testify/assert"
@@ -156,6 +159,126 @@ func TestProjectServiceGetBoardUsesCanonicalBoardRoute(t *testing.T) {
 	assert.Equal(t, board.GetId(), response.Msg.GetBoard().GetRef().GetBoardId())
 }
 
+func TestAttachmentContentProxyPreservesRangeAndConditionalHeaders(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-attach", ProjectId: "project", Name: "Attachments"}
+	attachmentID := "att_aaaaaaaaaaaaaaaaaaaaaaaaaa"
+	var gotRange, gotIfNoneMatch string
+	source := newConfiguredSourceServerWithRoutes(t, &sourceHandler{
+		bootstrap: sourceBootstrap(board, true),
+	}, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		assert.Equal(t, "/board/board-attach/attachment/"+attachmentID, r.URL.Path)
+		gotRange = r.Header.Get("Range")
+		gotIfNoneMatch = r.Header.Get("If-None-Match")
+		assert.Empty(t, r.Header.Get("Authorization"))
+		assert.Empty(t, r.Header.Get("Cookie"))
+		w.Header().Set("ETag", `"source-v1"`)
+		w.Header().Set("Content-Type", "text/plain")
+		w.Header().Set("Set-Cookie", "source=secret")
+		if gotIfNoneMatch == `"source-v1"` {
+			w.WriteHeader(http.StatusNotModified)
+			return
+		}
+		assert.Equal(t, "bytes=2-5", gotRange)
+		w.Header().Set("Content-Range", "bytes 2-5/10")
+		w.Header().Set("Content-Length", "4")
+		w.WriteHeader(http.StatusPartialContent)
+		_, _ = io.WriteString(w, "2345")
+	}))
+
+	aggregate, err := New(t.Context(), Config{
+		Sources: []SourceConfig{{Alias: "media", URL: mustURL(t, source.URL)}},
+	})
+	require.NoError(t, err)
+	binding := aggregate.Binding()
+	mux := http.NewServeMux()
+	mux.Handle(binding.AttachmentContentPattern, binding.AttachmentContent)
+
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/board/board-attach/attachment/"+attachmentID,
+		nil,
+	)
+	request.Header.Set("Range", "bytes=2-5")
+	request.Header.Set("Authorization", "Bearer browser-secret")
+	request.Header.Set("Cookie", "session=browser-secret")
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusPartialContent, response.Code)
+	assert.Equal(t, "2345", response.Body.String())
+	assert.Equal(t, "bytes=2-5", gotRange)
+	assert.Equal(t, `"source-v1"`, response.Header().Get("ETag"))
+	assert.Equal(t, "bytes 2-5/10", response.Header().Get("Content-Range"))
+	assert.Empty(t, response.Header().Get("Set-Cookie"))
+
+	request = httptest.NewRequest(
+		http.MethodGet,
+		"/board/board-attach/attachment/"+attachmentID,
+		nil,
+	)
+	request.Header.Set("If-None-Match", `"source-v1"`)
+	response = httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusNotModified, response.Code)
+	assert.Empty(t, response.Body.String())
+	assert.Equal(t, `"source-v1"`, gotIfNoneMatch)
+}
+
+func TestAttachmentContentProxyPropagatesCancellation(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-cancel", ProjectId: "project", Name: "Cancellation"}
+	attachmentID := "att_aaaaaaaaaaaaaaaaaaaaaaaaaa"
+	started := make(chan struct{})
+	sourceCanceled := make(chan struct{})
+	source := newConfiguredSourceServerWithRoutes(t, &sourceHandler{
+		bootstrap: sourceBootstrap(board, true),
+	}, http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		close(started)
+		<-r.Context().Done()
+		close(sourceCanceled)
+	}))
+
+	aggregate, err := New(t.Context(), Config{
+		Sources: []SourceConfig{{Alias: "cancel", URL: mustURL(t, source.URL)}},
+	})
+	require.NoError(t, err)
+	binding := aggregate.Binding()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	defer cancel()
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/board/board-cancel/attachment/"+attachmentID,
+		nil,
+	)
+	request = request.WithContext(ctx)
+	request.SetPathValue("boardID", board.GetId())
+	request.SetPathValue("attachmentID", attachmentID)
+	response := httptest.NewRecorder()
+	done := make(chan struct{})
+	go func() {
+		binding.AttachmentContent.ServeHTTP(response, request)
+		close(done)
+	}()
+	select {
+	case <-started:
+	case <-time.After(2 * time.Second):
+		t.Fatal("source request did not start")
+	}
+	cancel()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("aggregate request did not finish after cancellation")
+	}
+	select {
+	case <-sourceCanceled:
+	case <-time.After(2 * time.Second):
+		t.Fatal("source request was not canceled")
+	}
+}
+
 func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
 	boardA := &v1.BoardSummary{Id: "board-a", ProjectId: "project-a", Name: "A"}
 	boardB := &v1.BoardSummary{Id: "board-b", ProjectId: "project-b", Name: "B"}
@@ -234,12 +357,14 @@ func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
 	bootstrap.Sources[0].Source.StoreLineageId = "lineage-detail"
 	server := newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: bootstrap,
-		issue: func(_ context.Context, _ *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {
+		issue: func(_ context.Context, request *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {
+			assert.Equal(t, "/board", request.Msg.GetPresentation().GetRoutePrefix())
 			return connect.NewResponse(&v1.GetIssueResponse{Issue: &v1.IssueDetail{
 				Issue: &v1.IssueSummary{Id: "issue-detail", BoardId: board.GetId(), Title: "Detail"},
 			}}), nil
 		},
-		logs: func(_ context.Context, _ *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error) {
+		logs: func(_ context.Context, request *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error) {
+			assert.Equal(t, "/board", request.Msg.GetPresentation().GetRoutePrefix())
 			return connect.NewResponse(&v1.ListLogEntriesResponse{LogEntries: []*v1.LogEntry{{
 				Id: "log-1", IssueId: "issue-detail",
 				Payload: &v1.LogEntry_Post{Post: &v1.LogPost{Actor: "actor", Body: &v1.MarkdownContent{Source: "body"}}},
@@ -430,6 +555,15 @@ func newSourceServer(
 
 func newConfiguredSourceServer(t *testing.T, source *sourceHandler) *httptest.Server {
 	t.Helper()
+	return newConfiguredSourceServerWithRoutes(t, source, nil)
+}
+
+func newConfiguredSourceServerWithRoutes(
+	t *testing.T,
+	source *sourceHandler,
+	routes http.Handler,
+) *httptest.Server {
+	t.Helper()
 	_, handler := web.NewHandler(web.HandlerConfig{
 		AccessMode:    web.AccessModeReadOnly,
 		Project:       source,
@@ -446,7 +580,17 @@ func newConfiguredSourceServer(t *testing.T, source *sourceHandler) *httptest.Se
 		Lease:         new(privatev1connect.UnimplementedLeaseServiceHandler),
 		Attachment:    new(privatev1connect.UnimplementedAttachmentServiceHandler),
 	})
-	server := httptest.NewServer(handler)
+	serverHandler := http.Handler(handler)
+	if routes != nil {
+		serverHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/board/") {
+				routes.ServeHTTP(w, r)
+				return
+			}
+			handler.ServeHTTP(w, r)
+		})
+	}
+	server := httptest.NewServer(serverHandler)
 	t.Cleanup(server.Close)
 	return server
 }

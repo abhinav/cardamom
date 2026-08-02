@@ -364,7 +364,8 @@ func (s *Service) GetIssue(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.views.Detail(ctx, scoped.board.ID(), view)
+	views := s.views.WithRoutePrefix(request.Msg.GetPresentation().GetRoutePrefix())
+	converted, err := views.Detail(ctx, scoped.board.ID(), view)
 	if err != nil {
 		return nil, web.FromError(err)
 	}

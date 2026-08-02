@@ -54,7 +54,7 @@ type Boards interface {
 // MarkdownRenderer converts stored board Markdown to trusted presentation HTML.
 type MarkdownRenderer interface {
 	// RenderBoard converts one board response's Markdown sources to safe HTML.
-	RenderBoard(context.Context, board.ID, []string) ([]string, error)
+	RenderBoard(context.Context, board.ID, string, []string) ([]string, error)
 }
 
 // Config supplies ProjectService collaborators and immutable bootstrap data.
@@ -246,7 +246,7 @@ func (s *Service) GetBoard(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.board(ctx, board)
+	converted, err := s.board(ctx, board, request.Msg.GetPresentation().GetRoutePrefix())
 	if err != nil {
 		return nil, web.FromError(err)
 	}
@@ -291,7 +291,7 @@ func (s *Service) CreateBoard(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.board(ctx, created)
+	converted, err := s.board(ctx, created, "")
 	if err != nil {
 		return nil, web.FromError(err)
 	}
@@ -330,7 +330,7 @@ func (s *Service) UpdateBoard(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.board(ctx, edited)
+	converted, err := s.board(ctx, edited, "")
 	if err != nil {
 		return nil, web.FromError(err)
 	}
@@ -340,8 +340,11 @@ func (s *Service) UpdateBoard(
 func (s *Service) board(
 	ctx context.Context,
 	value *board.State,
+	routePrefix string,
 ) (*privatev1.Board, error) {
-	description, err := s.optionalMarkdown(ctx, value.ID(), value.Description())
+	description, err := s.optionalMarkdown(
+		ctx, value.ID(), routePrefix, value.Description(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -355,12 +358,15 @@ func (s *Service) board(
 func (s *Service) optionalMarkdown(
 	ctx context.Context,
 	boardID board.ID,
+	routePrefix string,
 	source *string,
 ) (*privatev1.MarkdownContent, error) {
 	if source == nil {
 		return nil, nil
 	}
-	rendered, err := s.markdown.RenderBoard(ctx, boardID, []string{*source})
+	rendered, err := s.markdown.RenderBoard(
+		ctx, boardID, routePrefix, []string{*source},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("render Markdown: %w", err)
 	}

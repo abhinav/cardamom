@@ -145,6 +145,9 @@ message GetBoardRequest {
 
   // board identifies the source-qualified board for aggregate requests.
   optional BoardRef board = 2;
+
+  // presentation supplies the route root used by source Markdown rendering.
+  optional PresentationContext presentation = 3;
 }
 
 // GetBoardResponse contains the requested board.

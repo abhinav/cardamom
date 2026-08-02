@@ -82,6 +82,9 @@ message ListLogEntriesRequest {
 
   // issue identifies the source-qualified issue for aggregate requests.
   optional IssueRef issue = 3;
+
+  // presentation supplies the route root used by source Markdown rendering.
+  optional PresentationContext presentation = 4;
 }
 
 // ListLogEntriesResponse contains log entries in requested order.

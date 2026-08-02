@@ -42,7 +42,7 @@ func TestRenderer_RenderBoardResolvesTypedReferencesAcrossSources(t *testing.T) 
 			", %known-1, and [download](attachment:" + attachmentID.String() + ").",
 	}
 
-	rendered, err := renderer.RenderBoard(t.Context(), "board-1", sources)
+	rendered, err := renderer.RenderBoard(t.Context(), "board-1", "", sources)
 	require.NoError(t, err)
 
 	require.Len(t, resolver.issueRequests, 1)
@@ -68,6 +68,19 @@ func TestRenderer_RenderBoardResolvesTypedReferencesAcrossSources(t *testing.T) 
 	assert.Contains(t, rendered[0], `data-cardamom-reference="attachment"`)
 }
 
+func TestRenderer_RenderBoardUsesRoutePrefixForReferences(t *testing.T) {
+	resolver := &testBoardReferenceResolver{
+		issueReferences: []issue.ID{"known-1"},
+	}
+	renderer := markdown.NewWithReferences(resolver, resolver, resolver)
+
+	rendered, err := renderer.RenderBoard(
+		t.Context(), "board-1", "/board", []string{"Open %known-1."},
+	)
+	require.NoError(t, err)
+	assert.Contains(t, rendered[0], `href="/board/board-1/issue/known-1"`)
+}
+
 func TestRenderer_RenderBoardLeavesUnavailableTypedReferencesAsText(t *testing.T) {
 	logID, err := issue.NewLogID("log_0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)
@@ -83,7 +96,7 @@ func TestRenderer_RenderBoardLeavesUnavailableTypedReferencesAsText(t *testing.T
 		", %log_0123456789abcdef0123456789abcdeg, and " +
 		"%att_aaaaaaaaaaaaaaaaaaaaaaaaa0 readable."
 
-	rendered, err := renderer.RenderBoard(t.Context(), "board-1", []string{source})
+	rendered, err := renderer.RenderBoard(t.Context(), "board-1", "", []string{source})
 	require.NoError(t, err)
 
 	assert.Equal(t, "<p>"+source+"</p>\n", rendered[0])
@@ -100,6 +113,7 @@ func TestRenderer_RenderBoardEscapesBoardIdentityAsOneRouteSegment(t *testing.T)
 	rendered, err := renderer.RenderBoard(
 		t.Context(),
 		"board/one",
+		"",
 		[]string{"Open %known-1."},
 	)
 	require.NoError(t, err)
@@ -118,7 +132,7 @@ func TestRenderer_RenderBoardLeavesUnavailableIssueReferencesAsText(t *testing.T
 	renderer := markdown.NewWithReferences(resolver, resolver, resolver)
 	source := "Open %known-1; keep %other-board-issue readable."
 
-	rendered, err := renderer.RenderBoard(t.Context(), "board-1", []string{source})
+	rendered, err := renderer.RenderBoard(t.Context(), "board-1", "", []string{source})
 	require.NoError(t, err)
 
 	require.Len(t, resolver.issueRequests, 1)
@@ -145,7 +159,7 @@ func TestRenderer_RenderBoardBoundsIssueReferenceBatches(t *testing.T) {
 	}
 	renderer := markdown.NewWithReferences(resolver, resolver, resolver)
 
-	_, err := renderer.RenderBoard(t.Context(), "board-1", []string{source.String()})
+	_, err := renderer.RenderBoard(t.Context(), "board-1", "", []string{source.String()})
 	require.NoError(t, err)
 
 	require.Len(t, resolver.issueRequests, 2)
@@ -170,7 +184,7 @@ func TestRenderer_RenderBoardBoundsLogReferenceBatches(t *testing.T) {
 	}
 	renderer := markdown.NewWithReferences(resolver, resolver, resolver)
 
-	_, err := renderer.RenderBoard(t.Context(), "board-1", []string{source.String()})
+	_, err := renderer.RenderBoard(t.Context(), "board-1", "", []string{source.String()})
 	require.NoError(t, err)
 
 	require.Len(t, resolver.logRequests, 2)
@@ -191,7 +205,7 @@ func TestRenderer_RenderBoardBoundsAttachmentReferenceBatches(t *testing.T) {
 	}
 	renderer := markdown.NewWithReferences(resolver, resolver, resolver)
 
-	_, err := renderer.RenderBoard(t.Context(), "board-1", []string{source.String()})
+	_, err := renderer.RenderBoard(t.Context(), "board-1", "", []string{source.String()})
 	require.NoError(t, err)
 
 	require.Len(t, resolver.attachmentRequests, 2)

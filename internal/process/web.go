@@ -94,8 +94,8 @@ func (o *webOperation) openAggregate(
 	return webHandlerBinding{
 		path:                     binding.Path,
 		handler:                  binding.Handler,
-		attachmentContentPattern: attachmentcontent.PathPattern,
-		attachmentContent:        http.NotFoundHandler(),
+		attachmentContentPattern: binding.AttachmentContentPattern,
+		attachmentContent:        binding.AttachmentContent,
 	}, nil
 }
 

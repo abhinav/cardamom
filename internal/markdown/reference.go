@@ -19,6 +19,7 @@ import (
 // resolution data owned by one RenderBoard call.
 type referenceRenderer struct {
 	boardID     board.ID
+	routePrefix string
 	issues      map[issue.ID]struct{}
 	logs        map[issue.LogID]issue.LogReference
 	attachments map[attachment.ID]attachment.Resolution
@@ -62,7 +63,7 @@ func (r *referenceRenderer) renderReference(
 				break
 			}
 		}
-		return renderIssueReference(writer, authored, r.boardID, id)
+		return renderIssueReference(writer, authored, r.routePrefix, r.boardID, id)
 	case reference.KindLog:
 		id := issue.LogID(referenceNode.Identity.ID)
 		value, ok := r.logs[id]
@@ -70,6 +71,7 @@ func (r *referenceRenderer) renderReference(
 			break
 		}
 		destination := boardEntityURL(
+			r.routePrefix,
 			r.boardID,
 			"issue",
 			value.IssueID.String(),
@@ -93,7 +95,7 @@ func (r *referenceRenderer) renderReference(
 			"attachment",
 			id.String(),
 			value.Attachment.Filename.String(),
-			attachmentContentURL(r.boardID, id),
+			attachmentContentURL(r.routePrefix, r.boardID, id),
 		)
 	}
 
@@ -104,11 +106,13 @@ func (r *referenceRenderer) renderReference(
 func renderIssueReference(
 	writer util.BufWriter,
 	authored []byte,
+	routePrefix string,
 	boardID board.ID,
 	identity issue.ID,
 ) (ast.WalkStatus, error) {
 	id := []byte(identity.String())
 	destination := []byte(boardEntityURL(
+		routePrefix,
 		boardID,
 		"issue",
 		identity.String(),
@@ -131,13 +135,14 @@ func renderIssueReference(
 
 // boardEntityURL preserves each logical identity as one escaped route segment.
 func boardEntityURL(
+	routePrefix string,
 	boardID board.ID,
 	kind string,
 	identity string,
 	fragment string,
 ) string {
-	path := "/board/" + boardID.String() + "/" + kind + "/" + identity
-	rawPath := "/board/" + url.PathEscape(boardID.String()) +
+	path := routePrefix + "/" + boardID.String() + "/" + kind + "/" + identity
+	rawPath := routePrefix + "/" + url.PathEscape(boardID.String()) +
 		"/" + kind + "/" + url.PathEscape(identity)
 	return (&url.URL{Path: path, RawPath: rawPath, Fragment: fragment}).String()
 }

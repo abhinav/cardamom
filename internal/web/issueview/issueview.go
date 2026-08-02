@@ -16,13 +16,22 @@ import (
 
 // Encoder converts issue-domain presentation records to generated messages.
 type Encoder struct {
-	markdown MarkdownRenderer
+	markdown    MarkdownRenderer
+	routePrefix string
 }
 
 // New constructs an issue view encoder with the shared Markdown policy.
 func New(markdown MarkdownRenderer) *Encoder {
 	must.NotBeNilf(markdown, "issueview: Markdown renderer is required")
 	return &Encoder{markdown: markdown}
+}
+
+// WithRoutePrefix returns an encoder that renders internal links under the
+// supplied root-relative route prefix.
+func (e *Encoder) WithRoutePrefix(routePrefix string) *Encoder {
+	result := *e
+	result.routePrefix = routePrefix
+	return &result
 }
 
 // Summary converts one board-owned issue summary to its protocol view.

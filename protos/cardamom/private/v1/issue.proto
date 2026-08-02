@@ -407,6 +407,9 @@ message GetIssueRequest {
 
   // issue identifies the source-qualified issue for aggregate requests.
   optional IssueRef issue = 2;
+
+  // presentation supplies the route root used by source Markdown rendering.
+  optional PresentationContext presentation = 3;
 }
 
 // GetIssueResponse contains the primary issue detail record.

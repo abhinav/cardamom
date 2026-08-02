@@ -6,6 +6,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"slices"
@@ -14,6 +16,8 @@ import (
 	"time"
 
 	"connectrpc.com/connect"
+	"go.abhg.dev/cardamom/internal/attachment"
+	"go.abhg.dev/cardamom/internal/board"
 	v1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1/privatev1connect"
 	"go.abhg.dev/cardamom/internal/web"
@@ -49,6 +53,12 @@ type Binding struct {
 
 	// Handler serves the aggregate Connect procedures.
 	Handler http.Handler
+
+	// AttachmentContentPattern is the canonical raw attachment route.
+	AttachmentContentPattern string
+
+	// AttachmentContent streams source-authorized attachment bytes.
+	AttachmentContent http.Handler
 }
 
 // Server owns the immutable source catalog and canonical board routes for one
@@ -60,6 +70,7 @@ type Server struct {
 	boardList  []*v1.BoardSummary
 	version    string
 	capability []string
+	httpClient connect.HTTPClient
 	cursorsMu  sync.Mutex
 	cursors    map[string]*issueCursor
 }
@@ -90,8 +101,11 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	}
 	client := cfg.HTTPClient
 	if client == nil {
+		transport := http.DefaultTransport.(*http.Transport).Clone()
+		transport.DialContext = (&net.Dialer{Timeout: 10 * time.Second}).DialContext
+		transport.ResponseHeaderTimeout = 10 * time.Second
 		client = &http.Client{
-			Timeout: 10 * time.Second,
+			Transport: transport,
 			CheckRedirect: func(*http.Request, []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -144,6 +158,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		cursors:    make(map[string]*issueCursor),
 		version:    cfg.Version,
 		capability: web.ReadCapabilities(),
+		httpClient: client,
 	}
 	if err := server.buildCatalog(); err != nil {
 		return nil, err
@@ -297,7 +312,103 @@ func (s *Server) Binding() Binding {
 		Lease:         new(privatev1connect.UnimplementedLeaseServiceHandler),
 		Attachment:    new(privatev1connect.UnimplementedAttachmentServiceHandler),
 	})
-	return Binding{Path: path, Handler: handler}
+	return Binding{
+		Path: path, Handler: handler,
+		AttachmentContentPattern: "/board/{boardID}/attachment/{attachmentID}",
+		AttachmentContent:        http.HandlerFunc(s.serveAttachmentContent),
+	}
+}
+
+const aggregateRoutePrefix = "/board"
+
+func aggregatePresentation() *v1.PresentationContext {
+	return &v1.PresentationContext{RoutePrefix: aggregateRoutePrefix}
+}
+
+func (s *Server) serveAttachmentContent(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		w.Header().Set("Allow", http.MethodGet+", "+http.MethodHead)
+		http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
+		return
+	}
+	boardID, err := board.NewID(r.PathValue("boardID"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	attachmentID, err := attachment.NewID(r.PathValue("attachmentID"))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	route, ok := s.boards[boardID.String()]
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+	target := *route.source.config.URL
+	target.Path = "/board/" + boardID.String() +
+		"/attachment/" + attachmentID.String()
+	target.RawPath = "/board/" + url.PathEscape(boardID.String()) +
+		"/attachment/" + url.PathEscape(attachmentID.String())
+	target.RawQuery = ""
+	target.Fragment = ""
+	request, err := http.NewRequestWithContext(
+		r.Context(), r.Method, target.String(), nil,
+	)
+	if err != nil {
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		return
+	}
+	copyAttachmentRequestHeaders(request.Header, r.Header)
+	response, err := s.httpClient.Do(request)
+	if err != nil {
+		if r.Context().Err() != nil {
+			return
+		}
+		http.Error(w, http.StatusText(http.StatusBadGateway), http.StatusBadGateway)
+		return
+	}
+	defer func() { _ = response.Body.Close() }()
+	copyAttachmentResponseHeaders(w.Header(), response.Header)
+	w.WriteHeader(response.StatusCode)
+	if r.Method != http.MethodHead {
+		_, _ = io.Copy(w, response.Body)
+	}
+}
+
+func copyAttachmentRequestHeaders(dst, src http.Header) {
+	for _, name := range []string{
+		"Accept", "Range", "If-Range", "If-Match", "If-None-Match",
+		"If-Modified-Since", "If-Unmodified-Since",
+	} {
+		for _, value := range src.Values(name) {
+			dst.Add(name, value)
+		}
+	}
+}
+
+func copyAttachmentResponseHeaders(dst, src http.Header) {
+	for name, values := range src {
+		if isAttachmentHopByHopHeader(name) || name == "Location" ||
+			name == "Set-Cookie" || name == "Www-Authenticate" ||
+			name == "Proxy-Authenticate" {
+			continue
+		}
+		for _, value := range values {
+			dst.Add(name, value)
+		}
+	}
+}
+
+func isAttachmentHopByHopHeader(name string) bool {
+	switch http.CanonicalHeaderKey(name) {
+	case "Connection", "Keep-Alive", "Proxy-Authenticate",
+		"Proxy-Authorization", "Te", "Trailer", "Transfer-Encoding", "Upgrade":
+		return true
+	default:
+		return false
+	}
 }
 
 type projectService struct {
@@ -366,7 +477,9 @@ func (p *projectService) GetBoard(
 		return nil, err
 	}
 	response, err := route.source.project.GetBoard(ctx, connect.NewRequest(
-		&v1.GetBoardRequest{BoardId: route.ref.GetBoardId()},
+		&v1.GetBoardRequest{
+			BoardId: route.ref.GetBoardId(), Presentation: aggregatePresentation(),
+		},
 	))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("source unavailable"))

@@ -28,6 +28,9 @@ message ActionableCheckpoint {
 message ListActionableCheckpointsRequest {
   // scope selects one board or the aggregate of all boards.
   BoardScope scope = 1;
+
+  // presentation supplies the route root used by source Markdown rendering.
+  optional PresentationContext presentation = 2;
 }
 
 // ListActionableCheckpointsResponse contains checkpoints in domain order.

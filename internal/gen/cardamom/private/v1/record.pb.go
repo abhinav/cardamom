@@ -292,7 +292,9 @@ type ListLogEntriesRequest struct {
 	// direction selects chronological or reverse-chronological order.
 	Direction SortDirection `protobuf:"varint,2,opt,name=direction,proto3,enum=cardamom.private.v1.SortDirection" json:"direction,omitempty"`
 	// issue identifies the source-qualified issue for aggregate requests.
-	Issue         *IssueRef `protobuf:"bytes,3,opt,name=issue,proto3,oneof" json:"issue,omitempty"`
+	Issue *IssueRef `protobuf:"bytes,3,opt,name=issue,proto3,oneof" json:"issue,omitempty"`
+	// presentation supplies the route root used by source Markdown rendering.
+	Presentation  *PresentationContext `protobuf:"bytes,4,opt,name=presentation,proto3,oneof" json:"presentation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -344,6 +346,13 @@ func (x *ListLogEntriesRequest) GetDirection() SortDirection {
 func (x *ListLogEntriesRequest) GetIssue() *IssueRef {
 	if x != nil {
 		return x.Issue
+	}
+	return nil
+}
+
+func (x *ListLogEntriesRequest) GetPresentation() *PresentationContext {
+	if x != nil {
+		return x.Presentation
 	}
 	return nil
 }
@@ -1636,12 +1645,14 @@ const file_cardamom_private_v1_record_proto_rawDesc = "" +
 	"\x03ref\x18\t \x01(\v2\x1b.cardamom.private.v1.LogRefH\x01R\x03ref\x88\x01\x01B\x10\n" +
 	"\apayload\x12\x05\xbaH\x02\b\x01B\x06\n" +
 	"\x04_refJ\x04\b\x03\x10\x04J\x04\b\x04\x10\x05J\x04\b\x05\x10\x06J\x04\b\b\x10\tR\x05actorR\n" +
-	"created_atR\x04bodyR\tcommitter\"\xb8\x01\n" +
+	"created_atR\x04bodyR\tcommitter\"\x9c\x02\n" +
 	"\x15ListLogEntriesRequest\x12\x19\n" +
 	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12@\n" +
 	"\tdirection\x18\x02 \x01(\x0e2\".cardamom.private.v1.SortDirectionR\tdirection\x128\n" +
-	"\x05issue\x18\x03 \x01(\v2\x1d.cardamom.private.v1.IssueRefH\x00R\x05issue\x88\x01\x01B\b\n" +
-	"\x06_issue\"\xa9\x01\n" +
+	"\x05issue\x18\x03 \x01(\v2\x1d.cardamom.private.v1.IssueRefH\x00R\x05issue\x88\x01\x01\x12Q\n" +
+	"\fpresentation\x18\x04 \x01(\v2(.cardamom.private.v1.PresentationContextH\x01R\fpresentation\x88\x01\x01B\b\n" +
+	"\x06_issueB\x0f\n" +
+	"\r_presentation\"\xa9\x01\n" +
 	"\x16ListLogEntriesResponse\x12>\n" +
 	"\vlog_entries\x18\x01 \x03(\v2\x1d.cardamom.private.v1.LogEntryR\n" +
 	"logEntries\x12O\n" +
@@ -1784,9 +1795,10 @@ var file_cardamom_private_v1_record_proto_goTypes = []any{
 	(*LogRef)(nil),                 // 28: cardamom.private.v1.LogRef
 	(SortDirection)(0),             // 29: cardamom.private.v1.SortDirection
 	(*IssueRef)(nil),               // 30: cardamom.private.v1.IssueRef
-	(*AggregateStatus)(nil),        // 31: cardamom.private.v1.AggregateStatus
-	(*MutationContext)(nil),        // 32: cardamom.private.v1.MutationContext
-	(*IssueSummary)(nil),           // 33: cardamom.private.v1.IssueSummary
+	(*PresentationContext)(nil),    // 31: cardamom.private.v1.PresentationContext
+	(*AggregateStatus)(nil),        // 32: cardamom.private.v1.AggregateStatus
+	(*MutationContext)(nil),        // 33: cardamom.private.v1.MutationContext
+	(*IssueSummary)(nil),           // 34: cardamom.private.v1.IssueSummary
 }
 var file_cardamom_private_v1_record_proto_depIdxs = []int32{
 	26, // 0: cardamom.private.v1.LogPost.body:type_name -> cardamom.private.v1.MarkdownContent
@@ -1799,54 +1811,55 @@ var file_cardamom_private_v1_record_proto_depIdxs = []int32{
 	28, // 7: cardamom.private.v1.LogEntry.ref:type_name -> cardamom.private.v1.LogRef
 	29, // 8: cardamom.private.v1.ListLogEntriesRequest.direction:type_name -> cardamom.private.v1.SortDirection
 	30, // 9: cardamom.private.v1.ListLogEntriesRequest.issue:type_name -> cardamom.private.v1.IssueRef
-	2,  // 10: cardamom.private.v1.ListLogEntriesResponse.log_entries:type_name -> cardamom.private.v1.LogEntry
-	31, // 11: cardamom.private.v1.ListLogEntriesResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
-	32, // 12: cardamom.private.v1.AddLogEntryRequest.context:type_name -> cardamom.private.v1.MutationContext
-	2,  // 13: cardamom.private.v1.AddLogEntryResponse.log_entry:type_name -> cardamom.private.v1.LogEntry
-	26, // 14: cardamom.private.v1.StateRecord.body:type_name -> cardamom.private.v1.MarkdownContent
-	27, // 15: cardamom.private.v1.StateRecord.updated_at:type_name -> google.protobuf.Timestamp
-	26, // 16: cardamom.private.v1.StateRecord.next_action:type_name -> cardamom.private.v1.MarkdownContent
-	8,  // 17: cardamom.private.v1.GetStateResponse.state:type_name -> cardamom.private.v1.StateRecord
-	32, // 18: cardamom.private.v1.SetStateRequest.context:type_name -> cardamom.private.v1.MutationContext
-	32, // 19: cardamom.private.v1.AppendStateRequest.context:type_name -> cardamom.private.v1.MutationContext
-	32, // 20: cardamom.private.v1.ClearStateRequest.context:type_name -> cardamom.private.v1.MutationContext
-	33, // 21: cardamom.private.v1.SetStateResponse.issue:type_name -> cardamom.private.v1.IssueSummary
-	33, // 22: cardamom.private.v1.AppendStateResponse.issue:type_name -> cardamom.private.v1.IssueSummary
-	33, // 23: cardamom.private.v1.ClearStateResponse.issue:type_name -> cardamom.private.v1.IssueSummary
-	32, // 24: cardamom.private.v1.CommitStateRequest.context:type_name -> cardamom.private.v1.MutationContext
-	16, // 25: cardamom.private.v1.CommitStateRequest.retain:type_name -> cardamom.private.v1.RetainCommittedState
-	17, // 26: cardamom.private.v1.CommitStateRequest.clear:type_name -> cardamom.private.v1.ClearCommittedState
-	18, // 27: cardamom.private.v1.CommitStateRequest.replace:type_name -> cardamom.private.v1.ReplaceCommittedState
-	33, // 28: cardamom.private.v1.CommitStateResponse.issue:type_name -> cardamom.private.v1.IssueSummary
-	8,  // 29: cardamom.private.v1.CommitStateResponse.state:type_name -> cardamom.private.v1.StateRecord
-	2,  // 30: cardamom.private.v1.CommitStateResponse.log_entry:type_name -> cardamom.private.v1.LogEntry
-	26, // 31: cardamom.private.v1.IssueResult.body:type_name -> cardamom.private.v1.MarkdownContent
-	22, // 32: cardamom.private.v1.GetResultResponse.result:type_name -> cardamom.private.v1.IssueResult
-	32, // 33: cardamom.private.v1.SetResultRequest.context:type_name -> cardamom.private.v1.MutationContext
-	22, // 34: cardamom.private.v1.SetResultResponse.result:type_name -> cardamom.private.v1.IssueResult
-	3,  // 35: cardamom.private.v1.RecordService.ListLogEntries:input_type -> cardamom.private.v1.ListLogEntriesRequest
-	5,  // 36: cardamom.private.v1.RecordService.AddLogEntry:input_type -> cardamom.private.v1.AddLogEntryRequest
-	7,  // 37: cardamom.private.v1.RecordService.GetState:input_type -> cardamom.private.v1.GetStateRequest
-	10, // 38: cardamom.private.v1.RecordService.SetState:input_type -> cardamom.private.v1.SetStateRequest
-	11, // 39: cardamom.private.v1.RecordService.AppendState:input_type -> cardamom.private.v1.AppendStateRequest
-	12, // 40: cardamom.private.v1.RecordService.ClearState:input_type -> cardamom.private.v1.ClearStateRequest
-	19, // 41: cardamom.private.v1.RecordService.CommitState:input_type -> cardamom.private.v1.CommitStateRequest
-	21, // 42: cardamom.private.v1.RecordService.GetResult:input_type -> cardamom.private.v1.GetResultRequest
-	24, // 43: cardamom.private.v1.RecordService.SetResult:input_type -> cardamom.private.v1.SetResultRequest
-	4,  // 44: cardamom.private.v1.RecordService.ListLogEntries:output_type -> cardamom.private.v1.ListLogEntriesResponse
-	6,  // 45: cardamom.private.v1.RecordService.AddLogEntry:output_type -> cardamom.private.v1.AddLogEntryResponse
-	9,  // 46: cardamom.private.v1.RecordService.GetState:output_type -> cardamom.private.v1.GetStateResponse
-	13, // 47: cardamom.private.v1.RecordService.SetState:output_type -> cardamom.private.v1.SetStateResponse
-	14, // 48: cardamom.private.v1.RecordService.AppendState:output_type -> cardamom.private.v1.AppendStateResponse
-	15, // 49: cardamom.private.v1.RecordService.ClearState:output_type -> cardamom.private.v1.ClearStateResponse
-	20, // 50: cardamom.private.v1.RecordService.CommitState:output_type -> cardamom.private.v1.CommitStateResponse
-	23, // 51: cardamom.private.v1.RecordService.GetResult:output_type -> cardamom.private.v1.GetResultResponse
-	25, // 52: cardamom.private.v1.RecordService.SetResult:output_type -> cardamom.private.v1.SetResultResponse
-	44, // [44:53] is the sub-list for method output_type
-	35, // [35:44] is the sub-list for method input_type
-	35, // [35:35] is the sub-list for extension type_name
-	35, // [35:35] is the sub-list for extension extendee
-	0,  // [0:35] is the sub-list for field type_name
+	31, // 10: cardamom.private.v1.ListLogEntriesRequest.presentation:type_name -> cardamom.private.v1.PresentationContext
+	2,  // 11: cardamom.private.v1.ListLogEntriesResponse.log_entries:type_name -> cardamom.private.v1.LogEntry
+	32, // 12: cardamom.private.v1.ListLogEntriesResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
+	33, // 13: cardamom.private.v1.AddLogEntryRequest.context:type_name -> cardamom.private.v1.MutationContext
+	2,  // 14: cardamom.private.v1.AddLogEntryResponse.log_entry:type_name -> cardamom.private.v1.LogEntry
+	26, // 15: cardamom.private.v1.StateRecord.body:type_name -> cardamom.private.v1.MarkdownContent
+	27, // 16: cardamom.private.v1.StateRecord.updated_at:type_name -> google.protobuf.Timestamp
+	26, // 17: cardamom.private.v1.StateRecord.next_action:type_name -> cardamom.private.v1.MarkdownContent
+	8,  // 18: cardamom.private.v1.GetStateResponse.state:type_name -> cardamom.private.v1.StateRecord
+	33, // 19: cardamom.private.v1.SetStateRequest.context:type_name -> cardamom.private.v1.MutationContext
+	33, // 20: cardamom.private.v1.AppendStateRequest.context:type_name -> cardamom.private.v1.MutationContext
+	33, // 21: cardamom.private.v1.ClearStateRequest.context:type_name -> cardamom.private.v1.MutationContext
+	34, // 22: cardamom.private.v1.SetStateResponse.issue:type_name -> cardamom.private.v1.IssueSummary
+	34, // 23: cardamom.private.v1.AppendStateResponse.issue:type_name -> cardamom.private.v1.IssueSummary
+	34, // 24: cardamom.private.v1.ClearStateResponse.issue:type_name -> cardamom.private.v1.IssueSummary
+	33, // 25: cardamom.private.v1.CommitStateRequest.context:type_name -> cardamom.private.v1.MutationContext
+	16, // 26: cardamom.private.v1.CommitStateRequest.retain:type_name -> cardamom.private.v1.RetainCommittedState
+	17, // 27: cardamom.private.v1.CommitStateRequest.clear:type_name -> cardamom.private.v1.ClearCommittedState
+	18, // 28: cardamom.private.v1.CommitStateRequest.replace:type_name -> cardamom.private.v1.ReplaceCommittedState
+	34, // 29: cardamom.private.v1.CommitStateResponse.issue:type_name -> cardamom.private.v1.IssueSummary
+	8,  // 30: cardamom.private.v1.CommitStateResponse.state:type_name -> cardamom.private.v1.StateRecord
+	2,  // 31: cardamom.private.v1.CommitStateResponse.log_entry:type_name -> cardamom.private.v1.LogEntry
+	26, // 32: cardamom.private.v1.IssueResult.body:type_name -> cardamom.private.v1.MarkdownContent
+	22, // 33: cardamom.private.v1.GetResultResponse.result:type_name -> cardamom.private.v1.IssueResult
+	33, // 34: cardamom.private.v1.SetResultRequest.context:type_name -> cardamom.private.v1.MutationContext
+	22, // 35: cardamom.private.v1.SetResultResponse.result:type_name -> cardamom.private.v1.IssueResult
+	3,  // 36: cardamom.private.v1.RecordService.ListLogEntries:input_type -> cardamom.private.v1.ListLogEntriesRequest
+	5,  // 37: cardamom.private.v1.RecordService.AddLogEntry:input_type -> cardamom.private.v1.AddLogEntryRequest
+	7,  // 38: cardamom.private.v1.RecordService.GetState:input_type -> cardamom.private.v1.GetStateRequest
+	10, // 39: cardamom.private.v1.RecordService.SetState:input_type -> cardamom.private.v1.SetStateRequest
+	11, // 40: cardamom.private.v1.RecordService.AppendState:input_type -> cardamom.private.v1.AppendStateRequest
+	12, // 41: cardamom.private.v1.RecordService.ClearState:input_type -> cardamom.private.v1.ClearStateRequest
+	19, // 42: cardamom.private.v1.RecordService.CommitState:input_type -> cardamom.private.v1.CommitStateRequest
+	21, // 43: cardamom.private.v1.RecordService.GetResult:input_type -> cardamom.private.v1.GetResultRequest
+	24, // 44: cardamom.private.v1.RecordService.SetResult:input_type -> cardamom.private.v1.SetResultRequest
+	4,  // 45: cardamom.private.v1.RecordService.ListLogEntries:output_type -> cardamom.private.v1.ListLogEntriesResponse
+	6,  // 46: cardamom.private.v1.RecordService.AddLogEntry:output_type -> cardamom.private.v1.AddLogEntryResponse
+	9,  // 47: cardamom.private.v1.RecordService.GetState:output_type -> cardamom.private.v1.GetStateResponse
+	13, // 48: cardamom.private.v1.RecordService.SetState:output_type -> cardamom.private.v1.SetStateResponse
+	14, // 49: cardamom.private.v1.RecordService.AppendState:output_type -> cardamom.private.v1.AppendStateResponse
+	15, // 50: cardamom.private.v1.RecordService.ClearState:output_type -> cardamom.private.v1.ClearStateResponse
+	20, // 51: cardamom.private.v1.RecordService.CommitState:output_type -> cardamom.private.v1.CommitStateResponse
+	23, // 52: cardamom.private.v1.RecordService.GetResult:output_type -> cardamom.private.v1.GetResultResponse
+	25, // 53: cardamom.private.v1.RecordService.SetResult:output_type -> cardamom.private.v1.SetResultResponse
+	45, // [45:54] is the sub-list for method output_type
+	36, // [36:45] is the sub-list for method input_type
+	36, // [36:36] is the sub-list for extension type_name
+	36, // [36:36] is the sub-list for extension extendee
+	0,  // [0:36] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_record_proto_init() }
