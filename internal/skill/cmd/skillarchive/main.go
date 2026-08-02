@@ -15,7 +15,13 @@ import (
 	"slices"
 )
 
-var runtimeEntries = []string{"SKILL.md", "references", "scripts"}
+var runtimeEntries = []string{
+	"SKILL.md",
+	"agents",
+	"assets",
+	"references",
+	"scripts",
+}
 
 func main() {
 	source := flag.String(
