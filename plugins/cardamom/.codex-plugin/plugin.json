@@ -6,7 +6,6 @@
     "name": "Abhinav Gupta"
   },
   "skills": "./skills/",
-  "hooks": "./hooks/codex.json",
   "interface": {
     "displayName": "Cardamom",
     "shortDescription": "Coordinate durable agent work with Cardamom.",
