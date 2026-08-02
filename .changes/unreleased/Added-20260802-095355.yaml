@@ -1,3 +1,0 @@
-kind: Added
-body: Added optional Claude Code and Codex lifecycle hooks that load Cardamom guidance only in associated checkouts.
-time: 2026-08-02T09:53:55.344082-07:00

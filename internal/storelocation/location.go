@@ -273,53 +273,6 @@ func ResolveBoardBindingPaths(cwd string) (BoardBindingPaths, error) {
 	}, nil
 }
 
-// HasCheckoutAssociation reports whether cwd has a local Cardamom store entry
-// or a checkout board binding. It inspects filesystem and Git metadata without
-// opening a Cardamom database.
-func HasCheckoutAssociation(cwd string) (bool, error) {
-	absCWD, err := filepath.Abs(cwd)
-	if err != nil {
-		return false, fmt.Errorf("resolve current directory %q: %w", cwd, err)
-	}
-	ancestor, err := findAncestorStore(absCWD)
-	if err != nil {
-		return false, err
-	}
-	if ancestor != "" {
-		return true, nil
-	}
-
-	git, err := inspectGitWorktree(absCWD)
-	if errors.Is(err, errNotGitRepository) {
-		return hasAssociationEntry(filepath.Join(absCWD, ".cardamom-board"))
-	}
-	if err != nil {
-		return false, fmt.Errorf("inspect Git worktree: %w", err)
-	}
-	paths := []string{
-		filepath.Join(git.commonDir, storeName),
-		filepath.Join(git.gitDir, "cardamom-board"),
-	}
-	if git.linked {
-		paths = append(paths,
-			filepath.Join(git.primaryRoot, storeName),
-			filepath.Join(git.commonDir, "cardamom-board"),
-		)
-	}
-	return hasAssociationEntry(paths...)
-}
-
-func hasAssociationEntry(paths ...string) (bool, error) {
-	for _, path := range paths {
-		if _, err := os.Lstat(path); err == nil {
-			return true, nil
-		} else if !errors.Is(err, os.ErrNotExist) {
-			return false, fmt.Errorf("inspect Cardamom association %q: %w", path, err)
-		}
-	}
-	return false, nil
-}
-
 func gitPrimaryWorktree(cwd string) (string, error) {
 	cmd := exec.Command("git", "-C", cwd, "worktree", "list", "--porcelain", "-z")
 	out, err := cmd.Output()
