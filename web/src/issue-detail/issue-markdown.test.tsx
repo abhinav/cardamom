@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("lucide-react", () => ({ Copy: () => null, Pencil: () => null }));
@@ -7,9 +9,36 @@ const {
   markdownObjectReferenceTargets,
   markdownIssueReferenceTargets,
   scrollToLogEntryFragment,
+  useMarkdownEnhancementProps,
 } = await import("./issue-detail.tsx");
 
 describe("issue Markdown presentation", () => {
+  it("keeps enhancement host props stable through a React rerender", () => {
+    const lifecycles: ReturnType<typeof useMarkdownEnhancementProps>[] = [];
+    const loadIssue = vi.fn();
+
+    function MarkdownLifecycle() {
+      const [revision, setRevision] = useState(0);
+      const props = useMarkdownEnhancementProps(
+        '<span data-issue-reference="cm-task">%cm-task</span>',
+        loadIssue,
+      );
+      lifecycles.push(props);
+      if (revision === 0) {
+        setRevision(1);
+      }
+      return <div {...props} />;
+    }
+
+    renderToStaticMarkup(<MarkdownLifecycle />);
+
+    expect(lifecycles).toHaveLength(2);
+    expect(lifecycles[1]?.dangerouslySetInnerHTML).toBe(
+      lifecycles[0]?.dangerouslySetInnerHTML,
+    );
+    expect(lifecycles[1]?.ref).toBe(lifecycles[0]?.ref);
+  });
+
   it("opens an image through a new-tab link to the original", () => {
     const link = {
       append: vi.fn(),

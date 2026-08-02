@@ -13,6 +13,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import { createRoot } from "react-dom/client";
@@ -1419,6 +1420,31 @@ export function Markdown({
   empty?: string;
 }) {
   const loadIssue = useContext(IssueReferencePreviewLoaderContext);
+  const enhancementProps = useMarkdownEnhancementProps(
+    content?.renderedHtml ?? "",
+    loadIssue,
+  );
+
+  if (content === undefined || content.source.trim() === "") {
+    return empty === undefined ? null : (
+      <p className="issue-detail-empty">{empty}</p>
+    );
+  }
+  return <div className="issue-markdown" {...enhancementProps} />;
+}
+
+/**
+ * useMarkdownEnhancementProps keeps unchanged server HTML from replacing
+ * mounted Markdown enhancements during unrelated React renders.
+ */
+export function useMarkdownEnhancementProps(
+  renderedHtml: string,
+  loadIssue: LoadIssueReferencePreview | undefined,
+) {
+  const dangerouslySetInnerHTML = useMemo(
+    () => ({ __html: renderedHtml }),
+    [renderedHtml],
+  );
   const enhanceMarkdown = useCallback((element: HTMLDivElement | null) => {
     if (element === null) {
       return;
@@ -1432,20 +1458,9 @@ export function Markdown({
       unmountIssues();
       unmountObjects();
     };
-  }, [content?.renderedHtml, loadIssue]);
+  }, [renderedHtml, loadIssue]);
 
-  if (content === undefined || content.source.trim() === "") {
-    return empty === undefined ? null : (
-      <p className="issue-detail-empty">{empty}</p>
-    );
-  }
-  return (
-    <div
-      className="issue-markdown"
-      dangerouslySetInnerHTML={{ __html: content.renderedHtml }}
-      ref={enhanceMarkdown}
-    />
-  );
+  return { dangerouslySetInnerHTML, ref: enhanceMarkdown };
 }
 
 function hasMarkdown(content: MarkdownContent | undefined): boolean {
