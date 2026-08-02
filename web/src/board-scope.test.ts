@@ -1,14 +1,28 @@
 import { describe, expect, it } from "vitest";
+import { create } from "@bufbuild/protobuf";
 
 import {
   attachmentPath,
+  boardScopeHref,
   boardScopePath,
+  boardScopeSearch,
   issuePath,
   routeBoardPage,
   routeBoardScope,
+  resolveBoardScopeSelection,
   scopeKey,
   toBoardScopeMessage,
 } from "./board-scope.ts";
+import {
+  BoardRefSchema,
+  ProjectRefSchema,
+  SourceCatalogEntrySchema,
+  SourceRefSchema,
+} from "./gen/cardamom/private/v1/source_pb.ts";
+import {
+  BoardSummarySchema,
+  ProjectSchema,
+} from "./gen/cardamom/private/v1/project_pb.ts";
 
 describe("board scope routes", () => {
   it("derives board scope only from canonical route prefixes", () => {
@@ -72,5 +86,61 @@ describe("board scope boundary", () => {
     expect(scopeKey({ kind: "board", boardId: "board-2" })).toBe("board:board-2");
     expect(toBoardScopeMessage({ kind: "unresolved" })).toBeUndefined();
     expect(scopeKey({ kind: "unresolved" })).toBe("unresolved");
+  });
+
+  it("keeps aggregate source and project filters in canonical query state", () => {
+    const source = create(SourceRefSchema, {
+      sourceId: "builder",
+      storeLineageId: "lineage-builder",
+    });
+    const catalog = {
+      sources: [create(SourceCatalogEntrySchema, { source })],
+      projects: [
+        create(ProjectSchema, {
+          id: "project-1",
+          name: "Build",
+          ref: create(ProjectRefSchema, { source, projectId: "project-1" }),
+        }),
+      ],
+      boards: [
+        create(BoardSummarySchema, {
+          id: "board-1",
+          projectId: "project-1",
+          name: "Release",
+          ref: create(BoardRefSchema, { source, boardId: "board-1" }),
+        }),
+      ],
+    };
+    const selection = routeBoardScope(
+      "/all/list",
+      new URLSearchParams("source=builder&project=project-1"),
+    );
+
+    expect(selection).toEqual({
+      kind: "all",
+      sourceId: "builder",
+      projectId: "project-1",
+    });
+    if (selection.kind !== "all") {
+      throw new Error("expected the aggregate route to resolve");
+    }
+    expect(boardScopeSearch(selection)).toBe("?source=builder&project=project-1");
+    expect(boardScopeHref(selection, "list")).toBe(
+      "/all/list?source=builder&project=project-1",
+    );
+    expect(toBoardScopeMessage(selection, catalog)?.selection.case).toBe(
+      "project",
+    );
+
+    const boardSelection = resolveBoardScopeSelection(
+      routeBoardScope("/board/board-1"),
+      catalog,
+    );
+    if (boardSelection.kind !== "board") {
+      throw new Error("expected the unique board route to resolve");
+    }
+    expect(toBoardScopeMessage(boardSelection, catalog)?.selection.case).toBe(
+      "board",
+    );
   });
 });

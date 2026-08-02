@@ -38,6 +38,7 @@ import type {
   RelatedIssue,
   IssueSummary,
 } from "../gen/cardamom/private/v1/issue_pb.ts";
+import type { BoardSummary, Project } from "../gen/cardamom/private/v1/project_pb.ts";
 import {
   CheckpointOutcome,
   IssueSort,
@@ -53,6 +54,7 @@ import {
   type StateRecord,
 } from "../gen/cardamom/private/v1/record_pb.ts";
 import { BoardScopeSchema } from "../gen/cardamom/private/v1/scope_pb.ts";
+import { IssueRefSchema, type BoardRef } from "../gen/cardamom/private/v1/source_pb.ts";
 import { issueTypeLabel } from "../issue-collection.ts";
 import { IssueStatusBadge } from "../issue-status.tsx";
 import { IssueLabel, type SelectLabel } from "../issue-label.tsx";
@@ -78,6 +80,7 @@ import {
   unaryRouteQueryOptions,
 } from "../query-runtime.ts";
 import { useServerAccess } from "../server-access.tsx";
+import { issueProvenance } from "../provenance.ts";
 import { IssueHierarchy } from "./hierarchy.tsx";
 import { IssueReferenceLink } from "./issue-reference.tsx";
 import {
@@ -97,9 +100,13 @@ const IssueReferencePreviewLoaderContext =
 interface IssueDetailPageProps {
   actor: string;
   attachmentClient: AttachmentClient;
+  boardRef?: BoardRef;
+  boards?: readonly BoardSummary[];
   collapsedDetailsBoardIds: readonly string[];
   expectedBoardId: string;
   issueId: string;
+  projects?: readonly Project[];
+  readOnly?: boolean;
   relationsOpen: boolean;
   selectLabel: SelectLabel;
   setDetailsCollapsed: (boardId: string, collapsed: boolean) => void;
@@ -110,10 +117,13 @@ interface IssueDetailPageProps {
 export function dependencySearchInput(
   boardId: string,
   query: string,
+  boardRef?: BoardRef,
 ) {
   return create(ListIssuesRequestSchema, {
       scope: create(BoardScopeSchema, {
-        selection: { case: "boardId", value: boardId },
+        selection: boardRef === undefined
+          ? { case: "boardId", value: boardId }
+          : { case: "board", value: boardRef },
       }),
       titleQuery: query.trim(),
       sort: IssueSort.TITLE,
@@ -305,15 +315,20 @@ export function addIssueLogEntryInput(
 export function IssueDetailPage({
   actor,
   attachmentClient,
+  boardRef,
+  boards = [],
   collapsedDetailsBoardIds,
   expectedBoardId,
   issueId,
+  projects = [],
+  readOnly = false,
   relationsOpen,
   selectLabel,
   setDetailsCollapsed,
   setRelationsOpen,
 }: IssueDetailPageProps) {
-  const { canMutateServer } = useServerAccess();
+  const { canMutateServer: serverCanMutate } = useServerAccess();
+  const canMutateServer = serverCanMutate && !readOnly;
   const transport = useTransport();
   const queryClient = useQueryClient();
   const lifecycleMutations: LifecycleMutations = {
@@ -337,7 +352,12 @@ export function IssueDetailPage({
   const issueRequest = useQuery({
     ...unaryRouteQueryOptions(
       IssueService.method.getIssue,
-      { issueId },
+      {
+        issueId,
+        ...(boardRef === undefined
+          ? {}
+          : { issue: create(IssueRefSchema, { board: boardRef, issueId }) }),
+      },
       transport,
     ),
     select(response) {
@@ -358,7 +378,13 @@ export function IssueDetailPage({
   const logRequest = useQuery({
     ...unaryRouteQueryOptions(
       RecordService.method.listLogEntries,
-      { issueId, direction: SortDirection.ASCENDING },
+      {
+        issueId,
+        direction: SortDirection.ASCENDING,
+        ...(boardRef === undefined
+          ? {}
+          : { issue: create(IssueRefSchema, { board: boardRef, issueId }) }),
+      },
       transport,
     ),
     select: (response) => response.logEntries,
@@ -376,7 +402,17 @@ export function IssueDetailPage({
       const response = await queryClient.fetchQuery(
         unaryRouteQueryOptions(
           IssueService.method.getIssue,
-          { issueId: referencedIssueID },
+          {
+            issueId: referencedIssueID,
+            ...(boardRef === undefined
+              ? {}
+              : {
+                  issue: create(IssueRefSchema, {
+                    board: boardRef,
+                    issueId: referencedIssueID,
+                  }),
+                }),
+          },
           transport,
         ),
       );
@@ -554,8 +590,10 @@ export function IssueDetailPage({
           />
         )}
         <PrimaryRecord
+          boards={boards}
           detail={detail}
           detailsOpen={!collapsedDetailsBoardIds.includes(issue.boardId)}
+          projects={projects}
           selectLabel={selectLabel}
           setDetailsOpen={(open) =>
             setDetailsCollapsed(issue.boardId, !open)
@@ -563,6 +601,7 @@ export function IssueDetailPage({
         />
         <AttachmentRecords boardId={issue.boardId} issueId={issue.id} />
         <RelationshipBand
+          boardRef={boardRef}
           canMutate={canMutateServer}
           dependencyQuery={dependencyQuery}
           detail={detail}
@@ -701,13 +740,17 @@ export function IssueBreadcrumbs({
 
 /** PrimaryRecord renders stable issue content and metadata. */
 export function PrimaryRecord({
+  boards = [],
   detail,
   detailsOpen = true,
+  projects = [],
   selectLabel,
   setDetailsOpen = () => {},
 }: {
+  boards?: readonly BoardSummary[];
   detail: IssueDetail;
   detailsOpen?: boolean;
+  projects?: readonly Project[];
   selectLabel: SelectLabel;
   setDetailsOpen?: (open: boolean) => void;
 }) {
@@ -715,6 +758,7 @@ export function PrimaryRecord({
   if (issue === undefined) {
     return null;
   }
+  const provenance = issueProvenance(issue, { boards, projects });
   return (
     <>
       <section
@@ -723,9 +767,21 @@ export function PrimaryRecord({
       >
         <h2 id="record-title">Record</h2>
         <dl className="issue-record">
+          {provenance.source !== undefined && (
+            <div>
+              <dt>Source</dt>
+              <dd>{provenance.source}</dd>
+            </div>
+          )}
+          {provenance.project !== undefined && (
+            <div>
+              <dt>Project</dt>
+              <dd>{provenance.project}</dd>
+            </div>
+          )}
           <div>
             <dt>Board</dt>
-            <dd>{issue.boardId}</dd>
+            <dd>{provenance.board ?? issue.boardId}</dd>
           </div>
           <div>
             <dt>Created</dt>
@@ -1022,6 +1078,7 @@ function MutationResult({ mutation }: { mutation: MutationState }) {
 
 export function RelationshipBand({
   addDependency,
+  boardRef,
   canMutate = true,
   dependencyQuery,
   detail,
@@ -1032,6 +1089,7 @@ export function RelationshipBand({
   setRelationsOpen,
 }: {
   addDependency: (id: string) => void;
+  boardRef?: BoardRef;
   canMutate?: boolean;
   dependencyQuery: string;
   detail: IssueDetail;
@@ -1067,6 +1125,7 @@ export function RelationshipBand({
         <DependencyPanel
           add={canMutate ? addDependency : undefined}
           boardId={issue.boardId}
+          boardRef={boardRef}
           currentIssueId={issue.id}
           dependencies={detail.prerequisites}
           pending={pending}
@@ -1091,6 +1150,7 @@ export function RelationshipBand({
 function DependencyPanel({
   add,
   boardId,
+  boardRef,
   currentIssueId,
   dependencies,
   pending,
@@ -1100,6 +1160,7 @@ function DependencyPanel({
 }: {
   add?: (id: string) => void;
   boardId: string;
+  boardRef?: BoardRef;
   currentIssueId: string;
   dependencies: readonly RelatedIssue[];
   pending: boolean;
@@ -1117,7 +1178,7 @@ function DependencyPanel({
   const candidates = useQuery({
     ...unaryRouteQueryOptions(
       IssueService.method.listIssues,
-      dependencySearchInput(boardId, normalizedQuery),
+      dependencySearchInput(boardId, normalizedQuery, boardRef),
       transport,
     ),
     enabled: add !== undefined && searchOpen && normalizedQuery !== "",

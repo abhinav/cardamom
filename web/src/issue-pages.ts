@@ -22,6 +22,7 @@ import {
   type ListIssuesResponse,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import type { BoardScope } from "./gen/cardamom/private/v1/scope_pb.ts";
+import type { AggregateStatus } from "./gen/cardamom/private/v1/source_pb.ts";
 import {
   buildIssueQuery,
   issueTypeLabel,
@@ -55,6 +56,7 @@ export interface IssuePageStream extends IssueStream {
   /** nextPageToken is absent after the server exhausts the stream. */
   nextPageToken?: string;
   error?: Error;
+  aggregateStatus?: AggregateStatus;
 }
 
 /** IssuePageState retains independent streams in their display order. */
@@ -210,6 +212,7 @@ export function projectIssuePages(
       status,
       pageCount: pages.length,
       nextPageToken: lastPage?.nextPageToken,
+      aggregateStatus: lastPage?.aggregateStatus,
       error: query?.error,
     };
   });

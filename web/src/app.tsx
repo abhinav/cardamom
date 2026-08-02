@@ -22,6 +22,7 @@ import {
 } from "./board-settings.tsx";
 import { BoardPickerRoute, BoardSelector } from "./board-selector.tsx";
 import {
+  collectionRouteLocationSearch,
   collectionRouteSearch,
   issueFiltersFromSearch,
   issueViewFromSearch,
@@ -34,6 +35,9 @@ import {
 import { ConfigurationRoute } from "./configuration.tsx";
 import {
   boardScopePath,
+  boardScopeHref,
+  boardScopeSearch,
+  resolveBoardScopeSelection,
   routeBoardPage,
   routeBoardScope,
   scopeKey,
@@ -46,6 +50,11 @@ import type {
   Project,
 } from "./gen/cardamom/private/v1/project_pb.ts";
 import type { BoardScope } from "./gen/cardamom/private/v1/scope_pb.ts";
+import {
+  SourceHealth,
+  type AggregateStatus,
+  type SourceCatalogEntry,
+} from "./gen/cardamom/private/v1/source_pb.ts";
 import { DocumentTitle } from "./document-title.tsx";
 import { type StreamStatus, watchContinuously } from "./invalidation.ts";
 import { bootstrapQueryOptions } from "./query-runtime.ts";
@@ -120,12 +129,21 @@ function LoadedApp({
 }: LoadedAppProps) {
   const [preferences, setPreferences] = useState(() => loadPreferences(storage));
   const queryClient = useQueryClient();
-  const pathname = useLocation().pathname;
-  const selection = routeBoardScope(pathname);
+  const location = useLocation();
+  const pathname = location.pathname;
+  const catalog = {
+    boards: bootstrap.boards,
+    projects: bootstrap.projects,
+    sources: bootstrap.sources,
+  };
+  const selection = resolveBoardScopeSelection(
+    routeBoardScope(pathname, new URLSearchParams(location.search)),
+    catalog,
+  );
   const selectionKey = scopeKey(selection);
   const scope = useMemo(
-    () => toBoardScopeMessage(selection),
-    [selectionKey],
+    () => toBoardScopeMessage(selection, catalog),
+    [selectionKey, bootstrap.boards, bootstrap.projects, bootstrap.sources],
   );
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(
     scope === undefined ? "offline" : "connecting",
@@ -158,9 +176,12 @@ function LoadedApp({
     <ServerAccessProvider accessMode={bootstrap.accessMode}>
       <ApplicationShell
         attachmentClient={attachmentClient}
+        aggregateMode={bootstrap.sources.length > 0}
+        aggregateStatus={bootstrap.aggregateStatus}
         boards={bootstrap.boards}
         preferences={preferences}
         projects={bootstrap.projects}
+        sources={bootstrap.sources}
         scope={scope}
         selection={selection}
         streamStatus={streamStatus}
@@ -173,9 +194,12 @@ function LoadedApp({
 
 interface ApplicationShellProps {
   attachmentClient: AttachmentClient;
+  aggregateMode: boolean;
+  aggregateStatus: AggregateStatus | undefined;
   boards: readonly BoardSummary[];
   preferences: Preferences;
   projects: readonly Project[];
+  sources: readonly SourceCatalogEntry[];
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
   streamStatus: StreamStatus;
@@ -185,16 +209,20 @@ interface ApplicationShellProps {
 
 function ApplicationShell({
   attachmentClient,
+  aggregateMode,
+  aggregateStatus,
   boards,
   preferences,
   projects,
+  sources,
   scope,
   selection,
   streamStatus,
   updatePreferences,
   version,
 }: ApplicationShellProps) {
-  const { canMutateServer } = useServerAccess();
+  const { canMutateServer: serverCanMutate } = useServerAccess();
+  const canMutateServer = serverCanMutate && !aggregateMode;
   const navigate = useNavigate();
   const location = useLocation();
   const collectionRoute = isCollectionRoute(location.pathname);
@@ -208,11 +236,21 @@ function ApplicationShell({
   const boardName =
     selection.kind === "unresolved"
       ? "Boards"
+      : selection.kind === "ambiguous"
+        ? `${selection.boardId} unavailable`
       : selection.kind === "all"
-        ? "All boards"
+        ? selection.projectId !== undefined
+          ? "Project boards"
+          : selection.sourceId !== undefined
+            ? "Source boards"
+            : "All boards"
         : (selectedBoard?.name ?? `${selection.boardId} unavailable`);
   const selectLabel = (label: string) => {
-    const destination = labelCollectionLocation(location.pathname, label);
+    const destination = labelCollectionLocation(
+      location.pathname,
+      location.search,
+      label,
+    );
     if (destination !== undefined) {
       navigate(destination);
     }
@@ -226,13 +264,18 @@ function ApplicationShell({
       )
     : undefined;
   const collectionPath = (mode: IssueCollectionMode): string => {
-    if (selection.kind === "unresolved") {
+    if (selection.kind === "unresolved" || selection.kind === "ambiguous") {
       return "/";
     }
     const path = boardScopePath(selection, mode);
-    return activeCollectionFilters === undefined
-      ? path
-      : path + collectionRouteSearch(activeCollectionFilters, mode);
+    const search = activeCollectionFilters === undefined
+      ? boardScopeSearch(selection)
+      : collectionRouteLocationSearch(
+        boardScopeSearch(selection),
+        activeCollectionFilters,
+        mode,
+      );
+    return path + search;
   };
 
   return (
@@ -248,34 +291,41 @@ function ApplicationShell({
         <header className="app-header">
           <BoardSelector
             boards={boards}
+            sources={sources}
             projects={projects}
             selection={selection}
             onOpenBoardSettings={
-              canMutateServer && selectedBoard !== undefined
+              !aggregateMode && canMutateServer && selectedBoard !== undefined
                 ? () => setBoardSettingsOpen(true)
                 : undefined
             }
             onSelectScope={(nextSelection) =>
               navigate(
-                boardScopePath(
+                boardScopeHref(
                   nextSelection,
                   routeBoardPage(location.pathname),
                 ),
               )
             }
           />
-          <StreamState status={streamStatus} />
-          <SettingsControl
-            preferences={preferences}
-            selectedBoard={selectedBoard}
-            openConfiguration={() => {
-              if (selection.kind === "board") {
-                navigate(boardScopePath(selection, "settings"));
-              }
-            }}
-            updatePreferences={updatePreferences}
-            version={version}
+          <StreamState
+            aggregateStatus={aggregateStatus}
+            sources={sources}
+            status={streamStatus}
           />
+          {!aggregateMode && (
+            <SettingsControl
+              preferences={preferences}
+              selectedBoard={selectedBoard}
+              openConfiguration={() => {
+                if (selection.kind === "board") {
+                  navigate(boardScopePath(selection, "settings"));
+                }
+              }}
+              updatePreferences={updatePreferences}
+              version={version}
+            />
+          )}
         </header>
 
         <nav
@@ -296,15 +346,15 @@ function ApplicationShell({
           >
             {selection.kind === "unresolved" ? "Boards" : "Board"}
           </NavLink>
-          {selection.kind !== "unresolved" && (
+          {selection.kind !== "unresolved" && selection.kind !== "ambiguous" && (
             <>
-              <NavLink to={boardScopePath(selection, "approvals")} end>
+              <NavLink to={boardScopeHref(selection, "approvals")} end>
                 Approvals
               </NavLink>
               <NavLink to={collectionPath("list")} end>
                 List
               </NavLink>
-              <NavLink to={boardScopePath(selection, "routines")} end>
+              <NavLink to={boardScopeHref(selection, "routines")} end>
                 Routines
               </NavLink>
             </>
@@ -322,15 +372,17 @@ function ApplicationShell({
             attachmentClient={attachmentClient}
             boards={boards}
             canMutateServer={canMutateServer}
+            aggregateMode={aggregateMode}
             preferences={preferences}
             projects={projects}
+            sources={sources}
             scope={scope}
             selection={selection}
             selectLabel={selectLabel}
             updatePreferences={updatePreferences}
           />
         </main>
-        {canMutateServer && boardSettingsOpen && selectedBoard !== undefined && (
+        {!aggregateMode && canMutateServer && boardSettingsOpen && selectedBoard !== undefined && (
           <BoardSettingsDialog
             key={selectedBoard.id}
             actor={preferences.actor}
@@ -440,32 +492,74 @@ export function SettingsControl({
   );
 }
 
-function StreamState({ status }: { status: StreamStatus }) {
-  const label = status[0]?.toUpperCase() + status.slice(1);
+function StreamState({
+  aggregateStatus,
+  sources,
+  status,
+}: {
+  aggregateStatus: AggregateStatus | undefined;
+  sources: readonly SourceCatalogEntry[];
+  status: StreamStatus;
+}) {
+  const label = aggregateStatus?.complete === false ? "Degraded" : status[0]?.toUpperCase() + status.slice(1);
   return (
-    <span className="stream-state" data-status={status} role="status" aria-live="polite">
-      <span className="stream-state-dot" aria-hidden="true" />
-      {label}
-    </span>
+    <details className="stream-state-details">
+      <summary className="stream-state" data-status={status} role="status" aria-live="polite">
+        <span className="stream-state-dot" aria-hidden="true" />
+        {label}
+      </summary>
+      {sources.length > 0 && (
+        <div className="source-health-panel">
+          <strong>Source health</strong>
+          {sources.map((source) => (
+            <div key={source.source?.sourceId} className="source-health-row">
+              <span>{source.source?.sourceId ?? "Unknown source"}</span>
+              <span>{sourceHealthLabel(source.health)}</span>
+              {source.diagnostic !== "" && <span>{source.diagnostic}</span>}
+            </div>
+          ))}
+          {aggregateStatus?.complete === false && (
+            <p>Some selected sources did not contribute to the current read.</p>
+          )}
+        </div>
+      )}
+    </details>
   );
+}
+
+function sourceHealthLabel(health: SourceHealth): string {
+  switch (health) {
+    case SourceHealth.HEALTHY:
+      return "Healthy";
+    case SourceHealth.DEGRADED:
+      return "Degraded";
+    case SourceHealth.UNAVAILABLE:
+      return "Unavailable";
+    default:
+      return "Unknown";
+  }
 }
 
 function RouteContent({
   attachmentClient,
+  aggregateMode,
   boards,
   canMutateServer,
   preferences,
   projects,
+  sources,
   scope,
   selection,
   selectLabel,
   updatePreferences,
 }: {
   attachmentClient: AttachmentClient;
+  aggregateMode: boolean;
   boards: readonly BoardSummary[];
   canMutateServer: boolean;
   preferences: Preferences;
   projects: readonly Project[];
+  sources: readonly SourceCatalogEntry[];
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
   selectLabel: (label: string) => void;
@@ -484,7 +578,7 @@ function RouteContent({
     navigate(
       {
         pathname: location.pathname,
-        search: collectionRouteSearch(filters, mode),
+        search: collectionRouteLocationSearch(location.search, filters, mode),
       },
       { replace: navigation === "replace" },
     );
@@ -493,6 +587,8 @@ function RouteContent({
       actor={preferences.actor}
       attachmentClient={attachmentClient}
       boards={boards}
+      projects={projects}
+      sources={sources}
       canMutateServer={canMutateServer}
       selection={selection}
       selectLabel={selectLabel}
@@ -520,6 +616,8 @@ function RouteContent({
       actor={preferences.actor}
       attachmentClient={attachmentClient}
       boards={boards}
+      projects={projects}
+      sources={sources}
       canMutateServer={canMutateServer}
       selection={selection}
       selectLabel={selectLabel}
@@ -547,7 +645,7 @@ function RouteContent({
     <Routes>
       <Route
         path="/"
-        element={<BoardPickerRoute boards={boards} projects={projects} />}
+        element={<BoardPickerRoute boards={boards} projects={projects} sources={sources} />}
       />
       <Route path="/board/:boardId" element={boardRoute} />
       <Route path="/all" element={boardRoute} />
@@ -560,24 +658,32 @@ function RouteContent({
       <Route
         path="/board/:boardId/settings"
         element={
-          <ConfigurationRoute
-            actor={preferences.actor}
-            boardId={selection.kind === "board" ? selection.boardId : undefined}
-            boardName={
-              selection.kind === "board"
-                ? boards.find((board) => board.id === selection.boardId)?.name
-                : undefined
-            }
-            canMutateServer={canMutateServer}
-          />
+          aggregateMode
+            ? <NotFoundPage />
+            : (
+              <ConfigurationRoute
+                actor={preferences.actor}
+                boardId={selection.kind === "board" ? selection.boardId : undefined}
+                boardName={
+                  selection.kind === "board"
+                    ? boards.find((board) => board.id === selection.boardId)?.name
+                    : undefined
+                }
+                canMutateServer={canMutateServer}
+              />
+            )
         }
       />
       <Route
         path="/board/:boardId/issue/:issueId"
         element={
           <IssuePage
+            aggregateMode={aggregateMode}
             attachmentClient={attachmentClient}
+            boards={boards}
             preferences={preferences}
+            projects={projects}
+            selection={selection}
             selectLabel={selectLabel}
             updatePreferences={updatePreferences}
           />
@@ -662,13 +768,21 @@ function RoutinesPage({
 }
 
 function IssuePage({
+  aggregateMode,
   attachmentClient,
+  boards,
   preferences,
+  projects,
+  selection,
   selectLabel,
   updatePreferences,
 }: {
+  aggregateMode: boolean;
   attachmentClient: AttachmentClient;
+  boards: readonly BoardSummary[];
   preferences: Preferences;
+  projects: readonly Project[];
+  selection: BoardScopeSelection;
   selectLabel: (label: string) => void;
   updatePreferences: (preferences: Preferences) => void;
 }) {
@@ -681,9 +795,13 @@ function IssuePage({
       key={`${boardId}:${issueId}`}
       actor={preferences.actor}
       attachmentClient={attachmentClient}
+      boardRef={selection.kind === "board" ? selection.boardRef : undefined}
+      boards={boards}
       collapsedDetailsBoardIds={preferences.collapsedIssueDetailsBoardIds}
       expectedBoardId={boardId}
       issueId={issueId}
+      projects={projects}
+      readOnly={aggregateMode}
       relationsOpen={preferences.relationsOpen}
       selectLabel={selectLabel}
       setRelationsOpen={(relationsOpen) =>

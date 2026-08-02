@@ -22,6 +22,8 @@ import {
   type IssueSummary,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import type { BoardSummary } from "./gen/cardamom/private/v1/project_pb.ts";
+import type { Project } from "./gen/cardamom/private/v1/project_pb.ts";
+import type { SourceCatalogEntry } from "./gen/cardamom/private/v1/source_pb.ts";
 import {
   clearIssueFilters,
   issueTypeLabel,
@@ -35,6 +37,7 @@ import {
 } from "./issue-collection.ts";
 import { IssueLabel, type SelectLabel } from "./issue-label.tsx";
 import { IssueStatusBadge } from "./issue-status.tsx";
+import { visibleIssueProvenance } from "./provenance.ts";
 import {
   buildIssueStreams,
   issueLoadControl,
@@ -47,6 +50,8 @@ import {
 interface SharedRouteProps {
   attachmentClient: AttachmentClient;
   boards: readonly BoardSummary[];
+  projects: readonly Project[];
+  sources?: readonly SourceCatalogEntry[];
   canMutateServer: boolean;
   selection: BoardScopeSelection;
   actor: string;
@@ -118,8 +123,13 @@ interface IssueCollectionRouteProps extends SharedRouteProps {
 function IssueCollectionRoute(props: IssueCollectionRouteProps) {
   const selectionIdentity = scopeKey(props.selection);
   const scope = useMemo(
-    () => toBoardScopeMessage(props.selection),
-    [selectionIdentity],
+    () =>
+      toBoardScopeMessage(props.selection, {
+        boards: props.boards,
+        projects: props.projects,
+        sources: props.sources ?? [],
+      }),
+    [props.boards, props.projects, props.sources, selectionIdentity],
   );
   if (scope === undefined) {
     return (
@@ -211,6 +221,7 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
       aria-label={props.mode === "board" ? "Issue board" : "Issue list"}
     >
       <header className="issue-view-header">
+        <AggregateReadStatus streams={props.pages.streams} />
         <IssueControls
           mode={props.mode}
           view={props.view}
@@ -228,11 +239,13 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
       {props.mode === "board" ? (
         <KanbanBoard
           boards={props.boards}
+          projects={props.projects}
           grouping={props.grouping ?? "status"}
           streams={props.pages.streams}
           loadMore={props.loadMore}
           selectLabel={props.selectLabel}
           showBoard={props.selection.kind === "all"}
+          scope={props.selection}
           canCreateIssue={canCreateIssue}
           showCreationGuidance={props.canMutateServer}
           showEmptyColumns={props.showEmptyColumns}
@@ -240,10 +253,12 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
       ) : (
         <IssueList
           boards={props.boards}
+          projects={props.projects}
           stream={props.pages.streams[0]}
           loadMore={props.loadMore}
           selectLabel={props.selectLabel}
           showBoard={props.selection.kind === "all"}
+          scope={props.selection}
         />
       )}
 
@@ -502,22 +517,26 @@ function FilterFields({
 
 export function KanbanBoard({
   boards,
+  projects = [],
   canCreateIssue = true,
   grouping,
   streams,
   loadMore,
   selectLabel,
   showBoard,
+  scope = { kind: "board", boardId: "" },
   showCreationGuidance = true,
   showEmptyColumns = false,
 }: {
   boards: readonly BoardSummary[];
+  projects?: readonly Project[];
   canCreateIssue?: boolean;
   grouping: IssueGrouping;
   streams: readonly IssuePageStream[];
   loadMore: (key: string) => void;
   selectLabel: SelectLabel;
   showBoard: boolean;
+  scope?: BoardScopeSelection;
   showCreationGuidance?: boolean;
   showEmptyColumns?: boolean;
 }) {
@@ -556,10 +575,12 @@ export function KanbanBoard({
                 stream.issues.map((issue) => (
                   <IssueCard
                     boards={boards}
+                    projects={projects}
                     issue={issue}
                     key={issue.id}
                     selectLabel={selectLabel}
                     showBoard={showBoard}
+                    scope={scope}
                     showStatus={grouping !== "status"}
                   />
                 ))
@@ -575,15 +596,19 @@ export function KanbanBoard({
 
 function IssueCard({
   boards,
+  projects,
   issue,
   selectLabel,
   showBoard,
+  scope,
   showStatus,
 }: {
   boards: readonly BoardSummary[];
+  projects: readonly Project[];
   issue: IssueSummary;
   selectLabel: SelectLabel;
   showBoard: boolean;
+  scope: BoardScopeSelection;
   showStatus: boolean;
 }) {
   return (
@@ -604,9 +629,11 @@ function IssueCard({
       </h3>
       <IssueMetadata
         boards={boards}
+        projects={projects}
         issue={issue}
         selectLabel={selectLabel}
         showBoard={showBoard}
+        scope={scope}
         showStatus={showStatus}
       />
     </article>
@@ -615,16 +642,20 @@ function IssueCard({
 
 function IssueList({
   boards,
+  projects,
   stream,
   loadMore,
   selectLabel,
   showBoard,
+  scope,
 }: {
   boards: readonly BoardSummary[];
+  projects: readonly Project[];
   stream: IssuePageStream | undefined;
   loadMore: (key: string) => void;
   selectLabel: SelectLabel;
   showBoard: boolean;
+  scope: BoardScopeSelection;
 }) {
   if (stream === undefined ||
     (stream.issues.length === 0 && stream.status === "ready")) {
@@ -670,7 +701,12 @@ function IssueList({
                     </span>
                   )}
                 </td>
-                {showBoard && <td>{boardName(boards, issue.boardId)}</td>}
+                {showBoard && (
+                  <td>
+                    {visibleIssueProvenance(issue, { boards, projects }, scope) ??
+                      boardName(boards, issue.boardId)}
+                  </td>
+                )}
                 <td><IssueStatusBadge status={issue.status} /></td>
                 <td>{issueTypeLabel(issue.type)}</td>
                 <td>{issue.priority}</td>
@@ -702,9 +738,11 @@ function IssueList({
             </Link>
             <IssueMetadata
               boards={boards}
+              projects={projects}
               issue={issue}
               selectLabel={selectLabel}
               showBoard={showBoard}
+              scope={scope}
               showStatus={false}
             />
           </li>
@@ -780,14 +818,18 @@ function IssueStreamLoad({
 
 function IssueMetadata({
   boards,
+  projects,
   issue,
   selectLabel,
+  scope,
   showBoard,
   showStatus,
 }: {
   boards: readonly BoardSummary[];
+  projects: readonly Project[];
   issue: IssueSummary;
   selectLabel: SelectLabel;
+  scope: BoardScopeSelection;
   showBoard: boolean;
   showStatus: boolean;
 }) {
@@ -796,7 +838,12 @@ function IssueMetadata({
       {showStatus && <IssueStatusBadge status={issue.status} />}
       <span>{issueTypeLabel(issue.type)}</span>
       {issue.activeClaim !== undefined && <span>{issue.activeClaim.actor}</span>}
-      {showBoard && <span>{boardName(boards, issue.boardId)}</span>}
+      {showBoard && (
+        <span>
+          {visibleIssueProvenance(issue, { boards, projects }, scope) ??
+            boardName(boards, issue.boardId)}
+        </span>
+      )}
       <IssueTime issue={issue} compact labeled />
       {issue.labels.map((label) => (
         <IssueLabel key={label} label={label} select={selectLabel} />
@@ -863,6 +910,24 @@ function RouteState({
 
 function EmptyCollection() {
   return <p className="empty-collection">No issues match these filters.</p>;
+}
+
+function AggregateReadStatus({
+  streams,
+}: {
+  streams: readonly IssuePageStream[];
+}) {
+  const status = streams.find((stream) => stream.aggregateStatus !== undefined)
+    ?.aggregateStatus;
+  if (status?.complete !== false) {
+    return null;
+  }
+  const problems = status.problems.map((problem) => problem.sourceId).join(", ");
+  return (
+    <p className="aggregate-read-status" role="status">
+      Partial data{problems === "" ? "" : ` · unavailable: ${problems}`}
+    </p>
+  );
 }
 
 function enumFilter(value: string): number | "all" {
