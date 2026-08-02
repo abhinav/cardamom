@@ -52,6 +52,34 @@ func TestNewBuildsBootstrapAndReadOnlyHandler(t *testing.T) {
 	assert.Equal(t, connect.CodePermissionDenied, connect.CodeOf(err))
 }
 
+func TestNewStartsEmptyAggregate(t *testing.T) {
+	aggregate, err := New(t.Context(), Config{Version: "empty-aggregate"})
+	require.NoError(t, err)
+
+	bootstrap, err := newAggregateClient(t, aggregate).GetBootstrap(
+		t.Context(), connect.NewRequest(&v1.GetBootstrapRequest{}),
+	)
+	require.NoError(t, err)
+	assert.Empty(t, bootstrap.Msg.GetSources())
+	assert.Empty(t, bootstrap.Msg.GetProjects())
+	assert.Empty(t, bootstrap.Msg.GetBoards())
+	assert.Equal(t, v1.AccessMode_ACCESS_MODE_READ_ONLY, bootstrap.Msg.GetAccessMode())
+	assert.True(t, bootstrap.Msg.GetAggregateStatus().GetComplete())
+	_, ok := bootstrap.Msg.GetDefaultScope().GetSelection().(*v1.BoardScope_AllSources)
+	assert.True(t, ok)
+
+	issues, err := newAggregateIssueClient(t, aggregate).ListIssues(
+		t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
+			Scope: &v1.BoardScope{Selection: &v1.BoardScope_AllSources{
+				AllSources: &v1.AllSources{},
+			}},
+		}),
+	)
+	require.NoError(t, err)
+	assert.Empty(t, issues.Msg.GetIssues())
+	assert.True(t, issues.Msg.GetAggregateStatus().GetComplete())
+}
+
 func TestNewRejectsSourcesWithoutRequiredCapabilities(t *testing.T) {
 	for _, test := range []struct {
 		name       string
@@ -349,6 +377,86 @@ func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"Delta", "Echo"}, issueTitles(second.Msg.GetIssues()))
 	assert.False(t, second.Msg.GetTruncated())
+}
+
+func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {
+	alphaBoardA := &v1.BoardSummary{Id: "alpha-a", ProjectId: "project-a", Name: "Alpha A"}
+	alphaBoardB := &v1.BoardSummary{Id: "alpha-b", ProjectId: "project-b", Name: "Alpha B"}
+	betaBoardB := &v1.BoardSummary{Id: "beta-b", ProjectId: "project-b", Name: "Beta B"}
+
+	alphaBootstrap := sourceBootstrap(nil, true)
+	alphaBootstrap.Sources[0].Source.StoreLineageId = "lineage-alpha"
+	alphaBootstrap.Projects = []*v1.Project{
+		{Id: "project-a", Name: "Project A"},
+		{Id: "project-b", Name: "Project B"},
+	}
+	alphaBootstrap.Boards = []*v1.BoardSummary{alphaBoardA, alphaBoardB}
+	betaBootstrap := sourceBootstrap(betaBoardB, true)
+	betaBootstrap.Sources[0].Source.StoreLineageId = "lineage-beta"
+
+	var alphaScopes []*v1.BoardScope
+	alpha := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: alphaBootstrap,
+		issues: func(_ context.Context, request *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
+			alphaScopes = append(alphaScopes, request.Msg.GetScope())
+			if request.Msg.GetScope().GetBoardId() == alphaBoardB.GetId() {
+				return connect.NewResponse(&v1.ListIssuesResponse{
+					Issues:     []*v1.IssueSummary{{Id: "alpha-issue-b", BoardId: alphaBoardB.GetId(), Title: "Alpha B"}},
+					TotalCount: 1,
+				}), nil
+			}
+			return connect.NewResponse(&v1.ListIssuesResponse{
+				Issues: []*v1.IssueSummary{
+					{Id: "alpha-issue-a", BoardId: alphaBoardA.GetId(), Title: "Alpha A"},
+					{Id: "alpha-issue-b", BoardId: alphaBoardB.GetId(), Title: "Alpha B"},
+				},
+				TotalCount: 2,
+			}), nil
+		},
+	})
+	betaCalls := 0
+	beta := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: betaBootstrap,
+		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
+			betaCalls++
+			return connect.NewResponse(&v1.ListIssuesResponse{
+				Issues:     []*v1.IssueSummary{{Id: "beta-issue-b", BoardId: betaBoardB.GetId(), Title: "Beta B"}},
+				TotalCount: 1,
+			}), nil
+		},
+	})
+
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{
+		{Alias: "alpha", URL: mustURL(t, alpha.URL)},
+		{Alias: "beta", URL: mustURL(t, beta.URL)},
+	}})
+	require.NoError(t, err)
+	client := newAggregateIssueClient(t, aggregate)
+
+	sourceIssues, err := client.ListIssues(t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
+		Scope: &v1.BoardScope{Selection: &v1.BoardScope_Source{Source: &v1.SourceRef{
+			SourceId: "alpha", StoreLineageId: "lineage-alpha",
+		}}},
+		Sort: v1.IssueSort_ISSUE_SORT_TITLE,
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Alpha A", "Alpha B"}, issueTitles(sourceIssues.Msg.GetIssues()))
+	require.Len(t, alphaScopes, 1)
+	_, allBoards := alphaScopes[0].GetSelection().(*v1.BoardScope_AllBoards)
+	assert.True(t, allBoards)
+	assert.Equal(t, 0, betaCalls)
+
+	projectIssues, err := client.ListIssues(t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
+		Scope: &v1.BoardScope{Selection: &v1.BoardScope_Project{Project: &v1.ProjectRef{
+			Source:    &v1.SourceRef{SourceId: "alpha", StoreLineageId: "lineage-alpha"},
+			ProjectId: "project-b",
+		}}},
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Alpha B"}, issueTitles(projectIssues.Msg.GetIssues()))
+	require.Len(t, alphaScopes, 2)
+	assert.Equal(t, alphaBoardB.GetId(), alphaScopes[1].GetBoardId())
+	assert.Equal(t, 0, betaCalls)
 }
 
 func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
