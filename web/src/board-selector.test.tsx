@@ -92,6 +92,26 @@ describe("board selector", () => {
     expect(markup).not.toContain("Open settings for");
   });
 
+  it("exposes settings only for the board named by the current scope", () => {
+    const markup = renderToStaticMarkup(BoardSelectorView({
+      boards,
+      open: true,
+      projects,
+      query: "",
+      selection: { kind: "board", boardId: "board-m" },
+      onDismiss: vi.fn(),
+      onOpenBoardSettings: vi.fn(),
+      onQueryChange: vi.fn(),
+      onSelectScope: vi.fn(),
+      onToggle: vi.fn(),
+    }));
+
+    expect(markup).toContain("Open settings for Operations");
+    expect(markup).not.toContain("Open settings for Web");
+    expect(markup).not.toContain("Open settings for API");
+    expect(markup).not.toContain("Open settings for Solo");
+  });
+
   it("exposes toggle, selection, settings, and Escape interactions", () => {
     const onDismiss = vi.fn();
     const onOpenBoardSettings = vi.fn();
@@ -122,7 +142,7 @@ describe("board selector", () => {
     const boardRow = BoardSelectorBoardRow({
       board: boards[1]!,
       projectName: "Alpha",
-      selectedBoardId: undefined,
+      selectedBoardId: "board-a2",
       onOpenBoardSettings,
       onSelectScope,
     });

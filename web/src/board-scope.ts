@@ -6,38 +6,68 @@ import {
   type BoardScope,
 } from "./gen/cardamom/private/v1/scope_pb.ts";
 
-interface AvailableBoard {
-  id: string;
-}
-
-/** BoardScopePreference is an explicit browser selection persisted between sessions. */
-export type BoardScopePreference =
+/** ResolvedBoardScope identifies a board or aggregate scope in a route. */
+export type ResolvedBoardScope =
   | { kind: "all" }
   | { kind: "board"; boardId: string };
 
-/** BoardScopeSelection adds the unresolved state used for an ambiguous catalog. */
+/** BoardScopeSelection includes routes that do not identify board scope. */
 export type BoardScopeSelection =
-  | BoardScopePreference
+  | ResolvedBoardScope
   | { kind: "unresolved" };
 
-export function resolveBoardScope(
-  persisted: BoardScopePreference | undefined,
-  boards: readonly AvailableBoard[],
-  serverDefaultBoardId: string | undefined,
-): BoardScopeSelection {
-  if (persisted !== undefined) {
-    return persisted;
+/** BoardPage is a collection or settings page within one route scope. */
+export type BoardPage =
+  | "board"
+  | "list"
+  | "approvals"
+  | "routines"
+  | "settings";
+
+/** routeBoardScope derives board identity from the current URL. */
+export function routeBoardScope(pathname: string): BoardScopeSelection {
+  const segments = pathname.split("/");
+  if (segments[1] === "all") {
+    return { kind: "all" };
   }
+  if (segments[1] !== "board" || segments[2] === undefined || segments[2] === "") {
+    return { kind: "unresolved" };
+  }
+  try {
+    return { kind: "board", boardId: decodeURIComponent(segments[2]) };
+  } catch {
+    return { kind: "unresolved" };
+  }
+}
+
+/** routeBoardPage returns the collection page retained across scope changes. */
+export function routeBoardPage(pathname: string): BoardPage {
+  const segments = pathname.split("/");
+  const scope = routeBoardScope(pathname);
+  const page = scope.kind === "board" ? segments[3] : segments[2];
   if (
-    serverDefaultBoardId !== undefined &&
-    boards.some((board) => board.id === serverDefaultBoardId)
+    page === "list" ||
+    page === "approvals" ||
+    page === "routines" ||
+    (page === "settings" && scope.kind === "board")
   ) {
-    return { kind: "board", boardId: serverDefaultBoardId };
+    return page;
   }
-  if (boards.length === 1 && boards[0] !== undefined) {
-    return { kind: "board", boardId: boards[0].id };
+  return "board";
+}
+
+/** boardScopePath builds one canonical collection or settings path. */
+export function boardScopePath(
+  selection: ResolvedBoardScope,
+  page: BoardPage = "board",
+): string {
+  const base = selection.kind === "all"
+    ? "/all"
+    : `/board/${encodeURIComponent(selection.boardId)}`;
+  if (page === "board" || (page === "settings" && selection.kind === "all")) {
+    return base;
   }
-  return boards.length === 0 ? { kind: "all" } : { kind: "unresolved" };
+  return `${base}/${page}`;
 }
 
 export function toBoardScopeMessage(

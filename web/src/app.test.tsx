@@ -18,7 +18,7 @@ describe("application shell", () => {
     expect(markup).toContain(">Cardamom</div>");
   });
 
-  it("shows the selected board and project in the header selector", () => {
+  it("renders the root as a board picker even with a server default", () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -29,18 +29,15 @@ describe("application shell", () => {
       serverDefaultBoardId: "board-1",
     });
 
-    const markup = renderApp(queryClient, transport);
+    const markup = renderApp(queryClient, transport, "/");
 
-    expect(markup).toContain('aria-label="Select board scope: Primary"');
-    expect(markup).toContain(
-      '<span class="board-selector-trigger-primary">Primary</span>',
-    );
-    expect(markup).toContain(
-      '<span class="board-selector-trigger-secondary">Cardamom</span>',
-    );
+    expect(markup).toContain(">Boards</h1>");
+    expect(markup).toContain('href="/board/board-1"');
+    expect(markup).toContain('href="/all"');
+    expect(markup).not.toContain('aria-label="Issue board"');
   });
 
-  it("directs an unresolved board scope without naming a control location", () => {
+  it("uses the board route instead of persisted scope for shell navigation", () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -51,16 +48,72 @@ describe("application shell", () => {
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
 
-    const markup = renderApp(queryClient, transport);
+    const markup = renderApp(
+      queryClient,
+      transport,
+      "/board/board-1/list",
+      JSON.stringify({
+        version: 4,
+        actor: "captain",
+        theme: "dark",
+        boardScope: { kind: "board", boardId: "board-2" },
+      }),
+    );
 
-    expect(markup).toContain("Select a board to load issues.");
-    expect(markup).not.toContain("Select a board in Settings");
+    expect(markup).toContain('aria-label="Select board scope: Primary"');
+    expect(markup).toContain('href="/board/board-1"');
+    expect(markup).toContain('href="/board/board-1/approvals"');
+    expect(markup).toContain('href="/board/board-1/list"');
+    expect(markup).toContain('href="/board/board-1/routines"');
+    expect(markup).not.toContain('href="/list"');
+  });
+
+  it("renders canonical all-board navigation", () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+
+    const markup = renderApp(queryClient, transport, "/all/approvals");
+
+    expect(markup).toContain('aria-label="Select board scope: All boards"');
+    expect(markup).toContain('href="/all"');
+    expect(markup).toContain('href="/all/approvals"');
+    expect(markup).toContain('href="/all/list"');
+    expect(markup).toContain('href="/all/routines"');
+  });
+
+  it("loads board configuration from the canonical settings route", () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+
+    const markup = renderApp(
+      queryClient,
+      transport,
+      "/board/board-1/settings",
+    );
+
+    expect(markup).toContain("Loading configuration");
+    expect(markup).toContain('aria-label="Select board scope: Primary"');
+    expect(markup).not.toContain("Page not found");
   });
 });
 
 function renderApp(
   queryClient: QueryClient,
   transport = createRouterTransport(() => {}),
+  path = "/",
+  persistedPreferences: string | null = null,
 ): string {
   return renderToStaticMarkup(
     createElement(
@@ -71,11 +124,11 @@ function renderApp(
         { client: queryClient },
         createElement(
           MemoryRouter,
-          null,
+          { initialEntries: [path] },
           createElement(App, {
             client: createWebClient(transport),
             storage: {
-              getItem: () => null,
+              getItem: () => persistedPreferences,
               setItem: () => {},
             },
           }),

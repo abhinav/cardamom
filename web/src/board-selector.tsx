@@ -12,10 +12,12 @@ import {
   Search,
   Settings,
 } from "lucide-react";
+import { Link } from "react-router";
 
-import type {
-  BoardScopePreference,
-  BoardScopeSelection,
+import {
+  boardScopePath,
+  type BoardScopeSelection,
+  type ResolvedBoardScope,
 } from "./board-scope.ts";
 
 interface AvailableProject {
@@ -34,7 +36,81 @@ interface BoardSelectorProps {
   projects: readonly AvailableProject[];
   selection: BoardScopeSelection;
   onOpenBoardSettings?: (boardId: string) => void;
-  onSelectScope: (selection: BoardScopePreference) => void;
+  onSelectScope: (selection: ResolvedBoardScope) => void;
+}
+
+interface BoardPickerRouteProps {
+  boards: readonly AvailableBoard[];
+  projects: readonly AvailableProject[];
+}
+
+/** BoardPickerRoute renders the complete board catalog at the root route. */
+export function BoardPickerRoute({
+  boards,
+  projects,
+}: BoardPickerRouteProps) {
+  const [query, setQuery] = useState("");
+  const units = visibleProjectUnits(projects, boards, query);
+
+  return (
+    <section className="board-picker" aria-labelledby="board-picker-title">
+      <header className="board-picker-header">
+        <div>
+          <p className="route-kicker">Scope</p>
+          <h1 id="board-picker-title">Boards</h1>
+        </div>
+        <Link className="board-picker-all" to={boardScopePath({ kind: "all" })}>
+          <span>All boards</span>
+          <span>{catalogSummary(projects.length, boards.length)}</span>
+        </Link>
+      </header>
+      <label className="board-picker-search">
+        <Search aria-hidden="true" />
+        <span className="sr-only">Search boards and projects</span>
+        <input
+          type="search"
+          value={query}
+          placeholder="Find a board or project"
+          onChange={(event) => setQuery(event.currentTarget.value)}
+        />
+      </label>
+      <div className="board-picker-projects">
+        {units.map((unit) => (
+          <section
+            key={unit.project.id}
+            className="board-picker-project"
+            aria-labelledby={`board-picker-${unit.project.id}`}
+          >
+            <header>
+              <h2 id={`board-picker-${unit.project.id}`}>
+                {unit.project.name}
+              </h2>
+              <span>
+                {unit.totalBoardCount}{" "}
+                {unit.totalBoardCount === 1 ? "board" : "boards"}
+              </span>
+            </header>
+            <div className="board-picker-links">
+              {unit.boards.map((board) => (
+                <Link
+                  key={board.id}
+                  to={boardScopePath({ kind: "board", boardId: board.id })}
+                >
+                  <span>{board.name}</span>
+                  <span>{board.id}</span>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ))}
+        {units.length === 0 && (
+          <p className="board-picker-empty">
+            No boards or projects match your search.
+          </p>
+        )}
+      </div>
+    </section>
+  );
 }
 
 export function BoardSelector({
@@ -290,7 +366,7 @@ interface BoardSelectorBoardRowProps {
   projectName: string;
   selectedBoardId: string | undefined;
   onOpenBoardSettings?: (boardId: string) => void;
-  onSelectScope: (selection: BoardScopePreference) => void;
+  onSelectScope: (selection: ResolvedBoardScope) => void;
 }
 
 export function BoardSelectorBoardRow({
@@ -320,7 +396,7 @@ export function BoardSelectorBoardRow({
           </span>
         </span>
       </button>
-      {onOpenBoardSettings === undefined ? (
+      {onOpenBoardSettings === undefined || !selected ? (
         <span className="board-selector-action-space" aria-hidden="true" />
       ) : (
         <button

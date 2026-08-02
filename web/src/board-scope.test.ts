@@ -1,59 +1,52 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  resolveBoardScope,
+  boardScopePath,
+  routeBoardPage,
+  routeBoardScope,
   scopeKey,
   toBoardScopeMessage,
 } from "./board-scope.ts";
 
-const boards = [
-  { id: "board-1", projectId: "project-1", name: "Primary" },
-  { id: "board-2", projectId: "project-1", name: "Secondary" },
-];
-
-describe("resolveBoardScope", () => {
-  it("keeps a persisted board that is still available", () => {
-    expect(
-      resolveBoardScope(
-        { kind: "board", boardId: "board-2" },
-        boards,
-        "board-1",
-      ),
-    ).toEqual({ kind: "board", boardId: "board-2" });
-  });
-
-  it("keeps a stale explicit board so the shell can report it unavailable", () => {
-    expect(
-      resolveBoardScope(
-        { kind: "board", boardId: "missing" },
-        boards,
-        "board-2",
-      ),
-    ).toEqual({ kind: "board", boardId: "missing" });
-  });
-
-  it("uses a valid server default or the only available board", () => {
-    expect(resolveBoardScope(undefined, boards, "board-2")).toEqual({
-      kind: "board",
-      boardId: "board-2",
-    });
-    expect(resolveBoardScope(undefined, [boards[0]!], "missing")).toEqual({
+describe("board scope routes", () => {
+  it("derives board scope only from canonical route prefixes", () => {
+    expect(routeBoardScope("/")).toEqual({ kind: "unresolved" });
+    expect(routeBoardScope("/board/board-1")).toEqual({
       kind: "board",
       boardId: "board-1",
     });
-  });
-
-  it("leaves multiple boards unresolved and permits an empty aggregate", () => {
-    expect(resolveBoardScope(undefined, boards, "missing")).toEqual({
+    expect(routeBoardScope("/board/board%20one/list")).toEqual({
+      kind: "board",
+      boardId: "board one",
+    });
+    expect(routeBoardScope("/all/approvals")).toEqual({ kind: "all" });
+    expect(routeBoardScope("/alligator")).toEqual({ kind: "unresolved" });
+    expect(routeBoardScope("/board/%")).toEqual({ kind: "unresolved" });
+    expect(routeBoardScope("/issues/cm-task")).toEqual({
       kind: "unresolved",
     });
-    expect(resolveBoardScope(undefined, [], undefined)).toEqual({ kind: "all" });
   });
 
-  it("preserves the explicit all-boards scope", () => {
-    expect(resolveBoardScope({ kind: "all" }, boards, "board-1")).toEqual({
-      kind: "all",
-    });
+  it("builds canonical board and all-board collection routes", () => {
+    expect(boardScopePath({ kind: "board", boardId: "board one" }, "board"))
+      .toBe("/board/board%20one");
+    expect(boardScopePath({ kind: "board", boardId: "board-1" }, "list"))
+      .toBe("/board/board-1/list");
+    expect(boardScopePath({ kind: "board", boardId: "board-1" }, "settings"))
+      .toBe("/board/board-1/settings");
+    expect(boardScopePath({ kind: "all" }, "board")).toBe("/all");
+    expect(boardScopePath({ kind: "all" }, "routines")).toBe(
+      "/all/routines",
+    );
+    expect(boardScopePath({ kind: "all" }, "settings")).toBe("/all");
+  });
+
+  it("identifies the collection page preserved by board selection", () => {
+    expect(routeBoardPage("/")).toBe("board");
+    expect(routeBoardPage("/board/board-1/list")).toBe("list");
+    expect(routeBoardPage("/all/approvals")).toBe("approvals");
+    expect(routeBoardPage("/board/board-1/settings")).toBe("settings");
+    expect(routeBoardPage("/board/board-1/issue/cm-task")).toBe("board");
   });
 });
 
