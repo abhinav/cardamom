@@ -6,13 +6,15 @@ import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobu
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { BoardScope } from "./scope_pb";
 import { file_cardamom_private_v1_scope } from "./scope_pb";
+import type { SourceHealthEvent, SourceRef } from "./source_pb";
+import { file_cardamom_private_v1_source } from "./source_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cardamom/private/v1/change.proto.
  */
 export const file_cardamom_private_v1_change: GenFile = /*@__PURE__*/
-  fileDesc("CiBjYXJkYW1vbS9wcml2YXRlL3YxL2NoYW5nZS5wcm90bxITY2FyZGFtb20ucHJpdmF0ZS52MSJFChNXYXRjaENoYW5nZXNSZXF1ZXN0Ei4KBXNjb3BlGAEgASgLMh8uY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZFNjb3BlIpUBChRXYXRjaENoYW5nZXNSZXNwb25zZRIQCghib2FyZF9pZBgBIAEoCRIQCghyZXZpc2lvbhgCIAEoBBI1CglyZXNvdXJjZXMYAyADKA4yIi5jYXJkYW1vbS5wcml2YXRlLnYxLldhdGNoUmVzb3VyY2USFQoIaXNzdWVfaWQYBCABKAlIAIgBAUILCglfaXNzdWVfaWQqvAEKDVdhdGNoUmVzb3VyY2USHgoaV0FUQ0hfUkVTT1VSQ0VfVU5TUEVDSUZJRUQQABIgChxXQVRDSF9SRVNPVVJDRV9CT0FSRF9DQVRBTE9HEAESGAoUV0FUQ0hfUkVTT1VSQ0VfQk9BUkQQAhIZChVXQVRDSF9SRVNPVVJDRV9JU1NVRVMQAxIWChJXQVRDSF9SRVNPVVJDRV9MT0cQBBIcChhXQVRDSF9SRVNPVVJDRV9BUFBST1ZBTFMQBTJ7Cg1DaGFuZ2VTZXJ2aWNlEmoKDFdhdGNoQ2hhbmdlcxIoLmNhcmRhbW9tLnByaXZhdGUudjEuV2F0Y2hDaGFuZ2VzUmVxdWVzdBopLmNhcmRhbW9tLnByaXZhdGUudjEuV2F0Y2hDaGFuZ2VzUmVzcG9uc2UiA5ACATABQtcBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUILQ2hhbmdlUHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw", [file_cardamom_private_v1_scope]);
+  fileDesc("CiBjYXJkYW1vbS9wcml2YXRlL3YxL2NoYW5nZS5wcm90bxITY2FyZGFtb20ucHJpdmF0ZS52MSJFChNXYXRjaENoYW5nZXNSZXF1ZXN0Ei4KBXNjb3BlGAEgASgLMh8uY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZFNjb3BlIp0CChRXYXRjaENoYW5nZXNSZXNwb25zZRIQCghib2FyZF9pZBgBIAEoCRIQCghyZXZpc2lvbhgCIAEoBBI1CglyZXNvdXJjZXMYAyADKA4yIi5jYXJkYW1vbS5wcml2YXRlLnYxLldhdGNoUmVzb3VyY2USFQoIaXNzdWVfaWQYBCABKAlIAIgBARIzCgZzb3VyY2UYBSABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZkgBiAEBEjsKBmhlYWx0aBgGIAEoCzImLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlSGVhbHRoRXZlbnRIAogBAUILCglfaXNzdWVfaWRCCQoHX3NvdXJjZUIJCgdfaGVhbHRoKrwBCg1XYXRjaFJlc291cmNlEh4KGldBVENIX1JFU09VUkNFX1VOU1BFQ0lGSUVEEAASIAocV0FUQ0hfUkVTT1VSQ0VfQk9BUkRfQ0FUQUxPRxABEhgKFFdBVENIX1JFU09VUkNFX0JPQVJEEAISGQoVV0FUQ0hfUkVTT1VSQ0VfSVNTVUVTEAMSFgoSV0FUQ0hfUkVTT1VSQ0VfTE9HEAQSHAoYV0FUQ0hfUkVTT1VSQ0VfQVBQUk9WQUxTEAUyewoNQ2hhbmdlU2VydmljZRJqCgxXYXRjaENoYW5nZXMSKC5jYXJkYW1vbS5wcml2YXRlLnYxLldhdGNoQ2hhbmdlc1JlcXVlc3QaKS5jYXJkYW1vbS5wcml2YXRlLnYxLldhdGNoQ2hhbmdlc1Jlc3BvbnNlIgOQAgEwAULXAQoXY29tLmNhcmRhbW9tLnByaXZhdGUudjFCC0NoYW5nZVByb3RvUAFaP2dvLmFiaGcuZGV2L2NhcmRhbW9tL2ludGVybmFsL2dlbi9jYXJkYW1vbS9wcml2YXRlL3YxO3ByaXZhdGV2MaICA0NQWKoCE0NhcmRhbW9tLlByaXZhdGUuVjHKAhRDYXJkYW1vbVxQcml2YXRlX1xWMeICIENhcmRhbW9tXFByaXZhdGVfXFYxXEdQQk1ldGFkYXRh6gIVQ2FyZGFtb206OlByaXZhdGU6OlYxYgZwcm90bzM", [file_cardamom_private_v1_scope, file_cardamom_private_v1_source]);
 
 /**
  * WatchChangesRequest selects the board revisions observed by one stream.
@@ -68,6 +70,20 @@ export type WatchChangesResponse = Message<"cardamom.private.v1.WatchChangesResp
    * @generated from field: optional string issue_id = 4;
    */
   issueId?: string | undefined;
+
+  /**
+   * source identifies the source-local revision owner in aggregate mode.
+   *
+   * @generated from field: optional cardamom.private.v1.SourceRef source = 5;
+   */
+  source?: SourceRef | undefined;
+
+  /**
+   * health reports a source transition without closing the browser stream.
+   *
+   * @generated from field: optional cardamom.private.v1.SourceHealthEvent health = 6;
+   */
+  health?: SourceHealthEvent | undefined;
 };
 
 /**

@@ -4,13 +4,15 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { BoardRef, ProjectRef, SourceRef } from "./source_pb";
+import { file_cardamom_private_v1_source } from "./source_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cardamom/private/v1/scope.proto.
  */
 export const file_cardamom_private_v1_scope: GenFile = /*@__PURE__*/
-  fileDesc("Ch9jYXJkYW1vbS9wcml2YXRlL3YxL3Njb3BlLnByb3RvEhNjYXJkYW1vbS5wcml2YXRlLnYxIgsKCUFsbEJvYXJkcyJjCgpCb2FyZFNjb3BlEhIKCGJvYXJkX2lkGAEgASgJSAASNAoKYWxsX2JvYXJkcxgCIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuQWxsQm9hcmRzSABCCwoJc2VsZWN0aW9uQtYBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUIKU2NvcGVQcm90b1ABWj9nby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS92MTtwcml2YXRldjGiAgNDUFiqAhNDYXJkYW1vbS5Qcml2YXRlLlYxygIUQ2FyZGFtb21cUHJpdmF0ZV9cVjHiAiBDYXJkYW1vbVxQcml2YXRlX1xWMVxHUEJNZXRhZGF0YeoCFUNhcmRhbW9tOjpQcml2YXRlOjpWMWIGcHJvdG8z");
+  fileDesc("Ch9jYXJkYW1vbS9wcml2YXRlL3YxL3Njb3BlLnByb3RvEhNjYXJkYW1vbS5wcml2YXRlLnYxIgsKCUFsbEJvYXJkcyIMCgpBbGxTb3VyY2VzIrECCgpCb2FyZFNjb3BlEhIKCGJvYXJkX2lkGAEgASgJSAASNAoKYWxsX2JvYXJkcxgCIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuQWxsQm9hcmRzSAASMgoHcHJvamVjdBgDIAEoCzIfLmNhcmRhbW9tLnByaXZhdGUudjEuUHJvamVjdFJlZkgAEjAKBnNvdXJjZRgEIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSAASNgoLYWxsX3NvdXJjZXMYBSABKAsyHy5jYXJkYW1vbS5wcml2YXRlLnYxLkFsbFNvdXJjZXNIABIuCgVib2FyZBgGIAEoCzIdLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRSZWZIAEILCglzZWxlY3Rpb25C1gEKF2NvbS5jYXJkYW1vbS5wcml2YXRlLnYxQgpTY29wZVByb3RvUAFaP2dvLmFiaGcuZGV2L2NhcmRhbW9tL2ludGVybmFsL2dlbi9jYXJkYW1vbS9wcml2YXRlL3YxO3ByaXZhdGV2MaICA0NQWKoCE0NhcmRhbW9tLlByaXZhdGUuVjHKAhRDYXJkYW1vbVxQcml2YXRlX1xWMeICIENhcmRhbW9tXFByaXZhdGVfXFYxXEdQQk1ldGFkYXRh6gIVQ2FyZGFtb206OlByaXZhdGU6OlYxYgZwcm90bzM", [file_cardamom_private_v1_source]);
 
 /**
  * AllBoards selects every board visible to the current Cardamom server.
@@ -26,6 +28,21 @@ export type AllBoards = Message<"cardamom.private.v1.AllBoards"> & {
  */
 export const AllBoardsSchema: GenMessage<AllBoards> = /*@__PURE__*/
   messageDesc(file_cardamom_private_v1_scope, 0);
+
+/**
+ * AllSources selects every board in every configured aggregate source.
+ *
+ * @generated from message cardamom.private.v1.AllSources
+ */
+export type AllSources = Message<"cardamom.private.v1.AllSources"> & {
+};
+
+/**
+ * Describes the message cardamom.private.v1.AllSources.
+ * Use `create(AllSourcesSchema)` to create a new message.
+ */
+export const AllSourcesSchema: GenMessage<AllSources> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_scope, 1);
 
 /**
  * BoardScope selects one board or the read-only aggregate of all boards.
@@ -54,6 +71,38 @@ export type BoardScope = Message<"cardamom.private.v1.BoardScope"> & {
      */
     value: AllBoards;
     case: "allBoards";
+  } | {
+    /**
+     * project selects every board in one source-qualified project.
+     *
+     * @generated from field: cardamom.private.v1.ProjectRef project = 3;
+     */
+    value: ProjectRef;
+    case: "project";
+  } | {
+    /**
+     * source selects every board in one configured source.
+     *
+     * @generated from field: cardamom.private.v1.SourceRef source = 4;
+     */
+    value: SourceRef;
+    case: "source";
+  } | {
+    /**
+     * all_sources selects every board across configured sources.
+     *
+     * @generated from field: cardamom.private.v1.AllSources all_sources = 5;
+     */
+    value: AllSources;
+    case: "allSources";
+  } | {
+    /**
+     * board selects one source-qualified board.
+     *
+     * @generated from field: cardamom.private.v1.BoardRef board = 6;
+     */
+    value: BoardRef;
+    case: "board";
   } | { case: undefined; value?: undefined };
 };
 
@@ -62,5 +111,5 @@ export type BoardScope = Message<"cardamom.private.v1.BoardScope"> & {
  * Use `create(BoardScopeSchema)` to create a new message.
  */
 export const BoardScopeSchema: GenMessage<BoardScope> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_scope, 1);
+  messageDesc(file_cardamom_private_v1_scope, 2);
 

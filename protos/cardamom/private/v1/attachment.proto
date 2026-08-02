@@ -3,6 +3,7 @@ syntax = "proto3";
 package cardamom.private.v1;
 
 import "cardamom/private/v1/mutation.proto";
+import "cardamom/private/v1/source.proto";
 import "google/protobuf/timestamp.proto";
 
 // AttachmentLifecycle is the monotonic logical attachment state.
@@ -113,6 +114,10 @@ message Attachment {
 
   // removed records tombstone attribution when lifecycle is removed.
   optional AttachmentAttribution removed = 10;
+
+  // ref identifies the source-qualified attachment when the server federates
+  // multiple sources.
+  optional AttachmentRef ref = 11;
 }
 
 // AttachmentUpload is the durable recovery view of one resumable upload.

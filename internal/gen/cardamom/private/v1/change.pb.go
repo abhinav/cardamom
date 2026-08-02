@@ -142,7 +142,11 @@ type WatchChangesResponse struct {
 	// resources identifies browser read families that may have changed.
 	Resources []WatchResource `protobuf:"varint,3,rep,packed,name=resources,proto3,enum=cardamom.private.v1.WatchResource" json:"resources,omitempty"`
 	// issue_id narrows an invalidation to one issue when available.
-	IssueId       *string `protobuf:"bytes,4,opt,name=issue_id,json=issueId,proto3,oneof" json:"issue_id,omitempty"`
+	IssueId *string `protobuf:"bytes,4,opt,name=issue_id,json=issueId,proto3,oneof" json:"issue_id,omitempty"`
+	// source identifies the source-local revision owner in aggregate mode.
+	Source *SourceRef `protobuf:"bytes,5,opt,name=source,proto3,oneof" json:"source,omitempty"`
+	// health reports a source transition without closing the browser stream.
+	Health        *SourceHealthEvent `protobuf:"bytes,6,opt,name=health,proto3,oneof" json:"health,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -205,19 +209,37 @@ func (x *WatchChangesResponse) GetIssueId() string {
 	return ""
 }
 
+func (x *WatchChangesResponse) GetSource() *SourceRef {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *WatchChangesResponse) GetHealth() *SourceHealthEvent {
+	if x != nil {
+		return x.Health
+	}
+	return nil
+}
+
 var File_cardamom_private_v1_change_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_change_proto_rawDesc = "" +
 	"\n" +
-	" cardamom/private/v1/change.proto\x12\x13cardamom.private.v1\x1a\x1fcardamom/private/v1/scope.proto\"L\n" +
+	" cardamom/private/v1/change.proto\x12\x13cardamom.private.v1\x1a\x1fcardamom/private/v1/scope.proto\x1a cardamom/private/v1/source.proto\"L\n" +
 	"\x13WatchChangesRequest\x125\n" +
-	"\x05scope\x18\x01 \x01(\v2\x1f.cardamom.private.v1.BoardScopeR\x05scope\"\xbc\x01\n" +
+	"\x05scope\x18\x01 \x01(\v2\x1f.cardamom.private.v1.BoardScopeR\x05scope\"\xd4\x02\n" +
 	"\x14WatchChangesResponse\x12\x19\n" +
 	"\bboard_id\x18\x01 \x01(\tR\aboardId\x12\x1a\n" +
 	"\brevision\x18\x02 \x01(\x04R\brevision\x12@\n" +
 	"\tresources\x18\x03 \x03(\x0e2\".cardamom.private.v1.WatchResourceR\tresources\x12\x1e\n" +
-	"\bissue_id\x18\x04 \x01(\tH\x00R\aissueId\x88\x01\x01B\v\n" +
-	"\t_issue_id*\xbc\x01\n" +
+	"\bissue_id\x18\x04 \x01(\tH\x00R\aissueId\x88\x01\x01\x12;\n" +
+	"\x06source\x18\x05 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x01R\x06source\x88\x01\x01\x12C\n" +
+	"\x06health\x18\x06 \x01(\v2&.cardamom.private.v1.SourceHealthEventH\x02R\x06health\x88\x01\x01B\v\n" +
+	"\t_issue_idB\t\n" +
+	"\a_sourceB\t\n" +
+	"\a_health*\xbc\x01\n" +
 	"\rWatchResource\x12\x1e\n" +
 	"\x1aWATCH_RESOURCE_UNSPECIFIED\x10\x00\x12 \n" +
 	"\x1cWATCH_RESOURCE_BOARD_CATALOG\x10\x01\x12\x18\n" +
@@ -248,17 +270,21 @@ var file_cardamom_private_v1_change_proto_goTypes = []any{
 	(*WatchChangesRequest)(nil),  // 1: cardamom.private.v1.WatchChangesRequest
 	(*WatchChangesResponse)(nil), // 2: cardamom.private.v1.WatchChangesResponse
 	(*BoardScope)(nil),           // 3: cardamom.private.v1.BoardScope
+	(*SourceRef)(nil),            // 4: cardamom.private.v1.SourceRef
+	(*SourceHealthEvent)(nil),    // 5: cardamom.private.v1.SourceHealthEvent
 }
 var file_cardamom_private_v1_change_proto_depIdxs = []int32{
 	3, // 0: cardamom.private.v1.WatchChangesRequest.scope:type_name -> cardamom.private.v1.BoardScope
 	0, // 1: cardamom.private.v1.WatchChangesResponse.resources:type_name -> cardamom.private.v1.WatchResource
-	1, // 2: cardamom.private.v1.ChangeService.WatchChanges:input_type -> cardamom.private.v1.WatchChangesRequest
-	2, // 3: cardamom.private.v1.ChangeService.WatchChanges:output_type -> cardamom.private.v1.WatchChangesResponse
-	3, // [3:4] is the sub-list for method output_type
-	2, // [2:3] is the sub-list for method input_type
-	2, // [2:2] is the sub-list for extension type_name
-	2, // [2:2] is the sub-list for extension extendee
-	0, // [0:2] is the sub-list for field type_name
+	4, // 2: cardamom.private.v1.WatchChangesResponse.source:type_name -> cardamom.private.v1.SourceRef
+	5, // 3: cardamom.private.v1.WatchChangesResponse.health:type_name -> cardamom.private.v1.SourceHealthEvent
+	1, // 4: cardamom.private.v1.ChangeService.WatchChanges:input_type -> cardamom.private.v1.WatchChangesRequest
+	2, // 5: cardamom.private.v1.ChangeService.WatchChanges:output_type -> cardamom.private.v1.WatchChangesResponse
+	5, // [5:6] is the sub-list for method output_type
+	4, // [4:5] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_change_proto_init() }
@@ -267,6 +293,7 @@ func file_cardamom_private_v1_change_proto_init() {
 		return
 	}
 	file_cardamom_private_v1_scope_proto_init()
+	file_cardamom_private_v1_source_proto_init()
 	file_cardamom_private_v1_change_proto_msgTypes[1].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

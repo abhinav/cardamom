@@ -10,6 +10,10 @@ import type { IssueStatus, IssueType } from "./issue_pb";
 import { file_cardamom_private_v1_issue } from "./issue_pb";
 import type { MutationContext } from "./mutation_pb";
 import { file_cardamom_private_v1_mutation } from "./mutation_pb";
+import type { BoardScope } from "./scope_pb";
+import { file_cardamom_private_v1_scope } from "./scope_pb";
+import type { AggregateStatus, BoardRef, ProjectRef, SourceCatalogEntry } from "./source_pb";
+import { file_cardamom_private_v1_source } from "./source_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
@@ -18,7 +22,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/project.proto.
  */
 export const file_cardamom_private_v1_project: GenFile = /*@__PURE__*/
-  fileDesc("CiFjYXJkYW1vbS9wcml2YXRlL3YxL3Byb2plY3QucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiIwoHUHJvamVjdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJIjwKDEJvYXJkU3VtbWFyeRIKCgJpZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEgwKBG5hbWUYAyABKAkitQEKBUJvYXJkEgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSDAoEbmFtZRgDIAEoCRI+CgtkZXNjcmlwdGlvbhgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SACIAQESLgoKY3JlYXRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCDgoMX2Rlc2NyaXB0aW9uIhUKE0xpc3RQcm9qZWN0c1JlcXVlc3QiRgoUTGlzdFByb2plY3RzUmVzcG9uc2USLgoIcHJvamVjdHMYASADKAsyHC5jYXJkYW1vbS5wcml2YXRlLnYxLlByb2plY3QiEwoRTGlzdEJvYXJkc1JlcXVlc3QiRwoSTGlzdEJvYXJkc1Jlc3BvbnNlEjEKBmJvYXJkcxgBIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5IhUKE0dldEJvb3RzdHJhcFJlcXVlc3QimgMKFEdldEJvb3RzdHJhcFJlc3BvbnNlEi4KCHByb2plY3RzGAEgAygLMhwuY2FyZGFtb20ucHJpdmF0ZS52MS5Qcm9qZWN0EjEKBmJvYXJkcxgCIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5EiQKF3NlcnZlcl9kZWZhdWx0X2JvYXJkX2lkGAMgASgJSACIAQESMwoLaXNzdWVfdHlwZXMYBCADKA4yHi5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlVHlwZRI4Cg5pc3N1ZV9zdGF0dXNlcxgFIAMoDjIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdGF0dXMSFgoOc2NoZW1hX3ZlcnNpb24YByABKAQSDwoHdmVyc2lvbhgIIAEoCRI0CgthY2Nlc3NfbW9kZRgJIAEoDjIfLmNhcmRhbW9tLnByaXZhdGUudjEuQWNjZXNzTW9kZUIaChhfc2VydmVyX2RlZmF1bHRfYm9hcmRfaWRKBAgGEAdSCWlkX3ByZWZpeCIjCg9HZXRCb2FyZFJlcXVlc3QSEAoIYm9hcmRfaWQYASABKAkiPQoQR2V0Qm9hcmRSZXNwb25zZRIpCgVib2FyZBgBIAEoCzIaLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmQiewoUQ3JlYXRlUHJvamVjdFJlcXVlc3QSDAoEbmFtZRgBIAEoCRITCgZwcmVmaXgYAiABKAlIAIgBARI1Cgdjb250ZXh0GAMgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCCQoHX3ByZWZpeCJGChVDcmVhdGVQcm9qZWN0UmVzcG9uc2USLQoHcHJvamVjdBgBIAEoCzIcLmNhcmRhbW9tLnByaXZhdGUudjEuUHJvamVjdCKlAQoSQ3JlYXRlQm9hcmRSZXF1ZXN0EhIKCnByb2plY3RfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIfChJkZXNjcmlwdGlvbl9zb3VyY2UYAyABKAlIAIgBARI1Cgdjb250ZXh0GAQgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCFQoTX2Rlc2NyaXB0aW9uX3NvdXJjZSJAChNDcmVhdGVCb2FyZFJlc3BvbnNlEikKBWJvYXJkGAEgASgLMhouY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZCKxAQoSVXBkYXRlQm9hcmRSZXF1ZXN0EhAKCGJvYXJkX2lkGAEgASgJEhEKBG5hbWUYAiABKAlIAIgBARIfChJkZXNjcmlwdGlvbl9zb3VyY2UYAyABKAlIAYgBARI1Cgdjb250ZXh0GAQgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCBwoFX25hbWVCFQoTX2Rlc2NyaXB0aW9uX3NvdXJjZSJAChNVcGRhdGVCb2FyZFJlc3BvbnNlEikKBWJvYXJkGAEgASgLMhouY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZCpgCgpBY2Nlc3NNb2RlEhsKF0FDQ0VTU19NT0RFX1VOU1BFQ0lGSUVEEAASGgoWQUNDRVNTX01PREVfUkVBRF9XUklURRABEhkKFUFDQ0VTU19NT0RFX1JFQURfT05MWRACMtIFCg5Qcm9qZWN0U2VydmljZRJoCgxMaXN0UHJvamVjdHMSKC5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RQcm9qZWN0c1JlcXVlc3QaKS5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RQcm9qZWN0c1Jlc3BvbnNlIgOQAgESYgoKTGlzdEJvYXJkcxImLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdEJvYXJkc1JlcXVlc3QaJy5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RCb2FyZHNSZXNwb25zZSIDkAIBEmgKDEdldEJvb3RzdHJhcBIoLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9vdHN0cmFwUmVxdWVzdBopLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9vdHN0cmFwUmVzcG9uc2UiA5ACARJcCghHZXRCb2FyZBIkLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9hcmRSZXF1ZXN0GiUuY2FyZGFtb20ucHJpdmF0ZS52MS5HZXRCb2FyZFJlc3BvbnNlIgOQAgESZgoNQ3JlYXRlUHJvamVjdBIpLmNhcmRhbW9tLnByaXZhdGUudjEuQ3JlYXRlUHJvamVjdFJlcXVlc3QaKi5jYXJkYW1vbS5wcml2YXRlLnYxLkNyZWF0ZVByb2plY3RSZXNwb25zZRJgCgtDcmVhdGVCb2FyZBInLmNhcmRhbW9tLnByaXZhdGUudjEuQ3JlYXRlQm9hcmRSZXF1ZXN0GiguY2FyZGFtb20ucHJpdmF0ZS52MS5DcmVhdGVCb2FyZFJlc3BvbnNlEmAKC1VwZGF0ZUJvYXJkEicuY2FyZGFtb20ucHJpdmF0ZS52MS5VcGRhdGVCb2FyZFJlcXVlc3QaKC5jYXJkYW1vbS5wcml2YXRlLnYxLlVwZGF0ZUJvYXJkUmVzcG9uc2VC2AEKF2NvbS5jYXJkYW1vbS5wcml2YXRlLnYxQgxQcm9qZWN0UHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw", [file_cardamom_private_v1_content, file_cardamom_private_v1_issue, file_cardamom_private_v1_mutation, file_google_protobuf_timestamp]);
+  fileDesc("CiFjYXJkYW1vbS9wcml2YXRlL3YxL3Byb2plY3QucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiXgoHUHJvamVjdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEjEKA3JlZhgDIAEoCzIfLmNhcmRhbW9tLnByaXZhdGUudjEuUHJvamVjdFJlZkgAiAEBQgYKBF9yZWYidQoMQm9hcmRTdW1tYXJ5EgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSDAoEbmFtZRgDIAEoCRIvCgNyZWYYBCABKAsyHS5jYXJkYW1vbS5wcml2YXRlLnYxLkJvYXJkUmVmSACIAQFCBgoEX3JlZiLuAQoFQm9hcmQSCgoCaWQYASABKAkSEgoKcHJvamVjdF9pZBgCIAEoCRIMCgRuYW1lGAMgASgJEj4KC2Rlc2NyaXB0aW9uGAQgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnRIAIgBARIuCgpjcmVhdGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIvCgNyZWYYBiABKAsyHS5jYXJkYW1vbS5wcml2YXRlLnYxLkJvYXJkUmVmSAGIAQFCDgoMX2Rlc2NyaXB0aW9uQgYKBF9yZWYiFQoTTGlzdFByb2plY3RzUmVxdWVzdCJGChRMaXN0UHJvamVjdHNSZXNwb25zZRIuCghwcm9qZWN0cxgBIAMoCzIcLmNhcmRhbW9tLnByaXZhdGUudjEuUHJvamVjdCITChFMaXN0Qm9hcmRzUmVxdWVzdCJHChJMaXN0Qm9hcmRzUmVzcG9uc2USMQoGYm9hcmRzGAEgAygLMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZFN1bW1hcnkiFQoTR2V0Qm9vdHN0cmFwUmVxdWVzdCL8BAoUR2V0Qm9vdHN0cmFwUmVzcG9uc2USLgoIcHJvamVjdHMYASADKAsyHC5jYXJkYW1vbS5wcml2YXRlLnYxLlByb2plY3QSMQoGYm9hcmRzGAIgAygLMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZFN1bW1hcnkSJAoXc2VydmVyX2RlZmF1bHRfYm9hcmRfaWQYAyABKAlIAIgBARIzCgtpc3N1ZV90eXBlcxgEIAMoDjIeLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVUeXBlEjgKDmlzc3VlX3N0YXR1c2VzGAUgAygOMiAuY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZVN0YXR1cxIWCg5zY2hlbWFfdmVyc2lvbhgHIAEoBBIPCgd2ZXJzaW9uGAggASgJEjQKC2FjY2Vzc19tb2RlGAkgASgOMh8uY2FyZGFtb20ucHJpdmF0ZS52MS5BY2Nlc3NNb2RlEjgKB3NvdXJjZXMYCiADKAsyJy5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZUNhdGFsb2dFbnRyeRI+ChBhZ2dyZWdhdGVfc3RhdHVzGAsgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5BZ2dyZWdhdGVTdGF0dXMSGAoQcHJvdG9jb2xfdmVyc2lvbhgMIAEoDRIUCgxjYXBhYmlsaXRpZXMYDSADKAkSNgoNZGVmYXVsdF9zY29wZRgOIAEoCzIfLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTY29wZUIaChhfc2VydmVyX2RlZmF1bHRfYm9hcmRfaWRKBAgGEAdSCWlkX3ByZWZpeCJgCg9HZXRCb2FyZFJlcXVlc3QSEAoIYm9hcmRfaWQYASABKAkSMQoFYm9hcmQYAiABKAsyHS5jYXJkYW1vbS5wcml2YXRlLnYxLkJvYXJkUmVmSACIAQFCCAoGX2JvYXJkIj0KEEdldEJvYXJkUmVzcG9uc2USKQoFYm9hcmQYASABKAsyGi5jYXJkYW1vbS5wcml2YXRlLnYxLkJvYXJkInsKFENyZWF0ZVByb2plY3RSZXF1ZXN0EgwKBG5hbWUYASABKAkSEwoGcHJlZml4GAIgASgJSACIAQESNQoHY29udGV4dBgDIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTXV0YXRpb25Db250ZXh0QgkKB19wcmVmaXgiRgoVQ3JlYXRlUHJvamVjdFJlc3BvbnNlEi0KB3Byb2plY3QYASABKAsyHC5jYXJkYW1vbS5wcml2YXRlLnYxLlByb2plY3QipQEKEkNyZWF0ZUJvYXJkUmVxdWVzdBISCgpwcm9qZWN0X2lkGAEgASgJEgwKBG5hbWUYAiABKAkSHwoSZGVzY3JpcHRpb25fc291cmNlGAMgASgJSACIAQESNQoHY29udGV4dBgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTXV0YXRpb25Db250ZXh0QhUKE19kZXNjcmlwdGlvbl9zb3VyY2UiQAoTQ3JlYXRlQm9hcmRSZXNwb25zZRIpCgVib2FyZBgBIAEoCzIaLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmQisQEKElVwZGF0ZUJvYXJkUmVxdWVzdBIQCghib2FyZF9pZBgBIAEoCRIRCgRuYW1lGAIgASgJSACIAQESHwoSZGVzY3JpcHRpb25fc291cmNlGAMgASgJSAGIAQESNQoHY29udGV4dBgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTXV0YXRpb25Db250ZXh0QgcKBV9uYW1lQhUKE19kZXNjcmlwdGlvbl9zb3VyY2UiQAoTVXBkYXRlQm9hcmRSZXNwb25zZRIpCgVib2FyZBgBIAEoCzIaLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmQqYAoKQWNjZXNzTW9kZRIbChdBQ0NFU1NfTU9ERV9VTlNQRUNJRklFRBAAEhoKFkFDQ0VTU19NT0RFX1JFQURfV1JJVEUQARIZChVBQ0NFU1NfTU9ERV9SRUFEX09OTFkQAjLSBQoOUHJvamVjdFNlcnZpY2USaAoMTGlzdFByb2plY3RzEiguY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0UHJvamVjdHNSZXF1ZXN0GikuY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0UHJvamVjdHNSZXNwb25zZSIDkAIBEmIKCkxpc3RCb2FyZHMSJi5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RCb2FyZHNSZXF1ZXN0GicuY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0Qm9hcmRzUmVzcG9uc2UiA5ACARJoCgxHZXRCb290c3RyYXASKC5jYXJkYW1vbS5wcml2YXRlLnYxLkdldEJvb3RzdHJhcFJlcXVlc3QaKS5jYXJkYW1vbS5wcml2YXRlLnYxLkdldEJvb3RzdHJhcFJlc3BvbnNlIgOQAgESXAoIR2V0Qm9hcmQSJC5jYXJkYW1vbS5wcml2YXRlLnYxLkdldEJvYXJkUmVxdWVzdBolLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9hcmRSZXNwb25zZSIDkAIBEmYKDUNyZWF0ZVByb2plY3QSKS5jYXJkYW1vbS5wcml2YXRlLnYxLkNyZWF0ZVByb2plY3RSZXF1ZXN0GiouY2FyZGFtb20ucHJpdmF0ZS52MS5DcmVhdGVQcm9qZWN0UmVzcG9uc2USYAoLQ3JlYXRlQm9hcmQSJy5jYXJkYW1vbS5wcml2YXRlLnYxLkNyZWF0ZUJvYXJkUmVxdWVzdBooLmNhcmRhbW9tLnByaXZhdGUudjEuQ3JlYXRlQm9hcmRSZXNwb25zZRJgCgtVcGRhdGVCb2FyZBInLmNhcmRhbW9tLnByaXZhdGUudjEuVXBkYXRlQm9hcmRSZXF1ZXN0GiguY2FyZGFtb20ucHJpdmF0ZS52MS5VcGRhdGVCb2FyZFJlc3BvbnNlQtgBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUIMUHJvamVjdFByb3RvUAFaP2dvLmFiaGcuZGV2L2NhcmRhbW9tL2ludGVybmFsL2dlbi9jYXJkYW1vbS9wcml2YXRlL3YxO3ByaXZhdGV2MaICA0NQWKoCE0NhcmRhbW9tLlByaXZhdGUuVjHKAhRDYXJkYW1vbVxQcml2YXRlX1xWMeICIENhcmRhbW9tXFByaXZhdGVfXFYxXEdQQk1ldGFkYXRh6gIVQ2FyZGFtb206OlByaXZhdGU6OlYxYgZwcm90bzM", [file_cardamom_private_v1_content, file_cardamom_private_v1_issue, file_cardamom_private_v1_mutation, file_cardamom_private_v1_scope, file_cardamom_private_v1_source, file_google_protobuf_timestamp]);
 
 /**
  * Project identifies a project namespace available to the browser.
@@ -39,6 +43,14 @@ export type Project = Message<"cardamom.private.v1.Project"> & {
    * @generated from field: string name = 2;
    */
   name: string;
+
+  /**
+   * ref identifies the source-qualified project when the server federates
+   * multiple sources.
+   *
+   * @generated from field: optional cardamom.private.v1.ProjectRef ref = 3;
+   */
+  ref?: ProjectRef | undefined;
 };
 
 /**
@@ -74,6 +86,14 @@ export type BoardSummary = Message<"cardamom.private.v1.BoardSummary"> & {
    * @generated from field: string name = 3;
    */
   name: string;
+
+  /**
+   * ref identifies the source-qualified board when the server federates
+   * multiple sources.
+   *
+   * @generated from field: optional cardamom.private.v1.BoardRef ref = 4;
+   */
+  ref?: BoardRef | undefined;
 };
 
 /**
@@ -123,6 +143,14 @@ export type Board = Message<"cardamom.private.v1.Board"> & {
    * @generated from field: google.protobuf.Timestamp created_at = 5;
    */
   createdAt?: Timestamp | undefined;
+
+  /**
+   * ref identifies the source-qualified board when the server federates
+   * multiple sources.
+   *
+   * @generated from field: optional cardamom.private.v1.BoardRef ref = 6;
+   */
+  ref?: BoardRef | undefined;
 };
 
 /**
@@ -280,6 +308,41 @@ export type GetBootstrapResponse = Message<"cardamom.private.v1.GetBootstrapResp
    * @generated from field: cardamom.private.v1.AccessMode access_mode = 9;
    */
   accessMode: AccessMode;
+
+  /**
+   * sources describes every configured source and its latest health.
+   *
+   * @generated from field: repeated cardamom.private.v1.SourceCatalogEntry sources = 10;
+   */
+  sources: SourceCatalogEntry[];
+
+  /**
+   * aggregate_status reports whether every configured source contributed.
+   *
+   * @generated from field: cardamom.private.v1.AggregateStatus aggregate_status = 11;
+   */
+  aggregateStatus?: AggregateStatus | undefined;
+
+  /**
+   * protocol_version is the browser protocol version served by this process.
+   *
+   * @generated from field: uint32 protocol_version = 12;
+   */
+  protocolVersion: number;
+
+  /**
+   * capabilities contains stable browser capability names.
+   *
+   * @generated from field: repeated string capabilities = 13;
+   */
+  capabilities: string[];
+
+  /**
+   * default_scope is the deterministic initial board scope for the browser.
+   *
+   * @generated from field: cardamom.private.v1.BoardScope default_scope = 14;
+   */
+  defaultScope?: BoardScope | undefined;
 };
 
 /**
@@ -301,6 +364,13 @@ export type GetBoardRequest = Message<"cardamom.private.v1.GetBoardRequest"> & {
    * @generated from field: string board_id = 1;
    */
   boardId: string;
+
+  /**
+   * board identifies the source-qualified board for aggregate requests.
+   *
+   * @generated from field: optional cardamom.private.v1.BoardRef board = 2;
+   */
+  board?: BoardRef | undefined;
 };
 
 /**

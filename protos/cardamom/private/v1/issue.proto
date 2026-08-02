@@ -4,6 +4,7 @@ package cardamom.private.v1;
 
 import "cardamom/private/v1/content.proto";
 import "cardamom/private/v1/scope.proto";
+import "cardamom/private/v1/source.proto";
 import "google/protobuf/timestamp.proto";
 
 // IssueType identifies the workflow role of an issue.
@@ -185,6 +186,10 @@ message IssueSummary {
 
   // blocked reports whether an open prerequisite prevents execution.
   bool blocked = 15;
+
+  // ref identifies the source-qualified issue when the server federates
+  // multiple sources.
+  optional IssueRef ref = 16;
 }
 
 // RelatedIssue is the compact issue representation used by relationships.
@@ -206,6 +211,10 @@ message RelatedIssue {
 
   // priority is the domain ordering priority, where lower values run first.
   int32 priority = 6;
+
+  // ref identifies the source-qualified issue when the server federates
+  // multiple sources.
+  optional IssueRef ref = 7;
 }
 
 // AncestorContext carries current context inherited from one ancestor.
@@ -392,6 +401,9 @@ message ListIssuesResponse {
 message GetIssueRequest {
   // issue_id identifies the issue to read.
   string issue_id = 1;
+
+  // issue identifies the source-qualified issue for aggregate requests.
+  optional IssueRef issue = 2;
 }
 
 // GetIssueResponse contains the primary issue detail record.

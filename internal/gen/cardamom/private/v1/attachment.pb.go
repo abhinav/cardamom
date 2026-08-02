@@ -347,7 +347,10 @@ type Attachment struct {
 	// created records attachment creation attribution.
 	Created *AttachmentAttribution `protobuf:"bytes,9,opt,name=created,proto3" json:"created,omitempty"`
 	// removed records tombstone attribution when lifecycle is removed.
-	Removed       *AttachmentAttribution `protobuf:"bytes,10,opt,name=removed,proto3,oneof" json:"removed,omitempty"`
+	Removed *AttachmentAttribution `protobuf:"bytes,10,opt,name=removed,proto3,oneof" json:"removed,omitempty"`
+	// ref identifies the source-qualified attachment when the server federates
+	// multiple sources.
+	Ref           *AttachmentRef `protobuf:"bytes,11,opt,name=ref,proto3,oneof" json:"ref,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -448,6 +451,13 @@ func (x *Attachment) GetCreated() *AttachmentAttribution {
 func (x *Attachment) GetRemoved() *AttachmentAttribution {
 	if x != nil {
 		return x.Removed
+	}
+	return nil
+}
+
+func (x *Attachment) GetRef() *AttachmentRef {
+	if x != nil {
+		return x.Ref
 	}
 	return nil
 }
@@ -1979,7 +1989,7 @@ var File_cardamom_private_v1_attachment_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_attachment_proto_rawDesc = "" +
 	"\n" +
-	"$cardamom/private/v1/attachment.proto\x12\x13cardamom.private.v1\x1a\"cardamom/private/v1/mutation.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"G\n" +
+	"$cardamom/private/v1/attachment.proto\x12\x13cardamom.private.v1\x1a\"cardamom/private/v1/mutation.proto\x1a cardamom/private/v1/source.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"G\n" +
 	"\x0eBlobDescriptor\x12\x16\n" +
 	"\x06digest\x18\x01 \x01(\tR\x06digest\x12\x1d\n" +
 	"\n" +
@@ -1987,7 +1997,7 @@ const file_cardamom_private_v1_attachment_proto_rawDesc = "" +
 	"\x15AttachmentAttribution\x12\x14\n" +
 	"\x05actor\x18\x01 \x01(\tR\x05actor\x12*\n" +
 	"\x02at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x12\x1a\n" +
-	"\brevision\x18\x03 \x01(\x04R\brevision\"\x88\x04\n" +
+	"\brevision\x18\x03 \x01(\x04R\brevision\"\xcb\x04\n" +
 	"\n" +
 	"Attachment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
@@ -2001,10 +2011,12 @@ const file_cardamom_private_v1_attachment_proto_rawDesc = "" +
 	"\favailability\x18\b \x01(\x0e2%.cardamom.private.v1.BlobAvailabilityR\favailability\x12D\n" +
 	"\acreated\x18\t \x01(\v2*.cardamom.private.v1.AttachmentAttributionR\acreated\x12I\n" +
 	"\aremoved\x18\n" +
-	" \x01(\v2*.cardamom.private.v1.AttachmentAttributionH\x01R\aremoved\x88\x01\x01B\v\n" +
+	" \x01(\v2*.cardamom.private.v1.AttachmentAttributionH\x01R\aremoved\x88\x01\x01\x129\n" +
+	"\x03ref\x18\v \x01(\v2\".cardamom.private.v1.AttachmentRefH\x02R\x03ref\x88\x01\x01B\v\n" +
 	"\t_issue_idB\n" +
 	"\n" +
-	"\b_removed\"\xa6\x04\n" +
+	"\b_removedB\x06\n" +
+	"\x04_ref\"\xa6\x04\n" +
 	"\x10AttachmentUpload\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bboard_id\x18\x02 \x01(\tR\aboardId\x12\x1e\n" +
@@ -2195,7 +2207,8 @@ var file_cardamom_private_v1_attachment_proto_goTypes = []any{
 	(*CollectBlobsRequest)(nil),            // 29: cardamom.private.v1.CollectBlobsRequest
 	(*CollectBlobsResponse)(nil),           // 30: cardamom.private.v1.CollectBlobsResponse
 	(*timestamppb.Timestamp)(nil),          // 31: google.protobuf.Timestamp
-	(*MutationContext)(nil),                // 32: cardamom.private.v1.MutationContext
+	(*AttachmentRef)(nil),                  // 32: cardamom.private.v1.AttachmentRef
+	(*MutationContext)(nil),                // 33: cardamom.private.v1.MutationContext
 }
 var file_cardamom_private_v1_attachment_proto_depIdxs = []int32{
 	31, // 0: cardamom.private.v1.AttachmentAttribution.at:type_name -> google.protobuf.Timestamp
@@ -2204,57 +2217,58 @@ var file_cardamom_private_v1_attachment_proto_depIdxs = []int32{
 	1,  // 3: cardamom.private.v1.Attachment.availability:type_name -> cardamom.private.v1.BlobAvailability
 	4,  // 4: cardamom.private.v1.Attachment.created:type_name -> cardamom.private.v1.AttachmentAttribution
 	4,  // 5: cardamom.private.v1.Attachment.removed:type_name -> cardamom.private.v1.AttachmentAttribution
-	2,  // 6: cardamom.private.v1.AttachmentUpload.state:type_name -> cardamom.private.v1.AttachmentUploadState
-	31, // 7: cardamom.private.v1.AttachmentUpload.expires_at:type_name -> google.protobuf.Timestamp
-	5,  // 8: cardamom.private.v1.AttachmentUpload.attachment:type_name -> cardamom.private.v1.Attachment
-	3,  // 9: cardamom.private.v1.AttachmentVerification.blob:type_name -> cardamom.private.v1.BlobDescriptor
-	1,  // 10: cardamom.private.v1.AttachmentVerification.availability:type_name -> cardamom.private.v1.BlobAvailability
-	31, // 11: cardamom.private.v1.AttachmentVerification.observed_at:type_name -> google.protobuf.Timestamp
-	3,  // 12: cardamom.private.v1.AttachmentIntegrityProblem.blob:type_name -> cardamom.private.v1.BlobDescriptor
-	1,  // 13: cardamom.private.v1.AttachmentIntegrityProblem.availability:type_name -> cardamom.private.v1.BlobAvailability
-	8,  // 14: cardamom.private.v1.BlobCollectionResult.expired_staging:type_name -> cardamom.private.v1.CollectionSummary
-	8,  // 15: cardamom.private.v1.BlobCollectionResult.orphan_blobs:type_name -> cardamom.private.v1.CollectionSummary
-	9,  // 16: cardamom.private.v1.BlobCollectionResult.integrity_problems:type_name -> cardamom.private.v1.AttachmentIntegrityProblem
-	32, // 17: cardamom.private.v1.BeginAttachmentUploadRequest.mutation:type_name -> cardamom.private.v1.MutationContext
-	6,  // 18: cardamom.private.v1.BeginAttachmentUploadResponse.upload:type_name -> cardamom.private.v1.AttachmentUpload
-	32, // 19: cardamom.private.v1.WriteAttachmentChunkRequest.mutation:type_name -> cardamom.private.v1.MutationContext
-	6,  // 20: cardamom.private.v1.WriteAttachmentChunkResponse.upload:type_name -> cardamom.private.v1.AttachmentUpload
-	6,  // 21: cardamom.private.v1.GetAttachmentUploadResponse.upload:type_name -> cardamom.private.v1.AttachmentUpload
-	32, // 22: cardamom.private.v1.CommitAttachmentUploadRequest.mutation:type_name -> cardamom.private.v1.MutationContext
-	5,  // 23: cardamom.private.v1.CommitAttachmentUploadResponse.attachment:type_name -> cardamom.private.v1.Attachment
-	32, // 24: cardamom.private.v1.AbortAttachmentUploadRequest.mutation:type_name -> cardamom.private.v1.MutationContext
-	6,  // 25: cardamom.private.v1.AbortAttachmentUploadResponse.upload:type_name -> cardamom.private.v1.AttachmentUpload
-	5,  // 26: cardamom.private.v1.GetAttachmentResponse.attachment:type_name -> cardamom.private.v1.Attachment
-	5,  // 27: cardamom.private.v1.ListAttachmentsResponse.attachments:type_name -> cardamom.private.v1.Attachment
-	32, // 28: cardamom.private.v1.RemoveAttachmentRequest.mutation:type_name -> cardamom.private.v1.MutationContext
-	5,  // 29: cardamom.private.v1.RemoveAttachmentResponse.attachment:type_name -> cardamom.private.v1.Attachment
-	7,  // 30: cardamom.private.v1.VerifyAttachmentResponse.verification:type_name -> cardamom.private.v1.AttachmentVerification
-	10, // 31: cardamom.private.v1.CollectBlobsResponse.result:type_name -> cardamom.private.v1.BlobCollectionResult
-	11, // 32: cardamom.private.v1.AttachmentService.BeginAttachmentUpload:input_type -> cardamom.private.v1.BeginAttachmentUploadRequest
-	13, // 33: cardamom.private.v1.AttachmentService.WriteAttachmentChunk:input_type -> cardamom.private.v1.WriteAttachmentChunkRequest
-	15, // 34: cardamom.private.v1.AttachmentService.GetAttachmentUpload:input_type -> cardamom.private.v1.GetAttachmentUploadRequest
-	17, // 35: cardamom.private.v1.AttachmentService.CommitAttachmentUpload:input_type -> cardamom.private.v1.CommitAttachmentUploadRequest
-	19, // 36: cardamom.private.v1.AttachmentService.AbortAttachmentUpload:input_type -> cardamom.private.v1.AbortAttachmentUploadRequest
-	21, // 37: cardamom.private.v1.AttachmentService.GetAttachment:input_type -> cardamom.private.v1.GetAttachmentRequest
-	23, // 38: cardamom.private.v1.AttachmentService.ListAttachments:input_type -> cardamom.private.v1.ListAttachmentsRequest
-	25, // 39: cardamom.private.v1.AttachmentService.RemoveAttachment:input_type -> cardamom.private.v1.RemoveAttachmentRequest
-	27, // 40: cardamom.private.v1.AttachmentService.VerifyAttachment:input_type -> cardamom.private.v1.VerifyAttachmentRequest
-	29, // 41: cardamom.private.v1.AttachmentService.CollectBlobs:input_type -> cardamom.private.v1.CollectBlobsRequest
-	12, // 42: cardamom.private.v1.AttachmentService.BeginAttachmentUpload:output_type -> cardamom.private.v1.BeginAttachmentUploadResponse
-	14, // 43: cardamom.private.v1.AttachmentService.WriteAttachmentChunk:output_type -> cardamom.private.v1.WriteAttachmentChunkResponse
-	16, // 44: cardamom.private.v1.AttachmentService.GetAttachmentUpload:output_type -> cardamom.private.v1.GetAttachmentUploadResponse
-	18, // 45: cardamom.private.v1.AttachmentService.CommitAttachmentUpload:output_type -> cardamom.private.v1.CommitAttachmentUploadResponse
-	20, // 46: cardamom.private.v1.AttachmentService.AbortAttachmentUpload:output_type -> cardamom.private.v1.AbortAttachmentUploadResponse
-	22, // 47: cardamom.private.v1.AttachmentService.GetAttachment:output_type -> cardamom.private.v1.GetAttachmentResponse
-	24, // 48: cardamom.private.v1.AttachmentService.ListAttachments:output_type -> cardamom.private.v1.ListAttachmentsResponse
-	26, // 49: cardamom.private.v1.AttachmentService.RemoveAttachment:output_type -> cardamom.private.v1.RemoveAttachmentResponse
-	28, // 50: cardamom.private.v1.AttachmentService.VerifyAttachment:output_type -> cardamom.private.v1.VerifyAttachmentResponse
-	30, // 51: cardamom.private.v1.AttachmentService.CollectBlobs:output_type -> cardamom.private.v1.CollectBlobsResponse
-	42, // [42:52] is the sub-list for method output_type
-	32, // [32:42] is the sub-list for method input_type
-	32, // [32:32] is the sub-list for extension type_name
-	32, // [32:32] is the sub-list for extension extendee
-	0,  // [0:32] is the sub-list for field type_name
+	32, // 6: cardamom.private.v1.Attachment.ref:type_name -> cardamom.private.v1.AttachmentRef
+	2,  // 7: cardamom.private.v1.AttachmentUpload.state:type_name -> cardamom.private.v1.AttachmentUploadState
+	31, // 8: cardamom.private.v1.AttachmentUpload.expires_at:type_name -> google.protobuf.Timestamp
+	5,  // 9: cardamom.private.v1.AttachmentUpload.attachment:type_name -> cardamom.private.v1.Attachment
+	3,  // 10: cardamom.private.v1.AttachmentVerification.blob:type_name -> cardamom.private.v1.BlobDescriptor
+	1,  // 11: cardamom.private.v1.AttachmentVerification.availability:type_name -> cardamom.private.v1.BlobAvailability
+	31, // 12: cardamom.private.v1.AttachmentVerification.observed_at:type_name -> google.protobuf.Timestamp
+	3,  // 13: cardamom.private.v1.AttachmentIntegrityProblem.blob:type_name -> cardamom.private.v1.BlobDescriptor
+	1,  // 14: cardamom.private.v1.AttachmentIntegrityProblem.availability:type_name -> cardamom.private.v1.BlobAvailability
+	8,  // 15: cardamom.private.v1.BlobCollectionResult.expired_staging:type_name -> cardamom.private.v1.CollectionSummary
+	8,  // 16: cardamom.private.v1.BlobCollectionResult.orphan_blobs:type_name -> cardamom.private.v1.CollectionSummary
+	9,  // 17: cardamom.private.v1.BlobCollectionResult.integrity_problems:type_name -> cardamom.private.v1.AttachmentIntegrityProblem
+	33, // 18: cardamom.private.v1.BeginAttachmentUploadRequest.mutation:type_name -> cardamom.private.v1.MutationContext
+	6,  // 19: cardamom.private.v1.BeginAttachmentUploadResponse.upload:type_name -> cardamom.private.v1.AttachmentUpload
+	33, // 20: cardamom.private.v1.WriteAttachmentChunkRequest.mutation:type_name -> cardamom.private.v1.MutationContext
+	6,  // 21: cardamom.private.v1.WriteAttachmentChunkResponse.upload:type_name -> cardamom.private.v1.AttachmentUpload
+	6,  // 22: cardamom.private.v1.GetAttachmentUploadResponse.upload:type_name -> cardamom.private.v1.AttachmentUpload
+	33, // 23: cardamom.private.v1.CommitAttachmentUploadRequest.mutation:type_name -> cardamom.private.v1.MutationContext
+	5,  // 24: cardamom.private.v1.CommitAttachmentUploadResponse.attachment:type_name -> cardamom.private.v1.Attachment
+	33, // 25: cardamom.private.v1.AbortAttachmentUploadRequest.mutation:type_name -> cardamom.private.v1.MutationContext
+	6,  // 26: cardamom.private.v1.AbortAttachmentUploadResponse.upload:type_name -> cardamom.private.v1.AttachmentUpload
+	5,  // 27: cardamom.private.v1.GetAttachmentResponse.attachment:type_name -> cardamom.private.v1.Attachment
+	5,  // 28: cardamom.private.v1.ListAttachmentsResponse.attachments:type_name -> cardamom.private.v1.Attachment
+	33, // 29: cardamom.private.v1.RemoveAttachmentRequest.mutation:type_name -> cardamom.private.v1.MutationContext
+	5,  // 30: cardamom.private.v1.RemoveAttachmentResponse.attachment:type_name -> cardamom.private.v1.Attachment
+	7,  // 31: cardamom.private.v1.VerifyAttachmentResponse.verification:type_name -> cardamom.private.v1.AttachmentVerification
+	10, // 32: cardamom.private.v1.CollectBlobsResponse.result:type_name -> cardamom.private.v1.BlobCollectionResult
+	11, // 33: cardamom.private.v1.AttachmentService.BeginAttachmentUpload:input_type -> cardamom.private.v1.BeginAttachmentUploadRequest
+	13, // 34: cardamom.private.v1.AttachmentService.WriteAttachmentChunk:input_type -> cardamom.private.v1.WriteAttachmentChunkRequest
+	15, // 35: cardamom.private.v1.AttachmentService.GetAttachmentUpload:input_type -> cardamom.private.v1.GetAttachmentUploadRequest
+	17, // 36: cardamom.private.v1.AttachmentService.CommitAttachmentUpload:input_type -> cardamom.private.v1.CommitAttachmentUploadRequest
+	19, // 37: cardamom.private.v1.AttachmentService.AbortAttachmentUpload:input_type -> cardamom.private.v1.AbortAttachmentUploadRequest
+	21, // 38: cardamom.private.v1.AttachmentService.GetAttachment:input_type -> cardamom.private.v1.GetAttachmentRequest
+	23, // 39: cardamom.private.v1.AttachmentService.ListAttachments:input_type -> cardamom.private.v1.ListAttachmentsRequest
+	25, // 40: cardamom.private.v1.AttachmentService.RemoveAttachment:input_type -> cardamom.private.v1.RemoveAttachmentRequest
+	27, // 41: cardamom.private.v1.AttachmentService.VerifyAttachment:input_type -> cardamom.private.v1.VerifyAttachmentRequest
+	29, // 42: cardamom.private.v1.AttachmentService.CollectBlobs:input_type -> cardamom.private.v1.CollectBlobsRequest
+	12, // 43: cardamom.private.v1.AttachmentService.BeginAttachmentUpload:output_type -> cardamom.private.v1.BeginAttachmentUploadResponse
+	14, // 44: cardamom.private.v1.AttachmentService.WriteAttachmentChunk:output_type -> cardamom.private.v1.WriteAttachmentChunkResponse
+	16, // 45: cardamom.private.v1.AttachmentService.GetAttachmentUpload:output_type -> cardamom.private.v1.GetAttachmentUploadResponse
+	18, // 46: cardamom.private.v1.AttachmentService.CommitAttachmentUpload:output_type -> cardamom.private.v1.CommitAttachmentUploadResponse
+	20, // 47: cardamom.private.v1.AttachmentService.AbortAttachmentUpload:output_type -> cardamom.private.v1.AbortAttachmentUploadResponse
+	22, // 48: cardamom.private.v1.AttachmentService.GetAttachment:output_type -> cardamom.private.v1.GetAttachmentResponse
+	24, // 49: cardamom.private.v1.AttachmentService.ListAttachments:output_type -> cardamom.private.v1.ListAttachmentsResponse
+	26, // 50: cardamom.private.v1.AttachmentService.RemoveAttachment:output_type -> cardamom.private.v1.RemoveAttachmentResponse
+	28, // 51: cardamom.private.v1.AttachmentService.VerifyAttachment:output_type -> cardamom.private.v1.VerifyAttachmentResponse
+	30, // 52: cardamom.private.v1.AttachmentService.CollectBlobs:output_type -> cardamom.private.v1.CollectBlobsResponse
+	43, // [43:53] is the sub-list for method output_type
+	33, // [33:43] is the sub-list for method input_type
+	33, // [33:33] is the sub-list for extension type_name
+	33, // [33:33] is the sub-list for extension extendee
+	0,  // [0:33] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_attachment_proto_init() }
@@ -2263,6 +2277,7 @@ func file_cardamom_private_v1_attachment_proto_init() {
 		return
 	}
 	file_cardamom_private_v1_mutation_proto_init()
+	file_cardamom_private_v1_source_proto_init()
 	file_cardamom_private_v1_attachment_proto_msgTypes[2].OneofWrappers = []any{}
 	file_cardamom_private_v1_attachment_proto_msgTypes[3].OneofWrappers = []any{}
 	file_cardamom_private_v1_attachment_proto_msgTypes[8].OneofWrappers = []any{}

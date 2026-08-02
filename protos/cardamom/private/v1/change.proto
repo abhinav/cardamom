@@ -3,6 +3,7 @@ syntax = "proto3";
 package cardamom.private.v1;
 
 import "cardamom/private/v1/scope.proto";
+import "cardamom/private/v1/source.proto";
 
 // WatchResource identifies browser reads invalidated by a notification.
 enum WatchResource {
@@ -44,6 +45,12 @@ message WatchChangesResponse {
 
   // issue_id narrows an invalidation to one issue when available.
   optional string issue_id = 4;
+
+  // source identifies the source-local revision owner in aggregate mode.
+  optional SourceRef source = 5;
+
+  // health reports a source transition without closing the browser stream.
+  optional SourceHealthEvent health = 6;
 }
 
 // ChangeService streams coarse invalidation notifications to the browser.

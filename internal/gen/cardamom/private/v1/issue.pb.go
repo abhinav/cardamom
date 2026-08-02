@@ -592,7 +592,10 @@ type IssueSummary struct {
 	// labels contains inert classification labels in canonical order.
 	Labels []string `protobuf:"bytes,14,rep,name=labels,proto3" json:"labels,omitempty"`
 	// blocked reports whether an open prerequisite prevents execution.
-	Blocked       bool `protobuf:"varint,15,opt,name=blocked,proto3" json:"blocked,omitempty"`
+	Blocked bool `protobuf:"varint,15,opt,name=blocked,proto3" json:"blocked,omitempty"`
+	// ref identifies the source-qualified issue when the server federates
+	// multiple sources.
+	Ref           *IssueRef `protobuf:"bytes,16,opt,name=ref,proto3,oneof" json:"ref,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -732,6 +735,13 @@ func (x *IssueSummary) GetBlocked() bool {
 	return false
 }
 
+func (x *IssueSummary) GetRef() *IssueRef {
+	if x != nil {
+		return x.Ref
+	}
+	return nil
+}
+
 // RelatedIssue is the compact issue representation used by relationships.
 type RelatedIssue struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -746,7 +756,10 @@ type RelatedIssue struct {
 	// status is the issue's effective browser status.
 	Status IssueStatus `protobuf:"varint,5,opt,name=status,proto3,enum=cardamom.private.v1.IssueStatus" json:"status,omitempty"`
 	// priority is the domain ordering priority, where lower values run first.
-	Priority      int32 `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	Priority int32 `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
+	// ref identifies the source-qualified issue when the server federates
+	// multiple sources.
+	Ref           *IssueRef `protobuf:"bytes,7,opt,name=ref,proto3,oneof" json:"ref,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -821,6 +834,13 @@ func (x *RelatedIssue) GetPriority() int32 {
 		return x.Priority
 	}
 	return 0
+}
+
+func (x *RelatedIssue) GetRef() *IssueRef {
+	if x != nil {
+		return x.Ref
+	}
+	return nil
 }
 
 // AncestorContext carries current context inherited from one ancestor.
@@ -1619,7 +1639,9 @@ func (x *ListIssuesResponse) GetTotalCount() uint32 {
 type GetIssueRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issue_id identifies the issue to read.
-	IssueId       string `protobuf:"bytes,1,opt,name=issue_id,json=issueId,proto3" json:"issue_id,omitempty"`
+	IssueId string `protobuf:"bytes,1,opt,name=issue_id,json=issueId,proto3" json:"issue_id,omitempty"`
+	// issue identifies the source-qualified issue for aggregate requests.
+	Issue         *IssueRef `protobuf:"bytes,2,opt,name=issue,proto3,oneof" json:"issue,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1659,6 +1681,13 @@ func (x *GetIssueRequest) GetIssueId() string {
 		return x.IssueId
 	}
 	return ""
+}
+
+func (x *GetIssueRequest) GetIssue() *IssueRef {
+	if x != nil {
+		return x.Issue
+	}
+	return nil
 }
 
 // GetIssueResponse contains the primary issue detail record.
@@ -1711,7 +1740,7 @@ var File_cardamom_private_v1_issue_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\n" +
-	"\x1fcardamom/private/v1/issue.proto\x12\x13cardamom.private.v1\x1a!cardamom/private/v1/content.proto\x1a\x1fcardamom/private/v1/scope.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
+	"\x1fcardamom/private/v1/issue.proto\x12\x13cardamom.private.v1\x1a!cardamom/private/v1/content.proto\x1a\x1fcardamom/private/v1/scope.proto\x1a cardamom/private/v1/source.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
 	"\vActiveClaim\x12\x14\n" +
 	"\x05actor\x18\x01 \x01(\tR\x05actor\x129\n" +
 	"\n" +
@@ -1724,7 +1753,7 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\v2$.cardamom.private.v1.MarkdownContentR\x06reason\x129\n" +
 	"\n" +
 	"decided_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tdecidedAt\x12\x1a\n" +
-	"\brevision\x18\x04 \x01(\x03R\brevision\"\xe1\x05\n" +
+	"\brevision\x18\x04 \x01(\x03R\brevision\"\x9f\x06\n" +
 	"\fIssueSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bboard_id\x18\x02 \x01(\tR\aboardId\x12\x14\n" +
@@ -1744,17 +1773,21 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\tclosed_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\bclosedAt\x12@\n" +
 	"\awaiting\x18\r \x01(\v2!.cardamom.private.v1.WaitingStateH\x01R\awaiting\x88\x01\x01\x12\x16\n" +
 	"\x06labels\x18\x0e \x03(\tR\x06labels\x12\x18\n" +
-	"\ablocked\x18\x0f \x01(\bR\ablockedB\x0f\n" +
+	"\ablocked\x18\x0f \x01(\bR\ablocked\x124\n" +
+	"\x03ref\x18\x10 \x01(\v2\x1d.cardamom.private.v1.IssueRefH\x02R\x03ref\x88\x01\x01B\x0f\n" +
 	"\r_active_claimB\n" +
 	"\n" +
-	"\b_waiting\"\xd9\x01\n" +
+	"\b_waitingB\x06\n" +
+	"\x04_ref\"\x97\x02\n" +
 	"\fRelatedIssue\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bboard_id\x18\x02 \x01(\tR\aboardId\x12\x14\n" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x122\n" +
 	"\x04type\x18\x04 \x01(\x0e2\x1e.cardamom.private.v1.IssueTypeR\x04type\x128\n" +
 	"\x06status\x18\x05 \x01(\x0e2 .cardamom.private.v1.IssueStatusR\x06status\x12\x1a\n" +
-	"\bpriority\x18\x06 \x01(\x05R\bpriority\"\x84\x03\n" +
+	"\bpriority\x18\x06 \x01(\x05R\bpriority\x124\n" +
+	"\x03ref\x18\a \x01(\v2\x1d.cardamom.private.v1.IssueRefH\x00R\x03ref\x88\x01\x01B\x06\n" +
+	"\x04_ref\"\x84\x03\n" +
 	"\x0fAncestorContext\x127\n" +
 	"\x05issue\x18\x01 \x01(\v2!.cardamom.private.v1.RelatedIssueR\x05issue\x12C\n" +
 	"\asummary\x18\x02 \x01(\v2$.cardamom.private.v1.MarkdownContentH\x00R\asummary\x88\x01\x01\x12?\n" +
@@ -1852,9 +1885,11 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\x0fnext_page_token\x18\x04 \x01(\tH\x00R\rnextPageToken\x88\x01\x01\x12\x1f\n" +
 	"\vtotal_count\x18\x05 \x01(\rR\n" +
 	"totalCountB\x12\n" +
-	"\x10_next_page_token\",\n" +
+	"\x10_next_page_token\"p\n" +
 	"\x0fGetIssueRequest\x12\x19\n" +
-	"\bissue_id\x18\x01 \x01(\tR\aissueId\"J\n" +
+	"\bissue_id\x18\x01 \x01(\tR\aissueId\x128\n" +
+	"\x05issue\x18\x02 \x01(\v2\x1d.cardamom.private.v1.IssueRefH\x00R\x05issue\x88\x01\x01B\b\n" +
+	"\x06_issue\"J\n" +
 	"\x10GetIssueResponse\x126\n" +
 	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue*\x8a\x01\n" +
 	"\tIssueType\x12\x1a\n" +
@@ -1936,7 +1971,8 @@ var file_cardamom_private_v1_issue_proto_goTypes = []any{
 	(*GetIssueResponse)(nil),        // 21: cardamom.private.v1.GetIssueResponse
 	(*timestamppb.Timestamp)(nil),   // 22: google.protobuf.Timestamp
 	(*MarkdownContent)(nil),         // 23: cardamom.private.v1.MarkdownContent
-	(*BoardScope)(nil),              // 24: cardamom.private.v1.BoardScope
+	(*IssueRef)(nil),                // 24: cardamom.private.v1.IssueRef
+	(*BoardScope)(nil),              // 25: cardamom.private.v1.BoardScope
 }
 var file_cardamom_private_v1_issue_proto_depIdxs = []int32{
 	22, // 0: cardamom.private.v1.ActiveClaim.started_at:type_name -> google.protobuf.Timestamp
@@ -1953,48 +1989,51 @@ var file_cardamom_private_v1_issue_proto_depIdxs = []int32{
 	22, // 11: cardamom.private.v1.IssueSummary.started_at:type_name -> google.protobuf.Timestamp
 	22, // 12: cardamom.private.v1.IssueSummary.closed_at:type_name -> google.protobuf.Timestamp
 	7,  // 13: cardamom.private.v1.IssueSummary.waiting:type_name -> cardamom.private.v1.WaitingState
-	0,  // 14: cardamom.private.v1.RelatedIssue.type:type_name -> cardamom.private.v1.IssueType
-	2,  // 15: cardamom.private.v1.RelatedIssue.status:type_name -> cardamom.private.v1.IssueStatus
-	10, // 16: cardamom.private.v1.AncestorContext.issue:type_name -> cardamom.private.v1.RelatedIssue
-	23, // 17: cardamom.private.v1.AncestorContext.summary:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 18: cardamom.private.v1.AncestorContext.state:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 19: cardamom.private.v1.AncestorContext.next_action:type_name -> cardamom.private.v1.MarkdownContent
-	10, // 20: cardamom.private.v1.DependencyResultContext.issue:type_name -> cardamom.private.v1.RelatedIssue
-	23, // 21: cardamom.private.v1.DependencyResultContext.result:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 22: cardamom.private.v1.IssueContext.board_description:type_name -> cardamom.private.v1.MarkdownContent
-	11, // 23: cardamom.private.v1.IssueContext.ancestors:type_name -> cardamom.private.v1.AncestorContext
-	12, // 24: cardamom.private.v1.IssueContext.dependency_results:type_name -> cardamom.private.v1.DependencyResultContext
-	10, // 25: cardamom.private.v1.HierarchyNode.issue:type_name -> cardamom.private.v1.RelatedIssue
-	14, // 26: cardamom.private.v1.ContainmentProjection.nodes:type_name -> cardamom.private.v1.HierarchyNode
-	9,  // 27: cardamom.private.v1.IssueDetail.issue:type_name -> cardamom.private.v1.IssueSummary
-	23, // 28: cardamom.private.v1.IssueDetail.summary:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 29: cardamom.private.v1.IssueDetail.state:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 30: cardamom.private.v1.IssueDetail.result:type_name -> cardamom.private.v1.MarkdownContent
-	13, // 31: cardamom.private.v1.IssueDetail.context:type_name -> cardamom.private.v1.IssueContext
-	15, // 32: cardamom.private.v1.IssueDetail.containment:type_name -> cardamom.private.v1.ContainmentProjection
-	10, // 33: cardamom.private.v1.IssueDetail.prerequisites:type_name -> cardamom.private.v1.RelatedIssue
-	10, // 34: cardamom.private.v1.IssueDetail.dependents:type_name -> cardamom.private.v1.RelatedIssue
-	23, // 35: cardamom.private.v1.IssueDetail.details:type_name -> cardamom.private.v1.MarkdownContent
-	8,  // 36: cardamom.private.v1.IssueDetail.checkpoint_decision:type_name -> cardamom.private.v1.CheckpointDecision
-	23, // 37: cardamom.private.v1.IssueDetail.next_action:type_name -> cardamom.private.v1.MarkdownContent
-	24, // 38: cardamom.private.v1.ListIssuesRequest.scope:type_name -> cardamom.private.v1.BoardScope
-	1,  // 39: cardamom.private.v1.ListIssuesRequest.lifecycles:type_name -> cardamom.private.v1.IssueLifecycle
-	2,  // 40: cardamom.private.v1.ListIssuesRequest.statuses:type_name -> cardamom.private.v1.IssueStatus
-	0,  // 41: cardamom.private.v1.ListIssuesRequest.types:type_name -> cardamom.private.v1.IssueType
-	3,  // 42: cardamom.private.v1.ListIssuesRequest.sort:type_name -> cardamom.private.v1.IssueSort
-	4,  // 43: cardamom.private.v1.ListIssuesRequest.direction:type_name -> cardamom.private.v1.SortDirection
-	9,  // 44: cardamom.private.v1.ListIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
-	17, // 45: cardamom.private.v1.ListIssuesResponse.label_facets:type_name -> cardamom.private.v1.LabelFacet
-	16, // 46: cardamom.private.v1.GetIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
-	18, // 47: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest
-	20, // 48: cardamom.private.v1.IssueService.GetIssue:input_type -> cardamom.private.v1.GetIssueRequest
-	19, // 49: cardamom.private.v1.IssueService.ListIssues:output_type -> cardamom.private.v1.ListIssuesResponse
-	21, // 50: cardamom.private.v1.IssueService.GetIssue:output_type -> cardamom.private.v1.GetIssueResponse
-	49, // [49:51] is the sub-list for method output_type
-	47, // [47:49] is the sub-list for method input_type
-	47, // [47:47] is the sub-list for extension type_name
-	47, // [47:47] is the sub-list for extension extendee
-	0,  // [0:47] is the sub-list for field type_name
+	24, // 14: cardamom.private.v1.IssueSummary.ref:type_name -> cardamom.private.v1.IssueRef
+	0,  // 15: cardamom.private.v1.RelatedIssue.type:type_name -> cardamom.private.v1.IssueType
+	2,  // 16: cardamom.private.v1.RelatedIssue.status:type_name -> cardamom.private.v1.IssueStatus
+	24, // 17: cardamom.private.v1.RelatedIssue.ref:type_name -> cardamom.private.v1.IssueRef
+	10, // 18: cardamom.private.v1.AncestorContext.issue:type_name -> cardamom.private.v1.RelatedIssue
+	23, // 19: cardamom.private.v1.AncestorContext.summary:type_name -> cardamom.private.v1.MarkdownContent
+	23, // 20: cardamom.private.v1.AncestorContext.state:type_name -> cardamom.private.v1.MarkdownContent
+	23, // 21: cardamom.private.v1.AncestorContext.next_action:type_name -> cardamom.private.v1.MarkdownContent
+	10, // 22: cardamom.private.v1.DependencyResultContext.issue:type_name -> cardamom.private.v1.RelatedIssue
+	23, // 23: cardamom.private.v1.DependencyResultContext.result:type_name -> cardamom.private.v1.MarkdownContent
+	23, // 24: cardamom.private.v1.IssueContext.board_description:type_name -> cardamom.private.v1.MarkdownContent
+	11, // 25: cardamom.private.v1.IssueContext.ancestors:type_name -> cardamom.private.v1.AncestorContext
+	12, // 26: cardamom.private.v1.IssueContext.dependency_results:type_name -> cardamom.private.v1.DependencyResultContext
+	10, // 27: cardamom.private.v1.HierarchyNode.issue:type_name -> cardamom.private.v1.RelatedIssue
+	14, // 28: cardamom.private.v1.ContainmentProjection.nodes:type_name -> cardamom.private.v1.HierarchyNode
+	9,  // 29: cardamom.private.v1.IssueDetail.issue:type_name -> cardamom.private.v1.IssueSummary
+	23, // 30: cardamom.private.v1.IssueDetail.summary:type_name -> cardamom.private.v1.MarkdownContent
+	23, // 31: cardamom.private.v1.IssueDetail.state:type_name -> cardamom.private.v1.MarkdownContent
+	23, // 32: cardamom.private.v1.IssueDetail.result:type_name -> cardamom.private.v1.MarkdownContent
+	13, // 33: cardamom.private.v1.IssueDetail.context:type_name -> cardamom.private.v1.IssueContext
+	15, // 34: cardamom.private.v1.IssueDetail.containment:type_name -> cardamom.private.v1.ContainmentProjection
+	10, // 35: cardamom.private.v1.IssueDetail.prerequisites:type_name -> cardamom.private.v1.RelatedIssue
+	10, // 36: cardamom.private.v1.IssueDetail.dependents:type_name -> cardamom.private.v1.RelatedIssue
+	23, // 37: cardamom.private.v1.IssueDetail.details:type_name -> cardamom.private.v1.MarkdownContent
+	8,  // 38: cardamom.private.v1.IssueDetail.checkpoint_decision:type_name -> cardamom.private.v1.CheckpointDecision
+	23, // 39: cardamom.private.v1.IssueDetail.next_action:type_name -> cardamom.private.v1.MarkdownContent
+	25, // 40: cardamom.private.v1.ListIssuesRequest.scope:type_name -> cardamom.private.v1.BoardScope
+	1,  // 41: cardamom.private.v1.ListIssuesRequest.lifecycles:type_name -> cardamom.private.v1.IssueLifecycle
+	2,  // 42: cardamom.private.v1.ListIssuesRequest.statuses:type_name -> cardamom.private.v1.IssueStatus
+	0,  // 43: cardamom.private.v1.ListIssuesRequest.types:type_name -> cardamom.private.v1.IssueType
+	3,  // 44: cardamom.private.v1.ListIssuesRequest.sort:type_name -> cardamom.private.v1.IssueSort
+	4,  // 45: cardamom.private.v1.ListIssuesRequest.direction:type_name -> cardamom.private.v1.SortDirection
+	9,  // 46: cardamom.private.v1.ListIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
+	17, // 47: cardamom.private.v1.ListIssuesResponse.label_facets:type_name -> cardamom.private.v1.LabelFacet
+	24, // 48: cardamom.private.v1.GetIssueRequest.issue:type_name -> cardamom.private.v1.IssueRef
+	16, // 49: cardamom.private.v1.GetIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
+	18, // 50: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest
+	20, // 51: cardamom.private.v1.IssueService.GetIssue:input_type -> cardamom.private.v1.GetIssueRequest
+	19, // 52: cardamom.private.v1.IssueService.ListIssues:output_type -> cardamom.private.v1.ListIssuesResponse
+	21, // 53: cardamom.private.v1.IssueService.GetIssue:output_type -> cardamom.private.v1.GetIssueResponse
+	52, // [52:54] is the sub-list for method output_type
+	50, // [50:52] is the sub-list for method input_type
+	50, // [50:50] is the sub-list for extension type_name
+	50, // [50:50] is the sub-list for extension extendee
+	0,  // [0:50] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_issue_proto_init() }
@@ -2004,13 +2043,16 @@ func file_cardamom_private_v1_issue_proto_init() {
 	}
 	file_cardamom_private_v1_content_proto_init()
 	file_cardamom_private_v1_scope_proto_init()
+	file_cardamom_private_v1_source_proto_init()
 	file_cardamom_private_v1_issue_proto_msgTypes[3].OneofWrappers = []any{}
+	file_cardamom_private_v1_issue_proto_msgTypes[4].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[5].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[7].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[8].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[10].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[12].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[13].OneofWrappers = []any{}
+	file_cardamom_private_v1_issue_proto_msgTypes[14].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

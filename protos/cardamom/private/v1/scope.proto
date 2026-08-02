@@ -2,8 +2,13 @@ syntax = "proto3";
 
 package cardamom.private.v1;
 
+import "cardamom/private/v1/source.proto";
+
 // AllBoards selects every board visible to the current Cardamom server.
 message AllBoards {}
+
+// AllSources selects every board in every configured aggregate source.
+message AllSources {}
 
 // BoardScope selects one board or the read-only aggregate of all boards.
 message BoardScope {
@@ -14,5 +19,17 @@ message BoardScope {
 
     // all_boards selects the aggregate of every visible board.
     AllBoards all_boards = 2;
+
+    // project selects every board in one source-qualified project.
+    ProjectRef project = 3;
+
+    // source selects every board in one configured source.
+    SourceRef source = 4;
+
+    // all_sources selects every board across configured sources.
+    AllSources all_sources = 5;
+
+    // board selects one source-qualified board.
+    BoardRef board = 6;
   }
 }
