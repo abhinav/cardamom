@@ -6,7 +6,7 @@ if command -v card >/dev/null 2>&1; then
 	exec card "$@"
 fi
 
-readonly VERSION='0.3.0'
+readonly VERSION='0.4.0'
 
 fail() {
 	printf 'cardamom: %s\n' "$*" >&2
