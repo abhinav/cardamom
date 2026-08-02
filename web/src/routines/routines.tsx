@@ -30,7 +30,6 @@ import {
   lifecycleActionLabel,
   type LifecycleAction as LifecycleActionValue,
 } from "../issue-lifecycle.ts";
-import type { PreferencesStorage } from "../preferences.ts";
 import { IssueLabel, type SelectLabel } from "../issue-label.tsx";
 import {
   runInvalidatingMutation,
@@ -39,16 +38,15 @@ import {
 
 import "./routines.css";
 
-const showRetiredStorageKey = "cardamom.routines.showRetired";
-
 interface RoutinesRouteProps {
   actor: string;
   canMutateRoutines: boolean;
   requestKey: string;
   scope: BoardScope | undefined;
   selectLabel: SelectLabel;
+  showRetired: boolean;
   showScopeMutationNotice: boolean;
-  storage: PreferencesStorage;
+  updateShowRetired: (showRetired: boolean) => void;
 }
 
 interface RoutineStateSource {
@@ -181,33 +179,15 @@ export function routinePresentation(
   return { state, actions };
 }
 
-export function loadShowRetired(storage: PreferencesStorage): boolean {
-  try {
-    return storage.getItem(showRetiredStorageKey) === "true";
-  } catch {
-    return false;
-  }
-}
-
-export function saveShowRetired(
-  storage: PreferencesStorage,
-  showRetired: boolean,
-): void {
-  try {
-    storage.setItem(showRetiredStorageKey, String(showRetired));
-  } catch {
-    // The current route keeps the preference when browser storage is unavailable.
-  }
-}
-
 export function RoutinesRoute({
   actor,
   canMutateRoutines,
   requestKey,
   scope,
   selectLabel,
+  showRetired,
   showScopeMutationNotice,
-  storage,
+  updateShowRetired,
 }: RoutinesRouteProps) {
   const transport = useTransport();
   const queryClient = useQueryClient();
@@ -218,7 +198,6 @@ export function RoutinesRoute({
     release: useMutation(ExecutionService.method.releaseIssue).mutateAsync,
     reopen: useMutation(ExecutionService.method.reopenIssues).mutateAsync,
   };
-  const [showRetired, setShowRetired] = useState(() => loadShowRetired(storage));
   const [pendingIDs, setPendingIDs] = useState<Set<string>>(() => new Set());
   const [mutationErrors, setMutationErrors] = useState<Record<string, string>>(
     {},
@@ -327,11 +306,8 @@ export function RoutinesRoute({
           <input
             type="checkbox"
             checked={showRetired}
-            onChange={(event) => {
-              const next = event.currentTarget.checked;
-              setShowRetired(next);
-              saveShowRetired(storage, next);
-            }}
+            onChange={(event) =>
+              updateShowRetired(event.currentTarget.checked)}
           />
           <span>Show retired</span>
         </label>

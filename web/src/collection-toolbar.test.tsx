@@ -32,6 +32,7 @@ describe("issue collection toolbar", () => {
       loadedCount: 12,
       mode,
       totalCount: 37,
+      updateFilters: vi.fn(),
       updateView: vi.fn(),
       view,
     }));
@@ -57,11 +58,13 @@ describe("issue collection toolbar", () => {
 
       const emptyMarkup = renderToStaticMarkup(createElement(IssueControls, {
         mode,
+        updateFilters: vi.fn(),
         updateView: vi.fn(),
         view: defaultView,
       }));
       const activeMarkup = renderToStaticMarkup(createElement(IssueControls, {
         mode,
+        updateFilters: vi.fn(),
         updateView: vi.fn(),
         view: activeView,
       }));
@@ -110,16 +113,19 @@ describe("issue collection toolbar", () => {
 
       const defaultMarkup = renderToStaticMarkup(createElement(IssueControls, {
         mode,
+        updateFilters: vi.fn(),
         updateView: vi.fn(),
         view: defaultView,
       }));
       const filteredMarkup = renderToStaticMarkup(createElement(IssueControls, {
         mode,
+        updateFilters: vi.fn(),
         updateView: vi.fn(),
         view: filteredView,
       }));
       const searchOnlyMarkup = renderToStaticMarkup(createElement(IssueControls, {
         mode,
+        updateFilters: vi.fn(),
         updateView: vi.fn(),
         view: searchOnlyView,
       }));
@@ -201,10 +207,33 @@ describe("collection search control", () => {
 
     elementWithAriaLabel(control, "Clear search").props.onClick?.({});
 
-    expect(setFilters).toHaveBeenCalledExactlyOnceWith({
-      ...filters,
-      query: "",
+    expect(setFilters).toHaveBeenCalledExactlyOnceWith(
+      {
+        ...filters,
+        query: "",
+      },
+      "replace",
+    );
+  });
+
+  it("replaces the current history entry while editing title search", () => {
+    const setFilters = vi.fn();
+    const control = CollectionSearchControlView({
+      filters: defaultBoardView.filters,
+      setFilters,
+      editing: true,
+      beginEditing: vi.fn(),
+      endEditing: vi.fn(),
     });
+
+    elementWithAriaLabel(control, "Search issue titles").props.onInput?.({
+      currentTarget: { value: "route filters" },
+    });
+
+    expect(setFilters).toHaveBeenCalledExactlyOnceWith(
+      { ...defaultBoardView.filters, query: "route filters" },
+      "replace",
+    );
   });
 
   it("collapses only when focus leaves the complete control", () => {
@@ -272,6 +301,7 @@ interface TestElementProps {
   children?: ReactNode;
   "aria-label"?: string;
   onClick?: (event: unknown) => void;
+  onInput?: (event: { currentTarget: { value: string } }) => void;
 }
 
 function elementWithAriaLabel(

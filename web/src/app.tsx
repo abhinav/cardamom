@@ -21,6 +21,15 @@ import {
   BoardSettingsDialog,
 } from "./board-settings.tsx";
 import { BoardPickerRoute, BoardSelector } from "./board-selector.tsx";
+import {
+  collectionRouteSearch,
+  issueFiltersFromSearch,
+  issueViewFromSearch,
+  routineRetiredFromSearch,
+  routineRetiredSearch,
+  type IssueCollectionMode,
+  type IssueFilterNavigation,
+} from "./collection-route.ts";
 import { ConfigurationRoute } from "./configuration.tsx";
 import {
   boardScopePath,
@@ -42,7 +51,10 @@ import { bootstrapQueryOptions } from "./query-runtime.ts";
 import { BoardRoute, ListRoute } from "./issue-views.tsx";
 import { IssueDetailPage } from "./issue-detail/issue-detail.tsx";
 import {
+  defaultBoardView,
+  defaultListView,
   listViewForLabel,
+  type IssueFilters,
 } from "./issue-collection.ts";
 import {
   loadPreferences,
@@ -151,7 +163,6 @@ function LoadedApp({
         projects={bootstrap.projects}
         scope={scope}
         selection={selection}
-        storage={storage}
         streamStatus={streamStatus}
         updatePreferences={updatePreferences}
         version={bootstrap.version}
@@ -167,7 +178,6 @@ interface ApplicationShellProps {
   projects: readonly Project[];
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
-  storage: PreferencesStorage;
   streamStatus: StreamStatus;
   updatePreferences: (preferences: Preferences) => void;
   version: string;
@@ -180,7 +190,6 @@ function ApplicationShell({
   projects,
   scope,
   selection,
-  storage,
   streamStatus,
   updatePreferences,
   version,
@@ -210,6 +219,23 @@ function ApplicationShell({
     if (selection.kind !== "unresolved") {
       navigate(boardScopePath(selection, "list"));
     }
+  };
+  const activeCollectionMode: IssueCollectionMode =
+    routeBoardPage(location.pathname) === "list" ? "list" : "board";
+  const activeCollectionFilters = collectionRoute
+    ? issueFiltersFromSearch(
+        new URLSearchParams(location.search),
+        activeCollectionMode,
+      )
+    : undefined;
+  const collectionPath = (mode: IssueCollectionMode): string => {
+    if (selection.kind === "unresolved") {
+      return "/";
+    }
+    const path = boardScopePath(selection, mode);
+    return activeCollectionFilters === undefined
+      ? path
+      : path + collectionRouteSearch(activeCollectionFilters, mode);
   };
 
   return (
@@ -267,7 +293,7 @@ function ApplicationShell({
             to={
               selection.kind === "unresolved"
                 ? "/"
-                : boardScopePath(selection)
+                : collectionPath("board")
             }
             end
           >
@@ -278,7 +304,7 @@ function ApplicationShell({
               <NavLink to={boardScopePath(selection, "approvals")} end>
                 Approvals
               </NavLink>
-              <NavLink to={boardScopePath(selection, "list")} end>
+              <NavLink to={collectionPath("list")} end>
                 List
               </NavLink>
               <NavLink to={boardScopePath(selection, "routines")} end>
@@ -304,7 +330,6 @@ function ApplicationShell({
             scope={scope}
             selection={selection}
             selectLabel={selectLabel}
-            storage={storage}
             updatePreferences={updatePreferences}
           />
         </main>
@@ -437,7 +462,6 @@ function RouteContent({
   scope,
   selection,
   selectLabel,
-  storage,
   updatePreferences,
 }: {
   attachmentClient: AttachmentClient;
@@ -448,9 +472,25 @@ function RouteContent({
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
   selectLabel: (label: string) => void;
-  storage: PreferencesStorage;
   updatePreferences: (preferences: Preferences) => void;
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const search = new URLSearchParams(location.search);
+  const boardView = issueViewFromSearch(preferences.boardView, search, "board");
+  const listView = issueViewFromSearch(preferences.listView, search, "list");
+  const updateFilters = (
+    filters: IssueFilters,
+    mode: IssueCollectionMode,
+    navigation: IssueFilterNavigation,
+  ) =>
+    navigate(
+      {
+        pathname: location.pathname,
+        search: collectionRouteSearch(filters, mode),
+      },
+      { replace: navigation === "replace" },
+    );
   const boardRoute = (
     <BoardRoute
       actor={preferences.actor}
@@ -459,9 +499,14 @@ function RouteContent({
       canMutateServer={canMutateServer}
       selection={selection}
       selectLabel={selectLabel}
-      view={preferences.boardView}
+      view={boardView}
+      updateFilters={(filters, navigation) =>
+        updateFilters(filters, "board", navigation)}
       updateView={(boardView) =>
-        updatePreferences({ ...preferences, boardView })
+        updatePreferences({
+          ...preferences,
+          boardView: { ...boardView, filters: defaultBoardView.filters },
+        })
       }
     />
   );
@@ -481,9 +526,14 @@ function RouteContent({
       canMutateServer={canMutateServer}
       selection={selection}
       selectLabel={selectLabel}
-      view={preferences.listView}
+      view={listView}
+      updateFilters={(filters, navigation) =>
+        updateFilters(filters, "list", navigation)}
       updateView={(listView) =>
-        updatePreferences({ ...preferences, listView })
+        updatePreferences({
+          ...preferences,
+          listView: { ...listView, filters: defaultListView.filters },
+        })
       }
     />
   );
@@ -494,7 +544,6 @@ function RouteContent({
       scope={scope}
       selection={selection}
       selectLabel={selectLabel}
-      storage={storage}
     />
   );
   return (
@@ -578,16 +627,19 @@ function RoutinesPage({
   scope,
   selection,
   selectLabel,
-  storage,
 }: {
   canMutateServer: boolean;
   preferences: Preferences;
   scope: BoardScope | undefined;
   selection: BoardScopeSelection;
   selectLabel: (label: string) => void;
-  storage: PreferencesStorage;
 }) {
+  const location = useLocation();
+  const navigate = useNavigate();
   const requestKey = scopeKey(selection);
+  const showRetired = routineRetiredFromSearch(
+    new URLSearchParams(location.search),
+  );
   const scopeAllowsMutations = selection.kind !== "all";
   const canMutateRoutines = effectiveMutationCapability(
     canMutateServer,
@@ -601,8 +653,13 @@ function RoutinesPage({
       requestKey={requestKey}
       scope={scope}
       selectLabel={selectLabel}
+      showRetired={showRetired}
       showScopeMutationNotice={canMutateServer && !scopeAllowsMutations}
-      storage={storage}
+      updateShowRetired={(next) =>
+        navigate({
+          pathname: location.pathname,
+          search: routineRetiredSearch(next),
+        })}
     />
   );
 }
