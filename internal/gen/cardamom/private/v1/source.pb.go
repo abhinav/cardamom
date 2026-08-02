@@ -80,136 +80,6 @@ func (SourceHealth) EnumDescriptor() ([]byte, []int) {
 	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{0}
 }
 
-// WebProtocolVersion identifies the browser protocol understood by a server.
-type WebProtocolVersion int32
-
-const (
-	// WEB_PROTOCOL_VERSION_UNSPECIFIED does not identify a browser protocol.
-	WebProtocolVersion_WEB_PROTOCOL_VERSION_UNSPECIFIED WebProtocolVersion = 0
-	// WEB_PROTOCOL_VERSION_V1 identifies the first private browser protocol.
-	WebProtocolVersion_WEB_PROTOCOL_VERSION_V1 WebProtocolVersion = 1
-)
-
-// Enum value maps for WebProtocolVersion.
-var (
-	WebProtocolVersion_name = map[int32]string{
-		0: "WEB_PROTOCOL_VERSION_UNSPECIFIED",
-		1: "WEB_PROTOCOL_VERSION_V1",
-	}
-	WebProtocolVersion_value = map[string]int32{
-		"WEB_PROTOCOL_VERSION_UNSPECIFIED": 0,
-		"WEB_PROTOCOL_VERSION_V1":          1,
-	}
-)
-
-func (x WebProtocolVersion) Enum() *WebProtocolVersion {
-	p := new(WebProtocolVersion)
-	*p = x
-	return p
-}
-
-func (x WebProtocolVersion) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (WebProtocolVersion) Descriptor() protoreflect.EnumDescriptor {
-	return file_cardamom_private_v1_source_proto_enumTypes[1].Descriptor()
-}
-
-func (WebProtocolVersion) Type() protoreflect.EnumType {
-	return &file_cardamom_private_v1_source_proto_enumTypes[1]
-}
-
-func (x WebProtocolVersion) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use WebProtocolVersion.Descriptor instead.
-func (WebProtocolVersion) EnumDescriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{1}
-}
-
-// WebCapability identifies one browser read contract implemented by a server.
-type WebCapability int32
-
-const (
-	// WEB_CAPABILITY_UNSPECIFIED does not identify a browser capability.
-	WebCapability_WEB_CAPABILITY_UNSPECIFIED WebCapability = 0
-	// WEB_CAPABILITY_BOARD_CATALOG identifies catalog and bootstrap reads.
-	WebCapability_WEB_CAPABILITY_BOARD_CATALOG WebCapability = 1
-	// WEB_CAPABILITY_BOARD_READ identifies canonical board detail reads.
-	WebCapability_WEB_CAPABILITY_BOARD_READ WebCapability = 2
-	// WEB_CAPABILITY_ISSUE_READ identifies issue collection and detail reads.
-	WebCapability_WEB_CAPABILITY_ISSUE_READ WebCapability = 3
-	// WEB_CAPABILITY_LOG_READ identifies immutable issue log reads.
-	WebCapability_WEB_CAPABILITY_LOG_READ WebCapability = 4
-	// WEB_CAPABILITY_APPROVAL_READ identifies actionable checkpoint reads.
-	WebCapability_WEB_CAPABILITY_APPROVAL_READ WebCapability = 5
-	// WEB_CAPABILITY_ROUTINE_READ identifies routine collection reads.
-	WebCapability_WEB_CAPABILITY_ROUTINE_READ WebCapability = 6
-	// WEB_CAPABILITY_CHANGE_READ identifies source change invalidation streams.
-	WebCapability_WEB_CAPABILITY_CHANGE_READ WebCapability = 7
-	// WEB_CAPABILITY_STATE_READ identifies mutable issue State reads.
-	WebCapability_WEB_CAPABILITY_STATE_READ WebCapability = 8
-	// WEB_CAPABILITY_ATTACHMENT_READ identifies attachment metadata reads.
-	WebCapability_WEB_CAPABILITY_ATTACHMENT_READ WebCapability = 9
-)
-
-// Enum value maps for WebCapability.
-var (
-	WebCapability_name = map[int32]string{
-		0: "WEB_CAPABILITY_UNSPECIFIED",
-		1: "WEB_CAPABILITY_BOARD_CATALOG",
-		2: "WEB_CAPABILITY_BOARD_READ",
-		3: "WEB_CAPABILITY_ISSUE_READ",
-		4: "WEB_CAPABILITY_LOG_READ",
-		5: "WEB_CAPABILITY_APPROVAL_READ",
-		6: "WEB_CAPABILITY_ROUTINE_READ",
-		7: "WEB_CAPABILITY_CHANGE_READ",
-		8: "WEB_CAPABILITY_STATE_READ",
-		9: "WEB_CAPABILITY_ATTACHMENT_READ",
-	}
-	WebCapability_value = map[string]int32{
-		"WEB_CAPABILITY_UNSPECIFIED":     0,
-		"WEB_CAPABILITY_BOARD_CATALOG":   1,
-		"WEB_CAPABILITY_BOARD_READ":      2,
-		"WEB_CAPABILITY_ISSUE_READ":      3,
-		"WEB_CAPABILITY_LOG_READ":        4,
-		"WEB_CAPABILITY_APPROVAL_READ":   5,
-		"WEB_CAPABILITY_ROUTINE_READ":    6,
-		"WEB_CAPABILITY_CHANGE_READ":     7,
-		"WEB_CAPABILITY_STATE_READ":      8,
-		"WEB_CAPABILITY_ATTACHMENT_READ": 9,
-	}
-)
-
-func (x WebCapability) Enum() *WebCapability {
-	p := new(WebCapability)
-	*p = x
-	return p
-}
-
-func (x WebCapability) String() string {
-	return protoimpl.X.EnumStringOf(x.Descriptor(), protoreflect.EnumNumber(x))
-}
-
-func (WebCapability) Descriptor() protoreflect.EnumDescriptor {
-	return file_cardamom_private_v1_source_proto_enumTypes[2].Descriptor()
-}
-
-func (WebCapability) Type() protoreflect.EnumType {
-	return &file_cardamom_private_v1_source_proto_enumTypes[2]
-}
-
-func (x WebCapability) Number() protoreflect.EnumNumber {
-	return protoreflect.EnumNumber(x)
-}
-
-// Deprecated: Use WebCapability.Descriptor instead.
-func (WebCapability) EnumDescriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{2}
-}
-
 // SourceRef identifies a configured route and the store lineage behind it.
 type SourceRef struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -265,61 +135,6 @@ func (x *SourceRef) GetStoreLineageId() string {
 	return ""
 }
 
-// WebProtocol describes the private browser protocol implemented by a server.
-type WebProtocol struct {
-	state protoimpl.MessageState `protogen:"open.v1"`
-	// version identifies the browser protocol version.
-	Version WebProtocolVersion `protobuf:"varint,1,opt,name=version,proto3,enum=cardamom.private.v1.WebProtocolVersion" json:"version,omitempty"`
-	// capabilities lists browser contracts supported by the server.
-	Capabilities  []WebCapability `protobuf:"varint,2,rep,packed,name=capabilities,proto3,enum=cardamom.private.v1.WebCapability" json:"capabilities,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *WebProtocol) Reset() {
-	*x = WebProtocol{}
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[1]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *WebProtocol) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*WebProtocol) ProtoMessage() {}
-
-func (x *WebProtocol) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[1]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use WebProtocol.ProtoReflect.Descriptor instead.
-func (*WebProtocol) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{1}
-}
-
-func (x *WebProtocol) GetVersion() WebProtocolVersion {
-	if x != nil {
-		return x.Version
-	}
-	return WebProtocolVersion_WEB_PROTOCOL_VERSION_UNSPECIFIED
-}
-
-func (x *WebProtocol) GetCapabilities() []WebCapability {
-	if x != nil {
-		return x.Capabilities
-	}
-	return nil
-}
-
 // SourceProblem reports a safe diagnostic for one source.
 type SourceProblem struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -333,7 +148,7 @@ type SourceProblem struct {
 
 func (x *SourceProblem) Reset() {
 	*x = SourceProblem{}
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[2]
+	mi := &file_cardamom_private_v1_source_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -345,7 +160,7 @@ func (x *SourceProblem) String() string {
 func (*SourceProblem) ProtoMessage() {}
 
 func (x *SourceProblem) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[2]
+	mi := &file_cardamom_private_v1_source_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -358,7 +173,7 @@ func (x *SourceProblem) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceProblem.ProtoReflect.Descriptor instead.
 func (*SourceProblem) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{2}
+	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SourceProblem) GetSourceId() string {
@@ -388,7 +203,7 @@ type AggregateStatus struct {
 
 func (x *AggregateStatus) Reset() {
 	*x = AggregateStatus{}
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[3]
+	mi := &file_cardamom_private_v1_source_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -400,7 +215,7 @@ func (x *AggregateStatus) String() string {
 func (*AggregateStatus) ProtoMessage() {}
 
 func (x *AggregateStatus) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[3]
+	mi := &file_cardamom_private_v1_source_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -413,7 +228,7 @@ func (x *AggregateStatus) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use AggregateStatus.ProtoReflect.Descriptor instead.
 func (*AggregateStatus) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{3}
+	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *AggregateStatus) GetComplete() bool {
@@ -443,8 +258,6 @@ type SourceCatalogEntry struct {
 	Version string `protobuf:"bytes,4,opt,name=version,proto3" json:"version,omitempty"`
 	// schema_version is the source's active persisted schema version.
 	SchemaVersion uint64 `protobuf:"varint,5,opt,name=schema_version,json=schemaVersion,proto3" json:"schema_version,omitempty"`
-	// protocol describes the browser protocol supported by the source.
-	Protocol *WebProtocol `protobuf:"bytes,6,opt,name=protocol,proto3" json:"protocol,omitempty"`
 	// read_only reports whether the source permits only side-effect-free reads.
 	ReadOnly      bool `protobuf:"varint,7,opt,name=read_only,json=readOnly,proto3" json:"read_only,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -453,7 +266,7 @@ type SourceCatalogEntry struct {
 
 func (x *SourceCatalogEntry) Reset() {
 	*x = SourceCatalogEntry{}
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[4]
+	mi := &file_cardamom_private_v1_source_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -465,7 +278,7 @@ func (x *SourceCatalogEntry) String() string {
 func (*SourceCatalogEntry) ProtoMessage() {}
 
 func (x *SourceCatalogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[4]
+	mi := &file_cardamom_private_v1_source_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -478,7 +291,7 @@ func (x *SourceCatalogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceCatalogEntry.ProtoReflect.Descriptor instead.
 func (*SourceCatalogEntry) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{4}
+	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *SourceCatalogEntry) GetSource() *SourceRef {
@@ -516,13 +329,6 @@ func (x *SourceCatalogEntry) GetSchemaVersion() uint64 {
 	return 0
 }
 
-func (x *SourceCatalogEntry) GetProtocol() *WebProtocol {
-	if x != nil {
-		return x.Protocol
-	}
-	return nil
-}
-
 func (x *SourceCatalogEntry) GetReadOnly() bool {
 	if x != nil {
 		return x.ReadOnly
@@ -545,7 +351,7 @@ type SourceHealthEvent struct {
 
 func (x *SourceHealthEvent) Reset() {
 	*x = SourceHealthEvent{}
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[5]
+	mi := &file_cardamom_private_v1_source_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -557,7 +363,7 @@ func (x *SourceHealthEvent) String() string {
 func (*SourceHealthEvent) ProtoMessage() {}
 
 func (x *SourceHealthEvent) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_source_proto_msgTypes[5]
+	mi := &file_cardamom_private_v1_source_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -570,7 +376,7 @@ func (x *SourceHealthEvent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SourceHealthEvent.ProtoReflect.Descriptor instead.
 func (*SourceHealthEvent) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{5}
+	return file_cardamom_private_v1_source_proto_rawDescGZIP(), []int{4}
 }
 
 func (x *SourceHealthEvent) GetSource() *SourceRef {
@@ -601,16 +407,13 @@ const file_cardamom_private_v1_source_proto_rawDesc = "" +
 	" cardamom/private/v1/source.proto\x12\x13cardamom.private.v1\"R\n" +
 	"\tSourceRef\x12\x1b\n" +
 	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12(\n" +
-	"\x10store_lineage_id\x18\x02 \x01(\tR\x0estoreLineageId\"\x98\x01\n" +
-	"\vWebProtocol\x12A\n" +
-	"\aversion\x18\x01 \x01(\x0e2'.cardamom.private.v1.WebProtocolVersionR\aversion\x12F\n" +
-	"\fcapabilities\x18\x02 \x03(\x0e2\".cardamom.private.v1.WebCapabilityR\fcapabilities\"F\n" +
+	"\x10store_lineage_id\x18\x02 \x01(\tR\x0estoreLineageId\"F\n" +
 	"\rSourceProblem\x12\x1b\n" +
 	"\tsource_id\x18\x01 \x01(\tR\bsourceId\x12\x18\n" +
 	"\asummary\x18\x02 \x01(\tR\asummary\"m\n" +
 	"\x0fAggregateStatus\x12\x1a\n" +
 	"\bcomplete\x18\x01 \x01(\bR\bcomplete\x12>\n" +
-	"\bproblems\x18\x02 \x03(\v2\".cardamom.private.v1.SourceProblemR\bproblems\"\xd7\x02\n" +
+	"\bproblems\x18\x02 \x03(\v2\".cardamom.private.v1.SourceProblemR\bproblems\"\x85\x02\n" +
 	"\x12SourceCatalogEntry\x126\n" +
 	"\x06source\x18\x01 \x01(\v2\x1e.cardamom.private.v1.SourceRefR\x06source\x129\n" +
 	"\x06health\x18\x02 \x01(\x0e2!.cardamom.private.v1.SourceHealthR\x06health\x12\x1e\n" +
@@ -618,9 +421,8 @@ const file_cardamom_private_v1_source_proto_rawDesc = "" +
 	"diagnostic\x18\x03 \x01(\tR\n" +
 	"diagnostic\x12\x18\n" +
 	"\aversion\x18\x04 \x01(\tR\aversion\x12%\n" +
-	"\x0eschema_version\x18\x05 \x01(\x04R\rschemaVersion\x12<\n" +
-	"\bprotocol\x18\x06 \x01(\v2 .cardamom.private.v1.WebProtocolR\bprotocol\x12\x1b\n" +
-	"\tread_only\x18\a \x01(\bR\breadOnlyJ\x04\b\b\x10\tR\fcapabilities\"\xa6\x01\n" +
+	"\x0eschema_version\x18\x05 \x01(\x04R\rschemaVersion\x12\x1b\n" +
+	"\tread_only\x18\a \x01(\bR\breadOnly\"\xa6\x01\n" +
 	"\x11SourceHealthEvent\x126\n" +
 	"\x06source\x18\x01 \x01(\v2\x1e.cardamom.private.v1.SourceRefR\x06source\x129\n" +
 	"\x06health\x18\x02 \x01(\x0e2!.cardamom.private.v1.SourceHealthR\x06health\x12\x1e\n" +
@@ -631,21 +433,7 @@ const file_cardamom_private_v1_source_proto_rawDesc = "" +
 	"\x19SOURCE_HEALTH_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15SOURCE_HEALTH_HEALTHY\x10\x01\x12\x1a\n" +
 	"\x16SOURCE_HEALTH_DEGRADED\x10\x02\x12\x1d\n" +
-	"\x19SOURCE_HEALTH_UNAVAILABLE\x10\x03*W\n" +
-	"\x12WebProtocolVersion\x12$\n" +
-	" WEB_PROTOCOL_VERSION_UNSPECIFIED\x10\x00\x12\x1b\n" +
-	"\x17WEB_PROTOCOL_VERSION_V1\x10\x01*\xd2\x02\n" +
-	"\rWebCapability\x12\x1e\n" +
-	"\x1aWEB_CAPABILITY_UNSPECIFIED\x10\x00\x12 \n" +
-	"\x1cWEB_CAPABILITY_BOARD_CATALOG\x10\x01\x12\x1d\n" +
-	"\x19WEB_CAPABILITY_BOARD_READ\x10\x02\x12\x1d\n" +
-	"\x19WEB_CAPABILITY_ISSUE_READ\x10\x03\x12\x1b\n" +
-	"\x17WEB_CAPABILITY_LOG_READ\x10\x04\x12 \n" +
-	"\x1cWEB_CAPABILITY_APPROVAL_READ\x10\x05\x12\x1f\n" +
-	"\x1bWEB_CAPABILITY_ROUTINE_READ\x10\x06\x12\x1e\n" +
-	"\x1aWEB_CAPABILITY_CHANGE_READ\x10\a\x12\x1d\n" +
-	"\x19WEB_CAPABILITY_STATE_READ\x10\b\x12\"\n" +
-	"\x1eWEB_CAPABILITY_ATTACHMENT_READ\x10\tB\xd7\x01\n" +
+	"\x19SOURCE_HEALTH_UNAVAILABLE\x10\x03B\xd7\x01\n" +
 	"\x17com.cardamom.private.v1B\vSourceProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 
 var (
@@ -660,33 +448,27 @@ func file_cardamom_private_v1_source_proto_rawDescGZIP() []byte {
 	return file_cardamom_private_v1_source_proto_rawDescData
 }
 
-var file_cardamom_private_v1_source_proto_enumTypes = make([]protoimpl.EnumInfo, 3)
-var file_cardamom_private_v1_source_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
+var file_cardamom_private_v1_source_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
+var file_cardamom_private_v1_source_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_cardamom_private_v1_source_proto_goTypes = []any{
 	(SourceHealth)(0),          // 0: cardamom.private.v1.SourceHealth
-	(WebProtocolVersion)(0),    // 1: cardamom.private.v1.WebProtocolVersion
-	(WebCapability)(0),         // 2: cardamom.private.v1.WebCapability
-	(*SourceRef)(nil),          // 3: cardamom.private.v1.SourceRef
-	(*WebProtocol)(nil),        // 4: cardamom.private.v1.WebProtocol
-	(*SourceProblem)(nil),      // 5: cardamom.private.v1.SourceProblem
-	(*AggregateStatus)(nil),    // 6: cardamom.private.v1.AggregateStatus
-	(*SourceCatalogEntry)(nil), // 7: cardamom.private.v1.SourceCatalogEntry
-	(*SourceHealthEvent)(nil),  // 8: cardamom.private.v1.SourceHealthEvent
+	(*SourceRef)(nil),          // 1: cardamom.private.v1.SourceRef
+	(*SourceProblem)(nil),      // 2: cardamom.private.v1.SourceProblem
+	(*AggregateStatus)(nil),    // 3: cardamom.private.v1.AggregateStatus
+	(*SourceCatalogEntry)(nil), // 4: cardamom.private.v1.SourceCatalogEntry
+	(*SourceHealthEvent)(nil),  // 5: cardamom.private.v1.SourceHealthEvent
 }
 var file_cardamom_private_v1_source_proto_depIdxs = []int32{
-	1, // 0: cardamom.private.v1.WebProtocol.version:type_name -> cardamom.private.v1.WebProtocolVersion
-	2, // 1: cardamom.private.v1.WebProtocol.capabilities:type_name -> cardamom.private.v1.WebCapability
-	5, // 2: cardamom.private.v1.AggregateStatus.problems:type_name -> cardamom.private.v1.SourceProblem
-	3, // 3: cardamom.private.v1.SourceCatalogEntry.source:type_name -> cardamom.private.v1.SourceRef
-	0, // 4: cardamom.private.v1.SourceCatalogEntry.health:type_name -> cardamom.private.v1.SourceHealth
-	4, // 5: cardamom.private.v1.SourceCatalogEntry.protocol:type_name -> cardamom.private.v1.WebProtocol
-	3, // 6: cardamom.private.v1.SourceHealthEvent.source:type_name -> cardamom.private.v1.SourceRef
-	0, // 7: cardamom.private.v1.SourceHealthEvent.health:type_name -> cardamom.private.v1.SourceHealth
-	8, // [8:8] is the sub-list for method output_type
-	8, // [8:8] is the sub-list for method input_type
-	8, // [8:8] is the sub-list for extension type_name
-	8, // [8:8] is the sub-list for extension extendee
-	0, // [0:8] is the sub-list for field type_name
+	2, // 0: cardamom.private.v1.AggregateStatus.problems:type_name -> cardamom.private.v1.SourceProblem
+	1, // 1: cardamom.private.v1.SourceCatalogEntry.source:type_name -> cardamom.private.v1.SourceRef
+	0, // 2: cardamom.private.v1.SourceCatalogEntry.health:type_name -> cardamom.private.v1.SourceHealth
+	1, // 3: cardamom.private.v1.SourceHealthEvent.source:type_name -> cardamom.private.v1.SourceRef
+	0, // 4: cardamom.private.v1.SourceHealthEvent.health:type_name -> cardamom.private.v1.SourceHealth
+	5, // [5:5] is the sub-list for method output_type
+	5, // [5:5] is the sub-list for method input_type
+	5, // [5:5] is the sub-list for extension type_name
+	5, // [5:5] is the sub-list for extension extendee
+	0, // [0:5] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_source_proto_init() }
@@ -699,8 +481,8 @@ func file_cardamom_private_v1_source_proto_init() {
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_v1_source_proto_rawDesc), len(file_cardamom_private_v1_source_proto_rawDesc)),
-			NumEnums:      3,
-			NumMessages:   6,
+			NumEnums:      1,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

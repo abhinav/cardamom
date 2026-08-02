@@ -70,7 +70,6 @@ type Server struct {
 	projects   []*v1.Project
 	boardList  []*v1.BoardSummary
 	version    string
-	protocol   *v1.WebProtocol
 	httpClient connect.HTTPClient
 	cursorsMu  sync.Mutex
 	cursors    map[string]*issueCursor
@@ -143,13 +142,12 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		}
 	}
 
-	protocol := web.BrowserProtocol()
 	var wait sync.WaitGroup
 	for index := range configured {
 		wait.Add(1)
 		go func(index int) {
 			defer wait.Done()
-			probeSource(ctx, protocol, &configured[index])
+			probeSource(ctx, &configured[index])
 		}(index)
 	}
 	wait.Wait()
@@ -162,7 +160,6 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		boards:     make(map[string]boardRoute),
 		cursors:    make(map[string]*issueCursor),
 		version:    cfg.Version,
-		protocol:   protocol,
 		httpClient: client,
 	}
 	if err := server.buildCatalog(); err != nil {
@@ -171,7 +168,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	return server, nil
 }
 
-func probeSource(ctx context.Context, expected *v1.WebProtocol, value *source) {
+func probeSource(ctx context.Context, value *source) {
 	response, err := value.project.GetBootstrap(
 		ctx, connect.NewRequest(&v1.GetBootstrapRequest{}),
 	)
@@ -189,12 +186,6 @@ func probeSource(ctx context.Context, expected *v1.WebProtocol, value *source) {
 		return
 	}
 	entry := healthyEntry(value.config.Alias, bootstrap)
-	if bootstrap.GetProtocol().GetVersion() != expected.GetVersion() {
-		entry.Health = v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE
-		entry.Diagnostic = "unsupported source protocol"
-		value.entry = entry
-		return
-	}
 	if bootstrap.GetAccessMode() != v1.AccessMode_ACCESS_MODE_READ_ONLY {
 		entry.Health = v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE
 		entry.Diagnostic = "source is not read-only"
@@ -206,14 +197,6 @@ func probeSource(ctx context.Context, expected *v1.WebProtocol, value *source) {
 		entry.Diagnostic = "source does not advertise read-only mode"
 		value.entry = entry
 		return
-	}
-	for _, required := range expected.GetCapabilities() {
-		if !slices.Contains(bootstrap.GetProtocol().GetCapabilities(), required) {
-			entry.Health = v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE
-			entry.Diagnostic = "source lacks required read capability"
-			value.entry = entry
-			return
-		}
 	}
 	entry.ReadOnly = true
 	value.bootstrap = bootstrap
@@ -227,7 +210,6 @@ func healthyEntry(alias string, bootstrap *v1.GetBootstrapResponse) *v1.SourceCa
 		Health:        v1.SourceHealth_SOURCE_HEALTH_HEALTHY,
 		Version:       bootstrap.GetVersion(),
 		SchemaVersion: bootstrap.GetSchemaVersion(),
-		Protocol:      proto.Clone(bootstrap.GetProtocol()).(*v1.WebProtocol),
 		ReadOnly:      bootstrap.GetAccessMode() == v1.AccessMode_ACCESS_MODE_READ_ONLY,
 	}
 }
@@ -464,7 +446,6 @@ func (p *projectService) GetBootstrap(
 		AccessMode:      v1.AccessMode_ACCESS_MODE_READ_ONLY,
 		Sources:         entries,
 		AggregateStatus: &v1.AggregateStatus{Complete: complete, Problems: problems},
-		Protocol:        proto.Clone(p.server.protocol).(*v1.WebProtocol),
 		DefaultScope: &v1.BoardScope{Selection: &v1.BoardScope_AllSources{
 			AllSources: &v1.AllSources{},
 		}},

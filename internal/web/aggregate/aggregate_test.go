@@ -41,7 +41,6 @@ func TestNewBuildsBootstrapAndReadOnlyHandler(t *testing.T) {
 	assert.Equal(t, "primary", bootstrap.Msg.GetSources()[0].GetSource().GetSourceId())
 	assert.Equal(t, "lineage-primary", bootstrap.Msg.GetSources()[0].GetSource().GetStoreLineageId())
 	assert.Equal(t, v1.AccessMode_ACCESS_MODE_READ_ONLY, bootstrap.Msg.GetAccessMode())
-	assert.Equal(t, web.BrowserProtocol(), bootstrap.Msg.GetProtocol())
 	assert.Equal(t, "board-primary", bootstrap.Msg.GetBoards()[0].GetId())
 	assert.Equal(t, "primary", bootstrap.Msg.GetBoards()[0].GetSource().GetSourceId())
 	_, ok := bootstrap.Msg.GetDefaultScope().GetSelection().(*v1.BoardScope_AllSources)
@@ -79,21 +78,12 @@ func TestNewStartsEmptyAggregate(t *testing.T) {
 	assert.True(t, issues.Msg.GetAggregateStatus().GetComplete())
 }
 
-func TestNewRejectsSourcesWithoutRequiredCapabilities(t *testing.T) {
+func TestNewRejectsWritableSources(t *testing.T) {
 	for _, test := range []struct {
 		name       string
 		bootstrap  *v1.GetBootstrapResponse
 		diagnostic string
 	}{
-		{
-			name: "MissingCapability",
-			bootstrap: func() *v1.GetBootstrapResponse {
-				value := sourceBootstrap(nil, true)
-				value.Protocol.Capabilities = []v1.WebCapability{v1.WebCapability_WEB_CAPABILITY_BOARD_CATALOG}
-				return value
-			}(),
-			diagnostic: "source lacks required read capability",
-		},
 		{
 			name: "WritableSource",
 			bootstrap: func() *v1.GetBootstrapResponse {
@@ -101,15 +91,6 @@ func TestNewRejectsSourcesWithoutRequiredCapabilities(t *testing.T) {
 				return value
 			}(),
 			diagnostic: "source is not read-only",
-		},
-		{
-			name: "UnsupportedProtocol",
-			bootstrap: func() *v1.GetBootstrapResponse {
-				value := sourceBootstrap(nil, true)
-				value.Protocol.Version = v1.WebProtocolVersion_WEB_PROTOCOL_VERSION_UNSPECIFIED
-				return value
-			}(),
-			diagnostic: "unsupported source protocol",
 		},
 	} {
 		t.Run(test.name, func(t *testing.T) {
@@ -808,7 +789,6 @@ func newConfiguredSourceServerWithRoutes(
 func sourceBootstrap(board *v1.BoardSummary, readOnly bool) *v1.GetBootstrapResponse {
 	value := &v1.GetBootstrapResponse{
 		AccessMode: v1.AccessMode_ACCESS_MODE_READ_ONLY,
-		Protocol:   web.BrowserProtocol(),
 		Sources: []*v1.SourceCatalogEntry{{
 			Source:   &v1.SourceRef{StoreLineageId: "lineage-primary"},
 			ReadOnly: readOnly,

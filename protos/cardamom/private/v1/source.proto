@@ -28,57 +28,6 @@ message SourceRef {
   string store_lineage_id = 2;
 }
 
-// WebProtocolVersion identifies the browser protocol understood by a server.
-enum WebProtocolVersion {
-  // WEB_PROTOCOL_VERSION_UNSPECIFIED does not identify a browser protocol.
-  WEB_PROTOCOL_VERSION_UNSPECIFIED = 0;
-
-  // WEB_PROTOCOL_VERSION_V1 identifies the first private browser protocol.
-  WEB_PROTOCOL_VERSION_V1 = 1;
-}
-
-// WebCapability identifies one browser read contract implemented by a server.
-enum WebCapability {
-  // WEB_CAPABILITY_UNSPECIFIED does not identify a browser capability.
-  WEB_CAPABILITY_UNSPECIFIED = 0;
-
-  // WEB_CAPABILITY_BOARD_CATALOG identifies catalog and bootstrap reads.
-  WEB_CAPABILITY_BOARD_CATALOG = 1;
-
-  // WEB_CAPABILITY_BOARD_READ identifies canonical board detail reads.
-  WEB_CAPABILITY_BOARD_READ = 2;
-
-  // WEB_CAPABILITY_ISSUE_READ identifies issue collection and detail reads.
-  WEB_CAPABILITY_ISSUE_READ = 3;
-
-  // WEB_CAPABILITY_LOG_READ identifies immutable issue log reads.
-  WEB_CAPABILITY_LOG_READ = 4;
-
-  // WEB_CAPABILITY_APPROVAL_READ identifies actionable checkpoint reads.
-  WEB_CAPABILITY_APPROVAL_READ = 5;
-
-  // WEB_CAPABILITY_ROUTINE_READ identifies routine collection reads.
-  WEB_CAPABILITY_ROUTINE_READ = 6;
-
-  // WEB_CAPABILITY_CHANGE_READ identifies source change invalidation streams.
-  WEB_CAPABILITY_CHANGE_READ = 7;
-
-  // WEB_CAPABILITY_STATE_READ identifies mutable issue State reads.
-  WEB_CAPABILITY_STATE_READ = 8;
-
-  // WEB_CAPABILITY_ATTACHMENT_READ identifies attachment metadata reads.
-  WEB_CAPABILITY_ATTACHMENT_READ = 9;
-}
-
-// WebProtocol describes the private browser protocol implemented by a server.
-message WebProtocol {
-  // version identifies the browser protocol version.
-  WebProtocolVersion version = 1;
-
-  // capabilities lists browser contracts supported by the server.
-  repeated WebCapability capabilities = 2;
-}
-
 // SourceProblem reports a safe diagnostic for one source.
 message SourceProblem {
   // source_id identifies the configured source with the problem.
@@ -114,15 +63,8 @@ message SourceCatalogEntry {
   // schema_version is the source's active persisted schema version.
   uint64 schema_version = 5;
 
-  // protocol describes the browser protocol supported by the source.
-  WebProtocol protocol = 6;
-
   // read_only reports whether the source permits only side-effect-free reads.
   bool read_only = 7;
-
-  // reserved preserves the former string capability field number.
-  reserved 8;
-  reserved "capabilities";
 }
 
 // SourceHealthEvent reports a source status transition on a change stream.

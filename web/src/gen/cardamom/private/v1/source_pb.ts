@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/source.proto.
  */
 export const file_cardamom_private_v1_source: GenFile = /*@__PURE__*/
-  fileDesc("CiBjYXJkYW1vbS9wcml2YXRlL3YxL3NvdXJjZS5wcm90bxITY2FyZGFtb20ucHJpdmF0ZS52MSI4CglTb3VyY2VSZWYSEQoJc291cmNlX2lkGAEgASgJEhgKEHN0b3JlX2xpbmVhZ2VfaWQYAiABKAkigQEKC1dlYlByb3RvY29sEjgKB3ZlcnNpb24YASABKA4yJy5jYXJkYW1vbS5wcml2YXRlLnYxLldlYlByb3RvY29sVmVyc2lvbhI4CgxjYXBhYmlsaXRpZXMYAiADKA4yIi5jYXJkYW1vbS5wcml2YXRlLnYxLldlYkNhcGFiaWxpdHkiMwoNU291cmNlUHJvYmxlbRIRCglzb3VyY2VfaWQYASABKAkSDwoHc3VtbWFyeRgCIAEoCSJZCg9BZ2dyZWdhdGVTdGF0dXMSEAoIY29tcGxldGUYASABKAgSNAoIcHJvYmxlbXMYAiADKAsyIi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVByb2JsZW0ijwIKElNvdXJjZUNhdGFsb2dFbnRyeRIuCgZzb3VyY2UYASABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZhIxCgZoZWFsdGgYAiABKA4yIS5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZUhlYWx0aBISCgpkaWFnbm9zdGljGAMgASgJEg8KB3ZlcnNpb24YBCABKAkSFgoOc2NoZW1hX3ZlcnNpb24YBSABKAQSMgoIcHJvdG9jb2wYBiABKAsyIC5jYXJkYW1vbS5wcml2YXRlLnYxLldlYlByb3RvY29sEhEKCXJlYWRfb25seRgHIAEoCEoECAgQCVIMY2FwYWJpbGl0aWVzIooBChFTb3VyY2VIZWFsdGhFdmVudBIuCgZzb3VyY2UYASABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZhIxCgZoZWFsdGgYAiABKA4yIS5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZUhlYWx0aBISCgpkaWFnbm9zdGljGAMgASgJKoMBCgxTb3VyY2VIZWFsdGgSHQoZU09VUkNFX0hFQUxUSF9VTlNQRUNJRklFRBAAEhkKFVNPVVJDRV9IRUFMVEhfSEVBTFRIWRABEhoKFlNPVVJDRV9IRUFMVEhfREVHUkFERUQQAhIdChlTT1VSQ0VfSEVBTFRIX1VOQVZBSUxBQkxFEAMqVwoSV2ViUHJvdG9jb2xWZXJzaW9uEiQKIFdFQl9QUk9UT0NPTF9WRVJTSU9OX1VOU1BFQ0lGSUVEEAASGwoXV0VCX1BST1RPQ09MX1ZFUlNJT05fVjEQASrSAgoNV2ViQ2FwYWJpbGl0eRIeChpXRUJfQ0FQQUJJTElUWV9VTlNQRUNJRklFRBAAEiAKHFdFQl9DQVBBQklMSVRZX0JPQVJEX0NBVEFMT0cQARIdChlXRUJfQ0FQQUJJTElUWV9CT0FSRF9SRUFEEAISHQoZV0VCX0NBUEFCSUxJVFlfSVNTVUVfUkVBRBADEhsKF1dFQl9DQVBBQklMSVRZX0xPR19SRUFEEAQSIAocV0VCX0NBUEFCSUxJVFlfQVBQUk9WQUxfUkVBRBAFEh8KG1dFQl9DQVBBQklMSVRZX1JPVVRJTkVfUkVBRBAGEh4KGldFQl9DQVBBQklMSVRZX0NIQU5HRV9SRUFEEAcSHQoZV0VCX0NBUEFCSUxJVFlfU1RBVEVfUkVBRBAIEiIKHldFQl9DQVBBQklMSVRZX0FUVEFDSE1FTlRfUkVBRBAJQtcBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUILU291cmNlUHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw");
+  fileDesc("CiBjYXJkYW1vbS9wcml2YXRlL3YxL3NvdXJjZS5wcm90bxITY2FyZGFtb20ucHJpdmF0ZS52MSI4CglTb3VyY2VSZWYSEQoJc291cmNlX2lkGAEgASgJEhgKEHN0b3JlX2xpbmVhZ2VfaWQYAiABKAkiMwoNU291cmNlUHJvYmxlbRIRCglzb3VyY2VfaWQYASABKAkSDwoHc3VtbWFyeRgCIAEoCSJZCg9BZ2dyZWdhdGVTdGF0dXMSEAoIY29tcGxldGUYASABKAgSNAoIcHJvYmxlbXMYAiADKAsyIi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVByb2JsZW0ixwEKElNvdXJjZUNhdGFsb2dFbnRyeRIuCgZzb3VyY2UYASABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZhIxCgZoZWFsdGgYAiABKA4yIS5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZUhlYWx0aBISCgpkaWFnbm9zdGljGAMgASgJEg8KB3ZlcnNpb24YBCABKAkSFgoOc2NoZW1hX3ZlcnNpb24YBSABKAQSEQoJcmVhZF9vbmx5GAcgASgIIooBChFTb3VyY2VIZWFsdGhFdmVudBIuCgZzb3VyY2UYASABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZhIxCgZoZWFsdGgYAiABKA4yIS5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZUhlYWx0aBISCgpkaWFnbm9zdGljGAMgASgJKoMBCgxTb3VyY2VIZWFsdGgSHQoZU09VUkNFX0hFQUxUSF9VTlNQRUNJRklFRBAAEhkKFVNPVVJDRV9IRUFMVEhfSEVBTFRIWRABEhoKFlNPVVJDRV9IRUFMVEhfREVHUkFERUQQAhIdChlTT1VSQ0VfSEVBTFRIX1VOQVZBSUxBQkxFEANC1wEKF2NvbS5jYXJkYW1vbS5wcml2YXRlLnYxQgtTb3VyY2VQcm90b1ABWj9nby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS92MTtwcml2YXRldjGiAgNDUFiqAhNDYXJkYW1vbS5Qcml2YXRlLlYxygIUQ2FyZGFtb21cUHJpdmF0ZV9cVjHiAiBDYXJkYW1vbVxQcml2YXRlX1xWMVxHUEJNZXRhZGF0YeoCFUNhcmRhbW9tOjpQcml2YXRlOjpWMWIGcHJvdG8z");
 
 /**
  * SourceRef identifies a configured route and the store lineage behind it.
@@ -41,34 +41,6 @@ export const SourceRefSchema: GenMessage<SourceRef> = /*@__PURE__*/
   messageDesc(file_cardamom_private_v1_source, 0);
 
 /**
- * WebProtocol describes the private browser protocol implemented by a server.
- *
- * @generated from message cardamom.private.v1.WebProtocol
- */
-export type WebProtocol = Message<"cardamom.private.v1.WebProtocol"> & {
-  /**
-   * version identifies the browser protocol version.
-   *
-   * @generated from field: cardamom.private.v1.WebProtocolVersion version = 1;
-   */
-  version: WebProtocolVersion;
-
-  /**
-   * capabilities lists browser contracts supported by the server.
-   *
-   * @generated from field: repeated cardamom.private.v1.WebCapability capabilities = 2;
-   */
-  capabilities: WebCapability[];
-};
-
-/**
- * Describes the message cardamom.private.v1.WebProtocol.
- * Use `create(WebProtocolSchema)` to create a new message.
- */
-export const WebProtocolSchema: GenMessage<WebProtocol> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 1);
-
-/**
  * SourceProblem reports a safe diagnostic for one source.
  *
  * @generated from message cardamom.private.v1.SourceProblem
@@ -94,7 +66,7 @@ export type SourceProblem = Message<"cardamom.private.v1.SourceProblem"> & {
  * Use `create(SourceProblemSchema)` to create a new message.
  */
 export const SourceProblemSchema: GenMessage<SourceProblem> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 2);
+  messageDesc(file_cardamom_private_v1_source, 1);
 
 /**
  * AggregateStatus reports whether a multi-source read is complete.
@@ -122,7 +94,7 @@ export type AggregateStatus = Message<"cardamom.private.v1.AggregateStatus"> & {
  * Use `create(AggregateStatusSchema)` to create a new message.
  */
 export const AggregateStatusSchema: GenMessage<AggregateStatus> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 3);
+  messageDesc(file_cardamom_private_v1_source, 2);
 
 /**
  * SourceCatalogEntry describes one configured source during bootstrap.
@@ -166,13 +138,6 @@ export type SourceCatalogEntry = Message<"cardamom.private.v1.SourceCatalogEntry
   schemaVersion: bigint;
 
   /**
-   * protocol describes the browser protocol supported by the source.
-   *
-   * @generated from field: cardamom.private.v1.WebProtocol protocol = 6;
-   */
-  protocol?: WebProtocol | undefined;
-
-  /**
    * read_only reports whether the source permits only side-effect-free reads.
    *
    * @generated from field: bool read_only = 7;
@@ -185,7 +150,7 @@ export type SourceCatalogEntry = Message<"cardamom.private.v1.SourceCatalogEntry
  * Use `create(SourceCatalogEntrySchema)` to create a new message.
  */
 export const SourceCatalogEntrySchema: GenMessage<SourceCatalogEntry> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 4);
+  messageDesc(file_cardamom_private_v1_source, 3);
 
 /**
  * SourceHealthEvent reports a source status transition on a change stream.
@@ -220,7 +185,7 @@ export type SourceHealthEvent = Message<"cardamom.private.v1.SourceHealthEvent">
  * Use `create(SourceHealthEventSchema)` to create a new message.
  */
 export const SourceHealthEventSchema: GenMessage<SourceHealthEvent> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 5);
+  messageDesc(file_cardamom_private_v1_source, 4);
 
 /**
  * SourceHealth identifies the latest reachability state for one configured
@@ -264,114 +229,4 @@ export enum SourceHealth {
  */
 export const SourceHealthSchema: GenEnum<SourceHealth> = /*@__PURE__*/
   enumDesc(file_cardamom_private_v1_source, 0);
-
-/**
- * WebProtocolVersion identifies the browser protocol understood by a server.
- *
- * @generated from enum cardamom.private.v1.WebProtocolVersion
- */
-export enum WebProtocolVersion {
-  /**
-   * WEB_PROTOCOL_VERSION_UNSPECIFIED does not identify a browser protocol.
-   *
-   * @generated from enum value: WEB_PROTOCOL_VERSION_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
-
-  /**
-   * WEB_PROTOCOL_VERSION_V1 identifies the first private browser protocol.
-   *
-   * @generated from enum value: WEB_PROTOCOL_VERSION_V1 = 1;
-   */
-  V1 = 1,
-}
-
-/**
- * Describes the enum cardamom.private.v1.WebProtocolVersion.
- */
-export const WebProtocolVersionSchema: GenEnum<WebProtocolVersion> = /*@__PURE__*/
-  enumDesc(file_cardamom_private_v1_source, 1);
-
-/**
- * WebCapability identifies one browser read contract implemented by a server.
- *
- * @generated from enum cardamom.private.v1.WebCapability
- */
-export enum WebCapability {
-  /**
-   * WEB_CAPABILITY_UNSPECIFIED does not identify a browser capability.
-   *
-   * @generated from enum value: WEB_CAPABILITY_UNSPECIFIED = 0;
-   */
-  UNSPECIFIED = 0,
-
-  /**
-   * WEB_CAPABILITY_BOARD_CATALOG identifies catalog and bootstrap reads.
-   *
-   * @generated from enum value: WEB_CAPABILITY_BOARD_CATALOG = 1;
-   */
-  BOARD_CATALOG = 1,
-
-  /**
-   * WEB_CAPABILITY_BOARD_READ identifies canonical board detail reads.
-   *
-   * @generated from enum value: WEB_CAPABILITY_BOARD_READ = 2;
-   */
-  BOARD_READ = 2,
-
-  /**
-   * WEB_CAPABILITY_ISSUE_READ identifies issue collection and detail reads.
-   *
-   * @generated from enum value: WEB_CAPABILITY_ISSUE_READ = 3;
-   */
-  ISSUE_READ = 3,
-
-  /**
-   * WEB_CAPABILITY_LOG_READ identifies immutable issue log reads.
-   *
-   * @generated from enum value: WEB_CAPABILITY_LOG_READ = 4;
-   */
-  LOG_READ = 4,
-
-  /**
-   * WEB_CAPABILITY_APPROVAL_READ identifies actionable checkpoint reads.
-   *
-   * @generated from enum value: WEB_CAPABILITY_APPROVAL_READ = 5;
-   */
-  APPROVAL_READ = 5,
-
-  /**
-   * WEB_CAPABILITY_ROUTINE_READ identifies routine collection reads.
-   *
-   * @generated from enum value: WEB_CAPABILITY_ROUTINE_READ = 6;
-   */
-  ROUTINE_READ = 6,
-
-  /**
-   * WEB_CAPABILITY_CHANGE_READ identifies source change invalidation streams.
-   *
-   * @generated from enum value: WEB_CAPABILITY_CHANGE_READ = 7;
-   */
-  CHANGE_READ = 7,
-
-  /**
-   * WEB_CAPABILITY_STATE_READ identifies mutable issue State reads.
-   *
-   * @generated from enum value: WEB_CAPABILITY_STATE_READ = 8;
-   */
-  STATE_READ = 8,
-
-  /**
-   * WEB_CAPABILITY_ATTACHMENT_READ identifies attachment metadata reads.
-   *
-   * @generated from enum value: WEB_CAPABILITY_ATTACHMENT_READ = 9;
-   */
-  ATTACHMENT_READ = 9,
-}
-
-/**
- * Describes the enum cardamom.private.v1.WebCapability.
- */
-export const WebCapabilitySchema: GenEnum<WebCapability> = /*@__PURE__*/
-  enumDesc(file_cardamom_private_v1_source, 2);
 

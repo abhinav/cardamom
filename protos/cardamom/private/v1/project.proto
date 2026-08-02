@@ -125,12 +125,6 @@ message GetBootstrapResponse {
   // aggregate_status reports whether every configured source contributed.
   AggregateStatus aggregate_status = 11;
 
-  // protocol describes the private browser protocol served by this process.
-  WebProtocol protocol = 12;
-
-  reserved 13;
-  reserved "capabilities";
-
   // default_scope is the deterministic initial board scope for the browser.
   BoardScope default_scope = 14;
 }
