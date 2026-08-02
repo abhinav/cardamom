@@ -8,14 +8,14 @@ import {
 } from "./gen/cardamom/private/v1/scope_pb.ts";
 import type { BoardSummary, Project } from "./gen/cardamom/private/v1/project_pb.ts";
 import type {
-  BoardRef,
   SourceCatalogEntry,
+  SourceRef,
 } from "./gen/cardamom/private/v1/source_pb.ts";
 
 /** ResolvedBoardScope identifies a board or aggregate scope in a route. */
 export type ResolvedBoardScope =
   | { kind: "all"; sourceId?: string; projectId?: string }
-  | { kind: "board"; boardId: string; boardRef?: BoardRef };
+  | { kind: "board"; boardId: string; source?: SourceRef };
 
 /** BoardScopeSelection includes routes that do not identify board scope. */
 export type BoardScopeSelection =
@@ -119,7 +119,7 @@ export function boardScopeHref(
   return boardScopePath(selection, page) + boardScopeSearch(selection);
 }
 
-/** resolveBoardScopeSelection enriches a route board with its catalog ref. */
+/** resolveBoardScopeSelection enriches a route board with its catalog source. */
 export function resolveBoardScopeSelection(
   selection: BoardScopeSelection,
   catalog: BoardScopeCatalog,
@@ -133,7 +133,7 @@ export function resolveBoardScopeSelection(
   }
   return {
     ...selection,
-    ...(matches[0]?.ref === undefined ? {} : { boardRef: matches[0].ref }),
+    ...(matches[0]?.source === undefined ? {} : { source: matches[0].source }),
   };
 }
 
@@ -155,17 +155,18 @@ export function toBoardScopeMessage(
     return undefined;
   }
   if (selection.kind === "all") {
-    if (catalog !== undefined && catalog.sources.length > 0) {
+    if (catalog !== undefined && (catalog.sources?.length ?? 0) > 0) {
       if (selection.projectId !== undefined) {
         const project = catalog.projects.find(
           (candidate) =>
             candidate.id === selection.projectId &&
             (selection.sourceId === undefined ||
-              candidate.ref?.source?.sourceId === selection.sourceId),
+              candidate.source?.sourceId === selection.sourceId),
         );
-        if (project?.ref !== undefined) {
+        if (project?.source !== undefined) {
           return create(BoardScopeSchema, {
-            selection: { case: "project", value: project.ref },
+            source: project.source,
+            selection: { case: "projectId", value: project.id },
           });
         }
       }
@@ -175,7 +176,8 @@ export function toBoardScopeMessage(
         )?.source;
         if (source !== undefined) {
           return create(BoardScopeSchema, {
-            selection: { case: "source", value: source },
+            source,
+            selection: { case: "allBoards", value: create(AllBoardsSchema) },
           });
         }
       }
@@ -193,15 +195,11 @@ export function toBoardScopeMessage(
       },
     });
   }
-  const board = selection.boardRef ?? catalog?.boards.find(
+  const source = selection.source ?? catalog?.boards.find(
     (candidate) => candidate.id === selection.boardId,
-  )?.ref;
-  if (board !== undefined) {
-    return create(BoardScopeSchema, {
-      selection: { case: "board", value: board },
-    });
-  }
+  )?.source;
   return create(BoardScopeSchema, {
+    ...(source === undefined ? {} : { source }),
     selection: { case: "boardId", value: selection.boardId },
   });
 }
@@ -219,9 +217,9 @@ export function scopeKey(selection: BoardScopeSelection): string {
     }
     return `all:${selection.sourceId ?? ""}:${selection.projectId ?? ""}`;
   }
-  return selection.boardRef?.source?.sourceId === undefined
+  return selection.source?.sourceId === undefined
     ? `board:${selection.boardId}`
-    : `board:${selection.boardRef.source.sourceId}:${selection.boardId}`;
+    : `board:${selection.source.sourceId}:${selection.boardId}`;
 }
 
 function nonblankSearchValue(

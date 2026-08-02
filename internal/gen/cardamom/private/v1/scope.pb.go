@@ -98,16 +98,16 @@ func (*AllSources) Descriptor() ([]byte, []int) {
 // BoardScope selects one board or the read-only aggregate of all boards.
 type BoardScope struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
+	// source limits board_id, project_id, or all_boards to one aggregate source.
+	Source *SourceRef `protobuf:"bytes,5,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	// selection identifies the board population used by a read or watch.
 	//
 	// Types that are valid to be assigned to Selection:
 	//
 	//	*BoardScope_BoardId
 	//	*BoardScope_AllBoards
-	//	*BoardScope_Project
-	//	*BoardScope_Source
+	//	*BoardScope_ProjectId
 	//	*BoardScope_AllSources
-	//	*BoardScope_Board
 	Selection     isBoardScope_Selection `protobuf_oneof:"selection"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -143,6 +143,13 @@ func (*BoardScope) Descriptor() ([]byte, []int) {
 	return file_cardamom_private_v1_scope_proto_rawDescGZIP(), []int{2}
 }
 
+func (x *BoardScope) GetSource() *SourceRef {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
 func (x *BoardScope) GetSelection() isBoardScope_Selection {
 	if x != nil {
 		return x.Selection
@@ -168,37 +175,19 @@ func (x *BoardScope) GetAllBoards() *AllBoards {
 	return nil
 }
 
-func (x *BoardScope) GetProject() *ProjectRef {
+func (x *BoardScope) GetProjectId() string {
 	if x != nil {
-		if x, ok := x.Selection.(*BoardScope_Project); ok {
-			return x.Project
+		if x, ok := x.Selection.(*BoardScope_ProjectId); ok {
+			return x.ProjectId
 		}
 	}
-	return nil
-}
-
-func (x *BoardScope) GetSource() *SourceRef {
-	if x != nil {
-		if x, ok := x.Selection.(*BoardScope_Source); ok {
-			return x.Source
-		}
-	}
-	return nil
+	return ""
 }
 
 func (x *BoardScope) GetAllSources() *AllSources {
 	if x != nil {
 		if x, ok := x.Selection.(*BoardScope_AllSources); ok {
 			return x.AllSources
-		}
-	}
-	return nil
-}
-
-func (x *BoardScope) GetBoard() *BoardRef {
-	if x != nil {
-		if x, ok := x.Selection.(*BoardScope_Board); ok {
-			return x.Board
 		}
 	}
 	return nil
@@ -218,37 +207,23 @@ type BoardScope_AllBoards struct {
 	AllBoards *AllBoards `protobuf:"bytes,2,opt,name=all_boards,json=allBoards,proto3,oneof"`
 }
 
-type BoardScope_Project struct {
-	// project selects every board in one source-qualified project.
-	Project *ProjectRef `protobuf:"bytes,3,opt,name=project,proto3,oneof"`
-}
-
-type BoardScope_Source struct {
-	// source selects every board in one configured source.
-	Source *SourceRef `protobuf:"bytes,4,opt,name=source,proto3,oneof"`
+type BoardScope_ProjectId struct {
+	// project_id selects every board in one project.
+	ProjectId string `protobuf:"bytes,3,opt,name=project_id,json=projectId,proto3,oneof"`
 }
 
 type BoardScope_AllSources struct {
 	// all_sources selects every board across configured sources.
-	AllSources *AllSources `protobuf:"bytes,5,opt,name=all_sources,json=allSources,proto3,oneof"`
-}
-
-type BoardScope_Board struct {
-	// board selects one source-qualified board.
-	Board *BoardRef `protobuf:"bytes,6,opt,name=board,proto3,oneof"`
+	AllSources *AllSources `protobuf:"bytes,4,opt,name=all_sources,json=allSources,proto3,oneof"`
 }
 
 func (*BoardScope_BoardId) isBoardScope_Selection() {}
 
 func (*BoardScope_AllBoards) isBoardScope_Selection() {}
 
-func (*BoardScope_Project) isBoardScope_Selection() {}
-
-func (*BoardScope_Source) isBoardScope_Selection() {}
+func (*BoardScope_ProjectId) isBoardScope_Selection() {}
 
 func (*BoardScope_AllSources) isBoardScope_Selection() {}
-
-func (*BoardScope_Board) isBoardScope_Selection() {}
 
 var File_cardamom_private_v1_scope_proto protoreflect.FileDescriptor
 
@@ -257,18 +232,19 @@ const file_cardamom_private_v1_scope_proto_rawDesc = "" +
 	"\x1fcardamom/private/v1/scope.proto\x12\x13cardamom.private.v1\x1a cardamom/private/v1/source.proto\"\v\n" +
 	"\tAllBoards\"\f\n" +
 	"\n" +
-	"AllSources\"\xe9\x02\n" +
+	"AllSources\"\xa4\x02\n" +
 	"\n" +
-	"BoardScope\x12\x1b\n" +
+	"BoardScope\x12;\n" +
+	"\x06source\x18\x05 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x01R\x06source\x88\x01\x01\x12\x1b\n" +
 	"\bboard_id\x18\x01 \x01(\tH\x00R\aboardId\x12?\n" +
 	"\n" +
-	"all_boards\x18\x02 \x01(\v2\x1e.cardamom.private.v1.AllBoardsH\x00R\tallBoards\x12;\n" +
-	"\aproject\x18\x03 \x01(\v2\x1f.cardamom.private.v1.ProjectRefH\x00R\aproject\x128\n" +
-	"\x06source\x18\x04 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x12B\n" +
-	"\vall_sources\x18\x05 \x01(\v2\x1f.cardamom.private.v1.AllSourcesH\x00R\n" +
-	"allSources\x125\n" +
-	"\x05board\x18\x06 \x01(\v2\x1d.cardamom.private.v1.BoardRefH\x00R\x05boardB\v\n" +
-	"\tselectionB\xd6\x01\n" +
+	"all_boards\x18\x02 \x01(\v2\x1e.cardamom.private.v1.AllBoardsH\x00R\tallBoards\x12\x1f\n" +
+	"\n" +
+	"project_id\x18\x03 \x01(\tH\x00R\tprojectId\x12B\n" +
+	"\vall_sources\x18\x04 \x01(\v2\x1f.cardamom.private.v1.AllSourcesH\x00R\n" +
+	"allSourcesB\v\n" +
+	"\tselectionB\t\n" +
+	"\a_sourceB\xd6\x01\n" +
 	"\x17com.cardamom.private.v1B\n" +
 	"ScopeProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 
@@ -289,21 +265,17 @@ var file_cardamom_private_v1_scope_proto_goTypes = []any{
 	(*AllBoards)(nil),  // 0: cardamom.private.v1.AllBoards
 	(*AllSources)(nil), // 1: cardamom.private.v1.AllSources
 	(*BoardScope)(nil), // 2: cardamom.private.v1.BoardScope
-	(*ProjectRef)(nil), // 3: cardamom.private.v1.ProjectRef
-	(*SourceRef)(nil),  // 4: cardamom.private.v1.SourceRef
-	(*BoardRef)(nil),   // 5: cardamom.private.v1.BoardRef
+	(*SourceRef)(nil),  // 3: cardamom.private.v1.SourceRef
 }
 var file_cardamom_private_v1_scope_proto_depIdxs = []int32{
-	0, // 0: cardamom.private.v1.BoardScope.all_boards:type_name -> cardamom.private.v1.AllBoards
-	3, // 1: cardamom.private.v1.BoardScope.project:type_name -> cardamom.private.v1.ProjectRef
-	4, // 2: cardamom.private.v1.BoardScope.source:type_name -> cardamom.private.v1.SourceRef
-	1, // 3: cardamom.private.v1.BoardScope.all_sources:type_name -> cardamom.private.v1.AllSources
-	5, // 4: cardamom.private.v1.BoardScope.board:type_name -> cardamom.private.v1.BoardRef
-	5, // [5:5] is the sub-list for method output_type
-	5, // [5:5] is the sub-list for method input_type
-	5, // [5:5] is the sub-list for extension type_name
-	5, // [5:5] is the sub-list for extension extendee
-	0, // [0:5] is the sub-list for field type_name
+	3, // 0: cardamom.private.v1.BoardScope.source:type_name -> cardamom.private.v1.SourceRef
+	0, // 1: cardamom.private.v1.BoardScope.all_boards:type_name -> cardamom.private.v1.AllBoards
+	1, // 2: cardamom.private.v1.BoardScope.all_sources:type_name -> cardamom.private.v1.AllSources
+	3, // [3:3] is the sub-list for method output_type
+	3, // [3:3] is the sub-list for method input_type
+	3, // [3:3] is the sub-list for extension type_name
+	3, // [3:3] is the sub-list for extension extendee
+	0, // [0:3] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_scope_proto_init() }
@@ -315,10 +287,8 @@ func file_cardamom_private_v1_scope_proto_init() {
 	file_cardamom_private_v1_scope_proto_msgTypes[2].OneofWrappers = []any{
 		(*BoardScope_BoardId)(nil),
 		(*BoardScope_AllBoards)(nil),
-		(*BoardScope_Project)(nil),
-		(*BoardScope_Source)(nil),
+		(*BoardScope_ProjectId)(nil),
 		(*BoardScope_AllSources)(nil),
-		(*BoardScope_Board)(nil),
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{

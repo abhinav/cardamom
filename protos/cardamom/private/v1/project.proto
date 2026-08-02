@@ -29,9 +29,8 @@ message Project {
   // name is the human-readable project name.
   string name = 2;
 
-  // ref identifies the source-qualified project when the server federates
-  // multiple sources.
-  optional ProjectRef ref = 3;
+  // source identifies the server that supplied this project in aggregate mode.
+  optional SourceRef source = 3;
 }
 
 // BoardSummary identifies a board in the server catalog.
@@ -45,9 +44,8 @@ message BoardSummary {
   // name is the human-readable board name.
   string name = 3;
 
-  // ref identifies the source-qualified board when the server federates
-  // multiple sources.
-  optional BoardRef ref = 4;
+  // source identifies the server that supplied this board in aggregate mode.
+  optional SourceRef source = 4;
 }
 
 // Board contains browser-visible board settings and rendered context.
@@ -67,9 +65,8 @@ message Board {
   // created_at is the time at which the board was created.
   google.protobuf.Timestamp created_at = 5;
 
-  // ref identifies the source-qualified board when the server federates
-  // multiple sources.
-  optional BoardRef ref = 6;
+  // source identifies the server that supplied this board in aggregate mode.
+  optional SourceRef source = 6;
 }
 
 // ListProjectsRequest requests every project in catalog order.
@@ -128,11 +125,11 @@ message GetBootstrapResponse {
   // aggregate_status reports whether every configured source contributed.
   AggregateStatus aggregate_status = 11;
 
-  // protocol_version is the browser protocol version served by this process.
-  uint32 protocol_version = 12;
+  // protocol describes the private browser protocol served by this process.
+  WebProtocol protocol = 12;
 
-  // capabilities contains stable browser capability names.
-  repeated string capabilities = 13;
+  reserved 13;
+  reserved "capabilities";
 
   // default_scope is the deterministic initial board scope for the browser.
   BoardScope default_scope = 14;
@@ -143,8 +140,8 @@ message GetBoardRequest {
   // board_id identifies the board to read.
   string board_id = 1;
 
-  // board identifies the source-qualified board for aggregate requests.
-  optional BoardRef board = 2;
+  // source identifies the aggregate source that owns board_id when present.
+  optional SourceRef source = 2;
 
   // presentation supplies the route root used by source Markdown rendering.
   optional PresentationContext presentation = 3;

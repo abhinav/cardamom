@@ -169,26 +169,25 @@ func (s *Service) GetBootstrap(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
+	protocol := web.BrowserProtocol()
 	response := &privatev1.GetBootstrapResponse{
-		Projects:        projects,
-		Boards:          boards,
-		IssueTypes:      validIssueTypes(),
-		IssueStatuses:   validIssueStatuses(),
-		SchemaVersion:   s.schemaVersion,
-		Version:         s.version,
-		AccessMode:      bootstrapAccessMode(s.accessMode),
-		ProtocolVersion: web.ProtocolVersion,
-		Capabilities:    web.ReadCapabilities(),
+		Projects:      projects,
+		Boards:        boards,
+		IssueTypes:    validIssueTypes(),
+		IssueStatuses: validIssueStatuses(),
+		SchemaVersion: s.schemaVersion,
+		Version:       s.version,
+		AccessMode:    bootstrapAccessMode(s.accessMode),
+		Protocol:      protocol,
 	}
 	if s.source != nil {
 		response.Sources = []*privatev1.SourceCatalogEntry{{
-			Source:          cloneSourceRef(s.source),
-			Health:          privatev1.SourceHealth_SOURCE_HEALTH_HEALTHY,
-			Version:         s.version,
-			SchemaVersion:   s.schemaVersion,
-			ProtocolVersion: web.ProtocolVersion,
-			Capabilities:    web.ReadCapabilities(),
-			ReadOnly:        s.accessMode == web.AccessModeReadOnly,
+			Source:        cloneSourceRef(s.source),
+			Health:        privatev1.SourceHealth_SOURCE_HEALTH_HEALTHY,
+			Version:       s.version,
+			SchemaVersion: s.schemaVersion,
+			Protocol:      proto.Clone(protocol).(*privatev1.WebProtocol),
+			ReadOnly:      s.accessMode == web.AccessModeReadOnly,
 		}}
 	}
 	if s.serverDefaultBoardID != nil {

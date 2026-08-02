@@ -14,8 +14,6 @@ import {
   toBoardScopeMessage,
 } from "./board-scope.ts";
 import {
-  BoardRefSchema,
-  ProjectRefSchema,
   SourceCatalogEntrySchema,
   SourceRefSchema,
 } from "./gen/cardamom/private/v1/source_pb.ts";
@@ -99,7 +97,7 @@ describe("board scope boundary", () => {
         create(ProjectSchema, {
           id: "project-1",
           name: "Build",
-          ref: create(ProjectRefSchema, { source, projectId: "project-1" }),
+          source,
         }),
       ],
       boards: [
@@ -107,7 +105,7 @@ describe("board scope boundary", () => {
           id: "board-1",
           projectId: "project-1",
           name: "Release",
-          ref: create(BoardRefSchema, { source, boardId: "board-1" }),
+          source,
         }),
       ],
     };
@@ -129,7 +127,7 @@ describe("board scope boundary", () => {
       "/all/list?source=builder&project=project-1",
     );
     expect(toBoardScopeMessage(selection, catalog)?.selection.case).toBe(
-      "project",
+      "projectId",
     );
 
     const boardSelection = resolveBoardScopeSelection(
@@ -140,7 +138,7 @@ describe("board scope boundary", () => {
       throw new Error("expected the unique board route to resolve");
     }
     expect(toBoardScopeMessage(boardSelection, catalog)?.selection.case).toBe(
-      "board",
+      "boardId",
     );
   });
 });

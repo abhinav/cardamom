@@ -54,7 +54,7 @@ import {
   type StateRecord,
 } from "../gen/cardamom/private/v1/record_pb.ts";
 import { BoardScopeSchema } from "../gen/cardamom/private/v1/scope_pb.ts";
-import { IssueRefSchema, type BoardRef } from "../gen/cardamom/private/v1/source_pb.ts";
+import type { SourceRef } from "../gen/cardamom/private/v1/source_pb.ts";
 import { issueTypeLabel } from "../issue-collection.ts";
 import { IssueStatusBadge } from "../issue-status.tsx";
 import { IssueLabel, type SelectLabel } from "../issue-label.tsx";
@@ -100,7 +100,7 @@ const IssueReferencePreviewLoaderContext =
 interface IssueDetailPageProps {
   actor: string;
   attachmentClient: AttachmentClient;
-  boardRef?: BoardRef;
+  source?: SourceRef;
   boards?: readonly BoardSummary[];
   collapsedDetailsBoardIds: readonly string[];
   expectedBoardId: string;
@@ -117,13 +117,12 @@ interface IssueDetailPageProps {
 export function dependencySearchInput(
   boardId: string,
   query: string,
-  boardRef?: BoardRef,
+  source?: SourceRef,
 ) {
   return create(ListIssuesRequestSchema, {
       scope: create(BoardScopeSchema, {
-        selection: boardRef === undefined
-          ? { case: "boardId", value: boardId }
-          : { case: "board", value: boardRef },
+        ...(source === undefined ? {} : { source }),
+        selection: { case: "boardId", value: boardId },
       }),
       titleQuery: query.trim(),
       sort: IssueSort.TITLE,
@@ -315,7 +314,7 @@ export function addIssueLogEntryInput(
 export function IssueDetailPage({
   actor,
   attachmentClient,
-  boardRef,
+  source,
   boards = [],
   collapsedDetailsBoardIds,
   expectedBoardId,
@@ -354,9 +353,9 @@ export function IssueDetailPage({
       IssueService.method.getIssue,
       {
         issueId,
-        ...(boardRef === undefined
+        ...(source === undefined
           ? {}
-          : { issue: create(IssueRefSchema, { board: boardRef, issueId }) }),
+          : { source, boardId: expectedBoardId }),
       },
       transport,
     ),
@@ -381,9 +380,9 @@ export function IssueDetailPage({
       {
         issueId,
         direction: SortDirection.ASCENDING,
-        ...(boardRef === undefined
+        ...(source === undefined
           ? {}
-          : { issue: create(IssueRefSchema, { board: boardRef, issueId }) }),
+          : { source, boardId: expectedBoardId }),
       },
       transport,
     ),
@@ -392,7 +391,12 @@ export function IssueDetailPage({
   const stateRequest = useQuery({
     ...unaryRouteQueryOptions(
       RecordService.method.getState,
-      { issueId },
+      {
+        issueId,
+        ...(source === undefined
+          ? {}
+          : { source, boardId: expectedBoardId }),
+      },
       transport,
     ),
     select: (response) => response.state,
@@ -404,13 +408,11 @@ export function IssueDetailPage({
           IssueService.method.getIssue,
           {
             issueId: referencedIssueID,
-            ...(boardRef === undefined
+            ...(source === undefined
               ? {}
               : {
-                  issue: create(IssueRefSchema, {
-                    board: boardRef,
-                    issueId: referencedIssueID,
-                  }),
+                  source,
+                  boardId: expectedBoardId,
                 }),
           },
           transport,
@@ -424,7 +426,7 @@ export function IssueDetailPage({
       }
       return referencedIssue;
     },
-    [queryClient, transport],
+    [expectedBoardId, queryClient, source, transport],
   );
   const detail = requestData(issueRequest);
 
@@ -599,9 +601,13 @@ export function IssueDetailPage({
             setDetailsCollapsed(issue.boardId, !open)
           }
         />
-        <AttachmentRecords boardId={issue.boardId} issueId={issue.id} />
+        <AttachmentRecords
+          boardId={issue.boardId}
+          issueId={issue.id}
+          source={source}
+        />
         <RelationshipBand
-          boardRef={boardRef}
+          source={source}
           canMutate={canMutateServer}
           dependencyQuery={dependencyQuery}
           detail={detail}
@@ -1078,7 +1084,7 @@ function MutationResult({ mutation }: { mutation: MutationState }) {
 
 export function RelationshipBand({
   addDependency,
-  boardRef,
+  source,
   canMutate = true,
   dependencyQuery,
   detail,
@@ -1089,7 +1095,7 @@ export function RelationshipBand({
   setRelationsOpen,
 }: {
   addDependency: (id: string) => void;
-  boardRef?: BoardRef;
+  source?: SourceRef;
   canMutate?: boolean;
   dependencyQuery: string;
   detail: IssueDetail;
@@ -1125,7 +1131,7 @@ export function RelationshipBand({
         <DependencyPanel
           add={canMutate ? addDependency : undefined}
           boardId={issue.boardId}
-          boardRef={boardRef}
+          source={source}
           currentIssueId={issue.id}
           dependencies={detail.prerequisites}
           pending={pending}
@@ -1150,7 +1156,7 @@ export function RelationshipBand({
 function DependencyPanel({
   add,
   boardId,
-  boardRef,
+  source,
   currentIssueId,
   dependencies,
   pending,
@@ -1160,7 +1166,7 @@ function DependencyPanel({
 }: {
   add?: (id: string) => void;
   boardId: string;
-  boardRef?: BoardRef;
+  source?: SourceRef;
   currentIssueId: string;
   dependencies: readonly RelatedIssue[];
   pending: boolean;
@@ -1178,7 +1184,7 @@ function DependencyPanel({
   const candidates = useQuery({
     ...unaryRouteQueryOptions(
       IssueService.method.listIssues,
-      dependencySearchInput(boardId, normalizedQuery, boardRef),
+      dependencySearchInput(boardId, normalizedQuery, source),
       transport,
     ),
     enabled: add !== undefined && searchOpen && normalizedQuery !== "",

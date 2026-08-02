@@ -26,14 +26,14 @@ import { SourceHealth, type SourceCatalogEntry } from "./gen/cardamom/private/v1
 interface AvailableProject {
   id: string;
   name: string;
-  ref?: Project["ref"];
+  source?: Project["source"];
 }
 
 interface AvailableBoard {
   id: string;
   projectId: string;
   name: string;
-  ref?: BoardSummary["ref"];
+  source?: BoardSummary["source"];
 }
 
 interface AvailableSource {
@@ -409,7 +409,7 @@ export function BoardSelectorBoardRow({
         aria-current={selected || undefined}
         aria-label={`Select ${board.name}`}
         onClick={() =>
-          onSelectScope({ kind: "board", boardId: board.id, boardRef: board.ref })
+          onSelectScope({ kind: "board", boardId: board.id, source: board.source })
         }
       >
         <SelectionMark selected={selected} />
@@ -466,11 +466,11 @@ function visibleProjectUnits(
   query: string,
 ): ProjectUnit[] {
   const projectById = new Map(
-    projects.map((project) => [projectKey(project.ref?.source?.sourceId, project.id), project]),
+    projects.map((project) => [projectKey(project.source?.sourceId, project.id), project]),
   );
   const boardsByProject = new Map<string, AvailableBoard[]>();
   for (const board of boards) {
-    const key = projectKey(board.ref?.source?.sourceId, board.projectId);
+    const key = projectKey(board.source?.sourceId, board.projectId);
     const projectBoards = boardsByProject.get(key) ?? [];
     projectBoards.push(board);
     boardsByProject.set(key, projectBoards);
@@ -479,7 +479,7 @@ function visibleProjectUnits(
   const normalizedQuery = query.trim().toLocaleLowerCase();
   return [...boardsByProject.entries()]
     .map(([key, projectBoards]) => {
-      const sourceId = projectBoards[0]?.ref?.source?.sourceId;
+      const sourceId = projectBoards[0]?.source?.sourceId;
       const projectId = projectBoards[0]?.projectId ?? key;
       const project = projectById.get(projectKey(sourceId, projectId)) ?? {
         id: projectId,
@@ -614,7 +614,7 @@ function selectedScopeLabels(
       const project = projects.find((candidate) =>
         candidate.id === selection.projectId &&
         (selection.sourceId === undefined ||
-          candidate.ref?.source?.sourceId === selection.sourceId),
+          candidate.source?.sourceId === selection.sourceId),
       );
       return {
         primary: project?.name ?? selection.projectId,
@@ -624,7 +624,7 @@ function selectedScopeLabels(
     if (selection.sourceId !== undefined) {
       return {
         primary: selection.sourceId,
-        secondary: `${boards.filter((board) => board.ref?.source?.sourceId === selection.sourceId).length} boards`,
+        secondary: `${boards.filter((board) => board.source?.sourceId === selection.sourceId).length} boards`,
       };
     }
     return {
@@ -651,10 +651,10 @@ function selectedScopeLabels(
   return {
     primary: board.name,
     secondary:
-      `${board.ref?.source?.sourceId === undefined ? "" : `${board.ref.source.sourceId} / `}` +
-      (projects.find((project) =>
+      `${board.source?.sourceId === undefined ? "" : `${board.source.sourceId} / `}` +
+	  (projects.find((project) =>
         project.id === board.projectId &&
-        project.ref?.source?.sourceId === board.ref?.source?.sourceId,
+        project.source?.sourceId === board.source?.sourceId,
       )?.name ??
       board.projectId)
   };

@@ -41,10 +41,9 @@ func TestNewBuildsBootstrapAndReadOnlyHandler(t *testing.T) {
 	assert.Equal(t, "primary", bootstrap.Msg.GetSources()[0].GetSource().GetSourceId())
 	assert.Equal(t, "lineage-primary", bootstrap.Msg.GetSources()[0].GetSource().GetStoreLineageId())
 	assert.Equal(t, v1.AccessMode_ACCESS_MODE_READ_ONLY, bootstrap.Msg.GetAccessMode())
-	assert.Equal(t, web.ProtocolVersion, bootstrap.Msg.GetProtocolVersion())
-	assert.Equal(t, web.ReadCapabilities(), bootstrap.Msg.GetCapabilities())
+	assert.Equal(t, web.BrowserProtocol(), bootstrap.Msg.GetProtocol())
 	assert.Equal(t, "board-primary", bootstrap.Msg.GetBoards()[0].GetId())
-	assert.Equal(t, "primary", bootstrap.Msg.GetBoards()[0].GetRef().GetSource().GetSourceId())
+	assert.Equal(t, "primary", bootstrap.Msg.GetBoards()[0].GetSource().GetSourceId())
 	_, ok := bootstrap.Msg.GetDefaultScope().GetSelection().(*v1.BoardScope_AllSources)
 	assert.True(t, ok)
 
@@ -90,7 +89,7 @@ func TestNewRejectsSourcesWithoutRequiredCapabilities(t *testing.T) {
 			name: "MissingCapability",
 			bootstrap: func() *v1.GetBootstrapResponse {
 				value := sourceBootstrap(nil, true)
-				value.Capabilities = []string{web.CapabilityBoardCatalog}
+				value.Protocol.Capabilities = []v1.WebCapability{v1.WebCapability_WEB_CAPABILITY_BOARD_CATALOG}
 				return value
 			}(),
 			diagnostic: "source lacks required read capability",
@@ -99,7 +98,6 @@ func TestNewRejectsSourcesWithoutRequiredCapabilities(t *testing.T) {
 			name: "WritableSource",
 			bootstrap: func() *v1.GetBootstrapResponse {
 				value := sourceBootstrap(nil, false)
-				value.Capabilities = web.ReadCapabilities()
 				return value
 			}(),
 			diagnostic: "source is not read-only",
@@ -108,7 +106,7 @@ func TestNewRejectsSourcesWithoutRequiredCapabilities(t *testing.T) {
 			name: "UnsupportedProtocol",
 			bootstrap: func() *v1.GetBootstrapResponse {
 				value := sourceBootstrap(nil, true)
-				value.ProtocolVersion++
+				value.Protocol.Version = v1.WebProtocolVersion_WEB_PROTOCOL_VERSION_UNSPECIFIED
 				return value
 			}(),
 			diagnostic: "unsupported source protocol",
@@ -131,6 +129,84 @@ func TestNewRejectsSourcesWithoutRequiredCapabilities(t *testing.T) {
 			assert.False(t, bootstrap.Msg.GetAggregateStatus().GetComplete())
 		})
 	}
+}
+
+func TestNewRejectsInvalidSourceAliases(t *testing.T) {
+	for _, alias := range []string{"", "source-name", "1source", "source/name"} {
+		t.Run(alias, func(t *testing.T) {
+			_, err := New(t.Context(), Config{
+				Sources: []SourceConfig{{Alias: alias, URL: mustURL(t, "http://source.test")}},
+			})
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "source alias")
+		})
+	}
+}
+
+func TestAggregateRoutesStateAndAttachmentsToSource(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-records", ProjectId: "project", Name: "Records"}
+	state := &v1.StateRecord{Actor: new("worker")}
+	attachment := &v1.Attachment{Id: "att_aaaaaaaaaaaaaaaaaaaaaaaaaa", BoardId: board.GetId()}
+	server := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: sourceBootstrap(board, true),
+		issue: func(_ context.Context, request *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {
+			return connect.NewResponse(&v1.GetIssueResponse{Issue: &v1.IssueDetail{
+				Issue: &v1.IssueSummary{Id: request.Msg.GetIssueId(), BoardId: board.GetId()},
+			}}), nil
+		},
+		state: func(_ context.Context, request *connect.Request[v1.GetStateRequest]) (*connect.Response[v1.GetStateResponse], error) {
+			assert.Equal(t, "issue-records", request.Msg.GetIssueId())
+			assert.Nil(t, request.Msg.GetSource())
+			assert.Empty(t, request.Msg.GetBoardId())
+			return connect.NewResponse(&v1.GetStateResponse{IssueId: "issue-records", State: state}), nil
+		},
+		attachments: func(_ context.Context, request *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error) {
+			assert.Equal(t, board.GetId(), request.Msg.GetBoardId())
+			assert.Equal(t, "issue-records", request.Msg.GetIssueId())
+			assert.Nil(t, request.Msg.GetSource())
+			return connect.NewResponse(&v1.ListAttachmentsResponse{Attachments: []*v1.Attachment{attachment}}), nil
+		},
+	})
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{{Alias: "primary", URL: mustURL(t, server.URL)}}})
+	require.NoError(t, err)
+
+	source := &v1.SourceRef{SourceId: "primary", StoreLineageId: "lineage-primary"}
+	stateResponse, err := newAggregateRecordClient(t, aggregate).GetState(t.Context(), connect.NewRequest(&v1.GetStateRequest{
+		IssueId: "issue-records", Source: source, BoardId: new(board.GetId()),
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, state.GetActor(), stateResponse.Msg.GetState().GetActor())
+
+	attachments, err := newAggregateAttachmentClient(t, aggregate).ListAttachments(t.Context(), connect.NewRequest(&v1.ListAttachmentsRequest{
+		BoardId: board.GetId(), IssueId: new("issue-records"), Source: source,
+	}))
+	require.NoError(t, err)
+	require.Len(t, attachments.Msg.GetAttachments(), 1)
+	assert.Equal(t, "primary", attachments.Msg.GetAttachments()[0].GetSource().GetSourceId())
+}
+
+func TestAggregateRejectsStateForAnotherBoard(t *testing.T) {
+	first := &v1.BoardSummary{Id: "board-first", ProjectId: "project", Name: "First"}
+	second := &v1.BoardSummary{Id: "board-second", ProjectId: "project", Name: "Second"}
+	bootstrap := sourceBootstrap(first, true)
+	bootstrap.Boards = append(bootstrap.Boards, second)
+	server := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: bootstrap,
+		issue: func(_ context.Context, request *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {
+			return connect.NewResponse(&v1.GetIssueResponse{Issue: &v1.IssueDetail{
+				Issue: &v1.IssueSummary{Id: request.Msg.GetIssueId(), BoardId: first.GetId()},
+			}}), nil
+		},
+	})
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{{Alias: "primary", URL: mustURL(t, server.URL)}}})
+	require.NoError(t, err)
+
+	_, err = newAggregateRecordClient(t, aggregate).GetState(t.Context(), connect.NewRequest(&v1.GetStateRequest{
+		IssueId: "issue-first",
+		Source:  &v1.SourceRef{SourceId: "primary", StoreLineageId: "lineage-primary"},
+		BoardId: new(second.GetId()),
+	}))
+	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 }
 
 func TestNewRejectsDuplicateBoardIDs(t *testing.T) {
@@ -183,8 +259,7 @@ func TestProjectServiceGetBoardUsesCanonicalBoardRoute(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, board.GetId(), response.Msg.GetBoard().GetId())
-	assert.Equal(t, "laptop", response.Msg.GetBoard().GetRef().GetSource().GetSourceId())
-	assert.Equal(t, board.GetId(), response.Msg.GetBoard().GetRef().GetBoardId())
+	assert.Equal(t, "laptop", response.Msg.GetBoard().GetSource().GetSourceId())
 }
 
 func TestAttachmentContentProxyPreservesRangeAndConditionalHeaders(t *testing.T) {
@@ -365,7 +440,7 @@ func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
 	assert.Equal(t, uint32(5), first.Msg.GetTotalCount())
 	assert.False(t, first.Msg.GetAggregateStatus().GetComplete())
 	assert.Equal(t, "offline", first.Msg.GetAggregateStatus().GetProblems()[0].GetSourceId())
-	assert.Equal(t, "alpha", first.Msg.GetIssues()[0].GetRef().GetBoard().GetSource().GetSourceId())
+	assert.Equal(t, "alpha", first.Msg.GetIssues()[0].GetSource().GetSourceId())
 	require.NotNil(t, first.Msg.GetNextPageToken())
 
 	second, err := client.ListIssues(t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
@@ -434,9 +509,10 @@ func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {
 	client := newAggregateIssueClient(t, aggregate)
 
 	sourceIssues, err := client.ListIssues(t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
-		Scope: &v1.BoardScope{Selection: &v1.BoardScope_Source{Source: &v1.SourceRef{
-			SourceId: "alpha", StoreLineageId: "lineage-alpha",
-		}}},
+		Scope: &v1.BoardScope{
+			Source:    &v1.SourceRef{SourceId: "alpha", StoreLineageId: "lineage-alpha"},
+			Selection: &v1.BoardScope_AllBoards{AllBoards: &v1.AllBoards{}},
+		},
 		Sort: v1.IssueSort_ISSUE_SORT_TITLE,
 	}))
 	require.NoError(t, err)
@@ -447,10 +523,10 @@ func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {
 	assert.Equal(t, 0, betaCalls)
 
 	projectIssues, err := client.ListIssues(t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
-		Scope: &v1.BoardScope{Selection: &v1.BoardScope_Project{Project: &v1.ProjectRef{
+		Scope: &v1.BoardScope{
 			Source:    &v1.SourceRef{SourceId: "alpha", StoreLineageId: "lineage-alpha"},
-			ProjectId: "project-b",
-		}}},
+			Selection: &v1.BoardScope_ProjectId{ProjectId: "project-b"},
+		},
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, []string{"Alpha B"}, issueTitles(projectIssues.Msg.GetIssues()))
@@ -482,19 +558,19 @@ func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
 	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{{Alias: "detail", URL: mustURL(t, server.URL)}}})
 	require.NoError(t, err)
 	issueClient := newAggregateIssueClient(t, aggregate)
-	ref := &v1.IssueRef{Board: &v1.BoardRef{
-		Source:  &v1.SourceRef{SourceId: "detail", StoreLineageId: "lineage-detail"},
-		BoardId: board.GetId(),
-	}, IssueId: "issue-detail"}
-	detail, err := issueClient.GetIssue(t.Context(), connect.NewRequest(&v1.GetIssueRequest{IssueId: "issue-detail", Issue: ref}))
-	require.NoError(t, err)
-	assert.Equal(t, "detail", detail.Msg.GetIssue().GetIssue().GetRef().GetBoard().GetSource().GetSourceId())
-
-	logs, err := newAggregateRecordClient(t, aggregate).ListLogEntries(t.Context(), connect.NewRequest(&v1.ListLogEntriesRequest{
-		IssueId: "issue-detail", Issue: ref,
+	source := &v1.SourceRef{SourceId: "detail", StoreLineageId: "lineage-detail"}
+	boardID := board.GetId()
+	detail, err := issueClient.GetIssue(t.Context(), connect.NewRequest(&v1.GetIssueRequest{
+		IssueId: "issue-detail", Source: source, BoardId: &boardID,
 	}))
 	require.NoError(t, err)
-	assert.Equal(t, "detail", logs.Msg.GetLogEntries()[0].GetRef().GetIssue().GetBoard().GetSource().GetSourceId())
+	assert.Equal(t, "detail", detail.Msg.GetIssue().GetIssue().GetSource().GetSourceId())
+
+	logs, err := newAggregateRecordClient(t, aggregate).ListLogEntries(t.Context(), connect.NewRequest(&v1.ListLogEntriesRequest{
+		IssueId: "issue-detail", Source: source, BoardId: &boardID,
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "detail", logs.Msg.GetLogEntries()[0].GetSource().GetSourceId())
 	assert.True(t, logs.Msg.GetAggregateStatus().GetComplete())
 }
 
@@ -519,12 +595,15 @@ func TestAggregateReadsApprovalsAndRoutines(t *testing.T) {
 	require.NoError(t, err)
 
 	routines, err := newAggregateIssueClient(t, aggregate).ListIssues(t.Context(), connect.NewRequest(&v1.ListIssuesRequest{
-		Scope: &v1.BoardScope{Selection: &v1.BoardScope_Source{Source: &v1.SourceRef{SourceId: "work", StoreLineageId: "lineage-work"}}},
+		Scope: &v1.BoardScope{
+			Source:    &v1.SourceRef{SourceId: "work", StoreLineageId: "lineage-work"},
+			Selection: &v1.BoardScope_AllBoards{AllBoards: &v1.AllBoards{}},
+		},
 		Types: []v1.IssueType{v1.IssueType_ISSUE_TYPE_ROUTINE},
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, "routine-1", routines.Msg.GetIssues()[0].GetId())
-	assert.Equal(t, "work", routines.Msg.GetIssues()[0].GetRef().GetBoard().GetSource().GetSourceId())
+	assert.Equal(t, "work", routines.Msg.GetIssues()[0].GetSource().GetSourceId())
 
 	approvals, err := privatev1connect.NewCheckpointServiceClient(
 		&http.Client{Transport: handlerTransport{handler: aggregate.Binding().Handler}}, "http://aggregate.test",
@@ -533,7 +612,7 @@ func TestAggregateReadsApprovalsAndRoutines(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, "approval-1", approvals.Msg.GetCheckpoints()[0].GetCheckpoint().GetId())
-	assert.Equal(t, "work", approvals.Msg.GetCheckpoints()[0].GetCheckpoint().GetRef().GetBoard().GetSource().GetSourceId())
+	assert.Equal(t, "work", approvals.Msg.GetCheckpoints()[0].GetCheckpoint().GetSource().GetSourceId())
 }
 
 func TestAggregateChangeStreamReportsDegradedSource(t *testing.T) {
@@ -573,13 +652,16 @@ type sourceHandler struct {
 	privatev1connect.UnimplementedCheckpointServiceHandler
 	privatev1connect.UnimplementedExecutionServiceHandler
 	privatev1connect.UnimplementedChangeServiceHandler
-	bootstrap *v1.GetBootstrapResponse
-	board     *v1.Board
-	issues    func(context.Context, *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error)
-	issue     func(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
-	logs      func(context.Context, *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error)
-	approvals func(context.Context, *connect.Request[v1.ListActionableCheckpointsRequest]) (*connect.Response[v1.ListActionableCheckpointsResponse], error)
-	changes   func(context.Context, *connect.Request[v1.WatchChangesRequest], *connect.ServerStream[v1.WatchChangesResponse]) error
+	privatev1connect.UnimplementedAttachmentServiceHandler
+	bootstrap   *v1.GetBootstrapResponse
+	board       *v1.Board
+	issues      func(context.Context, *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error)
+	issue       func(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
+	logs        func(context.Context, *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error)
+	state       func(context.Context, *connect.Request[v1.GetStateRequest]) (*connect.Response[v1.GetStateResponse], error)
+	attachments func(context.Context, *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error)
+	approvals   func(context.Context, *connect.Request[v1.ListActionableCheckpointsRequest]) (*connect.Response[v1.ListActionableCheckpointsResponse], error)
+	changes     func(context.Context, *connect.Request[v1.WatchChangesRequest], *connect.ServerStream[v1.WatchChangesResponse]) error
 }
 
 func (s *sourceHandler) GetBootstrap(
@@ -627,6 +709,26 @@ func (s *sourceHandler) ListLogEntries(
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("logs not scripted"))
 	}
 	return s.logs(ctx, request)
+}
+
+func (s *sourceHandler) GetState(
+	ctx context.Context,
+	request *connect.Request[v1.GetStateRequest],
+) (*connect.Response[v1.GetStateResponse], error) {
+	if s.state == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("state not scripted"))
+	}
+	return s.state(ctx, request)
+}
+
+func (s *sourceHandler) ListAttachments(
+	ctx context.Context,
+	request *connect.Request[v1.ListAttachmentsRequest],
+) (*connect.Response[v1.ListAttachmentsResponse], error) {
+	if s.attachments == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("attachments not scripted"))
+	}
+	return s.attachments(ctx, request)
 }
 
 func (s *sourceHandler) ListActionableCheckpoints(
@@ -686,7 +788,7 @@ func newConfiguredSourceServerWithRoutes(
 		Dump:          new(privatev1connect.UnimplementedDumpServiceHandler),
 		Mail:          new(privatev1connect.UnimplementedMailServiceHandler),
 		Lease:         new(privatev1connect.UnimplementedLeaseServiceHandler),
-		Attachment:    new(privatev1connect.UnimplementedAttachmentServiceHandler),
+		Attachment:    source,
 	})
 	serverHandler := http.Handler(handler)
 	if routes != nil {
@@ -705,9 +807,8 @@ func newConfiguredSourceServerWithRoutes(
 
 func sourceBootstrap(board *v1.BoardSummary, readOnly bool) *v1.GetBootstrapResponse {
 	value := &v1.GetBootstrapResponse{
-		AccessMode:      v1.AccessMode_ACCESS_MODE_READ_ONLY,
-		ProtocolVersion: web.ProtocolVersion,
-		Capabilities:    web.ReadCapabilities(),
+		AccessMode: v1.AccessMode_ACCESS_MODE_READ_ONLY,
+		Protocol:   web.BrowserProtocol(),
 		Sources: []*v1.SourceCatalogEntry{{
 			Source:   &v1.SourceRef{StoreLineageId: "lineage-primary"},
 			ReadOnly: readOnly,
@@ -740,6 +841,12 @@ func newAggregateRecordClient(t *testing.T, aggregate *Server) privatev1connect.
 	t.Helper()
 	client := &http.Client{Transport: handlerTransport{handler: aggregate.Binding().Handler}}
 	return privatev1connect.NewRecordServiceClient(client, "http://aggregate.test")
+}
+
+func newAggregateAttachmentClient(t *testing.T, aggregate *Server) privatev1connect.AttachmentServiceClient {
+	t.Helper()
+	client := &http.Client{Transport: handlerTransport{handler: aggregate.Binding().Handler}}
+	return privatev1connect.NewAttachmentServiceClient(client, "http://aggregate.test")
 }
 
 func issueTitles(values []*v1.IssueSummary) []string {

@@ -1,6 +1,6 @@
 import type { BoardSummary, Project } from "./gen/cardamom/private/v1/project_pb.ts";
 import type { IssueSummary } from "./gen/cardamom/private/v1/issue_pb.ts";
-import type { BoardRef, SourceRef } from "./gen/cardamom/private/v1/source_pb.ts";
+import type { SourceRef } from "./gen/cardamom/private/v1/source_pb.ts";
 import type { BoardScopeSelection } from "./board-scope.ts";
 
 /** ProvenanceCatalog resolves source-qualified browser records for display. */
@@ -21,9 +21,8 @@ export function issueProvenance(
   issue: IssueSummary,
   catalog: ProvenanceCatalog,
 ): Provenance {
-  const issueBoard = issue.ref?.board;
-  const board = findBoard(catalog.boards, issue.boardId, issueBoard);
-  const source = issueBoard?.source ?? board?.ref?.source;
+  const source = issue.source;
+  const board = findBoard(catalog.boards, issue.boardId, source);
   const project = board === undefined
     ? undefined
     : findProject(catalog.projects, board.projectId, source);
@@ -61,11 +60,11 @@ export function sourceLabel(source: SourceRef | undefined): string | undefined {
 function findBoard(
   boards: readonly BoardSummary[],
   boardId: string,
-  ref: BoardRef | undefined,
+  source: SourceRef | undefined,
 ): BoardSummary | undefined {
   return boards.find((board) =>
     board.id === boardId &&
-    (ref === undefined || board.ref?.source?.sourceId === ref.source?.sourceId),
+    (source === undefined || board.source?.sourceId === source.sourceId),
   );
 }
 
@@ -76,6 +75,6 @@ function findProject(
 ): Project | undefined {
   return projects.find((project) =>
     project.id === projectId &&
-    (source === undefined || project.ref?.source?.sourceId === source.sourceId),
+    (source === undefined || project.source?.sourceId === source.sourceId),
   );
 }

@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { BoardRef, ProjectRef, SourceRef } from "./source_pb";
+import type { SourceRef } from "./source_pb";
 import { file_cardamom_private_v1_source } from "./source_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/scope.proto.
  */
 export const file_cardamom_private_v1_scope: GenFile = /*@__PURE__*/
-  fileDesc("Ch9jYXJkYW1vbS9wcml2YXRlL3YxL3Njb3BlLnByb3RvEhNjYXJkYW1vbS5wcml2YXRlLnYxIgsKCUFsbEJvYXJkcyIMCgpBbGxTb3VyY2VzIrECCgpCb2FyZFNjb3BlEhIKCGJvYXJkX2lkGAEgASgJSAASNAoKYWxsX2JvYXJkcxgCIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuQWxsQm9hcmRzSAASMgoHcHJvamVjdBgDIAEoCzIfLmNhcmRhbW9tLnByaXZhdGUudjEuUHJvamVjdFJlZkgAEjAKBnNvdXJjZRgEIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSAASNgoLYWxsX3NvdXJjZXMYBSABKAsyHy5jYXJkYW1vbS5wcml2YXRlLnYxLkFsbFNvdXJjZXNIABIuCgVib2FyZBgGIAEoCzIdLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRSZWZIAEILCglzZWxlY3Rpb25C1gEKF2NvbS5jYXJkYW1vbS5wcml2YXRlLnYxQgpTY29wZVByb3RvUAFaP2dvLmFiaGcuZGV2L2NhcmRhbW9tL2ludGVybmFsL2dlbi9jYXJkYW1vbS9wcml2YXRlL3YxO3ByaXZhdGV2MaICA0NQWKoCE0NhcmRhbW9tLlByaXZhdGUuVjHKAhRDYXJkYW1vbVxQcml2YXRlX1xWMeICIENhcmRhbW9tXFByaXZhdGVfXFYxXEdQQk1ldGFkYXRh6gIVQ2FyZGFtb206OlByaXZhdGU6OlYxYgZwcm90bzM", [file_cardamom_private_v1_source]);
+  fileDesc("Ch9jYXJkYW1vbS9wcml2YXRlL3YxL3Njb3BlLnByb3RvEhNjYXJkYW1vbS5wcml2YXRlLnYxIgsKCUFsbEJvYXJkcyIMCgpBbGxTb3VyY2VzIvEBCgpCb2FyZFNjb3BlEjMKBnNvdXJjZRgFIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSAGIAQESEgoIYm9hcmRfaWQYASABKAlIABI0CgphbGxfYm9hcmRzGAIgASgLMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5BbGxCb2FyZHNIABIUCgpwcm9qZWN0X2lkGAMgASgJSAASNgoLYWxsX3NvdXJjZXMYBCABKAsyHy5jYXJkYW1vbS5wcml2YXRlLnYxLkFsbFNvdXJjZXNIAEILCglzZWxlY3Rpb25CCQoHX3NvdXJjZULWAQoXY29tLmNhcmRhbW9tLnByaXZhdGUudjFCClNjb3BlUHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw", [file_cardamom_private_v1_source]);
 
 /**
  * AllBoards selects every board visible to the current Cardamom server.
@@ -51,6 +51,13 @@ export const AllSourcesSchema: GenMessage<AllSources> = /*@__PURE__*/
  */
 export type BoardScope = Message<"cardamom.private.v1.BoardScope"> & {
   /**
+   * source limits board_id, project_id, or all_boards to one aggregate source.
+   *
+   * @generated from field: optional cardamom.private.v1.SourceRef source = 5;
+   */
+  source?: SourceRef | undefined;
+
+  /**
    * selection identifies the board population used by a read or watch.
    *
    * @generated from oneof cardamom.private.v1.BoardScope.selection
@@ -73,36 +80,20 @@ export type BoardScope = Message<"cardamom.private.v1.BoardScope"> & {
     case: "allBoards";
   } | {
     /**
-     * project selects every board in one source-qualified project.
+     * project_id selects every board in one project.
      *
-     * @generated from field: cardamom.private.v1.ProjectRef project = 3;
+     * @generated from field: string project_id = 3;
      */
-    value: ProjectRef;
-    case: "project";
-  } | {
-    /**
-     * source selects every board in one configured source.
-     *
-     * @generated from field: cardamom.private.v1.SourceRef source = 4;
-     */
-    value: SourceRef;
-    case: "source";
+    value: string;
+    case: "projectId";
   } | {
     /**
      * all_sources selects every board across configured sources.
      *
-     * @generated from field: cardamom.private.v1.AllSources all_sources = 5;
+     * @generated from field: cardamom.private.v1.AllSources all_sources = 4;
      */
     value: AllSources;
     case: "allSources";
-  } | {
-    /**
-     * board selects one source-qualified board.
-     *
-     * @generated from field: cardamom.private.v1.BoardRef board = 6;
-     */
-    value: BoardRef;
-    case: "board";
   } | { case: undefined; value?: undefined };
 };
 

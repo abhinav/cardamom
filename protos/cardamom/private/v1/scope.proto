@@ -12,6 +12,9 @@ message AllSources {}
 
 // BoardScope selects one board or the read-only aggregate of all boards.
 message BoardScope {
+  // source limits board_id, project_id, or all_boards to one aggregate source.
+  optional SourceRef source = 5;
+
   // selection identifies the board population used by a read or watch.
   oneof selection {
     // board_id selects one board by stable ID.
@@ -20,16 +23,10 @@ message BoardScope {
     // all_boards selects the aggregate of every visible board.
     AllBoards all_boards = 2;
 
-    // project selects every board in one source-qualified project.
-    ProjectRef project = 3;
-
-    // source selects every board in one configured source.
-    SourceRef source = 4;
+    // project_id selects every board in one project.
+    string project_id = 3;
 
     // all_sources selects every board across configured sources.
-    AllSources all_sources = 5;
-
-    // board selects one source-qualified board.
-    BoardRef board = 6;
+    AllSources all_sources = 4;
   }
 }

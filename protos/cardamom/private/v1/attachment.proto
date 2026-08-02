@@ -115,9 +115,9 @@ message Attachment {
   // removed records tombstone attribution when lifecycle is removed.
   optional AttachmentAttribution removed = 10;
 
-  // ref identifies the source-qualified attachment when the server federates
-  // multiple sources.
-  optional AttachmentRef ref = 11;
+  // source identifies the server that supplied this attachment in aggregate
+  // mode.
+  optional SourceRef source = 11;
 }
 
 // AttachmentUpload is the durable recovery view of one resumable upload.
@@ -340,6 +340,9 @@ message ListAttachmentsRequest {
 
   // page_token resumes a prior stable page.
   optional string page_token = 5;
+
+  // source identifies the aggregate source that owns board_id when present.
+  optional SourceRef source = 6;
 }
 
 // ListAttachmentsResponse contains one stable attachment page.

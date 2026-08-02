@@ -18,8 +18,6 @@ import {
   ProjectSchema,
 } from "./gen/cardamom/private/v1/project_pb.ts";
 import {
-  BoardRefSchema,
-  ProjectRefSchema,
   SourceCatalogEntrySchema,
   SourceRefSchema,
 } from "./gen/cardamom/private/v1/source_pb.ts";
@@ -56,12 +54,12 @@ describe("board selector", () => {
         create(ProjectSchema, {
           id: "project-1",
           name: "Build",
-          ref: create(ProjectRefSchema, { source: builder, projectId: "project-1" }),
+          source: builder,
         }),
         create(ProjectSchema, {
           id: "project-1",
           name: "Build",
-          ref: create(ProjectRefSchema, { source: laptop, projectId: "project-1" }),
+          source: laptop,
         }),
       ],
       [
@@ -69,13 +67,13 @@ describe("board selector", () => {
           id: "builder-board",
           projectId: "project-1",
           name: "Builder board",
-          ref: create(BoardRefSchema, { source: builder, boardId: "builder-board" }),
+          source: builder,
         }),
         create(BoardSummarySchema, {
           id: "laptop-board",
           projectId: "project-1",
           name: "Laptop board",
-          ref: create(BoardRefSchema, { source: laptop, boardId: "laptop-board" }),
+          source: laptop,
         }),
       ],
     );

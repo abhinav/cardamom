@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/source.proto.
  */
 export const file_cardamom_private_v1_source: GenFile = /*@__PURE__*/
-  fileDesc("CiBjYXJkYW1vbS9wcml2YXRlL3YxL3NvdXJjZS5wcm90bxITY2FyZGFtb20ucHJpdmF0ZS52MSI4CglTb3VyY2VSZWYSEQoJc291cmNlX2lkGAEgASgJEhgKEHN0b3JlX2xpbmVhZ2VfaWQYAiABKAkiUAoKUHJvamVjdFJlZhIuCgZzb3VyY2UYASABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZhISCgpwcm9qZWN0X2lkGAIgASgJIkwKCEJvYXJkUmVmEi4KBnNvdXJjZRgBIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmEhAKCGJvYXJkX2lkGAIgASgJIkoKCElzc3VlUmVmEiwKBWJvYXJkGAEgASgLMh0uY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZFJlZhIQCghpc3N1ZV9pZBgCIAEoCSJUCg1BdHRhY2htZW50UmVmEiwKBWJvYXJkGAEgASgLMh0uY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZFJlZhIVCg1hdHRhY2htZW50X2lkGAIgASgJIkYKBkxvZ1JlZhIsCgVpc3N1ZRgBIAEoCzIdLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVSZWYSDgoGbG9nX2lkGAIgASgJIjMKDVNvdXJjZVByb2JsZW0SEQoJc291cmNlX2lkGAEgASgJEg8KB3N1bW1hcnkYAiABKAkiWQoPQWdncmVnYXRlU3RhdHVzEhAKCGNvbXBsZXRlGAEgASgIEjQKCHByb2JsZW1zGAIgAygLMiIuY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VQcm9ibGVtIvcBChJTb3VyY2VDYXRhbG9nRW50cnkSLgoGc291cmNlGAEgASgLMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VSZWYSMQoGaGVhbHRoGAIgASgOMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VIZWFsdGgSEgoKZGlhZ25vc3RpYxgDIAEoCRIPCgd2ZXJzaW9uGAQgASgJEhYKDnNjaGVtYV92ZXJzaW9uGAUgASgEEhgKEHByb3RvY29sX3ZlcnNpb24YBiABKA0SEQoJcmVhZF9vbmx5GAcgASgIEhQKDGNhcGFiaWxpdGllcxgIIAMoCSKKAQoRU291cmNlSGVhbHRoRXZlbnQSLgoGc291cmNlGAEgASgLMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VSZWYSMQoGaGVhbHRoGAIgASgOMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VIZWFsdGgSEgoKZGlhZ25vc3RpYxgDIAEoCSqDAQoMU291cmNlSGVhbHRoEh0KGVNPVVJDRV9IRUFMVEhfVU5TUEVDSUZJRUQQABIZChVTT1VSQ0VfSEVBTFRIX0hFQUxUSFkQARIaChZTT1VSQ0VfSEVBTFRIX0RFR1JBREVEEAISHQoZU09VUkNFX0hFQUxUSF9VTkFWQUlMQUJMRRADQtcBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUILU291cmNlUHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw");
+  fileDesc("CiBjYXJkYW1vbS9wcml2YXRlL3YxL3NvdXJjZS5wcm90bxITY2FyZGFtb20ucHJpdmF0ZS52MSI4CglTb3VyY2VSZWYSEQoJc291cmNlX2lkGAEgASgJEhgKEHN0b3JlX2xpbmVhZ2VfaWQYAiABKAkigQEKC1dlYlByb3RvY29sEjgKB3ZlcnNpb24YASABKA4yJy5jYXJkYW1vbS5wcml2YXRlLnYxLldlYlByb3RvY29sVmVyc2lvbhI4CgxjYXBhYmlsaXRpZXMYAiADKA4yIi5jYXJkYW1vbS5wcml2YXRlLnYxLldlYkNhcGFiaWxpdHkiMwoNU291cmNlUHJvYmxlbRIRCglzb3VyY2VfaWQYASABKAkSDwoHc3VtbWFyeRgCIAEoCSJZCg9BZ2dyZWdhdGVTdGF0dXMSEAoIY29tcGxldGUYASABKAgSNAoIcHJvYmxlbXMYAiADKAsyIi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVByb2JsZW0ijwIKElNvdXJjZUNhdGFsb2dFbnRyeRIuCgZzb3VyY2UYASABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZhIxCgZoZWFsdGgYAiABKA4yIS5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZUhlYWx0aBISCgpkaWFnbm9zdGljGAMgASgJEg8KB3ZlcnNpb24YBCABKAkSFgoOc2NoZW1hX3ZlcnNpb24YBSABKAQSMgoIcHJvdG9jb2wYBiABKAsyIC5jYXJkYW1vbS5wcml2YXRlLnYxLldlYlByb3RvY29sEhEKCXJlYWRfb25seRgHIAEoCEoECAgQCVIMY2FwYWJpbGl0aWVzIooBChFTb3VyY2VIZWFsdGhFdmVudBIuCgZzb3VyY2UYASABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZhIxCgZoZWFsdGgYAiABKA4yIS5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZUhlYWx0aBISCgpkaWFnbm9zdGljGAMgASgJKoMBCgxTb3VyY2VIZWFsdGgSHQoZU09VUkNFX0hFQUxUSF9VTlNQRUNJRklFRBAAEhkKFVNPVVJDRV9IRUFMVEhfSEVBTFRIWRABEhoKFlNPVVJDRV9IRUFMVEhfREVHUkFERUQQAhIdChlTT1VSQ0VfSEVBTFRIX1VOQVZBSUxBQkxFEAMqVwoSV2ViUHJvdG9jb2xWZXJzaW9uEiQKIFdFQl9QUk9UT0NPTF9WRVJTSU9OX1VOU1BFQ0lGSUVEEAASGwoXV0VCX1BST1RPQ09MX1ZFUlNJT05fVjEQASrSAgoNV2ViQ2FwYWJpbGl0eRIeChpXRUJfQ0FQQUJJTElUWV9VTlNQRUNJRklFRBAAEiAKHFdFQl9DQVBBQklMSVRZX0JPQVJEX0NBVEFMT0cQARIdChlXRUJfQ0FQQUJJTElUWV9CT0FSRF9SRUFEEAISHQoZV0VCX0NBUEFCSUxJVFlfSVNTVUVfUkVBRBADEhsKF1dFQl9DQVBBQklMSVRZX0xPR19SRUFEEAQSIAocV0VCX0NBUEFCSUxJVFlfQVBQUk9WQUxfUkVBRBAFEh8KG1dFQl9DQVBBQklMSVRZX1JPVVRJTkVfUkVBRBAGEh4KGldFQl9DQVBBQklMSVRZX0NIQU5HRV9SRUFEEAcSHQoZV0VCX0NBUEFCSUxJVFlfU1RBVEVfUkVBRBAIEiIKHldFQl9DQVBBQklMSVRZX0FUVEFDSE1FTlRfUkVBRBAJQtcBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUILU291cmNlUHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw");
 
 /**
  * SourceRef identifies a configured route and the store lineage behind it.
@@ -41,144 +41,32 @@ export const SourceRefSchema: GenMessage<SourceRef> = /*@__PURE__*/
   messageDesc(file_cardamom_private_v1_source, 0);
 
 /**
- * ProjectRef identifies one project within a source.
+ * WebProtocol describes the private browser protocol implemented by a server.
  *
- * @generated from message cardamom.private.v1.ProjectRef
+ * @generated from message cardamom.private.v1.WebProtocol
  */
-export type ProjectRef = Message<"cardamom.private.v1.ProjectRef"> & {
+export type WebProtocol = Message<"cardamom.private.v1.WebProtocol"> & {
   /**
-   * source identifies the configured source that owns the project.
+   * version identifies the browser protocol version.
    *
-   * @generated from field: cardamom.private.v1.SourceRef source = 1;
+   * @generated from field: cardamom.private.v1.WebProtocolVersion version = 1;
    */
-  source?: SourceRef | undefined;
+  version: WebProtocolVersion;
 
   /**
-   * project_id is the source-local project identity.
+   * capabilities lists browser contracts supported by the server.
    *
-   * @generated from field: string project_id = 2;
+   * @generated from field: repeated cardamom.private.v1.WebCapability capabilities = 2;
    */
-  projectId: string;
+  capabilities: WebCapability[];
 };
 
 /**
- * Describes the message cardamom.private.v1.ProjectRef.
- * Use `create(ProjectRefSchema)` to create a new message.
+ * Describes the message cardamom.private.v1.WebProtocol.
+ * Use `create(WebProtocolSchema)` to create a new message.
  */
-export const ProjectRefSchema: GenMessage<ProjectRef> = /*@__PURE__*/
+export const WebProtocolSchema: GenMessage<WebProtocol> = /*@__PURE__*/
   messageDesc(file_cardamom_private_v1_source, 1);
-
-/**
- * BoardRef identifies one board within a source.
- *
- * @generated from message cardamom.private.v1.BoardRef
- */
-export type BoardRef = Message<"cardamom.private.v1.BoardRef"> & {
-  /**
-   * source identifies the configured source that owns the board.
-   *
-   * @generated from field: cardamom.private.v1.SourceRef source = 1;
-   */
-  source?: SourceRef | undefined;
-
-  /**
-   * board_id is the source-local board identity.
-   *
-   * @generated from field: string board_id = 2;
-   */
-  boardId: string;
-};
-
-/**
- * Describes the message cardamom.private.v1.BoardRef.
- * Use `create(BoardRefSchema)` to create a new message.
- */
-export const BoardRefSchema: GenMessage<BoardRef> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 2);
-
-/**
- * IssueRef identifies one issue within its source-qualified board.
- *
- * @generated from message cardamom.private.v1.IssueRef
- */
-export type IssueRef = Message<"cardamom.private.v1.IssueRef"> & {
-  /**
-   * board identifies the source-qualified board that owns the issue.
-   *
-   * @generated from field: cardamom.private.v1.BoardRef board = 1;
-   */
-  board?: BoardRef | undefined;
-
-  /**
-   * issue_id is the board-local issue identity.
-   *
-   * @generated from field: string issue_id = 2;
-   */
-  issueId: string;
-};
-
-/**
- * Describes the message cardamom.private.v1.IssueRef.
- * Use `create(IssueRefSchema)` to create a new message.
- */
-export const IssueRefSchema: GenMessage<IssueRef> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 3);
-
-/**
- * AttachmentRef identifies attachment metadata within its owning board.
- *
- * @generated from message cardamom.private.v1.AttachmentRef
- */
-export type AttachmentRef = Message<"cardamom.private.v1.AttachmentRef"> & {
-  /**
-   * board identifies the source-qualified board that owns the attachment.
-   *
-   * @generated from field: cardamom.private.v1.BoardRef board = 1;
-   */
-  board?: BoardRef | undefined;
-
-  /**
-   * attachment_id is the board-local attachment identity.
-   *
-   * @generated from field: string attachment_id = 2;
-   */
-  attachmentId: string;
-};
-
-/**
- * Describes the message cardamom.private.v1.AttachmentRef.
- * Use `create(AttachmentRefSchema)` to create a new message.
- */
-export const AttachmentRefSchema: GenMessage<AttachmentRef> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 4);
-
-/**
- * LogRef identifies one log entry within its owning issue.
- *
- * @generated from message cardamom.private.v1.LogRef
- */
-export type LogRef = Message<"cardamom.private.v1.LogRef"> & {
-  /**
-   * issue identifies the source-qualified issue that owns the log entry.
-   *
-   * @generated from field: cardamom.private.v1.IssueRef issue = 1;
-   */
-  issue?: IssueRef | undefined;
-
-  /**
-   * log_id is the issue-local log identity.
-   *
-   * @generated from field: string log_id = 2;
-   */
-  logId: string;
-};
-
-/**
- * Describes the message cardamom.private.v1.LogRef.
- * Use `create(LogRefSchema)` to create a new message.
- */
-export const LogRefSchema: GenMessage<LogRef> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 5);
 
 /**
  * SourceProblem reports a safe diagnostic for one source.
@@ -206,7 +94,7 @@ export type SourceProblem = Message<"cardamom.private.v1.SourceProblem"> & {
  * Use `create(SourceProblemSchema)` to create a new message.
  */
 export const SourceProblemSchema: GenMessage<SourceProblem> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 6);
+  messageDesc(file_cardamom_private_v1_source, 2);
 
 /**
  * AggregateStatus reports whether a multi-source read is complete.
@@ -234,7 +122,7 @@ export type AggregateStatus = Message<"cardamom.private.v1.AggregateStatus"> & {
  * Use `create(AggregateStatusSchema)` to create a new message.
  */
 export const AggregateStatusSchema: GenMessage<AggregateStatus> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 7);
+  messageDesc(file_cardamom_private_v1_source, 3);
 
 /**
  * SourceCatalogEntry describes one configured source during bootstrap.
@@ -278,11 +166,11 @@ export type SourceCatalogEntry = Message<"cardamom.private.v1.SourceCatalogEntry
   schemaVersion: bigint;
 
   /**
-   * protocol_version is the browser protocol version supported by the source.
+   * protocol describes the browser protocol supported by the source.
    *
-   * @generated from field: uint32 protocol_version = 6;
+   * @generated from field: cardamom.private.v1.WebProtocol protocol = 6;
    */
-  protocolVersion: number;
+  protocol?: WebProtocol | undefined;
 
   /**
    * read_only reports whether the source permits only side-effect-free reads.
@@ -290,13 +178,6 @@ export type SourceCatalogEntry = Message<"cardamom.private.v1.SourceCatalogEntry
    * @generated from field: bool read_only = 7;
    */
   readOnly: boolean;
-
-  /**
-   * capabilities contains stable source capability names.
-   *
-   * @generated from field: repeated string capabilities = 8;
-   */
-  capabilities: string[];
 };
 
 /**
@@ -304,7 +185,7 @@ export type SourceCatalogEntry = Message<"cardamom.private.v1.SourceCatalogEntry
  * Use `create(SourceCatalogEntrySchema)` to create a new message.
  */
 export const SourceCatalogEntrySchema: GenMessage<SourceCatalogEntry> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 8);
+  messageDesc(file_cardamom_private_v1_source, 4);
 
 /**
  * SourceHealthEvent reports a source status transition on a change stream.
@@ -339,7 +220,7 @@ export type SourceHealthEvent = Message<"cardamom.private.v1.SourceHealthEvent">
  * Use `create(SourceHealthEventSchema)` to create a new message.
  */
 export const SourceHealthEventSchema: GenMessage<SourceHealthEvent> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_source, 9);
+  messageDesc(file_cardamom_private_v1_source, 5);
 
 /**
  * SourceHealth identifies the latest reachability state for one configured
@@ -383,4 +264,114 @@ export enum SourceHealth {
  */
 export const SourceHealthSchema: GenEnum<SourceHealth> = /*@__PURE__*/
   enumDesc(file_cardamom_private_v1_source, 0);
+
+/**
+ * WebProtocolVersion identifies the browser protocol understood by a server.
+ *
+ * @generated from enum cardamom.private.v1.WebProtocolVersion
+ */
+export enum WebProtocolVersion {
+  /**
+   * WEB_PROTOCOL_VERSION_UNSPECIFIED does not identify a browser protocol.
+   *
+   * @generated from enum value: WEB_PROTOCOL_VERSION_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * WEB_PROTOCOL_VERSION_V1 identifies the first private browser protocol.
+   *
+   * @generated from enum value: WEB_PROTOCOL_VERSION_V1 = 1;
+   */
+  V1 = 1,
+}
+
+/**
+ * Describes the enum cardamom.private.v1.WebProtocolVersion.
+ */
+export const WebProtocolVersionSchema: GenEnum<WebProtocolVersion> = /*@__PURE__*/
+  enumDesc(file_cardamom_private_v1_source, 1);
+
+/**
+ * WebCapability identifies one browser read contract implemented by a server.
+ *
+ * @generated from enum cardamom.private.v1.WebCapability
+ */
+export enum WebCapability {
+  /**
+   * WEB_CAPABILITY_UNSPECIFIED does not identify a browser capability.
+   *
+   * @generated from enum value: WEB_CAPABILITY_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * WEB_CAPABILITY_BOARD_CATALOG identifies catalog and bootstrap reads.
+   *
+   * @generated from enum value: WEB_CAPABILITY_BOARD_CATALOG = 1;
+   */
+  BOARD_CATALOG = 1,
+
+  /**
+   * WEB_CAPABILITY_BOARD_READ identifies canonical board detail reads.
+   *
+   * @generated from enum value: WEB_CAPABILITY_BOARD_READ = 2;
+   */
+  BOARD_READ = 2,
+
+  /**
+   * WEB_CAPABILITY_ISSUE_READ identifies issue collection and detail reads.
+   *
+   * @generated from enum value: WEB_CAPABILITY_ISSUE_READ = 3;
+   */
+  ISSUE_READ = 3,
+
+  /**
+   * WEB_CAPABILITY_LOG_READ identifies immutable issue log reads.
+   *
+   * @generated from enum value: WEB_CAPABILITY_LOG_READ = 4;
+   */
+  LOG_READ = 4,
+
+  /**
+   * WEB_CAPABILITY_APPROVAL_READ identifies actionable checkpoint reads.
+   *
+   * @generated from enum value: WEB_CAPABILITY_APPROVAL_READ = 5;
+   */
+  APPROVAL_READ = 5,
+
+  /**
+   * WEB_CAPABILITY_ROUTINE_READ identifies routine collection reads.
+   *
+   * @generated from enum value: WEB_CAPABILITY_ROUTINE_READ = 6;
+   */
+  ROUTINE_READ = 6,
+
+  /**
+   * WEB_CAPABILITY_CHANGE_READ identifies source change invalidation streams.
+   *
+   * @generated from enum value: WEB_CAPABILITY_CHANGE_READ = 7;
+   */
+  CHANGE_READ = 7,
+
+  /**
+   * WEB_CAPABILITY_STATE_READ identifies mutable issue State reads.
+   *
+   * @generated from enum value: WEB_CAPABILITY_STATE_READ = 8;
+   */
+  STATE_READ = 8,
+
+  /**
+   * WEB_CAPABILITY_ATTACHMENT_READ identifies attachment metadata reads.
+   *
+   * @generated from enum value: WEB_CAPABILITY_ATTACHMENT_READ = 9;
+   */
+  ATTACHMENT_READ = 9,
+}
+
+/**
+ * Describes the enum cardamom.private.v1.WebCapability.
+ */
+export const WebCapabilitySchema: GenEnum<WebCapability> = /*@__PURE__*/
+  enumDesc(file_cardamom_private_v1_source, 2);
 

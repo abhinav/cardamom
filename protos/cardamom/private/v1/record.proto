@@ -67,9 +67,8 @@ message LogEntry {
     StateSnapshot state_snapshot = 7;
   }
 
-  // ref identifies the source-qualified log entry when the server federates
-  // multiple sources.
-  optional LogRef ref = 9;
+  // source identifies the server that supplied this entry in aggregate mode.
+  optional SourceRef source = 9;
 }
 
 // ListLogEntriesRequest identifies one issue's log record.
@@ -80,11 +79,14 @@ message ListLogEntriesRequest {
   // direction selects chronological or reverse-chronological order.
   SortDirection direction = 2;
 
-  // issue identifies the source-qualified issue for aggregate requests.
-  optional IssueRef issue = 3;
+  // source identifies the aggregate source that owns issue_id when present.
+  optional SourceRef source = 3;
+
+  // board_id identifies the source-local board that owns issue_id when set.
+  optional string board_id = 4;
 
   // presentation supplies the route root used by source Markdown rendering.
-  optional PresentationContext presentation = 4;
+  optional PresentationContext presentation = 5;
 }
 
 // ListLogEntriesResponse contains log entries in requested order.
@@ -118,6 +120,12 @@ message AddLogEntryResponse {
 message GetStateRequest {
   // issue_id identifies the issue that owns the state.
   string issue_id = 1;
+
+  // source identifies the aggregate source that owns issue_id when present.
+  optional SourceRef source = 2;
+
+  // board_id identifies the source-local board that owns issue_id when set.
+  optional string board_id = 3;
 }
 
 // StateRecord is one attributed mutable recovery State.

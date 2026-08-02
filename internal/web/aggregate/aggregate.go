@@ -10,6 +10,7 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"regexp"
 	"slices"
 	"strings"
 	"sync"
@@ -69,7 +70,7 @@ type Server struct {
 	projects   []*v1.Project
 	boardList  []*v1.BoardSummary
 	version    string
-	capability []string
+	protocol   *v1.WebProtocol
 	httpClient connect.HTTPClient
 	cursorsMu  sync.Mutex
 	cursors    map[string]*issueCursor
@@ -80,6 +81,7 @@ type source struct {
 	project     privatev1connect.ProjectServiceClient
 	issues      privatev1connect.IssueServiceClient
 	records     privatev1connect.RecordServiceClient
+	attachments privatev1connect.AttachmentServiceClient
 	checkpoints privatev1connect.CheckpointServiceClient
 	execution   privatev1connect.ExecutionServiceClient
 	changes     privatev1connect.ChangeServiceClient
@@ -88,9 +90,11 @@ type source struct {
 }
 
 type boardRoute struct {
-	source source
-	ref    *v1.BoardRef
+	source  *source
+	boardID string
 }
+
+var sourceAliasPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
 
 // New probes configured sources and builds a storeless aggregate server.
 // Unavailable or incompatible sources remain visible in bootstrap diagnostics
@@ -106,6 +110,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		transport.ResponseHeaderTimeout = 10 * time.Second
 		client = &http.Client{
 			Transport: transport,
+			Timeout:   15 * time.Second,
 			CheckRedirect: func(*http.Request, []*http.Request) error {
 				return http.ErrUseLastResponse
 			},
@@ -115,9 +120,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	configured := make([]source, len(cfg.Sources))
 	aliases := make(map[string]struct{}, len(cfg.Sources))
 	for index, value := range cfg.Sources {
-		if value.Alias == "" || strings.IndexFunc(value.Alias, func(r rune) bool {
-			return r == '/' || r == '\\' || r == '?' || r == '#'
-		}) >= 0 {
+		if !sourceAliasPattern.MatchString(value.Alias) {
 			return nil, fmt.Errorf("aggregate source alias %q is invalid", value.Alias)
 		}
 		if _, ok := aliases[value.Alias]; ok {
@@ -133,18 +136,20 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			project:     privatev1connect.NewProjectServiceClient(client, baseURL),
 			issues:      privatev1connect.NewIssueServiceClient(client, baseURL),
 			records:     privatev1connect.NewRecordServiceClient(client, baseURL),
+			attachments: privatev1connect.NewAttachmentServiceClient(client, baseURL),
 			checkpoints: privatev1connect.NewCheckpointServiceClient(client, baseURL),
 			execution:   privatev1connect.NewExecutionServiceClient(client, baseURL),
 			changes:     privatev1connect.NewChangeServiceClient(client, baseURL),
 		}
 	}
 
+	protocol := web.BrowserProtocol()
 	var wait sync.WaitGroup
 	for index := range configured {
 		wait.Add(1)
 		go func(index int) {
 			defer wait.Done()
-			probeSource(ctx, &configured[index])
+			probeSource(ctx, protocol, &configured[index])
 		}(index)
 	}
 	wait.Wait()
@@ -157,7 +162,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 		boards:     make(map[string]boardRoute),
 		cursors:    make(map[string]*issueCursor),
 		version:    cfg.Version,
-		capability: web.ReadCapabilities(),
+		protocol:   protocol,
 		httpClient: client,
 	}
 	if err := server.buildCatalog(); err != nil {
@@ -166,7 +171,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 	return server, nil
 }
 
-func probeSource(ctx context.Context, value *source) {
+func probeSource(ctx context.Context, expected *v1.WebProtocol, value *source) {
 	response, err := value.project.GetBootstrap(
 		ctx, connect.NewRequest(&v1.GetBootstrapRequest{}),
 	)
@@ -184,7 +189,7 @@ func probeSource(ctx context.Context, value *source) {
 		return
 	}
 	entry := healthyEntry(value.config.Alias, bootstrap)
-	if bootstrap.GetProtocolVersion() != web.ProtocolVersion {
+	if bootstrap.GetProtocol().GetVersion() != expected.GetVersion() {
 		entry.Health = v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE
 		entry.Diagnostic = "unsupported source protocol"
 		value.entry = entry
@@ -202,8 +207,8 @@ func probeSource(ctx context.Context, value *source) {
 		value.entry = entry
 		return
 	}
-	for _, required := range web.ReadCapabilities() {
-		if !slices.Contains(bootstrap.GetCapabilities(), required) {
+	for _, required := range expected.GetCapabilities() {
+		if !slices.Contains(bootstrap.GetProtocol().GetCapabilities(), required) {
 			entry.Health = v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE
 			entry.Diagnostic = "source lacks required read capability"
 			value.entry = entry
@@ -218,13 +223,12 @@ func probeSource(ctx context.Context, value *source) {
 func healthyEntry(alias string, bootstrap *v1.GetBootstrapResponse) *v1.SourceCatalogEntry {
 	ref := sourceRef(alias, bootstrap)
 	return &v1.SourceCatalogEntry{
-		Source:          ref,
-		Health:          v1.SourceHealth_SOURCE_HEALTH_HEALTHY,
-		Version:         bootstrap.GetVersion(),
-		SchemaVersion:   bootstrap.GetSchemaVersion(),
-		ProtocolVersion: bootstrap.GetProtocolVersion(),
-		Capabilities:    slices.Clone(bootstrap.GetCapabilities()),
-		ReadOnly:        bootstrap.GetAccessMode() == v1.AccessMode_ACCESS_MODE_READ_ONLY,
+		Source:        ref,
+		Health:        v1.SourceHealth_SOURCE_HEALTH_HEALTHY,
+		Version:       bootstrap.GetVersion(),
+		SchemaVersion: bootstrap.GetSchemaVersion(),
+		Protocol:      proto.Clone(bootstrap.GetProtocol()).(*v1.WebProtocol),
+		ReadOnly:      bootstrap.GetAccessMode() == v1.AccessMode_ACCESS_MODE_READ_ONLY,
 	}
 }
 
@@ -248,7 +252,8 @@ func sourceRef(alias string, bootstrap *v1.GetBootstrapResponse) *v1.SourceRef {
 
 func (s *Server) buildCatalog() error {
 	lineages := make(map[string]string)
-	for _, value := range s.sources {
+	for index := range s.sources {
+		value := &s.sources[index]
 		if value.bootstrap == nil {
 			continue
 		}
@@ -261,31 +266,30 @@ func (s *Server) buildCatalog() error {
 		}
 		for _, project := range value.bootstrap.GetProjects() {
 			projectCopy := proto.Clone(project).(*v1.Project)
-			projectCopy.Ref = &v1.ProjectRef{Source: proto.Clone(ref).(*v1.SourceRef), ProjectId: project.GetId()}
+			projectCopy.Source = proto.Clone(ref).(*v1.SourceRef)
 			s.projects = append(s.projects, projectCopy)
 		}
 		for _, board := range value.bootstrap.GetBoards() {
 			if board.GetId() == "" {
 				return fmt.Errorf("source %q returned a board without an ID", ref.GetSourceId())
 			}
-			boardRef := &v1.BoardRef{Source: proto.Clone(ref).(*v1.SourceRef), BoardId: board.GetId()}
 			if _, exists := s.boards[board.GetId()]; exists {
 				return fmt.Errorf("duplicate board ID %q across aggregate sources", board.GetId())
 			}
 			boardCopy := proto.Clone(board).(*v1.BoardSummary)
-			boardCopy.Ref = proto.Clone(boardRef).(*v1.BoardRef)
+			boardCopy.Source = proto.Clone(ref).(*v1.SourceRef)
 			s.boardList = append(s.boardList, boardCopy)
-			s.boards[board.GetId()] = boardRoute{source: value, ref: boardRef}
+			s.boards[board.GetId()] = boardRoute{source: value, boardID: board.GetId()}
 		}
 	}
 	slices.SortFunc(s.projects, func(left, right *v1.Project) int {
-		if result := strings.Compare(left.GetRef().GetSource().GetSourceId(), right.GetRef().GetSource().GetSourceId()); result != 0 {
+		if result := strings.Compare(left.GetSource().GetSourceId(), right.GetSource().GetSourceId()); result != 0 {
 			return result
 		}
 		return strings.Compare(left.GetId(), right.GetId())
 	})
 	slices.SortFunc(s.boardList, func(left, right *v1.BoardSummary) int {
-		if result := strings.Compare(left.GetRef().GetSource().GetSourceId(), right.GetRef().GetSource().GetSourceId()); result != 0 {
+		if result := strings.Compare(left.GetSource().GetSourceId(), right.GetSource().GetSourceId()); result != 0 {
 			return result
 		}
 		return strings.Compare(left.GetId(), right.GetId())
@@ -310,7 +314,7 @@ func (s *Server) Binding() Binding {
 		Dump:          new(privatev1connect.UnimplementedDumpServiceHandler),
 		Mail:          new(privatev1connect.UnimplementedMailServiceHandler),
 		Lease:         new(privatev1connect.UnimplementedLeaseServiceHandler),
-		Attachment:    new(privatev1connect.UnimplementedAttachmentServiceHandler),
+		Attachment:    &attachmentService{server: s},
 	})
 	return Binding{
 		Path: path, Handler: handler,
@@ -460,8 +464,7 @@ func (p *projectService) GetBootstrap(
 		AccessMode:      v1.AccessMode_ACCESS_MODE_READ_ONLY,
 		Sources:         entries,
 		AggregateStatus: &v1.AggregateStatus{Complete: complete, Problems: problems},
-		ProtocolVersion: web.ProtocolVersion,
-		Capabilities:    slices.Clone(p.server.capability),
+		Protocol:        proto.Clone(p.server.protocol).(*v1.WebProtocol),
 		DefaultScope: &v1.BoardScope{Selection: &v1.BoardScope_AllSources{
 			AllSources: &v1.AllSources{},
 		}},
@@ -478,7 +481,7 @@ func (p *projectService) GetBoard(
 	}
 	response, err := route.source.project.GetBoard(ctx, connect.NewRequest(
 		&v1.GetBoardRequest{
-			BoardId: route.ref.GetBoardId(), Presentation: aggregatePresentation(),
+			BoardId: route.boardID, Presentation: aggregatePresentation(),
 		},
 	))
 	if err != nil {
@@ -488,7 +491,7 @@ func (p *projectService) GetBoard(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("source returned no board"))
 	}
 	board := proto.Clone(response.Msg.GetBoard()).(*v1.Board)
-	board.Ref = proto.Clone(route.ref).(*v1.BoardRef)
+	board.Source = sourceRefFromEntry(route.source)
 	return connect.NewResponse(&v1.GetBoardResponse{Board: board}), nil
 }
 
@@ -497,20 +500,13 @@ func (s *Server) resolveBoard(request *v1.GetBoardRequest) (boardRoute, error) {
 		return boardRoute{}, connect.NewError(connect.CodeInvalidArgument, errors.New("board request is required"))
 	}
 	boardID := request.GetBoardId()
-	if request.GetBoard() != nil {
-		ref := request.GetBoard()
-		if ref.GetSource() == nil || ref.GetSource().GetSourceId() == "" || ref.GetBoardId() == "" {
-			return boardRoute{}, connect.NewError(connect.CodeInvalidArgument, errors.New("board reference is incomplete"))
-		}
-		boardID = ref.GetBoardId()
-	}
 	route, ok := s.boards[boardID]
 	if !ok {
 		return boardRoute{}, connect.NewError(connect.CodeNotFound, errors.New("board not found"))
 	}
-	if ref := request.GetBoard(); ref != nil {
-		if ref.GetSource().GetSourceId() != route.ref.GetSource().GetSourceId() ||
-			ref.GetSource().GetStoreLineageId() != route.ref.GetSource().GetStoreLineageId() {
+	if source := request.GetSource(); source != nil {
+		if source.GetSourceId() != route.source.config.Alias ||
+			(source.GetStoreLineageId() != "" && source.GetStoreLineageId() != route.source.entry.GetSource().GetStoreLineageId()) {
 			return boardRoute{}, connect.NewError(connect.CodeNotFound, errors.New("board not found"))
 		}
 	}

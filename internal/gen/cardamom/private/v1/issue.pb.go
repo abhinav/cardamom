@@ -593,9 +593,8 @@ type IssueSummary struct {
 	Labels []string `protobuf:"bytes,14,rep,name=labels,proto3" json:"labels,omitempty"`
 	// blocked reports whether an open prerequisite prevents execution.
 	Blocked bool `protobuf:"varint,15,opt,name=blocked,proto3" json:"blocked,omitempty"`
-	// ref identifies the source-qualified issue when the server federates
-	// multiple sources.
-	Ref           *IssueRef `protobuf:"bytes,16,opt,name=ref,proto3,oneof" json:"ref,omitempty"`
+	// source identifies the server that supplied this issue in aggregate mode.
+	Source        *SourceRef `protobuf:"bytes,16,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -735,9 +734,9 @@ func (x *IssueSummary) GetBlocked() bool {
 	return false
 }
 
-func (x *IssueSummary) GetRef() *IssueRef {
+func (x *IssueSummary) GetSource() *SourceRef {
 	if x != nil {
-		return x.Ref
+		return x.Source
 	}
 	return nil
 }
@@ -757,9 +756,8 @@ type RelatedIssue struct {
 	Status IssueStatus `protobuf:"varint,5,opt,name=status,proto3,enum=cardamom.private.v1.IssueStatus" json:"status,omitempty"`
 	// priority is the domain ordering priority, where lower values run first.
 	Priority int32 `protobuf:"varint,6,opt,name=priority,proto3" json:"priority,omitempty"`
-	// ref identifies the source-qualified issue when the server federates
-	// multiple sources.
-	Ref           *IssueRef `protobuf:"bytes,7,opt,name=ref,proto3,oneof" json:"ref,omitempty"`
+	// source identifies the server that supplied this issue in aggregate mode.
+	Source        *SourceRef `protobuf:"bytes,7,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -836,9 +834,9 @@ func (x *RelatedIssue) GetPriority() int32 {
 	return 0
 }
 
-func (x *RelatedIssue) GetRef() *IssueRef {
+func (x *RelatedIssue) GetSource() *SourceRef {
 	if x != nil {
-		return x.Ref
+		return x.Source
 	}
 	return nil
 }
@@ -1649,10 +1647,12 @@ type GetIssueRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issue_id identifies the issue to read.
 	IssueId string `protobuf:"bytes,1,opt,name=issue_id,json=issueId,proto3" json:"issue_id,omitempty"`
-	// issue identifies the source-qualified issue for aggregate requests.
-	Issue *IssueRef `protobuf:"bytes,2,opt,name=issue,proto3,oneof" json:"issue,omitempty"`
+	// source identifies the aggregate source that owns issue_id when present.
+	Source *SourceRef `protobuf:"bytes,2,opt,name=source,proto3,oneof" json:"source,omitempty"`
+	// board_id identifies the source-local board that owns issue_id when set.
+	BoardId *string `protobuf:"bytes,3,opt,name=board_id,json=boardId,proto3,oneof" json:"board_id,omitempty"`
 	// presentation supplies the route root used by source Markdown rendering.
-	Presentation  *PresentationContext `protobuf:"bytes,3,opt,name=presentation,proto3,oneof" json:"presentation,omitempty"`
+	Presentation  *PresentationContext `protobuf:"bytes,4,opt,name=presentation,proto3,oneof" json:"presentation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1694,11 +1694,18 @@ func (x *GetIssueRequest) GetIssueId() string {
 	return ""
 }
 
-func (x *GetIssueRequest) GetIssue() *IssueRef {
+func (x *GetIssueRequest) GetSource() *SourceRef {
 	if x != nil {
-		return x.Issue
+		return x.Source
 	}
 	return nil
+}
+
+func (x *GetIssueRequest) GetBoardId() string {
+	if x != nil && x.BoardId != nil {
+		return *x.BoardId
+	}
+	return ""
 }
 
 func (x *GetIssueRequest) GetPresentation() *PresentationContext {
@@ -1771,7 +1778,7 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\x06reason\x18\x02 \x01(\v2$.cardamom.private.v1.MarkdownContentR\x06reason\x129\n" +
 	"\n" +
 	"decided_at\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\tdecidedAt\x12\x1a\n" +
-	"\brevision\x18\x04 \x01(\x03R\brevision\"\x9f\x06\n" +
+	"\brevision\x18\x04 \x01(\x03R\brevision\"\xa9\x06\n" +
 	"\fIssueSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bboard_id\x18\x02 \x01(\tR\aboardId\x12\x14\n" +
@@ -1791,21 +1798,21 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\tclosed_at\x18\f \x01(\v2\x1a.google.protobuf.TimestampR\bclosedAt\x12@\n" +
 	"\awaiting\x18\r \x01(\v2!.cardamom.private.v1.WaitingStateH\x01R\awaiting\x88\x01\x01\x12\x16\n" +
 	"\x06labels\x18\x0e \x03(\tR\x06labels\x12\x18\n" +
-	"\ablocked\x18\x0f \x01(\bR\ablocked\x124\n" +
-	"\x03ref\x18\x10 \x01(\v2\x1d.cardamom.private.v1.IssueRefH\x02R\x03ref\x88\x01\x01B\x0f\n" +
+	"\ablocked\x18\x0f \x01(\bR\ablocked\x12;\n" +
+	"\x06source\x18\x10 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x02R\x06source\x88\x01\x01B\x0f\n" +
 	"\r_active_claimB\n" +
 	"\n" +
-	"\b_waitingB\x06\n" +
-	"\x04_ref\"\x97\x02\n" +
+	"\b_waitingB\t\n" +
+	"\a_source\"\xa1\x02\n" +
 	"\fRelatedIssue\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bboard_id\x18\x02 \x01(\tR\aboardId\x12\x14\n" +
 	"\x05title\x18\x03 \x01(\tR\x05title\x122\n" +
 	"\x04type\x18\x04 \x01(\x0e2\x1e.cardamom.private.v1.IssueTypeR\x04type\x128\n" +
 	"\x06status\x18\x05 \x01(\x0e2 .cardamom.private.v1.IssueStatusR\x06status\x12\x1a\n" +
-	"\bpriority\x18\x06 \x01(\x05R\bpriority\x124\n" +
-	"\x03ref\x18\a \x01(\v2\x1d.cardamom.private.v1.IssueRefH\x00R\x03ref\x88\x01\x01B\x06\n" +
-	"\x04_ref\"\x84\x03\n" +
+	"\bpriority\x18\x06 \x01(\x05R\bpriority\x12;\n" +
+	"\x06source\x18\a \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01B\t\n" +
+	"\a_source\"\x84\x03\n" +
 	"\x0fAncestorContext\x127\n" +
 	"\x05issue\x18\x01 \x01(\v2!.cardamom.private.v1.RelatedIssueR\x05issue\x12C\n" +
 	"\asummary\x18\x02 \x01(\v2$.cardamom.private.v1.MarkdownContentH\x00R\asummary\x88\x01\x01\x12?\n" +
@@ -1904,12 +1911,14 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\vtotal_count\x18\x05 \x01(\rR\n" +
 	"totalCount\x12O\n" +
 	"\x10aggregate_status\x18\x06 \x01(\v2$.cardamom.private.v1.AggregateStatusR\x0faggregateStatusB\x12\n" +
-	"\x10_next_page_token\"\xd4\x01\n" +
+	"\x10_next_page_token\"\x85\x02\n" +
 	"\x0fGetIssueRequest\x12\x19\n" +
-	"\bissue_id\x18\x01 \x01(\tR\aissueId\x128\n" +
-	"\x05issue\x18\x02 \x01(\v2\x1d.cardamom.private.v1.IssueRefH\x00R\x05issue\x88\x01\x01\x12Q\n" +
-	"\fpresentation\x18\x03 \x01(\v2(.cardamom.private.v1.PresentationContextH\x01R\fpresentation\x88\x01\x01B\b\n" +
-	"\x06_issueB\x0f\n" +
+	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12;\n" +
+	"\x06source\x18\x02 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01\x12\x1e\n" +
+	"\bboard_id\x18\x03 \x01(\tH\x01R\aboardId\x88\x01\x01\x12Q\n" +
+	"\fpresentation\x18\x04 \x01(\v2(.cardamom.private.v1.PresentationContextH\x02R\fpresentation\x88\x01\x01B\t\n" +
+	"\a_sourceB\v\n" +
+	"\t_board_idB\x0f\n" +
 	"\r_presentation\"J\n" +
 	"\x10GetIssueResponse\x126\n" +
 	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue*\x8a\x01\n" +
@@ -1992,7 +2001,7 @@ var file_cardamom_private_v1_issue_proto_goTypes = []any{
 	(*GetIssueResponse)(nil),        // 21: cardamom.private.v1.GetIssueResponse
 	(*timestamppb.Timestamp)(nil),   // 22: google.protobuf.Timestamp
 	(*MarkdownContent)(nil),         // 23: cardamom.private.v1.MarkdownContent
-	(*IssueRef)(nil),                // 24: cardamom.private.v1.IssueRef
+	(*SourceRef)(nil),               // 24: cardamom.private.v1.SourceRef
 	(*BoardScope)(nil),              // 25: cardamom.private.v1.BoardScope
 	(*AggregateStatus)(nil),         // 26: cardamom.private.v1.AggregateStatus
 	(*PresentationContext)(nil),     // 27: cardamom.private.v1.PresentationContext
@@ -2012,10 +2021,10 @@ var file_cardamom_private_v1_issue_proto_depIdxs = []int32{
 	22, // 11: cardamom.private.v1.IssueSummary.started_at:type_name -> google.protobuf.Timestamp
 	22, // 12: cardamom.private.v1.IssueSummary.closed_at:type_name -> google.protobuf.Timestamp
 	7,  // 13: cardamom.private.v1.IssueSummary.waiting:type_name -> cardamom.private.v1.WaitingState
-	24, // 14: cardamom.private.v1.IssueSummary.ref:type_name -> cardamom.private.v1.IssueRef
+	24, // 14: cardamom.private.v1.IssueSummary.source:type_name -> cardamom.private.v1.SourceRef
 	0,  // 15: cardamom.private.v1.RelatedIssue.type:type_name -> cardamom.private.v1.IssueType
 	2,  // 16: cardamom.private.v1.RelatedIssue.status:type_name -> cardamom.private.v1.IssueStatus
-	24, // 17: cardamom.private.v1.RelatedIssue.ref:type_name -> cardamom.private.v1.IssueRef
+	24, // 17: cardamom.private.v1.RelatedIssue.source:type_name -> cardamom.private.v1.SourceRef
 	10, // 18: cardamom.private.v1.AncestorContext.issue:type_name -> cardamom.private.v1.RelatedIssue
 	23, // 19: cardamom.private.v1.AncestorContext.summary:type_name -> cardamom.private.v1.MarkdownContent
 	23, // 20: cardamom.private.v1.AncestorContext.state:type_name -> cardamom.private.v1.MarkdownContent
@@ -2047,7 +2056,7 @@ var file_cardamom_private_v1_issue_proto_depIdxs = []int32{
 	9,  // 46: cardamom.private.v1.ListIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
 	17, // 47: cardamom.private.v1.ListIssuesResponse.label_facets:type_name -> cardamom.private.v1.LabelFacet
 	26, // 48: cardamom.private.v1.ListIssuesResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
-	24, // 49: cardamom.private.v1.GetIssueRequest.issue:type_name -> cardamom.private.v1.IssueRef
+	24, // 49: cardamom.private.v1.GetIssueRequest.source:type_name -> cardamom.private.v1.SourceRef
 	27, // 50: cardamom.private.v1.GetIssueRequest.presentation:type_name -> cardamom.private.v1.PresentationContext
 	16, // 51: cardamom.private.v1.GetIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
 	18, // 52: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest

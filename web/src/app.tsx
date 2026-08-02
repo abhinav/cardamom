@@ -131,10 +131,11 @@ function LoadedApp({
   const queryClient = useQueryClient();
   const location = useLocation();
   const pathname = location.pathname;
+  const sources = bootstrap.sources ?? [];
   const catalog = {
     boards: bootstrap.boards,
     projects: bootstrap.projects,
-    sources: bootstrap.sources,
+    sources,
   };
   const selection = resolveBoardScopeSelection(
     routeBoardScope(pathname, new URLSearchParams(location.search)),
@@ -143,7 +144,7 @@ function LoadedApp({
   const selectionKey = scopeKey(selection);
   const scope = useMemo(
     () => toBoardScopeMessage(selection, catalog),
-    [selectionKey, bootstrap.boards, bootstrap.projects, bootstrap.sources],
+    [selectionKey, bootstrap.boards, bootstrap.projects, sources],
   );
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(
     scope === undefined ? "offline" : "connecting",
@@ -176,12 +177,12 @@ function LoadedApp({
     <ServerAccessProvider accessMode={bootstrap.accessMode}>
       <ApplicationShell
         attachmentClient={attachmentClient}
-        aggregateMode={bootstrap.sources.length > 0}
+        aggregateMode={sources.length > 0}
         aggregateStatus={bootstrap.aggregateStatus}
         boards={bootstrap.boards}
         preferences={preferences}
         projects={bootstrap.projects}
-        sources={bootstrap.sources}
+        sources={sources}
         scope={scope}
         selection={selection}
         streamStatus={streamStatus}
@@ -795,7 +796,7 @@ function IssuePage({
       key={`${boardId}:${issueId}`}
       actor={preferences.actor}
       attachmentClient={attachmentClient}
-      boardRef={selection.kind === "board" ? selection.boardRef : undefined}
+      source={selection.kind === "board" ? selection.source : undefined}
       boards={boards}
       collapsedDetailsBoardIds={preferences.collapsedIssueDetailsBoardIds}
       expectedBoardId={boardId}

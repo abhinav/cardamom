@@ -187,9 +187,8 @@ message IssueSummary {
   // blocked reports whether an open prerequisite prevents execution.
   bool blocked = 15;
 
-  // ref identifies the source-qualified issue when the server federates
-  // multiple sources.
-  optional IssueRef ref = 16;
+  // source identifies the server that supplied this issue in aggregate mode.
+  optional SourceRef source = 16;
 }
 
 // RelatedIssue is the compact issue representation used by relationships.
@@ -212,9 +211,8 @@ message RelatedIssue {
   // priority is the domain ordering priority, where lower values run first.
   int32 priority = 6;
 
-  // ref identifies the source-qualified issue when the server federates
-  // multiple sources.
-  optional IssueRef ref = 7;
+  // source identifies the server that supplied this issue in aggregate mode.
+  optional SourceRef source = 7;
 }
 
 // AncestorContext carries current context inherited from one ancestor.
@@ -405,11 +403,14 @@ message GetIssueRequest {
   // issue_id identifies the issue to read.
   string issue_id = 1;
 
-  // issue identifies the source-qualified issue for aggregate requests.
-  optional IssueRef issue = 2;
+  // source identifies the aggregate source that owns issue_id when present.
+  optional SourceRef source = 2;
+
+  // board_id identifies the source-local board that owns issue_id when set.
+  optional string board_id = 3;
 
   // presentation supplies the route root used by source Markdown rendering.
-  optional PresentationContext presentation = 3;
+  optional PresentationContext presentation = 4;
 }
 
 // GetIssueResponse contains the primary issue detail record.
