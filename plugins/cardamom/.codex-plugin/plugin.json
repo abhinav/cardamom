@@ -13,6 +13,8 @@
     "developerName": "Abhinav Gupta",
     "category": "Productivity",
     "capabilities": [],
-    "defaultPrompt": "Use Cardamom to coordinate this work."
+    "defaultPrompt": "Use Cardamom to coordinate this work.",
+    "composerIcon": "./skills/cardamom/assets/favicon-96x96.png",
+    "logo": "./skills/cardamom/assets/apple-touch-icon.png"
   }
 }

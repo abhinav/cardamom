@@ -258,6 +258,12 @@ func extractArchive(ctx context.Context, archive []byte, destination string) err
 	if _, ok := files["SKILL.md"]; !ok {
 		return errors.New("embedded skill archive does not contain SKILL.md")
 	}
+	if !containsDirectory(files, "agents") {
+		return errors.New("embedded skill archive does not contain agents")
+	}
+	if !containsDirectory(files, "assets") {
+		return errors.New("embedded skill archive does not contain assets")
+	}
 	if !containsDirectory(files, "references") {
 		return errors.New("embedded skill archive does not contain references")
 	}
@@ -283,7 +289,8 @@ func validateArchiveHeader(
 		return fmt.Errorf("invalid embedded skill archive path %q", header.Name)
 	}
 	top, _, _ := strings.Cut(name, "/")
-	if top != "SKILL.md" && top != "references" && top != "scripts" {
+	if top != "SKILL.md" && top != "agents" && top != "assets" &&
+		top != "references" && top != "scripts" {
 		return fmt.Errorf("unexpected embedded skill archive path %q", header.Name)
 	}
 	if header.Typeflag != tar.TypeReg && header.Typeflag != 0 {

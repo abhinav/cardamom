@@ -7,6 +7,9 @@ exec card skill install $WORK/skills
 cmpenv stdout $WORK/golden/installed.txt
 ! stderr .
 exists skills/cardamom/SKILL.md
+exists skills/cardamom/agents/openai.yaml
+exists skills/cardamom/assets/favicon-96x96.png
+exists skills/cardamom/assets/apple-touch-icon.png
 exists skills/cardamom/references/execution.md
 exists skills/cardamom/scripts/cardamom
 exec test -x skills/cardamom/scripts/cardamom
