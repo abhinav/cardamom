@@ -765,10 +765,11 @@ func (*infoCommand) Run(invocation *Invocation, operation InfoOperation) error {
 type webCommand struct {
 	webDevelopmentOptions
 
-	Bind      string `name:"bind" default:"127.0.0.1" placeholder:"ADDRESS" help:"Interface for the local HTTP listener. Defaults to 127.0.0.1."`
-	Port      int    `name:"port" default:"5757" placeholder:"PORT" help:"HTTP port. Defaults to 5757; use 0 for an ephemeral port."`
-	NoBrowser bool   `name:"no-browser" help:"Do not open a browser after the server is ready."`
-	ReadOnly  bool   `name:"read-only" help:"Reject browser operations that may change server state."`
+	Bind      string      `name:"bind" default:"127.0.0.1" placeholder:"ADDRESS" help:"Interface for the local HTTP listener. Defaults to 127.0.0.1."`
+	Port      int         `name:"port" default:"5757" placeholder:"PORT" help:"HTTP port. Defaults to 5757; use 0 for an ephemeral port."`
+	NoBrowser bool        `name:"no-browser" help:"Do not open a browser after the server is ready."`
+	ReadOnly  bool        `name:"read-only" help:"Reject browser operations that may change server state."`
+	Sources   []WebSource `name:"source" placeholder:"ALIAS=URL" help:"Aggregate web source. Repeat for multiple sources."`
 }
 
 // Help describes the long-running embedded web application contract.
@@ -801,6 +802,9 @@ type WebRequest struct {
 	// WebDir selects the live frontend source under a webdev build.
 	WebDir string
 
+	// Sources carries the validated aggregate source definitions.
+	Sources []WebSource
+
 	// Notice receives the public web and API addresses.
 	Notice io.Writer
 
@@ -827,7 +831,8 @@ func (c *webCommand) Run(invocation *Invocation, operation WebOperation) error {
 		Store: invocation.Store, Board: invocation.Board,
 		Bind: c.Bind, Port: c.Port, NoBrowser: c.NoBrowser, ReadOnly: c.ReadOnly,
 		Development: c.Development, WebDir: c.WebDir,
-		Notice: notice, Diagnostic: invocation.Output.Stderr(),
+		Sources: append([]WebSource(nil), c.Sources...),
+		Notice:  notice, Diagnostic: invocation.Output.Stderr(),
 	})
 }
 
