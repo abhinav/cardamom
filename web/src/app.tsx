@@ -527,7 +527,7 @@ function RouteContent({
         }
       />
       <Route
-        path="/issues/:issueId"
+        path="/board/:boardId/issue/:issueId"
         element={
           <IssuePage
             attachmentClient={attachmentClient}
@@ -618,16 +618,17 @@ function IssuePage({
   selectLabel: (label: string) => void;
   updatePreferences: (preferences: Preferences) => void;
 }) {
-  const { issueId } = useParams<"issueId">();
-  if (issueId === undefined) {
+  const { boardId, issueId } = useParams<"boardId" | "issueId">();
+  if (boardId === undefined || issueId === undefined) {
     return <NotFoundPage />;
   }
   return (
     <IssueDetailPage
-      key={issueId}
+      key={`${boardId}:${issueId}`}
       actor={preferences.actor}
       attachmentClient={attachmentClient}
       collapsedDetailsBoardIds={preferences.collapsedIssueDetailsBoardIds}
+      expectedBoardId={boardId}
       issueId={issueId}
       relationsOpen={preferences.relationsOpen}
       selectLabel={selectLabel}

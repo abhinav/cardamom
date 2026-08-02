@@ -41,7 +41,7 @@ func TestRunDevelopment_forwardsViteArgumentsAndServesOneOrigin(t *testing.T) {
 				Handler: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = io.WriteString(w, "connect")
 				}),
-				AttachmentContentPath: "/attachments/",
+				AttachmentContentPattern: "/board/{boardID}/attachment/{attachmentID}",
 				AttachmentContent: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 					_, _ = io.WriteString(w, "attachment")
 				}),
@@ -61,7 +61,7 @@ func TestRunDevelopment_forwardsViteArgumentsAndServesOneOrigin(t *testing.T) {
 	))
 	assertResponse(t, address+"/", "development shell")
 	assertResponse(t, address+"/cardamom.private.v1.ProjectService/GetBootstrap", "connect")
-	assertResponse(t, address+"/attachments/att_example/content", "attachment")
+	assertResponse(t, address+"/board/board-1/attachment/att_example", "attachment")
 
 	cancel()
 	assert.ErrorIs(t, <-result, context.Canceled)

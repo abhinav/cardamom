@@ -50,17 +50,17 @@ func (o *webOperation) Run(ctx context.Context, request cli.WebRequest) (err err
 		Bind: request.Bind, Port: request.Port, NoBrowser: request.NoBrowser,
 		Notice: request.Notice, Diagnostic: request.Diagnostic,
 		HandlerPath: binding.path, Handler: binding.handler,
-		AttachmentContentPath: binding.attachmentContentPath,
-		AttachmentContent:     binding.attachmentContent,
+		AttachmentContentPattern: binding.attachmentContentPattern,
+		AttachmentContent:        binding.attachmentContent,
 	})
 }
 
 // webHandlerBinding identifies the route and handler for the composed web API.
 type webHandlerBinding struct {
-	path                  string
-	handler               http.Handler
-	attachmentContentPath string
-	attachmentContent     http.Handler
+	path                     string
+	handler                  http.Handler
+	attachmentContentPattern string
+	attachmentContent        http.Handler
 }
 
 func (o *webOperation) open(
@@ -158,14 +158,13 @@ func (o *webOperation) open(
 		Attachment: attachmentHandler,
 	})
 	contentHandler := attachmentcontent.New(attachmentcontent.Config{
-		Attachments:    attachments,
-		Authorizer:     attachmentContentAuthorizer{},
-		DefaultBoardID: defaultBoardID,
+		Attachments: attachments,
+		Authorizer:  attachmentContentAuthorizer{},
 	})
 	return webHandlerBinding{
 		path: path, handler: handler,
-		attachmentContentPath: attachmentcontent.PathPrefix,
-		attachmentContent:     contentHandler,
+		attachmentContentPattern: attachmentcontent.PathPattern,
+		attachmentContent:        contentHandler,
 	}, runtime.close, nil
 }
 

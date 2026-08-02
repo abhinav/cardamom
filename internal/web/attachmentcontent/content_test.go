@@ -157,6 +157,32 @@ func TestHandlerAuthorizesIdentityBeforeOpeningContent(t *testing.T) {
 	assert.Zero(t, opener.opens)
 }
 
+func TestHandlerUsesCanonicalRouteBoardScope(t *testing.T) {
+	opener := &testContentOpener{content: []byte("content")}
+	handler := testContentHandler(opener, testContentAuthorizer{})
+
+	response := serveContentRequest(
+		t,
+		handler,
+		http.MethodGet,
+		"/board/board-2/attachment/"+testContentID.String(),
+		nil,
+	)
+
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, board.ID("board-2"), opener.lastRequest.BoardID)
+
+	response = serveContentRequest(
+		t,
+		handler,
+		http.MethodGet,
+		"/board/board%2Fthree/attachment/"+testContentID.String(),
+		nil,
+	)
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, board.ID("board/three"), opener.lastRequest.BoardID)
+}
+
 func TestHandlerRejectsPathsAndMethodsOutsideRawRoute(t *testing.T) {
 	opener := &testContentOpener{content: []byte("secret")}
 	handler := testContentHandler(opener, testContentAuthorizer{})
@@ -167,8 +193,8 @@ func TestHandlerRejectsPathsAndMethodsOutsideRawRoute(t *testing.T) {
 		wantStatus int
 	}{
 		{name: "FilenameSuffix", method: http.MethodGet, path: contentURL("") + "/report.txt", wantStatus: http.StatusNotFound},
-		{name: "Traversal", method: http.MethodGet, path: "/attachments/../secret/content", wantStatus: http.StatusNotFound},
-		{name: "InvalidID", method: http.MethodGet, path: "/attachments/not-an-id/content", wantStatus: http.StatusNotFound},
+		{name: "InvalidBoard", method: http.MethodGet, path: "/board/%20/attachment/" + testContentID.String(), wantStatus: http.StatusNotFound},
+		{name: "InvalidID", method: http.MethodGet, path: "/board/board-1/attachment/not-an-id", wantStatus: http.StatusNotFound},
 		{name: "Mutation", method: http.MethodPost, path: contentURL(""), wantStatus: http.StatusMethodNotAllowed},
 	}
 	for _, tt := range tests {
@@ -180,36 +206,36 @@ func TestHandlerRejectsPathsAndMethodsOutsideRawRoute(t *testing.T) {
 	assert.Zero(t, opener.opens)
 }
 
-func TestHandlerRequiresDefaultOrExplicitBoard(t *testing.T) {
+func TestHandlerIgnoresLegacyQueryBoardScope(t *testing.T) {
 	opener := &testContentOpener{content: []byte("content")}
-	handler := New(Config{
-		Attachments: opener,
-		Authorizer:  testContentAuthorizer{},
-	})
+	handler := testContentHandler(opener, testContentAuthorizer{})
 
-	response := serveContentRequest(t, handler, http.MethodGet, contentURL(""), nil)
-	assert.Equal(t, http.StatusNotFound, response.Code)
-	assert.Zero(t, opener.opens)
-
-	response = serveContentRequest(t, handler, http.MethodGet, contentURL("board-2"), nil)
+	response := serveContentRequest(
+		t,
+		handler,
+		http.MethodGet,
+		contentURL("board-1")+"?board_id=board-2",
+		nil,
+	)
 	assert.Equal(t, http.StatusOK, response.Code)
-	assert.Equal(t, board.ID("board-2"), opener.lastRequest.BoardID)
+	assert.Equal(t, board.ID("board-1"), opener.lastRequest.BoardID)
 	assert.Equal(t, 1, opener.opens)
 }
 
 func testContentHandler(opener *testContentOpener, authorizer testContentAuthorizer) http.Handler {
-	defaultBoardID := board.ID("board-1")
-	return New(Config{
-		Attachments: opener, Authorizer: authorizer, DefaultBoardID: &defaultBoardID,
-	})
+	mux := http.NewServeMux()
+	mux.Handle(PathPattern, New(Config{
+		Attachments: opener,
+		Authorizer:  authorizer,
+	}))
+	return mux
 }
 
 func contentURL(boardID string) string {
-	path := "/attachments/" + testContentID.String() + "/content"
-	if boardID != "" {
-		path += "?board_id=" + boardID
+	if boardID == "" {
+		boardID = "board-1"
 	}
-	return path
+	return "/board/" + boardID + "/attachment/" + testContentID.String()
 }
 
 func serveContentRequest(

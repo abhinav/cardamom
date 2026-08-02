@@ -34,10 +34,10 @@ func TestRenderer_RenderBoardResolvesAttachmentDestinationsInOneBatch(t *testing
 	assert.Equal(t, board.ID("board-1"), resolver.requests[0].BoardID)
 	assert.Equal(t, []attachment.ID{imageID, documentID}, resolver.requests[0].AttachmentIDs)
 	require.Len(t, rendered, 3)
-	assert.Contains(t, rendered[0], `<img src="/attachments/`+imageID.String()+`/content?board_id=board-1" alt="failure">`)
+	assert.Contains(t, rendered[0], `<img src="/board/board-1/attachment/`+imageID.String()+`" alt="failure">`)
 	assert.NotContains(t, rendered[1], "<img")
-	assert.Contains(t, rendered[1], `<a href="/attachments/`+documentID.String()+`/content?board_id=board-1">report</a>`)
-	assert.Contains(t, rendered[1], `<a href="/attachments/`+imageID.String()+`/content?board_id=board-1">again</a>`)
+	assert.Contains(t, rendered[1], `<a href="/board/board-1/attachment/`+documentID.String()+`">report</a>`)
+	assert.Contains(t, rendered[1], `<a href="/board/board-1/attachment/`+imageID.String()+`">again</a>`)
 	assert.Contains(t, rendered[2], "attachment:"+documentID.String())
 	assert.Contains(t, rendered[2], "attachment:"+imageID.String())
 	assert.Equal(t, sources, []string{

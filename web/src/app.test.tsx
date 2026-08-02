@@ -1,3 +1,4 @@
+import { create } from "@bufbuild/protobuf";
 import { createRouterTransport } from "@connectrpc/connect";
 import { TransportProvider } from "@connectrpc/connect-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -8,7 +9,16 @@ import { describe, expect, it } from "vitest";
 
 import { createWebClient } from "./api.ts";
 import { App } from "./app.tsx";
-import { bootstrapQueryOptions } from "./query-runtime.ts";
+import {
+  IssueDetailSchema,
+  IssueService,
+  IssueSummarySchema,
+} from "./gen/cardamom/private/v1/issue_pb.ts";
+import { AccessMode } from "./gen/cardamom/private/v1/project_pb.ts";
+import {
+  bootstrapQueryOptions,
+  unaryRouteQueryOptions,
+} from "./query-runtime.ts";
 
 describe("application shell", () => {
   it("names Cardamom while startup metadata is loading", () => {
@@ -106,6 +116,83 @@ describe("application shell", () => {
     expect(markup).toContain("Loading configuration");
     expect(markup).toContain('aria-label="Select board scope: Primary"');
     expect(markup).not.toContain("Page not found");
+  });
+
+  it("loads a canonical issue route in its board scope", () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+
+    const markup = renderApp(
+      queryClient,
+      transport,
+      "/board/board-1/issue/cm-direct",
+    );
+
+    expect(markup).toContain("Loading cm-direct");
+    expect(markup).toContain('aria-label="Select board scope: Primary"');
+    expect(markup).toContain('href="/board/board-1"');
+    expect(markup).not.toContain("Page not found");
+  });
+
+  it("rejects an issue returned outside the route board scope", () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      accessMode: AccessMode.READ_WRITE,
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-2", projectId: "project-1", name: "Secondary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+    queryClient.setQueryData(
+      unaryRouteQueryOptions(
+        IssueService.method.getIssue,
+        { issueId: "cm-wrong-board" },
+        transport,
+      ).queryKey,
+      {
+        issue: create(IssueDetailSchema, {
+          issue: create(IssueSummarySchema, {
+            id: "cm-wrong-board",
+            boardId: "board-2",
+            title: "Wrong board issue",
+          }),
+        }),
+      },
+    );
+
+    const markup = renderApp(
+      queryClient,
+      transport,
+      "/board/board-1/issue/cm-wrong-board",
+    );
+
+    expect(markup).toContain("Issue could not be loaded");
+    expect(markup).not.toContain("Wrong board issue");
+    expect(markup).not.toContain("Issue actions");
+    expect(markup).not.toContain("Edit issue");
+  });
+
+  it("does not register the transitional issue route", () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+
+    const markup = renderApp(queryClient, transport, "/issues/cm-legacy");
+
+    expect(markup).toContain("Page not found");
   });
 });
 

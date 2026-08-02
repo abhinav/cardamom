@@ -106,18 +106,13 @@ func TestRenderer_RenderEmptyInput(t *testing.T) {
 	assert.Empty(t, got)
 }
 
-func TestRenderer_RenderIssueReferences(t *testing.T) {
-	got, err := markdown.New().Render("See %an-task, %A1-b2; bare an-other and [[an-old]] stay text.")
+func TestRenderer_RenderLeavesUnscopedIssueReferencesLiteral(t *testing.T) {
+	source := "See %an-task, %A1-b2; bare an-other and [[an-old]] stay text."
+	got, err := markdown.New().Render(source)
 
 	require.NoError(t, err)
-	assert.Equal(t, "<p>See <span data-issue-reference=\"an-task\" "+
-		"data-issue-reference-href=\"/issues/an-task\">"+
-		"<a href=\"/issues/an-task\">%an-task</a></span>, "+
-		"<span data-issue-reference=\"A1-b2\" "+
-		"data-issue-reference-href=\"/issues/A1-b2\">"+
-		"<a href=\"/issues/A1-b2\">%A1-b2</a></span>; "+
-		"bare an-other and [[an-old]] stay text.</p>\n", got)
-	assert.Equal(t, 2, strings.Count(got, `<a href=`))
+	assert.Equal(t, "<p>"+source+"</p>\n", got)
+	assert.NotContains(t, got, `<a href=`)
 }
 
 func TestRenderer_RenderTypedReferencesLiterally(t *testing.T) {
@@ -195,33 +190,17 @@ func TestRenderer_RenderIssueReferenceBeforePeriod(t *testing.T) {
 	got, err := markdown.New().Render("See %an-task.")
 
 	require.NoError(t, err)
-	assert.Equal(t,
-		"<p>See <span data-issue-reference=\"an-task\" "+
-			"data-issue-reference-href=\"/issues/an-task\">"+
-			"<a href=\"/issues/an-task\">%an-task</a></span>.</p>\n",
-		got,
-	)
+	assert.Equal(t, "<p>See %an-task.</p>\n", got)
 }
 
 func TestRenderer_RenderIssueReferenceBoundaries(t *testing.T) {
-	got, err := markdown.New().Render(
-		"%a,%b:%c/%d!%e?%f#%g) %dot.after %under_after %with-hyphen " +
-			"%1 %/ %-bad %_bad %.bad %\u00e9 bare-id",
-	)
+	source := "%a,%b:%c/%d!%e?%f#%g) %dot.after %under_after %with-hyphen " +
+		"%1 %/ %-bad %_bad %.bad %\u00e9 bare-id"
+	got, err := markdown.New().Render(source)
 
 	require.NoError(t, err)
-	assert.Equal(t, 11, strings.Count(got, `<a href=`))
-	for _, id := range []string{
-		"a", "b", "c", "d", "e", "f", "g",
-		"dot", "under", "with-hyphen", "1",
-	} {
-		assert.Contains(t, got, `<a href="/issues/`+id+`">%`+id+`</a>`)
-	}
-	for _, literal := range []string{
-		".after", "_after", "%/", "%-bad", "%_bad", "%.bad", "%\u00e9", "bare-id",
-	} {
-		assert.Contains(t, got, literal)
-	}
+	assert.Equal(t, "<p>"+source+"</p>\n", got)
+	assert.NotContains(t, got, `<a href=`)
 }
 
 func TestRenderer_RenderEscapedAndCodeReferencesLiterally(t *testing.T) {

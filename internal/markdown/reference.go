@@ -54,22 +54,27 @@ func (r *referenceRenderer) renderReference(
 	switch referenceNode.Identity.Kind {
 	case reference.KindIssue:
 		id := issue.ID(referenceNode.Identity.ID)
+		if r.boardID == "" {
+			break
+		}
 		if r.issues != nil {
 			if _, ok := r.issues[id]; !ok {
 				break
 			}
 		}
-		return renderIssueReference(writer, authored, referenceNode.Identity.ID)
+		return renderIssueReference(writer, authored, r.boardID, id)
 	case reference.KindLog:
 		id := issue.LogID(referenceNode.Identity.ID)
 		value, ok := r.logs[id]
 		if !ok {
 			break
 		}
-		destination := (&url.URL{
-			Path:     "/issues/" + value.IssueID.String(),
-			Fragment: id.String(),
-		}).String()
+		destination := boardEntityURL(
+			r.boardID,
+			"issue",
+			value.IssueID.String(),
+			id.String(),
+		)
 		return renderObjectReference(
 			writer,
 			"log",
@@ -99,10 +104,16 @@ func (r *referenceRenderer) renderReference(
 func renderIssueReference(
 	writer util.BufWriter,
 	authored []byte,
-	identity string,
+	boardID board.ID,
+	identity issue.ID,
 ) (ast.WalkStatus, error) {
-	id := []byte(identity)
-	destination := []byte("/issues/" + url.PathEscape(identity))
+	id := []byte(identity.String())
+	destination := []byte(boardEntityURL(
+		boardID,
+		"issue",
+		identity.String(),
+		"",
+	))
 	// Marker attributes let the browser mount its clipboard pill without
 	// reparsing rendered HTML. The fallback anchor preserves navigation before
 	// browser enhancement.
@@ -116,6 +127,19 @@ func renderIssueReference(
 	_, _ = writer.Write(util.EscapeHTML(authored))
 	_, _ = writer.WriteString(`</a></span>`)
 	return ast.WalkSkipChildren, nil
+}
+
+// boardEntityURL preserves each logical identity as one escaped route segment.
+func boardEntityURL(
+	boardID board.ID,
+	kind string,
+	identity string,
+	fragment string,
+) string {
+	path := "/board/" + boardID.String() + "/" + kind + "/" + identity
+	rawPath := "/board/" + url.PathEscape(boardID.String()) +
+		"/" + kind + "/" + url.PathEscape(identity)
+	return (&url.URL{Path: path, RawPath: rawPath, Fragment: fragment}).String()
 }
 
 func renderObjectReference(

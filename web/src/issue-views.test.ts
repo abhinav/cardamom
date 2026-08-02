@@ -87,6 +87,9 @@ describe("kanban board", () => {
     expect(markup).toContain(">In progress</h2>");
     expect(markup).not.toContain(">Waiting</h2>");
     expect(markup.match(/class="kanban-column"/g)).toHaveLength(1);
+    expect(markup).toContain(
+      'href="/board/board-1/issue/cm-active"',
+    );
   });
 
   it("shows empty columns in their existing order when enabled", () => {

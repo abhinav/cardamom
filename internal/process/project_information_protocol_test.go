@@ -258,15 +258,17 @@ func TestWebProtocolReadOnlyAccess(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, projectList.Msg.GetProjects(), 1)
 
+	contentMux := http.NewServeMux()
+	contentMux.Handle(binding.attachmentContentPattern, binding.attachmentContent)
 	for _, method := range []string{http.MethodGet, http.MethodHead} {
 		request := httptest.NewRequest(
 			method,
-			binding.attachmentContentPath+attachmentID+"/content",
+			"/board/"+*namespace.BoardID+"/attachment/"+attachmentID,
 			nil,
 		)
 		response := httptest.NewRecorder()
 
-		binding.attachmentContent.ServeHTTP(response, request)
+		contentMux.ServeHTTP(response, request)
 
 		assert.Equal(t, http.StatusOK, response.Code)
 		if method == http.MethodGet {

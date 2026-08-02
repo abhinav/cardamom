@@ -239,7 +239,7 @@ describe("attachment web workflow", () => {
       ),
     ).toEqual({
       available: true,
-      href: "/attachments/attachment-id/content?board_id=board%20with%20spaces",
+      href: "/board/board%20with%20spaces/attachment/attachment-id",
       label: "Download",
     });
     expect(

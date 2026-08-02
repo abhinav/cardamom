@@ -18,7 +18,7 @@ func TestNewApplicationHandler_rejectsArchiveTraversal(t *testing.T) {
 		testArchive(t, map[string]string{"../outside.txt": "no"}),
 		"/cardamom.private.v1.",
 		http.NotFoundHandler(),
-		"/attachments/",
+		"/board/{boardID}/attachment/{attachmentID}",
 		http.NotFoundHandler(),
 	)
 
@@ -37,7 +37,7 @@ func TestNewApplicationHandler_servesConnectAndSPA(t *testing.T) {
 			_, err := io.WriteString(w, "connect")
 			require.NoError(t, err)
 		}),
-		"/attachments/",
+		"/board/{boardID}/attachment/{attachmentID}",
 		http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 			_, err := io.WriteString(w, "attachment")
 			require.NoError(t, err)
@@ -54,9 +54,9 @@ func TestNewApplicationHandler_servesConnectAndSPA(t *testing.T) {
 		{name: "ProjectConnect", path: "/cardamom.private.v1.ProjectService/GetBoard", wantStatus: http.StatusOK, wantBody: "connect"},
 		{name: "IssueConnect", path: "/cardamom.private.v1.IssueService/GetIssue", wantStatus: http.StatusOK, wantBody: "connect"},
 		{name: "DumpConnect", path: "/cardamom.private.v1.DumpService/RenderDump", wantStatus: http.StatusOK, wantBody: "connect"},
-		{name: "AttachmentContent", path: "/attachments/att_example/content", wantStatus: http.StatusOK, wantBody: "attachment"},
+		{name: "AttachmentContent", path: "/board/board-1/attachment/att_example", wantStatus: http.StatusOK, wantBody: "attachment"},
 		{name: "Asset", path: "/assets/application.js", wantStatus: http.StatusOK, wantBody: "console.log('cardamom')"},
-		{name: "BrowserRoute", path: "/issues/an-1", wantStatus: http.StatusOK, wantBody: "<main>cardamom</main>"},
+		{name: "BrowserRoute", path: "/board/board-1/issue/an-1", wantStatus: http.StatusOK, wantBody: "<main>cardamom</main>"},
 		{name: "MissingAsset", path: "/assets/missing.js", wantStatus: http.StatusNotFound, wantBody: "404 page not found\n"},
 	}
 	for _, tt := range tests {

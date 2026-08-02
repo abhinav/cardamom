@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router";
 
 import type { AttachmentClient } from "./api.ts";
 import {
+  issuePath,
   scopeKey,
   toBoardScopeMessage,
   type BoardScopeSelection,
@@ -233,7 +234,7 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
           boardId={creationBoardId}
           onCreated={(issueId) => {
             setCreating(false);
-            navigate(`/issues/${encodeURIComponent(issueId)}`);
+            navigate(issuePath(creationBoardId, issueId));
           }}
           onDismiss={() => setCreating(false)}
         />
@@ -564,14 +565,14 @@ function IssueCard({
       <div className="issue-card-topline">
         <Link
           className="issue-id"
-          to={`/issues/${encodeURIComponent(issue.id)}`}
+          to={issuePath(issue.boardId, issue.id)}
         >
           {issue.id}
         </Link>
         <span className="issue-priority">P{issue.priority}</span>
       </div>
       <h3>
-        <Link to={`/issues/${encodeURIComponent(issue.id)}`}>
+        <Link to={issuePath(issue.boardId, issue.id)}>
           {issue.title}
         </Link>
       </h3>
@@ -626,13 +627,13 @@ function IssueList({
                 <td>
                   <Link
                     className="issue-id"
-                    to={`/issues/${encodeURIComponent(issue.id)}`}
+                    to={issuePath(issue.boardId, issue.id)}
                   >
                     {issue.id}
                   </Link>
                 </td>
                 <td className="issue-title-cell">
-                  <Link to={`/issues/${encodeURIComponent(issue.id)}`}>
+                  <Link to={issuePath(issue.boardId, issue.id)}>
                     {issue.title}
                   </Link>
                   {issue.labels.length > 0 && (
@@ -660,7 +661,7 @@ function IssueList({
             <div className="issue-record-heading">
               <Link
                 className="issue-id"
-                to={`/issues/${encodeURIComponent(issue.id)}`}
+                to={issuePath(issue.boardId, issue.id)}
               >
                 {issue.id}
               </Link>
@@ -669,7 +670,7 @@ function IssueList({
             </div>
             <Link
               className="issue-record-title"
-              to={`/issues/${encodeURIComponent(issue.id)}`}
+              to={issuePath(issue.boardId, issue.id)}
             >
               {issue.title}
             </Link>

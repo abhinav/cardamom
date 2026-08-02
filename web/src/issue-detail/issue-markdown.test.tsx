@@ -74,7 +74,9 @@ describe("issue Markdown presentation", () => {
     const marker = {
       dataset: { issueReference: "cm-task" },
       getAttribute: vi.fn((name: string) =>
-        name === "data-issue-reference-href" ? "/issues/cm-task" : null,
+        name === "data-issue-reference-href"
+          ? "/board/board-1/issue/cm-task"
+          : null,
       ),
       replaceChildren: vi.fn(),
     };
@@ -87,7 +89,7 @@ describe("issue Markdown presentation", () => {
 
     expect(first).toEqual([{
       element: marker,
-      href: "/issues/cm-task",
+      href: "/board/board-1/issue/cm-task",
       id: "cm-task",
     }]);
     expect(second).toEqual(first);
@@ -102,7 +104,7 @@ describe("issue Markdown presentation", () => {
         cardamomReferenceLabel: "%log_0123456789abcdef0123456789abcdef",
       },
       getAttribute: vi.fn(() =>
-        "/issues/cm-owner#log_0123456789abcdef0123456789abcdef"
+        "/board/board-1/issue/cm-owner#log_0123456789abcdef0123456789abcdef"
       ),
       replaceChildren: vi.fn(),
     };
@@ -113,7 +115,7 @@ describe("issue Markdown presentation", () => {
         cardamomReferenceLabel: "diagnostic report.pdf",
       },
       getAttribute: vi.fn(() =>
-        "/attachments/att_aaaaaaaaaaaaaaaaaaaaaaaaaa/content?board_id=board-1"
+        "/board/board-1/attachment/att_aaaaaaaaaaaaaaaaaaaaaaaaaa"
       ),
       replaceChildren: vi.fn(),
     };
@@ -124,14 +126,14 @@ describe("issue Markdown presentation", () => {
     expect(markdownObjectReferenceTargets(root)).toEqual([
       {
         element: log,
-        href: "/issues/cm-owner#log_0123456789abcdef0123456789abcdef",
+        href: "/board/board-1/issue/cm-owner#log_0123456789abcdef0123456789abcdef",
         id: "log_0123456789abcdef0123456789abcdef",
         kind: "log",
         label: "%log_0123456789abcdef0123456789abcdef",
       },
       {
         element: attachment,
-        href: "/attachments/att_aaaaaaaaaaaaaaaaaaaaaaaaaa/content?board_id=board-1",
+        href: "/board/board-1/attachment/att_aaaaaaaaaaaaaaaaaaaaaaaaaa",
         id: "att_aaaaaaaaaaaaaaaaaaaaaaaaaa",
         kind: "attachment",
         label: "diagnostic report.pdf",

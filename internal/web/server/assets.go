@@ -26,13 +26,13 @@ func newApplicationHandler(
 	archive []byte,
 	connectPath string,
 	connectHandler http.Handler,
-	attachmentContentPath string,
+	attachmentContentPattern string,
 	attachmentContentHandler http.Handler,
 ) (http.Handler, error) {
 	if err := validateBackendHandlers(
 		connectPath,
 		connectHandler,
-		attachmentContentPath,
+		attachmentContentPattern,
 		attachmentContentHandler,
 	); err != nil {
 		return nil, err
@@ -47,17 +47,7 @@ func newApplicationHandler(
 		return nil, errors.New("web archive does not contain index.html")
 	}
 
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if serveBackendHandler(
-			w,
-			r,
-			connectPath,
-			connectHandler,
-			attachmentContentPath,
-			attachmentContentHandler,
-		) {
-			return
-		}
+	fallback := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.Header().Set("Allow", "GET, HEAD")
 			http.Error(w, http.StatusText(http.StatusMethodNotAllowed), http.StatusMethodNotAllowed)
@@ -78,13 +68,20 @@ func newApplicationHandler(
 			return
 		}
 		http.ServeContent(w, r, "index.html", time.Time{}, bytes.NewReader(index))
-	}), nil
+	})
+	return composeApplicationHandler(
+		connectPath,
+		connectHandler,
+		attachmentContentPattern,
+		attachmentContentHandler,
+		fallback,
+	), nil
 }
 
 func validateBackendHandlers(
 	connectPath string,
 	connectHandler http.Handler,
-	attachmentContentPath string,
+	attachmentContentPattern string,
 	attachmentContentHandler http.Handler,
 ) error {
 	if connectHandler == nil {
@@ -96,34 +93,33 @@ func validateBackendHandlers(
 	if attachmentContentHandler == nil {
 		return errors.New("attachment content handler is required")
 	}
-	if !strings.HasPrefix(attachmentContentPath, "/") ||
-		attachmentContentPath == "/" {
+	if !strings.HasPrefix(attachmentContentPattern, "/") ||
+		attachmentContentPattern == "/" {
 		return fmt.Errorf(
-			"attachment content handler path %q must be an absolute non-root prefix",
-			attachmentContentPath,
+			"attachment content handler pattern %q must be an absolute non-root pattern",
+			attachmentContentPattern,
 		)
 	}
 	return nil
 }
 
-func serveBackendHandler(
-	w http.ResponseWriter,
-	r *http.Request,
+func composeApplicationHandler(
 	connectPath string,
 	connectHandler http.Handler,
-	attachmentContentPath string,
+	attachmentContentPattern string,
 	attachmentContentHandler http.Handler,
-) bool {
-	switch {
-	case strings.HasPrefix(r.URL.Path, connectPath):
-		connectHandler.ServeHTTP(w, r)
-		return true
-	case strings.HasPrefix(r.URL.Path, attachmentContentPath):
-		attachmentContentHandler.ServeHTTP(w, r)
-		return true
-	default:
-		return false
-	}
+	fallback http.Handler,
+) http.Handler {
+	routes := http.NewServeMux()
+	routes.Handle(attachmentContentPattern, attachmentContentHandler)
+	routes.Handle("/", fallback)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, connectPath) {
+			connectHandler.ServeHTTP(w, r)
+			return
+		}
+		routes.ServeHTTP(w, r)
+	})
 }
 
 // readArchive converts the generated payload into immutable path content while
