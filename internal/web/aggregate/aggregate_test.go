@@ -98,7 +98,7 @@ func TestNewAcceptsWritableSource(t *testing.T) {
 }
 
 func TestNewRejectsInvalidSourceAliases(t *testing.T) {
-	for _, alias := range []string{"", "source-name", "1source", "source/name"} {
+	for _, alias := range []string{"", "1source", "source/name"} {
 		t.Run(alias, func(t *testing.T) {
 			_, err := New(t.Context(), Config{
 				Sources: []SourceConfig{{Alias: alias, URL: mustURL(t, "http://source.test")}},
@@ -107,6 +107,23 @@ func TestNewRejectsInvalidSourceAliases(t *testing.T) {
 			assert.Contains(t, err.Error(), "source alias")
 		})
 	}
+}
+
+func TestNewAcceptsHyphenatedSourceAlias(t *testing.T) {
+	aggregate, err := New(t.Context(), Config{
+		Sources: []SourceConfig{{
+			Alias: "source-name",
+			URL:   mustURL(t, "http://source.test"),
+		}},
+	})
+	require.NoError(t, err)
+
+	bootstrap, err := newAggregateClient(t, aggregate).GetBootstrap(
+		t.Context(), connect.NewRequest(&v1.GetBootstrapRequest{}),
+	)
+	require.NoError(t, err)
+	require.Len(t, bootstrap.Msg.GetSources(), 1)
+	assert.Equal(t, "source-name", bootstrap.Msg.GetSources()[0].GetSource().GetSourceId())
 }
 
 func TestAggregateRoutesStateAndAttachmentsToSource(t *testing.T) {

@@ -93,7 +93,7 @@ type boardRoute struct {
 	boardID string
 }
 
-var sourceAliasPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_]*$`)
+var sourceAliasPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
 
 // New probes configured sources and builds a storeless aggregate server.
 // Unavailable or incompatible sources remain visible in bootstrap diagnostics
