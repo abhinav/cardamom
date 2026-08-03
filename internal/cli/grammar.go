@@ -6,8 +6,8 @@ import "github.com/alecthomas/kong"
 // completion. Command-family files add syntax and Run methods to these nodes;
 // commandTree does not perform domain work.
 type commandTree struct {
-	Store         string `name:"store" group:"global" placeholder:"PATH" help:"Physical Cardamom store directory. Overrides automatic discovery."`
-	BoardSelector string `name:"board" group:"global" predictor:"boards" placeholder:"BOARD" help:"Coordination board ID or exact name."`
+	Store         string `name:"store" group:"global" placeholder:"PATH" help:"Physical Cardamom store directory. Overrides automatic discovery ($CARDAMOM_STORE)."`
+	BoardSelector string `name:"board" group:"global" predictor:"boards" placeholder:"BOARD" help:"Coordination board ID or exact name ($CARDAMOM_BOARD)."`
 
 	// AmbientStore and AmbientBoardSelector retain environment defaults separately
 	// from explicit flags so aggregate web mode can discard local selectors.
