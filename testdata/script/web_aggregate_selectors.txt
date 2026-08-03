@@ -3,10 +3,13 @@
 env CARDAMOM_STORE=$WORK/missing-store
 env CARDAMOM_BOARD=missing-board
 
-! exec card web --no-browser --source primary=http://127.0.0.1:1
-! stdout .
-stderr 'embedded web assets: web assets not found'
-! stderr 'cannot be combined with --store or --board'
+[!assets] ! exec card web --no-browser --source primary=http://127.0.0.1:1
+[!assets] ! stdout .
+[!assets] stderr 'embedded web assets: web assets not found'
+[!assets] ! stderr 'cannot be combined with --store or --board'
+
+[assets] exec sh probe-aggregate-web.sh
+[assets] cmp stdout $WORK/golden/aggregate-probe.txt
 
 # Explicit selectors remain incompatible with aggregate web mode.
 ! exec card --store $WORK/explicit-store web --no-browser --source primary=http://127.0.0.1:1
@@ -16,3 +19,36 @@ stderr 'web: --source cannot be combined with --store or --board'
 ! exec card --board explicit-board web --no-browser --source primary=http://127.0.0.1:1
 ! stdout .
 stderr 'web: --source cannot be combined with --store or --board'
+
+-- probe-aggregate-web.sh --
+#!/bin/sh
+set -eu
+
+card web --bind 127.0.0.1 --port 0 --no-browser \
+  --source primary=http://127.0.0.1:1 >web.out 2>web.err &
+pid=$!
+trap 'kill -TERM "$pid" 2>/dev/null || true; wait "$pid" 2>/dev/null || true' EXIT
+
+i=0
+while [ "$i" -lt 100 ]; do
+  if grep -q '^web application available at ' web.out; then
+    kill -TERM "$pid"
+    wait "$pid" 2>/dev/null || true
+    trap - EXIT
+    echo 'aggregate web probe passed'
+    exit 0
+  fi
+  if ! kill -0 "$pid" 2>/dev/null; then
+    cat web.err >&2
+    wait "$pid" 2>/dev/null || true
+    exit 1
+  fi
+  i=$((i + 1))
+  sleep 0.02
+done
+
+cat web.err >&2
+exit 1
+
+-- golden/aggregate-probe.txt --
+aggregate web probe passed
