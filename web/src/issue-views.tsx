@@ -37,7 +37,7 @@ import {
 } from "./issue-collection.ts";
 import { IssueLabel, type SelectLabel } from "./issue-label.tsx";
 import { IssueStatusBadge } from "./issue-status.tsx";
-import { visibleIssueProvenance } from "./provenance.ts";
+import { issueIdentity, visibleIssueProvenance } from "./provenance.ts";
 import {
   buildIssueStreams,
   issueLoadControl,
@@ -49,6 +49,7 @@ import {
 
 interface SharedRouteProps {
   attachmentClient: AttachmentClient;
+  aggregateMode: boolean;
   boards: readonly BoardSummary[];
   projects: readonly Project[];
   sources?: readonly SourceCatalogEntry[];
@@ -125,11 +126,18 @@ function IssueCollectionRoute(props: IssueCollectionRouteProps) {
   const scope = useMemo(
     () =>
       toBoardScopeMessage(props.selection, {
+        aggregate: props.aggregateMode,
         boards: props.boards,
         projects: props.projects,
         sources: props.sources ?? [],
       }),
-    [props.boards, props.projects, props.sources, selectionIdentity],
+    [
+      props.aggregateMode,
+      props.boards,
+      props.projects,
+      props.sources,
+      selectionIdentity,
+    ],
   );
   if (scope === undefined) {
     return (
@@ -577,7 +585,7 @@ export function KanbanBoard({
                     boards={boards}
                     projects={projects}
                     issue={issue}
-                    key={issue.id}
+                    key={issueIdentity(issue)}
                     selectLabel={selectLabel}
                     showBoard={showBoard}
                     scope={scope}
@@ -680,7 +688,7 @@ function IssueList({
           </thead>
           <tbody>
             {issues.map((issue) => (
-              <tr key={issue.id}>
+              <tr key={issueIdentity(issue)}>
                 <td>
                   <Link
                     className="issue-id"
@@ -719,7 +727,7 @@ function IssueList({
       </div>
       <ul className="issue-records">
         {issues.map((issue) => (
-          <li key={issue.id}>
+          <li key={issueIdentity(issue)}>
             <div className="issue-record-heading">
               <Link
                 className="issue-id"

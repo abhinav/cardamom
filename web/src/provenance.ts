@@ -16,6 +16,17 @@ export interface Provenance {
   board?: string;
 }
 
+/** issueIdentity identifies an issue within its source-owned board. */
+export function issueIdentity(
+  issue: Pick<IssueSummary, "source" | "boardId" | "id">,
+): string {
+  return JSON.stringify([
+    issue.source?.sourceId ?? "",
+    issue.boardId,
+    issue.id,
+  ]);
+}
+
 /** issueProvenance resolves source, project, and board labels for an issue. */
 export function issueProvenance(
   issue: IssueSummary,

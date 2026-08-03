@@ -12,7 +12,9 @@ import {
   type IssueSummary,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import { ListIssuesResponseSchema } from "./gen/cardamom/private/v1/issue_pb.ts";
+import { SourceRefSchema } from "./gen/cardamom/private/v1/source_pb.ts";
 import { defaultBoardView, defaultListView } from "./issue-collection.ts";
+import { issueIdentity } from "./provenance.ts";
 import {
   buildIssueStreams,
   issueLoadControl,
@@ -199,6 +201,33 @@ describe("issue page state", () => {
       "cm-open",
       "cm-active",
     ]);
+  });
+
+  it("keeps matching IDs from separate aggregate sources", () => {
+    const aggregate = projectIssuePages(
+      [stream("status:1", "Open"), stream("status:3", "In progress")],
+      [
+        {
+          key: "status:1",
+          pages: [response([issue("cm-shared", "builder", "board-1")])],
+          fetching: false,
+          fetchingNextPage: false,
+        },
+        {
+          key: "status:3",
+          pages: [response([issue("cm-shared", "laptop", "board-1")])],
+          fetching: false,
+          fetchingNextPage: false,
+        },
+      ],
+      false,
+    );
+
+    expect(issuePageIssues(aggregate).map((item) => item.source?.sourceId)).toEqual([
+      "builder",
+      "laptop",
+    ]);
+    expect([...new Set(issuePageIssues(aggregate).map(issueIdentity))]).toHaveLength(2);
   });
 
   it("keeps the collection surface mounted while a new query loads", () => {
@@ -412,11 +441,15 @@ function response(
   });
 }
 
-function issue(id: string): IssueSummary {
+function issue(
+  id: string,
+  sourceId?: string,
+  boardId = "board-1",
+): IssueSummary {
   return {
     $typeName: "cardamom.private.v1.IssueSummary",
     id,
-    boardId: "board-1",
+    boardId,
     title: id,
     type: IssueType.TASK,
     lifecycle: 1,
@@ -424,5 +457,8 @@ function issue(id: string): IssueSummary {
     priority: 0,
     labels: [],
     blocked: false,
+    ...(sourceId === undefined
+      ? {}
+      : { source: create(SourceRefSchema, { sourceId }) }),
   };
 }

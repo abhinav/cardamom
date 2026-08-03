@@ -25,6 +25,8 @@ export type BoardScopeSelection =
 
 /** BoardScopeCatalog contains bootstrap metadata needed to resolve routes. */
 export interface BoardScopeCatalog {
+  /** aggregate reports whether the catalog comes from an aggregate server. */
+  aggregate?: boolean;
   boards: readonly BoardSummary[];
   projects: readonly Project[];
   sources: readonly SourceCatalogEntry[];
@@ -128,7 +130,7 @@ export function resolveBoardScopeSelection(
     return selection;
   }
   const matches = catalog.boards.filter((board) => board.id === selection.boardId);
-  if (matches.length > 1 && catalog.sources.length > 0) {
+  if (matches.length > 1 && catalog.aggregate) {
     return { kind: "ambiguous", boardId: selection.boardId };
   }
   return {
@@ -155,7 +157,7 @@ export function toBoardScopeMessage(
     return undefined;
   }
   if (selection.kind === "all") {
-    if (catalog !== undefined && (catalog.sources?.length ?? 0) > 0) {
+    if (catalog?.aggregate) {
       if (selection.projectId !== undefined) {
         const project = catalog.projects.find(
           (candidate) =>

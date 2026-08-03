@@ -333,10 +333,9 @@ func (s *Server) serveAttachmentContent(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	target := *route.source.config.URL
-	target.Path = "/board/" + boardID.String() +
-		"/attachment/" + attachmentID.String()
-	target.RawPath = "/board/" + url.PathEscape(boardID.String()) +
-		"/attachment/" + url.PathEscape(attachmentID.String())
+	target = *target.JoinPath(
+		"board", boardID.String(), "attachment", attachmentID.String(),
+	)
 	target.RawQuery = ""
 	target.Fragment = ""
 	request, err := http.NewRequestWithContext(

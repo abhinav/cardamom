@@ -92,6 +92,7 @@ describe("board scope boundary", () => {
       storeLineageId: "lineage-builder",
     });
     const catalog = {
+      aggregate: true,
       sources: [create(SourceCatalogEntrySchema, { source })],
       projects: [
         create(ProjectSchema, {
@@ -140,5 +141,35 @@ describe("board scope boundary", () => {
     expect(toBoardScopeMessage(boardSelection, catalog)?.selection.case).toBe(
       "boardId",
     );
+  });
+
+  it("uses all boards for a local catalog that identifies its source", () => {
+    const source = create(SourceRefSchema, {
+      sourceId: "local",
+      storeLineageId: "lineage-local",
+    });
+    const catalog = {
+      aggregate: false,
+      sources: [create(SourceCatalogEntrySchema, { source })],
+      projects: [
+        create(ProjectSchema, {
+          id: "project-1",
+          name: "Local",
+          source,
+        }),
+      ],
+      boards: [
+        create(BoardSummarySchema, {
+          id: "board-1",
+          projectId: "project-1",
+          name: "Primary",
+          source,
+        }),
+      ],
+    };
+
+    const scope = toBoardScopeMessage({ kind: "all" }, catalog);
+
+    expect(scope?.selection.case).toBe("allBoards");
   });
 });

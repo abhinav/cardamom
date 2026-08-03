@@ -132,7 +132,9 @@ function LoadedApp({
   const location = useLocation();
   const pathname = location.pathname;
   const sources = bootstrap.sources ?? [];
+  const aggregateMode = bootstrap.aggregateStatus !== undefined;
   const catalog = {
+    aggregate: aggregateMode,
     boards: bootstrap.boards,
     projects: bootstrap.projects,
     sources,
@@ -144,7 +146,7 @@ function LoadedApp({
   const selectionKey = scopeKey(selection);
   const scope = useMemo(
     () => toBoardScopeMessage(selection, catalog),
-    [selectionKey, bootstrap.boards, bootstrap.projects, sources],
+    [aggregateMode, selectionKey, bootstrap.boards, bootstrap.projects, sources],
   );
   const [streamStatus, setStreamStatus] = useState<StreamStatus>(
     scope === undefined ? "offline" : "connecting",
@@ -177,7 +179,7 @@ function LoadedApp({
     <ServerAccessProvider accessMode={bootstrap.accessMode}>
       <ApplicationShell
         attachmentClient={attachmentClient}
-        aggregateMode={sources.length > 0}
+        aggregateMode={aggregateMode}
         aggregateStatus={bootstrap.aggregateStatus}
         boards={bootstrap.boards}
         preferences={preferences}
@@ -587,6 +589,7 @@ function RouteContent({
     <BoardRoute
       actor={preferences.actor}
       attachmentClient={attachmentClient}
+      aggregateMode={aggregateMode}
       boards={boards}
       projects={projects}
       sources={sources}
@@ -616,6 +619,7 @@ function RouteContent({
     <ListRoute
       actor={preferences.actor}
       attachmentClient={attachmentClient}
+      aggregateMode={aggregateMode}
       boards={boards}
       projects={projects}
       sources={sources}

@@ -31,6 +31,7 @@ import {
   type IssueGrouping,
   type IssueViewPreferences,
 } from "./issue-collection.ts";
+import { issueIdentity } from "./provenance.ts";
 import { issueStatusPresentation } from "./issue-status.tsx";
 import { issueCollectionQueryOptions } from "./query-runtime.ts";
 
@@ -171,7 +172,7 @@ export interface IssuePageQuery {
   error?: Error;
 }
 
-/** projectIssuePages preserves display order while removing cross-stream duplicates. */
+/** projectIssuePages preserves display order while removing duplicate issue identities. */
 export function projectIssuePages(
   streams: readonly IssueStream[],
   queries: readonly IssuePageQuery[],
@@ -187,10 +188,11 @@ export function projectIssuePages(
       completed = true;
     }
     const issues = pages.flatMap((page) => page.issues).filter((issue) => {
-      if (seen.has(issue.id)) {
+      const identity = issueIdentity(issue);
+      if (seen.has(identity)) {
         return false;
       }
-      seen.add(issue.id);
+      seen.add(identity);
       return true;
     });
     const lastPage = pages.at(-1);

@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/http/httputil"
 	"net/url"
 	"strings"
 	"testing"
@@ -268,9 +269,14 @@ func TestAttachmentContentProxyPreservesRangeAndConditionalHeaders(t *testing.T)
 		w.WriteHeader(http.StatusPartialContent)
 		_, _ = io.WriteString(w, "2345")
 	}))
+	mountedSource := httptest.NewServer(http.StripPrefix(
+		"/source",
+		httputil.NewSingleHostReverseProxy(mustURL(t, source.URL)),
+	))
+	t.Cleanup(mountedSource.Close)
 
 	aggregate, err := New(t.Context(), Config{
-		Sources: []SourceConfig{{Alias: "media", URL: mustURL(t, source.URL)}},
+		Sources: []SourceConfig{{Alias: "media", URL: mustURL(t, mountedSource.URL+"/source")}},
 	})
 	require.NoError(t, err)
 	binding := aggregate.Binding()
