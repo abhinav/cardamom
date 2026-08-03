@@ -6,6 +6,7 @@ import "buf/validate/validate.proto";
 import "cardamom/private/v1/content.proto";
 import "cardamom/private/v1/issue.proto";
 import "cardamom/private/v1/mutation.proto";
+import "cardamom/private/v1/source.proto";
 import "google/protobuf/timestamp.proto";
 
 // LogPost is one actor-authored immutable Log event.
@@ -65,6 +66,9 @@ message LogEntry {
     // state_snapshot marks State preserved by a commit.
     StateSnapshot state_snapshot = 7;
   }
+
+  // source identifies the server that supplied this entry in aggregate mode.
+  optional SourceRef source = 9;
 }
 
 // ListLogEntriesRequest identifies one issue's log record.
@@ -74,12 +78,24 @@ message ListLogEntriesRequest {
 
   // direction selects chronological or reverse-chronological order.
   SortDirection direction = 2;
+
+  // source identifies the aggregate source that owns issue_id when present.
+  optional SourceRef source = 3;
+
+  // board_id identifies the source-local board that owns issue_id when set.
+  optional string board_id = 4;
+
+  // presentation supplies the route root used by source Markdown rendering.
+  optional PresentationContext presentation = 5;
 }
 
 // ListLogEntriesResponse contains log entries in requested order.
 message ListLogEntriesResponse {
   // log_entries contains immutable issue records in requested order.
   repeated LogEntry log_entries = 1;
+
+  // aggregate_status reports source completeness in aggregate mode.
+  AggregateStatus aggregate_status = 2;
 }
 
 // AddLogEntryRequest appends one attributed Markdown log entry.
@@ -104,6 +120,12 @@ message AddLogEntryResponse {
 message GetStateRequest {
   // issue_id identifies the issue that owns the state.
   string issue_id = 1;
+
+  // source identifies the aggregate source that owns issue_id when present.
+  optional SourceRef source = 2;
+
+  // board_id identifies the source-local board that owns issue_id when set.
+  optional string board_id = 3;
 }
 
 // StateRecord is one attributed mutable recovery State.

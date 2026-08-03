@@ -6,6 +6,7 @@ import "cardamom/private/v1/content.proto";
 import "cardamom/private/v1/issue.proto";
 import "cardamom/private/v1/mutation.proto";
 import "cardamom/private/v1/scope.proto";
+import "cardamom/private/v1/source.proto";
 
 // ActionableCheckpoint contains evidence needed for an approve or deny
 // decision.
@@ -27,12 +28,18 @@ message ActionableCheckpoint {
 message ListActionableCheckpointsRequest {
   // scope selects one board or the aggregate of all boards.
   BoardScope scope = 1;
+
+  // presentation supplies the route root used by source Markdown rendering.
+  optional PresentationContext presentation = 2;
 }
 
 // ListActionableCheckpointsResponse contains checkpoints in domain order.
 message ListActionableCheckpointsResponse {
   // checkpoints contains currently actionable human decisions.
   repeated ActionableCheckpoint checkpoints = 1;
+
+  // aggregate_status reports source completeness in aggregate mode.
+  AggregateStatus aggregate_status = 2;
 }
 
 // ResolveCheckpointRequest approves or denies one checkpoint.

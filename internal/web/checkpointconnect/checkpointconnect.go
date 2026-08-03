@@ -135,10 +135,13 @@ func (s *Service) ListActionableCheckpoints(
 	response := &privatev1.ListActionableCheckpointsResponse{
 		Checkpoints: make([]*privatev1.ActionableCheckpoint, 0, len(ordered)),
 	}
+	views := s.views.WithRoutePrefix(request.Msg.GetPresentation().GetRoutePrefix())
 	for _, orderedValue := range ordered {
 		key := orderedValue.BoardID + "\x00" + orderedValue.Summary.Issue.ID
 		record := records[key]
-		converted, err := s.actionableCheckpoint(ctx, record.scoped, record.value)
+		converted, err := s.actionableCheckpoint(
+			ctx, record.scoped, record.value, views,
+		)
 		if err != nil {
 			return nil, web.FromError(err)
 		}
@@ -220,6 +223,7 @@ func (s *Service) actionableCheckpoint(
 	ctx context.Context,
 	scoped scopedBoardReader,
 	checkpoint issue.CheckpointView,
+	views *issueview.Encoder,
 ) (*privatev1.ActionableCheckpoint, error) {
 	view, err := scoped.reader.ReadIssue(ctx, issue.ReadRequest{
 		IssueID:      checkpoint.ID,
@@ -234,7 +238,7 @@ func (s *Service) actionableCheckpoint(
 	if err != nil {
 		return nil, err
 	}
-	detail, err := s.views.Detail(ctx, scoped.board.ID(), view)
+	detail, err := views.Detail(ctx, scoped.board.ID(), view)
 	if err != nil {
 		return nil, err
 	}

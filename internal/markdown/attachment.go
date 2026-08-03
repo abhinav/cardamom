@@ -69,8 +69,13 @@ func NewWithReferences(
 func (r *Renderer) RenderBoard(
 	ctx context.Context,
 	boardID board.ID,
+	routePrefix string,
 	sources []string,
 ) ([]string, error) {
+	routePrefix, err := validateRoutePrefix(routePrefix)
+	if err != nil {
+		return nil, err
+	}
 	documents := make([]parsedDocument, len(sources))
 	references := make([]attachmentReference, 0)
 	attachmentIDs := make([]attachment.ID, 0)
@@ -140,6 +145,7 @@ func (r *Renderer) RenderBoard(
 	}
 	for _, reference := range references {
 		applyAttachmentReference(
+			routePrefix,
 			boardID,
 			reference,
 			attachmentResolutions[reference.id],
@@ -148,6 +154,7 @@ func (r *Renderer) RenderBoard(
 
 	presentation := &referenceRenderer{
 		boardID:     boardID,
+		routePrefix: routePrefix,
 		attachments: attachmentResolutions,
 		issues:      issueReferences,
 		logs:        logReferences,
@@ -373,6 +380,7 @@ func attachmentDestination(node ast.Node) (string, bool) {
 }
 
 func applyAttachmentReference(
+	routePrefix string,
 	boardID board.ID,
 	reference attachmentReference,
 	resolution attachment.Resolution,
@@ -397,7 +405,7 @@ func applyAttachmentReference(
 	}
 
 	value := resolution.Attachment
-	destination := attachmentContentURL(boardID, reference.id)
+	destination := attachmentContentURL(routePrefix, boardID, reference.id)
 	switch node := reference.node.(type) {
 	case *ast.Link:
 		node.Destination = []byte(destination)
@@ -440,8 +448,9 @@ func appendAttachmentLabel(node ast.Node, current, fallback string) {
 	}
 }
 
-func attachmentContentURL(boardID board.ID, attachmentID attachment.ID) string {
+func attachmentContentURL(routePrefix string, boardID board.ID, attachmentID attachment.ID) string {
 	return boardEntityURL(
+		routePrefix,
 		boardID,
 		"attachment",
 		attachmentID.String(),

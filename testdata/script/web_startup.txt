@@ -12,7 +12,7 @@ cmp stderr $WORK/golden/dev-error.txt
 # Release mode serves Connect and the browser application on one listener.
 exec sh probe-web.sh
 cmp stdout $WORK/golden/probe.txt
-cmpjson bootstrap.json $WORK/golden/bootstrap.json
+cmpjson bootstrap-stable.json $WORK/golden/bootstrap.json
 cmp missing.status $WORK/golden/missing-status.txt
 cmp missing.body $WORK/golden/missing-body.txt
 
@@ -57,6 +57,8 @@ while [ "$i" -lt 100 ]; do
   sleep 0.02
 done
 
+jq 'del(.sources[].source.storeLineageId)' bootstrap.json >bootstrap-stable.json
+
 curl --fail --silent "$url/" >shell.body
 grep '<div id="app"></div>' shell.body >/dev/null
 curl --fail --silent \
@@ -72,7 +74,7 @@ trap - EXIT
 echo 'web probe passed'
 
 -- golden/bootstrap.json --
-{"projects":[{"id":"project_00000000000000000000","name":"script-web_startup"}],"boards":[{"id":"board_00000000000000000000","projectId":"project_00000000000000000000","name":"script-web_startup"}],"serverDefaultBoardId":"board_00000000000000000000","issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"schemaVersion":"20260729090000","version":"dev","accessMode":"ACCESS_MODE_READ_WRITE"}
+{"projects":[{"id":"project_00000000000000000000","name":"script-web_startup"}],"boards":[{"id":"board_00000000000000000000","projectId":"project_00000000000000000000","name":"script-web_startup"}],"serverDefaultBoardId":"board_00000000000000000000","issueTypes":["ISSUE_TYPE_WORKSTREAM","ISSUE_TYPE_TASK","ISSUE_TYPE_CHECKPOINT","ISSUE_TYPE_ROUTINE"],"issueStatuses":["ISSUE_STATUS_READY","ISSUE_STATUS_BLOCKED","ISSUE_STATUS_IN_PROGRESS","ISSUE_STATUS_WAITING","ISSUE_STATUS_CLOSED","ISSUE_STATUS_CANCELLED"],"schemaVersion":"20260729090000","version":"dev","accessMode":"ACCESS_MODE_READ_WRITE","sources":[{"source":{},"health":"SOURCE_HEALTH_HEALTHY","version":"dev","schemaVersion":"20260729090000"}]}
 -- golden/dev-error.txt --
 error: unknown flag --dev
 -- golden/probe.txt --

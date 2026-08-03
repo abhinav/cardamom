@@ -5,6 +5,8 @@ package cardamom.private.v1;
 import "cardamom/private/v1/content.proto";
 import "cardamom/private/v1/issue.proto";
 import "cardamom/private/v1/mutation.proto";
+import "cardamom/private/v1/scope.proto";
+import "cardamom/private/v1/source.proto";
 import "google/protobuf/timestamp.proto";
 
 // AccessMode identifies the server-side write policy for this web invocation.
@@ -26,6 +28,9 @@ message Project {
 
   // name is the human-readable project name.
   string name = 2;
+
+  // source identifies the server that supplied this project in aggregate mode.
+  optional SourceRef source = 3;
 }
 
 // BoardSummary identifies a board in the server catalog.
@@ -38,6 +43,9 @@ message BoardSummary {
 
   // name is the human-readable board name.
   string name = 3;
+
+  // source identifies the server that supplied this board in aggregate mode.
+  optional SourceRef source = 4;
 }
 
 // Board contains browser-visible board settings and rendered context.
@@ -56,6 +64,9 @@ message Board {
 
   // created_at is the time at which the board was created.
   google.protobuf.Timestamp created_at = 5;
+
+  // source identifies the server that supplied this board in aggregate mode.
+  optional SourceRef source = 6;
 }
 
 // ListProjectsRequest requests every project in catalog order.
@@ -107,12 +118,27 @@ message GetBootstrapResponse {
 
   // access_mode is the server-side write policy for this web invocation.
   AccessMode access_mode = 9;
+
+  // sources describes every configured source and its latest health.
+  repeated SourceCatalogEntry sources = 10;
+
+  // aggregate_status reports whether every configured source contributed.
+  AggregateStatus aggregate_status = 11;
+
+  // default_scope is the deterministic initial board scope for the browser.
+  BoardScope default_scope = 14;
 }
 
 // GetBoardRequest identifies one board by stable ID.
 message GetBoardRequest {
   // board_id identifies the board to read.
   string board_id = 1;
+
+  // source identifies the aggregate source that owns board_id when present.
+  optional SourceRef source = 2;
+
+  // presentation supplies the route root used by source Markdown rendering.
+  optional PresentationContext presentation = 3;
 }
 
 // GetBoardResponse contains the requested board.

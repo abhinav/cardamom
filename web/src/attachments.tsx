@@ -16,6 +16,7 @@ import {
   type Attachment,
   type ListAttachmentsResponse,
 } from "./gen/cardamom/private/v1/attachment_pb.ts";
+import type { SourceRef } from "./gen/cardamom/private/v1/source_pb.ts";
 import { WatchResource } from "./gen/cardamom/private/v1/change_pb.ts";
 import { runInvalidatingMutation } from "./query-runtime.ts";
 
@@ -52,11 +53,13 @@ interface AttachmentContent {
 
 /** attachmentListInput selects the first stable metadata page for one owner. */
 export function attachmentListInput(
-  boardId: string,
-  issueId: string | undefined,
+	boardId: string,
+	issueId: string | undefined,
+	source?: SourceRef,
 ) {
-  return {
-    boardId,
+	return {
+		boardId,
+		...(source === undefined ? {} : { source }),
     ...(issueId === undefined ? {} : { issueId }),
     pageSize: attachmentPageSize,
     pageToken: "",
@@ -205,18 +208,20 @@ export function AttachmentPanel({
 }
 
 interface AttachmentRecordsProps {
-  boardId: string;
-  issueId?: string;
+	boardId: string;
+	issueId?: string;
+	source?: SourceRef;
 }
 
 /** AttachmentRecords renders one owner's stable records when any exist. */
 export function AttachmentRecords({
-  boardId,
-  issueId,
+	boardId,
+	issueId,
+	source,
 }: AttachmentRecordsProps) {
   const request = useInfiniteQuery(
     AttachmentService.method.listAttachments,
-    attachmentListInput(boardId, issueId),
+	attachmentListInput(boardId, issueId, source),
     {
       pageParamKey: "pageToken",
       getNextPageParam: nextAttachmentPageToken,

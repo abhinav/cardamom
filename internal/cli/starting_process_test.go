@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"context"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -257,6 +258,7 @@ func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 	}}
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Store = "/repo/.cardamom"
+	invocation.StoreExplicit = true
 	invocation.Board = "Mission"
 	invocation.Output = newOutput(&stdout, &stderr, true, false)
 
@@ -295,6 +297,87 @@ func TestWebCommandDelegatesLongRunningInvocation(t *testing.T) {
 		Notice: &stdout, Diagnostic: &stderr,
 	}, operation.request)
 	assert.Same(t, invocation.Context, operation.ctx)
+}
+
+func TestWebCommandRejectsAggregateWithLocalSelectors(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	operation := new(fakeWebOperation)
+	invocation := testInvocation(t, &stdout, &stderr)
+	invocation.Store = "/repo/.cardamom"
+	invocation.StoreExplicit = true
+	sourceURL, err := url.Parse("http://primary.test")
+	require.NoError(t, err)
+	command := &webCommand{
+		Sources: []WebSource{{Alias: "primary", URL: sourceURL}},
+	}
+
+	err = command.Run(invocation, operation)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "cannot be combined with --store or --board")
+	assert.False(t, operation.called)
+}
+
+func TestWebCommandParsesAndValidatesSources(t *testing.T) {
+	t.Run("RepeatedSources", func(t *testing.T) {
+		t.Setenv("CARDAMOM_STORE", "")
+		var stdout, stderr bytes.Buffer
+		operation := new(fakeWebOperation)
+		app, err := New(
+			testConfig(&stdout, &stderr),
+			kong.BindTo(operation, (*WebOperation)(nil)),
+		)
+		require.NoError(t, err)
+
+		exitCode := app.Run(t.Context(), []string{
+			"web", "--no-browser",
+			"--source", "primary=https://primary.example",
+			"--source", "backup=http://127.0.0.1:5758/card",
+		})
+
+		primaryURL, err := url.Parse("https://primary.example")
+		require.NoError(t, err)
+		backupURL, err := url.Parse("http://127.0.0.1:5758/card")
+		require.NoError(t, err)
+		assert.Equal(t, ExitSuccess, exitCode)
+		assert.Equal(t, "127.0.0.1", operation.request.Bind)
+		assert.Equal(t, 5757, operation.request.Port)
+		assert.True(t, operation.request.NoBrowser)
+		assert.Equal(t, []WebSource{
+			{Alias: "primary", URL: primaryURL},
+			{Alias: "backup", URL: backupURL},
+		}, operation.request.Sources)
+		assert.Same(t, &stdout, operation.request.Notice)
+		assert.Same(t, &stderr, operation.request.Diagnostic)
+	})
+
+	for _, test := range []struct {
+		name  string
+		value string
+	}{
+		{name: "MissingEquals", value: "primary"},
+		{name: "EmptyAlias", value: "=https://primary.example"},
+		{name: "RelativeURL", value: "primary=/card"},
+		{name: "UnsupportedScheme", value: "primary=ftp://primary.example"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			operation := new(fakeWebOperation)
+			app, err := New(
+				testConfig(&stdout, &stderr),
+				kong.BindTo(operation, (*WebOperation)(nil)),
+			)
+			require.NoError(t, err)
+
+			exitCode := app.Run(t.Context(), []string{
+				"web", "--no-browser", "--source", test.value,
+			})
+
+			assert.Equal(t, ExitUsage, exitCode)
+			assert.False(t, operation.called)
+			assert.Empty(t, stdout.String())
+			assert.Contains(t, stderr.String(), "source")
+		})
+	}
 }
 
 func TestWebCommandDefaultsToPort5757(t *testing.T) {

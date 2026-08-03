@@ -5,6 +5,10 @@ package markdown
 import (
 	"bytes"
 	"fmt"
+	"net/url"
+	"path"
+	"strings"
+	"unicode"
 
 	chromahtml "github.com/alecthomas/chroma/v2/formatters/html"
 	"github.com/yuin/goldmark"
@@ -63,6 +67,30 @@ func newGoldmarkWithReferences(references *referenceRenderer) goldmark.Markdown 
 func (r *Renderer) Render(source string) (string, error) {
 	parsed := r.parse(source)
 	return r.render(parsed)
+}
+
+const defaultRoutePrefix = "/board"
+
+func validateRoutePrefix(value string) (string, error) {
+	if value == "" {
+		return defaultRoutePrefix, nil
+	}
+	if value == "/" || !strings.HasPrefix(value, "/") {
+		return "", fmt.Errorf("route prefix %q must be a non-root relative path", value)
+	}
+	if strings.IndexFunc(value, unicode.IsControl) >= 0 {
+		return "", fmt.Errorf("route prefix %q contains a control character", value)
+	}
+	parsed, err := url.Parse(value)
+	if err != nil {
+		return "", fmt.Errorf("route prefix %q is invalid: %w", value, err)
+	}
+	if parsed.IsAbs() || parsed.Host != "" || parsed.User != nil ||
+		parsed.RawQuery != "" || parsed.Fragment != "" || parsed.Opaque != "" ||
+		parsed.Path != value || path.Clean(value) != value {
+		return "", fmt.Errorf("route prefix %q must be a clean root-relative path", value)
+	}
+	return value, nil
 }
 
 type parsedDocument struct {

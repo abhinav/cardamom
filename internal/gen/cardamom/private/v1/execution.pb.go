@@ -80,9 +80,11 @@ func (x *ListReadyIssuesRequest) GetLimit() uint32 {
 type ListReadyIssuesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issues contains open, unclaimed, executable issues without blockers.
-	Issues        []*IssueSummary `protobuf:"bytes,1,rep,name=issues,proto3" json:"issues,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Issues []*IssueSummary `protobuf:"bytes,1,rep,name=issues,proto3" json:"issues,omitempty"`
+	// aggregate_status reports source completeness in aggregate mode.
+	AggregateStatus *AggregateStatus `protobuf:"bytes,3,opt,name=aggregate_status,json=aggregateStatus,proto3" json:"aggregate_status,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListReadyIssuesResponse) Reset() {
@@ -118,6 +120,13 @@ func (*ListReadyIssuesResponse) Descriptor() ([]byte, []int) {
 func (x *ListReadyIssuesResponse) GetIssues() []*IssueSummary {
 	if x != nil {
 		return x.Issues
+	}
+	return nil
+}
+
+func (x *ListReadyIssuesResponse) GetAggregateStatus() *AggregateStatus {
+	if x != nil {
+		return x.AggregateStatus
 	}
 	return nil
 }
@@ -181,9 +190,11 @@ func (x *ListBlockedIssuesRequest) GetLimit() uint32 {
 type ListBlockedIssuesResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issues contains open, unclaimed, non-routine issues with prerequisites.
-	Issues        []*IssueSummary `protobuf:"bytes,1,rep,name=issues,proto3" json:"issues,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Issues []*IssueSummary `protobuf:"bytes,1,rep,name=issues,proto3" json:"issues,omitempty"`
+	// aggregate_status reports source completeness in aggregate mode.
+	AggregateStatus *AggregateStatus `protobuf:"bytes,3,opt,name=aggregate_status,json=aggregateStatus,proto3" json:"aggregate_status,omitempty"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *ListBlockedIssuesResponse) Reset() {
@@ -219,6 +230,13 @@ func (*ListBlockedIssuesResponse) Descriptor() ([]byte, []int) {
 func (x *ListBlockedIssuesResponse) GetIssues() []*IssueSummary {
 	if x != nil {
 		return x.Issues
+	}
+	return nil
+}
+
+func (x *ListBlockedIssuesResponse) GetAggregateStatus() *AggregateStatus {
+	if x != nil {
+		return x.AggregateStatus
 	}
 	return nil
 }
@@ -1051,17 +1069,19 @@ var File_cardamom_private_v1_execution_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_execution_proto_rawDesc = "" +
 	"\n" +
-	"#cardamom/private/v1/execution.proto\x12\x13cardamom.private.v1\x1a\x1fcardamom/private/v1/issue.proto\x1a\"cardamom/private/v1/mutation.proto\x1a\x1fcardamom/private/v1/scope.proto\"e\n" +
+	"#cardamom/private/v1/execution.proto\x12\x13cardamom.private.v1\x1a\x1fcardamom/private/v1/issue.proto\x1a\"cardamom/private/v1/mutation.proto\x1a\x1fcardamom/private/v1/scope.proto\x1a cardamom/private/v1/source.proto\"e\n" +
 	"\x16ListReadyIssuesRequest\x125\n" +
 	"\x05scope\x18\x01 \x01(\v2\x1f.cardamom.private.v1.BoardScopeR\x05scope\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\rR\x05limit\"T\n" +
+	"\x05limit\x18\x02 \x01(\rR\x05limit\"\xa5\x01\n" +
 	"\x17ListReadyIssuesResponse\x129\n" +
-	"\x06issues\x18\x01 \x03(\v2!.cardamom.private.v1.IssueSummaryR\x06issues\"g\n" +
+	"\x06issues\x18\x01 \x03(\v2!.cardamom.private.v1.IssueSummaryR\x06issues\x12O\n" +
+	"\x10aggregate_status\x18\x03 \x01(\v2$.cardamom.private.v1.AggregateStatusR\x0faggregateStatus\"g\n" +
 	"\x18ListBlockedIssuesRequest\x125\n" +
 	"\x05scope\x18\x01 \x01(\v2\x1f.cardamom.private.v1.BoardScopeR\x05scope\x12\x14\n" +
-	"\x05limit\x18\x02 \x01(\rR\x05limit\"V\n" +
+	"\x05limit\x18\x02 \x01(\rR\x05limit\"\xa7\x01\n" +
 	"\x19ListBlockedIssuesResponse\x129\n" +
-	"\x06issues\x18\x01 \x03(\v2!.cardamom.private.v1.IssueSummaryR\x06issues\"\xaa\x01\n" +
+	"\x06issues\x18\x01 \x03(\v2!.cardamom.private.v1.IssueSummaryR\x06issues\x12O\n" +
+	"\x10aggregate_status\x18\x03 \x01(\v2$.cardamom.private.v1.AggregateStatusR\x0faggregateStatus\"\xaa\x01\n" +
 	"\x11ClaimIssueRequest\x12\x19\n" +
 	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12>\n" +
 	"\acontext\x18\x02 \x01(\v2$.cardamom.private.v1.MutationContextR\acontext\x12(\n" +
@@ -1166,51 +1186,54 @@ var file_cardamom_private_v1_execution_proto_goTypes = []any{
 	(*ReopenIssuesResponse)(nil),      // 17: cardamom.private.v1.ReopenIssuesResponse
 	(*BoardScope)(nil),                // 18: cardamom.private.v1.BoardScope
 	(*IssueSummary)(nil),              // 19: cardamom.private.v1.IssueSummary
-	(*MutationContext)(nil),           // 20: cardamom.private.v1.MutationContext
-	(*IssueDetail)(nil),               // 21: cardamom.private.v1.IssueDetail
-	(IssueStatus)(0),                  // 22: cardamom.private.v1.IssueStatus
+	(*AggregateStatus)(nil),           // 20: cardamom.private.v1.AggregateStatus
+	(*MutationContext)(nil),           // 21: cardamom.private.v1.MutationContext
+	(*IssueDetail)(nil),               // 22: cardamom.private.v1.IssueDetail
+	(IssueStatus)(0),                  // 23: cardamom.private.v1.IssueStatus
 }
 var file_cardamom_private_v1_execution_proto_depIdxs = []int32{
 	18, // 0: cardamom.private.v1.ListReadyIssuesRequest.scope:type_name -> cardamom.private.v1.BoardScope
 	19, // 1: cardamom.private.v1.ListReadyIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
-	18, // 2: cardamom.private.v1.ListBlockedIssuesRequest.scope:type_name -> cardamom.private.v1.BoardScope
-	19, // 3: cardamom.private.v1.ListBlockedIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
-	20, // 4: cardamom.private.v1.ClaimIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
-	20, // 5: cardamom.private.v1.ClaimNextIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
-	21, // 6: cardamom.private.v1.ClaimIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
-	21, // 7: cardamom.private.v1.ClaimNextIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
-	20, // 8: cardamom.private.v1.ReleaseIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
-	21, // 9: cardamom.private.v1.ReleaseIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
-	20, // 10: cardamom.private.v1.CloseIssuesRequest.context:type_name -> cardamom.private.v1.MutationContext
-	19, // 11: cardamom.private.v1.CloseIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
-	20, // 12: cardamom.private.v1.CancelIssuesRequest.context:type_name -> cardamom.private.v1.MutationContext
-	19, // 13: cardamom.private.v1.CancelIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
-	20, // 14: cardamom.private.v1.ReopenIssuesRequest.context:type_name -> cardamom.private.v1.MutationContext
-	22, // 15: cardamom.private.v1.IssueStatusReference.status:type_name -> cardamom.private.v1.IssueStatus
-	19, // 16: cardamom.private.v1.ReopenedIssue.issue:type_name -> cardamom.private.v1.IssueSummary
-	15, // 17: cardamom.private.v1.ReopenedIssue.unresolved_prerequisites:type_name -> cardamom.private.v1.IssueStatusReference
-	16, // 18: cardamom.private.v1.ReopenIssuesResponse.issues:type_name -> cardamom.private.v1.ReopenedIssue
-	0,  // 19: cardamom.private.v1.ExecutionService.ListReadyIssues:input_type -> cardamom.private.v1.ListReadyIssuesRequest
-	2,  // 20: cardamom.private.v1.ExecutionService.ListBlockedIssues:input_type -> cardamom.private.v1.ListBlockedIssuesRequest
-	4,  // 21: cardamom.private.v1.ExecutionService.ClaimIssue:input_type -> cardamom.private.v1.ClaimIssueRequest
-	5,  // 22: cardamom.private.v1.ExecutionService.ClaimNextIssue:input_type -> cardamom.private.v1.ClaimNextIssueRequest
-	8,  // 23: cardamom.private.v1.ExecutionService.ReleaseIssue:input_type -> cardamom.private.v1.ReleaseIssueRequest
-	10, // 24: cardamom.private.v1.ExecutionService.CloseIssues:input_type -> cardamom.private.v1.CloseIssuesRequest
-	12, // 25: cardamom.private.v1.ExecutionService.CancelIssues:input_type -> cardamom.private.v1.CancelIssuesRequest
-	14, // 26: cardamom.private.v1.ExecutionService.ReopenIssues:input_type -> cardamom.private.v1.ReopenIssuesRequest
-	1,  // 27: cardamom.private.v1.ExecutionService.ListReadyIssues:output_type -> cardamom.private.v1.ListReadyIssuesResponse
-	3,  // 28: cardamom.private.v1.ExecutionService.ListBlockedIssues:output_type -> cardamom.private.v1.ListBlockedIssuesResponse
-	6,  // 29: cardamom.private.v1.ExecutionService.ClaimIssue:output_type -> cardamom.private.v1.ClaimIssueResponse
-	7,  // 30: cardamom.private.v1.ExecutionService.ClaimNextIssue:output_type -> cardamom.private.v1.ClaimNextIssueResponse
-	9,  // 31: cardamom.private.v1.ExecutionService.ReleaseIssue:output_type -> cardamom.private.v1.ReleaseIssueResponse
-	11, // 32: cardamom.private.v1.ExecutionService.CloseIssues:output_type -> cardamom.private.v1.CloseIssuesResponse
-	13, // 33: cardamom.private.v1.ExecutionService.CancelIssues:output_type -> cardamom.private.v1.CancelIssuesResponse
-	17, // 34: cardamom.private.v1.ExecutionService.ReopenIssues:output_type -> cardamom.private.v1.ReopenIssuesResponse
-	27, // [27:35] is the sub-list for method output_type
-	19, // [19:27] is the sub-list for method input_type
-	19, // [19:19] is the sub-list for extension type_name
-	19, // [19:19] is the sub-list for extension extendee
-	0,  // [0:19] is the sub-list for field type_name
+	20, // 2: cardamom.private.v1.ListReadyIssuesResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
+	18, // 3: cardamom.private.v1.ListBlockedIssuesRequest.scope:type_name -> cardamom.private.v1.BoardScope
+	19, // 4: cardamom.private.v1.ListBlockedIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
+	20, // 5: cardamom.private.v1.ListBlockedIssuesResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
+	21, // 6: cardamom.private.v1.ClaimIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
+	21, // 7: cardamom.private.v1.ClaimNextIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
+	22, // 8: cardamom.private.v1.ClaimIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
+	22, // 9: cardamom.private.v1.ClaimNextIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
+	21, // 10: cardamom.private.v1.ReleaseIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
+	22, // 11: cardamom.private.v1.ReleaseIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
+	21, // 12: cardamom.private.v1.CloseIssuesRequest.context:type_name -> cardamom.private.v1.MutationContext
+	19, // 13: cardamom.private.v1.CloseIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
+	21, // 14: cardamom.private.v1.CancelIssuesRequest.context:type_name -> cardamom.private.v1.MutationContext
+	19, // 15: cardamom.private.v1.CancelIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
+	21, // 16: cardamom.private.v1.ReopenIssuesRequest.context:type_name -> cardamom.private.v1.MutationContext
+	23, // 17: cardamom.private.v1.IssueStatusReference.status:type_name -> cardamom.private.v1.IssueStatus
+	19, // 18: cardamom.private.v1.ReopenedIssue.issue:type_name -> cardamom.private.v1.IssueSummary
+	15, // 19: cardamom.private.v1.ReopenedIssue.unresolved_prerequisites:type_name -> cardamom.private.v1.IssueStatusReference
+	16, // 20: cardamom.private.v1.ReopenIssuesResponse.issues:type_name -> cardamom.private.v1.ReopenedIssue
+	0,  // 21: cardamom.private.v1.ExecutionService.ListReadyIssues:input_type -> cardamom.private.v1.ListReadyIssuesRequest
+	2,  // 22: cardamom.private.v1.ExecutionService.ListBlockedIssues:input_type -> cardamom.private.v1.ListBlockedIssuesRequest
+	4,  // 23: cardamom.private.v1.ExecutionService.ClaimIssue:input_type -> cardamom.private.v1.ClaimIssueRequest
+	5,  // 24: cardamom.private.v1.ExecutionService.ClaimNextIssue:input_type -> cardamom.private.v1.ClaimNextIssueRequest
+	8,  // 25: cardamom.private.v1.ExecutionService.ReleaseIssue:input_type -> cardamom.private.v1.ReleaseIssueRequest
+	10, // 26: cardamom.private.v1.ExecutionService.CloseIssues:input_type -> cardamom.private.v1.CloseIssuesRequest
+	12, // 27: cardamom.private.v1.ExecutionService.CancelIssues:input_type -> cardamom.private.v1.CancelIssuesRequest
+	14, // 28: cardamom.private.v1.ExecutionService.ReopenIssues:input_type -> cardamom.private.v1.ReopenIssuesRequest
+	1,  // 29: cardamom.private.v1.ExecutionService.ListReadyIssues:output_type -> cardamom.private.v1.ListReadyIssuesResponse
+	3,  // 30: cardamom.private.v1.ExecutionService.ListBlockedIssues:output_type -> cardamom.private.v1.ListBlockedIssuesResponse
+	6,  // 31: cardamom.private.v1.ExecutionService.ClaimIssue:output_type -> cardamom.private.v1.ClaimIssueResponse
+	7,  // 32: cardamom.private.v1.ExecutionService.ClaimNextIssue:output_type -> cardamom.private.v1.ClaimNextIssueResponse
+	9,  // 33: cardamom.private.v1.ExecutionService.ReleaseIssue:output_type -> cardamom.private.v1.ReleaseIssueResponse
+	11, // 34: cardamom.private.v1.ExecutionService.CloseIssues:output_type -> cardamom.private.v1.CloseIssuesResponse
+	13, // 35: cardamom.private.v1.ExecutionService.CancelIssues:output_type -> cardamom.private.v1.CancelIssuesResponse
+	17, // 36: cardamom.private.v1.ExecutionService.ReopenIssues:output_type -> cardamom.private.v1.ReopenIssuesResponse
+	29, // [29:37] is the sub-list for method output_type
+	21, // [21:29] is the sub-list for method input_type
+	21, // [21:21] is the sub-list for extension type_name
+	21, // [21:21] is the sub-list for extension extendee
+	0,  // [0:21] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_execution_proto_init() }
@@ -1221,6 +1244,7 @@ func file_cardamom_private_v1_execution_proto_init() {
 	file_cardamom_private_v1_issue_proto_init()
 	file_cardamom_private_v1_mutation_proto_init()
 	file_cardamom_private_v1_scope_proto_init()
+	file_cardamom_private_v1_source_proto_init()
 	file_cardamom_private_v1_execution_proto_msgTypes[4].OneofWrappers = []any{}
 	file_cardamom_private_v1_execution_proto_msgTypes[5].OneofWrappers = []any{}
 	file_cardamom_private_v1_execution_proto_msgTypes[8].OneofWrappers = []any{}

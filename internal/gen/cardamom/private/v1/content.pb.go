@@ -21,6 +21,52 @@ const (
 	_ = protoimpl.EnforceVersion(protoimpl.MaxVersion - 20)
 )
 
+// PresentationContext supplies an optional route root for rendered links.
+type PresentationContext struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// route_prefix is a clean root-relative path used by source renderers.
+	RoutePrefix   string `protobuf:"bytes,1,opt,name=route_prefix,json=routePrefix,proto3" json:"route_prefix,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PresentationContext) Reset() {
+	*x = PresentationContext{}
+	mi := &file_cardamom_private_v1_content_proto_msgTypes[0]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PresentationContext) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PresentationContext) ProtoMessage() {}
+
+func (x *PresentationContext) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_content_proto_msgTypes[0]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PresentationContext.ProtoReflect.Descriptor instead.
+func (*PresentationContext) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_content_proto_rawDescGZIP(), []int{0}
+}
+
+func (x *PresentationContext) GetRoutePrefix() string {
+	if x != nil {
+		return x.RoutePrefix
+	}
+	return ""
+}
+
 // MarkdownContent pairs stored Markdown with presentation HTML rendered and
 // sanitized by the server.
 type MarkdownContent struct {
@@ -35,7 +81,7 @@ type MarkdownContent struct {
 
 func (x *MarkdownContent) Reset() {
 	*x = MarkdownContent{}
-	mi := &file_cardamom_private_v1_content_proto_msgTypes[0]
+	mi := &file_cardamom_private_v1_content_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -47,7 +93,7 @@ func (x *MarkdownContent) String() string {
 func (*MarkdownContent) ProtoMessage() {}
 
 func (x *MarkdownContent) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_content_proto_msgTypes[0]
+	mi := &file_cardamom_private_v1_content_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -60,7 +106,7 @@ func (x *MarkdownContent) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MarkdownContent.ProtoReflect.Descriptor instead.
 func (*MarkdownContent) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_content_proto_rawDescGZIP(), []int{0}
+	return file_cardamom_private_v1_content_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *MarkdownContent) GetSource() string {
@@ -81,7 +127,9 @@ var File_cardamom_private_v1_content_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_content_proto_rawDesc = "" +
 	"\n" +
-	"!cardamom/private/v1/content.proto\x12\x13cardamom.private.v1\"N\n" +
+	"!cardamom/private/v1/content.proto\x12\x13cardamom.private.v1\"8\n" +
+	"\x13PresentationContext\x12!\n" +
+	"\froute_prefix\x18\x01 \x01(\tR\vroutePrefix\"N\n" +
 	"\x0fMarkdownContent\x12\x16\n" +
 	"\x06source\x18\x01 \x01(\tR\x06source\x12#\n" +
 	"\rrendered_html\x18\x02 \x01(\tR\frenderedHtmlB\xd8\x01\n" +
@@ -99,9 +147,10 @@ func file_cardamom_private_v1_content_proto_rawDescGZIP() []byte {
 	return file_cardamom_private_v1_content_proto_rawDescData
 }
 
-var file_cardamom_private_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 1)
+var file_cardamom_private_v1_content_proto_msgTypes = make([]protoimpl.MessageInfo, 2)
 var file_cardamom_private_v1_content_proto_goTypes = []any{
-	(*MarkdownContent)(nil), // 0: cardamom.private.v1.MarkdownContent
+	(*PresentationContext)(nil), // 0: cardamom.private.v1.PresentationContext
+	(*MarkdownContent)(nil),     // 1: cardamom.private.v1.MarkdownContent
 }
 var file_cardamom_private_v1_content_proto_depIdxs = []int32{
 	0, // [0:0] is the sub-list for method output_type
@@ -122,7 +171,7 @@ func file_cardamom_private_v1_content_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_v1_content_proto_rawDesc), len(file_cardamom_private_v1_content_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   1,
+			NumMessages:   2,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

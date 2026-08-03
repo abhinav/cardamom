@@ -4,12 +4,16 @@
 
 import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { MarkdownContent } from "./content_pb";
+import type { MarkdownContent, PresentationContext } from "./content_pb";
 import { file_cardamom_private_v1_content } from "./content_pb";
 import type { IssueStatus, IssueType } from "./issue_pb";
 import { file_cardamom_private_v1_issue } from "./issue_pb";
 import type { MutationContext } from "./mutation_pb";
 import { file_cardamom_private_v1_mutation } from "./mutation_pb";
+import type { BoardScope } from "./scope_pb";
+import { file_cardamom_private_v1_scope } from "./scope_pb";
+import type { AggregateStatus, SourceCatalogEntry, SourceRef } from "./source_pb";
+import { file_cardamom_private_v1_source } from "./source_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
@@ -18,7 +22,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/project.proto.
  */
 export const file_cardamom_private_v1_project: GenFile = /*@__PURE__*/
-  fileDesc("CiFjYXJkYW1vbS9wcml2YXRlL3YxL3Byb2plY3QucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiIwoHUHJvamVjdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJIjwKDEJvYXJkU3VtbWFyeRIKCgJpZBgBIAEoCRISCgpwcm9qZWN0X2lkGAIgASgJEgwKBG5hbWUYAyABKAkitQEKBUJvYXJkEgoKAmlkGAEgASgJEhIKCnByb2plY3RfaWQYAiABKAkSDAoEbmFtZRgDIAEoCRI+CgtkZXNjcmlwdGlvbhgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SACIAQESLgoKY3JlYXRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCDgoMX2Rlc2NyaXB0aW9uIhUKE0xpc3RQcm9qZWN0c1JlcXVlc3QiRgoUTGlzdFByb2plY3RzUmVzcG9uc2USLgoIcHJvamVjdHMYASADKAsyHC5jYXJkYW1vbS5wcml2YXRlLnYxLlByb2plY3QiEwoRTGlzdEJvYXJkc1JlcXVlc3QiRwoSTGlzdEJvYXJkc1Jlc3BvbnNlEjEKBmJvYXJkcxgBIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5IhUKE0dldEJvb3RzdHJhcFJlcXVlc3QimgMKFEdldEJvb3RzdHJhcFJlc3BvbnNlEi4KCHByb2plY3RzGAEgAygLMhwuY2FyZGFtb20ucHJpdmF0ZS52MS5Qcm9qZWN0EjEKBmJvYXJkcxgCIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5EiQKF3NlcnZlcl9kZWZhdWx0X2JvYXJkX2lkGAMgASgJSACIAQESMwoLaXNzdWVfdHlwZXMYBCADKA4yHi5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlVHlwZRI4Cg5pc3N1ZV9zdGF0dXNlcxgFIAMoDjIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdGF0dXMSFgoOc2NoZW1hX3ZlcnNpb24YByABKAQSDwoHdmVyc2lvbhgIIAEoCRI0CgthY2Nlc3NfbW9kZRgJIAEoDjIfLmNhcmRhbW9tLnByaXZhdGUudjEuQWNjZXNzTW9kZUIaChhfc2VydmVyX2RlZmF1bHRfYm9hcmRfaWRKBAgGEAdSCWlkX3ByZWZpeCIjCg9HZXRCb2FyZFJlcXVlc3QSEAoIYm9hcmRfaWQYASABKAkiPQoQR2V0Qm9hcmRSZXNwb25zZRIpCgVib2FyZBgBIAEoCzIaLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmQiewoUQ3JlYXRlUHJvamVjdFJlcXVlc3QSDAoEbmFtZRgBIAEoCRITCgZwcmVmaXgYAiABKAlIAIgBARI1Cgdjb250ZXh0GAMgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCCQoHX3ByZWZpeCJGChVDcmVhdGVQcm9qZWN0UmVzcG9uc2USLQoHcHJvamVjdBgBIAEoCzIcLmNhcmRhbW9tLnByaXZhdGUudjEuUHJvamVjdCKlAQoSQ3JlYXRlQm9hcmRSZXF1ZXN0EhIKCnByb2plY3RfaWQYASABKAkSDAoEbmFtZRgCIAEoCRIfChJkZXNjcmlwdGlvbl9zb3VyY2UYAyABKAlIAIgBARI1Cgdjb250ZXh0GAQgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCFQoTX2Rlc2NyaXB0aW9uX3NvdXJjZSJAChNDcmVhdGVCb2FyZFJlc3BvbnNlEikKBWJvYXJkGAEgASgLMhouY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZCKxAQoSVXBkYXRlQm9hcmRSZXF1ZXN0EhAKCGJvYXJkX2lkGAEgASgJEhEKBG5hbWUYAiABKAlIAIgBARIfChJkZXNjcmlwdGlvbl9zb3VyY2UYAyABKAlIAYgBARI1Cgdjb250ZXh0GAQgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHRCBwoFX25hbWVCFQoTX2Rlc2NyaXB0aW9uX3NvdXJjZSJAChNVcGRhdGVCb2FyZFJlc3BvbnNlEikKBWJvYXJkGAEgASgLMhouY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZCpgCgpBY2Nlc3NNb2RlEhsKF0FDQ0VTU19NT0RFX1VOU1BFQ0lGSUVEEAASGgoWQUNDRVNTX01PREVfUkVBRF9XUklURRABEhkKFUFDQ0VTU19NT0RFX1JFQURfT05MWRACMtIFCg5Qcm9qZWN0U2VydmljZRJoCgxMaXN0UHJvamVjdHMSKC5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RQcm9qZWN0c1JlcXVlc3QaKS5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RQcm9qZWN0c1Jlc3BvbnNlIgOQAgESYgoKTGlzdEJvYXJkcxImLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdEJvYXJkc1JlcXVlc3QaJy5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RCb2FyZHNSZXNwb25zZSIDkAIBEmgKDEdldEJvb3RzdHJhcBIoLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9vdHN0cmFwUmVxdWVzdBopLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9vdHN0cmFwUmVzcG9uc2UiA5ACARJcCghHZXRCb2FyZBIkLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Qm9hcmRSZXF1ZXN0GiUuY2FyZGFtb20ucHJpdmF0ZS52MS5HZXRCb2FyZFJlc3BvbnNlIgOQAgESZgoNQ3JlYXRlUHJvamVjdBIpLmNhcmRhbW9tLnByaXZhdGUudjEuQ3JlYXRlUHJvamVjdFJlcXVlc3QaKi5jYXJkYW1vbS5wcml2YXRlLnYxLkNyZWF0ZVByb2plY3RSZXNwb25zZRJgCgtDcmVhdGVCb2FyZBInLmNhcmRhbW9tLnByaXZhdGUudjEuQ3JlYXRlQm9hcmRSZXF1ZXN0GiguY2FyZGFtb20ucHJpdmF0ZS52MS5DcmVhdGVCb2FyZFJlc3BvbnNlEmAKC1VwZGF0ZUJvYXJkEicuY2FyZGFtb20ucHJpdmF0ZS52MS5VcGRhdGVCb2FyZFJlcXVlc3QaKC5jYXJkYW1vbS5wcml2YXRlLnYxLlVwZGF0ZUJvYXJkUmVzcG9uc2VC2AEKF2NvbS5jYXJkYW1vbS5wcml2YXRlLnYxQgxQcm9qZWN0UHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw", [file_cardamom_private_v1_content, file_cardamom_private_v1_issue, file_cardamom_private_v1_mutation, file_google_protobuf_timestamp]);
+  fileDesc("CiFjYXJkYW1vbS9wcml2YXRlL3YxL3Byb2plY3QucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiYwoHUHJvamVjdBIKCgJpZBgBIAEoCRIMCgRuYW1lGAIgASgJEjMKBnNvdXJjZRgDIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSACIAQFCCQoHX3NvdXJjZSJ8CgxCb2FyZFN1bW1hcnkSCgoCaWQYASABKAkSEgoKcHJvamVjdF9pZBgCIAEoCRIMCgRuYW1lGAMgASgJEjMKBnNvdXJjZRgEIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSACIAQFCCQoHX3NvdXJjZSL1AQoFQm9hcmQSCgoCaWQYASABKAkSEgoKcHJvamVjdF9pZBgCIAEoCRIMCgRuYW1lGAMgASgJEj4KC2Rlc2NyaXB0aW9uGAQgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnRIAIgBARIuCgpjcmVhdGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIzCgZzb3VyY2UYBiABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZkgBiAEBQg4KDF9kZXNjcmlwdGlvbkIJCgdfc291cmNlIhUKE0xpc3RQcm9qZWN0c1JlcXVlc3QiRgoUTGlzdFByb2plY3RzUmVzcG9uc2USLgoIcHJvamVjdHMYASADKAsyHC5jYXJkYW1vbS5wcml2YXRlLnYxLlByb2plY3QiEwoRTGlzdEJvYXJkc1JlcXVlc3QiRwoSTGlzdEJvYXJkc1Jlc3BvbnNlEjEKBmJvYXJkcxgBIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5IhUKE0dldEJvb3RzdHJhcFJlcXVlc3QizAQKFEdldEJvb3RzdHJhcFJlc3BvbnNlEi4KCHByb2plY3RzGAEgAygLMhwuY2FyZGFtb20ucHJpdmF0ZS52MS5Qcm9qZWN0EjEKBmJvYXJkcxgCIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTdW1tYXJ5EiQKF3NlcnZlcl9kZWZhdWx0X2JvYXJkX2lkGAMgASgJSACIAQESMwoLaXNzdWVfdHlwZXMYBCADKA4yHi5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlVHlwZRI4Cg5pc3N1ZV9zdGF0dXNlcxgFIAMoDjIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdGF0dXMSFgoOc2NoZW1hX3ZlcnNpb24YByABKAQSDwoHdmVyc2lvbhgIIAEoCRI0CgthY2Nlc3NfbW9kZRgJIAEoDjIfLmNhcmRhbW9tLnByaXZhdGUudjEuQWNjZXNzTW9kZRI4Cgdzb3VyY2VzGAogAygLMicuY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VDYXRhbG9nRW50cnkSPgoQYWdncmVnYXRlX3N0YXR1cxgLIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuQWdncmVnYXRlU3RhdHVzEjYKDWRlZmF1bHRfc2NvcGUYDiABKAsyHy5jYXJkYW1vbS5wcml2YXRlLnYxLkJvYXJkU2NvcGVCGgoYX3NlcnZlcl9kZWZhdWx0X2JvYXJkX2lkSgQIBhAHUglpZF9wcmVmaXgiuQEKD0dldEJvYXJkUmVxdWVzdBIQCghib2FyZF9pZBgBIAEoCRIzCgZzb3VyY2UYAiABKAsyHi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvdXJjZVJlZkgAiAEBEkMKDHByZXNlbnRhdGlvbhgDIAEoCzIoLmNhcmRhbW9tLnByaXZhdGUudjEuUHJlc2VudGF0aW9uQ29udGV4dEgBiAEBQgkKB19zb3VyY2VCDwoNX3ByZXNlbnRhdGlvbiI9ChBHZXRCb2FyZFJlc3BvbnNlEikKBWJvYXJkGAEgASgLMhouY2FyZGFtb20ucHJpdmF0ZS52MS5Cb2FyZCJ7ChRDcmVhdGVQcm9qZWN0UmVxdWVzdBIMCgRuYW1lGAEgASgJEhMKBnByZWZpeBgCIAEoCUgAiAEBEjUKB2NvbnRleHQYAyABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk11dGF0aW9uQ29udGV4dEIJCgdfcHJlZml4IkYKFUNyZWF0ZVByb2plY3RSZXNwb25zZRItCgdwcm9qZWN0GAEgASgLMhwuY2FyZGFtb20ucHJpdmF0ZS52MS5Qcm9qZWN0IqUBChJDcmVhdGVCb2FyZFJlcXVlc3QSEgoKcHJvamVjdF9pZBgBIAEoCRIMCgRuYW1lGAIgASgJEh8KEmRlc2NyaXB0aW9uX3NvdXJjZRgDIAEoCUgAiAEBEjUKB2NvbnRleHQYBCABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk11dGF0aW9uQ29udGV4dEIVChNfZGVzY3JpcHRpb25fc291cmNlIkAKE0NyZWF0ZUJvYXJkUmVzcG9uc2USKQoFYm9hcmQYASABKAsyGi5jYXJkYW1vbS5wcml2YXRlLnYxLkJvYXJkIrEBChJVcGRhdGVCb2FyZFJlcXVlc3QSEAoIYm9hcmRfaWQYASABKAkSEQoEbmFtZRgCIAEoCUgAiAEBEh8KEmRlc2NyaXB0aW9uX3NvdXJjZRgDIAEoCUgBiAEBEjUKB2NvbnRleHQYBCABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk11dGF0aW9uQ29udGV4dEIHCgVfbmFtZUIVChNfZGVzY3JpcHRpb25fc291cmNlIkAKE1VwZGF0ZUJvYXJkUmVzcG9uc2USKQoFYm9hcmQYASABKAsyGi5jYXJkYW1vbS5wcml2YXRlLnYxLkJvYXJkKmAKCkFjY2Vzc01vZGUSGwoXQUNDRVNTX01PREVfVU5TUEVDSUZJRUQQABIaChZBQ0NFU1NfTU9ERV9SRUFEX1dSSVRFEAESGQoVQUNDRVNTX01PREVfUkVBRF9PTkxZEAIy0gUKDlByb2plY3RTZXJ2aWNlEmgKDExpc3RQcm9qZWN0cxIoLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdFByb2plY3RzUmVxdWVzdBopLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdFByb2plY3RzUmVzcG9uc2UiA5ACARJiCgpMaXN0Qm9hcmRzEiYuY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0Qm9hcmRzUmVxdWVzdBonLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdEJvYXJkc1Jlc3BvbnNlIgOQAgESaAoMR2V0Qm9vdHN0cmFwEiguY2FyZGFtb20ucHJpdmF0ZS52MS5HZXRCb290c3RyYXBSZXF1ZXN0GikuY2FyZGFtb20ucHJpdmF0ZS52MS5HZXRCb290c3RyYXBSZXNwb25zZSIDkAIBElwKCEdldEJvYXJkEiQuY2FyZGFtb20ucHJpdmF0ZS52MS5HZXRCb2FyZFJlcXVlc3QaJS5jYXJkYW1vbS5wcml2YXRlLnYxLkdldEJvYXJkUmVzcG9uc2UiA5ACARJmCg1DcmVhdGVQcm9qZWN0EikuY2FyZGFtb20ucHJpdmF0ZS52MS5DcmVhdGVQcm9qZWN0UmVxdWVzdBoqLmNhcmRhbW9tLnByaXZhdGUudjEuQ3JlYXRlUHJvamVjdFJlc3BvbnNlEmAKC0NyZWF0ZUJvYXJkEicuY2FyZGFtb20ucHJpdmF0ZS52MS5DcmVhdGVCb2FyZFJlcXVlc3QaKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNyZWF0ZUJvYXJkUmVzcG9uc2USYAoLVXBkYXRlQm9hcmQSJy5jYXJkYW1vbS5wcml2YXRlLnYxLlVwZGF0ZUJvYXJkUmVxdWVzdBooLmNhcmRhbW9tLnByaXZhdGUudjEuVXBkYXRlQm9hcmRSZXNwb25zZULYAQoXY29tLmNhcmRhbW9tLnByaXZhdGUudjFCDFByb2plY3RQcm90b1ABWj9nby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS92MTtwcml2YXRldjGiAgNDUFiqAhNDYXJkYW1vbS5Qcml2YXRlLlYxygIUQ2FyZGFtb21cUHJpdmF0ZV9cVjHiAiBDYXJkYW1vbVxQcml2YXRlX1xWMVxHUEJNZXRhZGF0YeoCFUNhcmRhbW9tOjpQcml2YXRlOjpWMWIGcHJvdG8z", [file_cardamom_private_v1_content, file_cardamom_private_v1_issue, file_cardamom_private_v1_mutation, file_cardamom_private_v1_scope, file_cardamom_private_v1_source, file_google_protobuf_timestamp]);
 
 /**
  * Project identifies a project namespace available to the browser.
@@ -39,6 +43,13 @@ export type Project = Message<"cardamom.private.v1.Project"> & {
    * @generated from field: string name = 2;
    */
   name: string;
+
+  /**
+   * source identifies the server that supplied this project in aggregate mode.
+   *
+   * @generated from field: optional cardamom.private.v1.SourceRef source = 3;
+   */
+  source?: SourceRef | undefined;
 };
 
 /**
@@ -74,6 +85,13 @@ export type BoardSummary = Message<"cardamom.private.v1.BoardSummary"> & {
    * @generated from field: string name = 3;
    */
   name: string;
+
+  /**
+   * source identifies the server that supplied this board in aggregate mode.
+   *
+   * @generated from field: optional cardamom.private.v1.SourceRef source = 4;
+   */
+  source?: SourceRef | undefined;
 };
 
 /**
@@ -123,6 +141,13 @@ export type Board = Message<"cardamom.private.v1.Board"> & {
    * @generated from field: google.protobuf.Timestamp created_at = 5;
    */
   createdAt?: Timestamp | undefined;
+
+  /**
+   * source identifies the server that supplied this board in aggregate mode.
+   *
+   * @generated from field: optional cardamom.private.v1.SourceRef source = 6;
+   */
+  source?: SourceRef | undefined;
 };
 
 /**
@@ -280,6 +305,27 @@ export type GetBootstrapResponse = Message<"cardamom.private.v1.GetBootstrapResp
    * @generated from field: cardamom.private.v1.AccessMode access_mode = 9;
    */
   accessMode: AccessMode;
+
+  /**
+   * sources describes every configured source and its latest health.
+   *
+   * @generated from field: repeated cardamom.private.v1.SourceCatalogEntry sources = 10;
+   */
+  sources: SourceCatalogEntry[];
+
+  /**
+   * aggregate_status reports whether every configured source contributed.
+   *
+   * @generated from field: cardamom.private.v1.AggregateStatus aggregate_status = 11;
+   */
+  aggregateStatus?: AggregateStatus | undefined;
+
+  /**
+   * default_scope is the deterministic initial board scope for the browser.
+   *
+   * @generated from field: cardamom.private.v1.BoardScope default_scope = 14;
+   */
+  defaultScope?: BoardScope | undefined;
 };
 
 /**
@@ -301,6 +347,20 @@ export type GetBoardRequest = Message<"cardamom.private.v1.GetBoardRequest"> & {
    * @generated from field: string board_id = 1;
    */
   boardId: string;
+
+  /**
+   * source identifies the aggregate source that owns board_id when present.
+   *
+   * @generated from field: optional cardamom.private.v1.SourceRef source = 2;
+   */
+  source?: SourceRef | undefined;
+
+  /**
+   * presentation supplies the route root used by source Markdown rendering.
+   *
+   * @generated from field: optional cardamom.private.v1.PresentationContext presentation = 3;
+   */
+  presentation?: PresentationContext | undefined;
 };
 
 /**

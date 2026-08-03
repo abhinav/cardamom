@@ -106,6 +106,36 @@ func TestRenderer_RenderEmptyInput(t *testing.T) {
 	assert.Empty(t, got)
 }
 
+func TestRenderer_RenderBoardValidatesRoutePrefix(t *testing.T) {
+	tests := []struct {
+		name        string
+		routePrefix string
+		wantError   bool
+	}{
+		{name: "Default", routePrefix: ""},
+		{name: "Canonical", routePrefix: "/board"},
+		{name: "Relative", routePrefix: "board", wantError: true},
+		{name: "AbsoluteURL", routePrefix: "https://source.test/board", wantError: true},
+		{name: "Authority", routePrefix: "//source.test/board", wantError: true},
+		{name: "Traversal", routePrefix: "/board/../all", wantError: true},
+		{name: "Query", routePrefix: "/board?source=one", wantError: true},
+		{name: "Fragment", routePrefix: "/board#issue", wantError: true},
+		{name: "Control", routePrefix: "/board\x00", wantError: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, err := markdown.New().RenderBoard(
+				t.Context(), "board-1", tt.routePrefix, []string{"text"},
+			)
+			if tt.wantError {
+				require.Error(t, err)
+				return
+			}
+			require.NoError(t, err)
+		})
+	}
+}
+
 func TestRenderer_RenderLeavesUnscopedIssueReferencesLiteral(t *testing.T) {
 	source := "See %an-task, %A1-b2; bare an-other and [[an-old]] stay text."
 	got, err := markdown.New().Render(source)

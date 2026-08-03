@@ -4,13 +4,15 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { SourceRef } from "./source_pb";
+import { file_cardamom_private_v1_source } from "./source_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cardamom/private/v1/scope.proto.
  */
 export const file_cardamom_private_v1_scope: GenFile = /*@__PURE__*/
-  fileDesc("Ch9jYXJkYW1vbS9wcml2YXRlL3YxL3Njb3BlLnByb3RvEhNjYXJkYW1vbS5wcml2YXRlLnYxIgsKCUFsbEJvYXJkcyJjCgpCb2FyZFNjb3BlEhIKCGJvYXJkX2lkGAEgASgJSAASNAoKYWxsX2JvYXJkcxgCIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuQWxsQm9hcmRzSABCCwoJc2VsZWN0aW9uQtYBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUIKU2NvcGVQcm90b1ABWj9nby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS92MTtwcml2YXRldjGiAgNDUFiqAhNDYXJkYW1vbS5Qcml2YXRlLlYxygIUQ2FyZGFtb21cUHJpdmF0ZV9cVjHiAiBDYXJkYW1vbVxQcml2YXRlX1xWMVxHUEJNZXRhZGF0YeoCFUNhcmRhbW9tOjpQcml2YXRlOjpWMWIGcHJvdG8z");
+  fileDesc("Ch9jYXJkYW1vbS9wcml2YXRlL3YxL3Njb3BlLnByb3RvEhNjYXJkYW1vbS5wcml2YXRlLnYxIgsKCUFsbEJvYXJkcyIMCgpBbGxTb3VyY2VzIvEBCgpCb2FyZFNjb3BlEjMKBnNvdXJjZRgFIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSAGIAQESEgoIYm9hcmRfaWQYASABKAlIABI0CgphbGxfYm9hcmRzGAIgASgLMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5BbGxCb2FyZHNIABIUCgpwcm9qZWN0X2lkGAMgASgJSAASNgoLYWxsX3NvdXJjZXMYBCABKAsyHy5jYXJkYW1vbS5wcml2YXRlLnYxLkFsbFNvdXJjZXNIAEILCglzZWxlY3Rpb25CCQoHX3NvdXJjZULWAQoXY29tLmNhcmRhbW9tLnByaXZhdGUudjFCClNjb3BlUHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw", [file_cardamom_private_v1_source]);
 
 /**
  * AllBoards selects every board visible to the current Cardamom server.
@@ -28,11 +30,33 @@ export const AllBoardsSchema: GenMessage<AllBoards> = /*@__PURE__*/
   messageDesc(file_cardamom_private_v1_scope, 0);
 
 /**
+ * AllSources selects every board in every configured aggregate source.
+ *
+ * @generated from message cardamom.private.v1.AllSources
+ */
+export type AllSources = Message<"cardamom.private.v1.AllSources"> & {
+};
+
+/**
+ * Describes the message cardamom.private.v1.AllSources.
+ * Use `create(AllSourcesSchema)` to create a new message.
+ */
+export const AllSourcesSchema: GenMessage<AllSources> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_scope, 1);
+
+/**
  * BoardScope selects one board or the read-only aggregate of all boards.
  *
  * @generated from message cardamom.private.v1.BoardScope
  */
 export type BoardScope = Message<"cardamom.private.v1.BoardScope"> & {
+  /**
+   * source limits board_id, project_id, or all_boards to one aggregate source.
+   *
+   * @generated from field: optional cardamom.private.v1.SourceRef source = 5;
+   */
+  source?: SourceRef | undefined;
+
   /**
    * selection identifies the board population used by a read or watch.
    *
@@ -54,6 +78,22 @@ export type BoardScope = Message<"cardamom.private.v1.BoardScope"> & {
      */
     value: AllBoards;
     case: "allBoards";
+  } | {
+    /**
+     * project_id selects every board in one project.
+     *
+     * @generated from field: string project_id = 3;
+     */
+    value: string;
+    case: "projectId";
+  } | {
+    /**
+     * all_sources selects every board across configured sources.
+     *
+     * @generated from field: cardamom.private.v1.AllSources all_sources = 4;
+     */
+    value: AllSources;
+    case: "allSources";
   } | { case: undefined; value?: undefined };
 };
 
@@ -62,5 +102,5 @@ export type BoardScope = Message<"cardamom.private.v1.BoardScope"> & {
  * Use `create(BoardScopeSchema)` to create a new message.
  */
 export const BoardScopeSchema: GenMessage<BoardScope> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_scope, 1);
+  messageDesc(file_cardamom_private_v1_scope, 2);
 

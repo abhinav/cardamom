@@ -377,6 +377,7 @@ type recordMarkdownCall struct {
 func (r *recordMarkdownRenderer) RenderBoard(
 	_ context.Context,
 	boardID board.ID,
+	_ string,
 	sources []string,
 ) ([]string, error) {
 	r.calls = append(r.calls, recordMarkdownCall{

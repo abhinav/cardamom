@@ -16,6 +16,7 @@ import (
 	"go.abhg.dev/cardamom/internal/project"
 	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
 	"go.abhg.dev/cardamom/internal/web"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -53,7 +54,7 @@ type Boards interface {
 // MarkdownRenderer converts stored board Markdown to trusted presentation HTML.
 type MarkdownRenderer interface {
 	// RenderBoard converts one board response's Markdown sources to safe HTML.
-	RenderBoard(context.Context, board.ID, []string) ([]string, error)
+	RenderBoard(context.Context, board.ID, string, []string) ([]string, error)
 }
 
 // Config supplies ProjectService collaborators and immutable bootstrap data.
@@ -81,6 +82,10 @@ type Config struct {
 
 	// AccessMode reports the server-side write policy for this web invocation.
 	AccessMode web.AccessMode
+
+	// Source identifies the local store when it is published as an aggregate
+	// source. The source ID is empty for ordinary local web serving.
+	Source *privatev1.SourceRef
 }
 
 // Service adapts project catalog operations to generated ProjectService RPCs.
@@ -94,6 +99,7 @@ type Service struct {
 	schemaVersion        uint64
 	version              string
 	accessMode           web.AccessMode
+	source               *privatev1.SourceRef
 }
 
 var _ privatev1connect.ProjectServiceHandler = (*Service)(nil)
@@ -117,6 +123,7 @@ func New(cfg Config) *Service {
 		schemaVersion:        cfg.SchemaVersion,
 		version:              cfg.Version,
 		accessMode:           cfg.AccessMode,
+		source:               cloneSourceRef(cfg.Source),
 	}
 }
 
@@ -170,6 +177,15 @@ func (s *Service) GetBootstrap(
 		SchemaVersion: s.schemaVersion,
 		Version:       s.version,
 		AccessMode:    bootstrapAccessMode(s.accessMode),
+	}
+	if s.source != nil {
+		response.Sources = []*privatev1.SourceCatalogEntry{{
+			Source:        cloneSourceRef(s.source),
+			Health:        privatev1.SourceHealth_SOURCE_HEALTH_HEALTHY,
+			Version:       s.version,
+			SchemaVersion: s.schemaVersion,
+			ReadOnly:      s.accessMode == web.AccessModeReadOnly,
+		}}
 	}
 	if s.serverDefaultBoardID != nil {
 		value := s.serverDefaultBoardID.String()
@@ -226,7 +242,7 @@ func (s *Service) GetBoard(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.board(ctx, board)
+	converted, err := s.board(ctx, board, request.Msg.GetPresentation().GetRoutePrefix())
 	if err != nil {
 		return nil, web.FromError(err)
 	}
@@ -271,7 +287,7 @@ func (s *Service) CreateBoard(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.board(ctx, created)
+	converted, err := s.board(ctx, created, "")
 	if err != nil {
 		return nil, web.FromError(err)
 	}
@@ -310,7 +326,7 @@ func (s *Service) UpdateBoard(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.board(ctx, edited)
+	converted, err := s.board(ctx, edited, "")
 	if err != nil {
 		return nil, web.FromError(err)
 	}
@@ -320,8 +336,11 @@ func (s *Service) UpdateBoard(
 func (s *Service) board(
 	ctx context.Context,
 	value *board.State,
+	routePrefix string,
 ) (*privatev1.Board, error) {
-	description, err := s.optionalMarkdown(ctx, value.ID(), value.Description())
+	description, err := s.optionalMarkdown(
+		ctx, value.ID(), routePrefix, value.Description(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -335,12 +354,15 @@ func (s *Service) board(
 func (s *Service) optionalMarkdown(
 	ctx context.Context,
 	boardID board.ID,
+	routePrefix string,
 	source *string,
 ) (*privatev1.MarkdownContent, error) {
 	if source == nil {
 		return nil, nil
 	}
-	rendered, err := s.markdown.RenderBoard(ctx, boardID, []string{*source})
+	rendered, err := s.markdown.RenderBoard(
+		ctx, boardID, routePrefix, []string{*source},
+	)
 	if err != nil {
 		return nil, fmt.Errorf("render Markdown: %w", err)
 	}
@@ -402,6 +424,13 @@ func cloneString(value *string) *string {
 	}
 	cloned := *value
 	return &cloned
+}
+
+func cloneSourceRef(value *privatev1.SourceRef) *privatev1.SourceRef {
+	if value == nil {
+		return nil
+	}
+	return proto.Clone(value).(*privatev1.SourceRef)
 }
 
 func mutationInvocation(value *privatev1.MutationContext) board.Invocation {

@@ -1,4 +1,4 @@
-import type { Ref } from "react";
+import type { Ref, ReactNode } from "react";
 import {
   useCallback,
   useEffect,
@@ -16,24 +16,37 @@ import { Link } from "react-router";
 
 import {
   boardScopePath,
+  boardScopeHref,
   type BoardScopeSelection,
   type ResolvedBoardScope,
 } from "./board-scope.ts";
+import type { BoardSummary, Project } from "./gen/cardamom/private/v1/project_pb.ts";
+import { SourceHealth, type SourceCatalogEntry } from "./gen/cardamom/private/v1/source_pb.ts";
 
 interface AvailableProject {
   id: string;
   name: string;
+  source?: Project["source"];
 }
 
 interface AvailableBoard {
   id: string;
   projectId: string;
   name: string;
+  source?: BoardSummary["source"];
+}
+
+interface AvailableSource {
+  source?: SourceCatalogEntry["source"];
+  health?: SourceHealth;
+  diagnostic?: string;
+  version?: string;
 }
 
 interface BoardSelectorProps {
   boards: readonly AvailableBoard[];
   projects: readonly AvailableProject[];
+  sources?: readonly AvailableSource[];
   selection: BoardScopeSelection;
   onOpenBoardSettings?: (boardId: string) => void;
   onSelectScope: (selection: ResolvedBoardScope) => void;
@@ -42,12 +55,14 @@ interface BoardSelectorProps {
 interface BoardPickerRouteProps {
   boards: readonly AvailableBoard[];
   projects: readonly AvailableProject[];
+  sources?: readonly AvailableSource[];
 }
 
 /** BoardPickerRoute renders the complete board catalog at the root route. */
 export function BoardPickerRoute({
   boards,
   projects,
+  sources = [],
 }: BoardPickerRouteProps) {
   const [query, setQuery] = useState("");
   const units = visibleProjectUnits(projects, boards, query);
@@ -59,8 +74,8 @@ export function BoardPickerRoute({
           <p className="route-kicker">Scope</p>
           <h1 id="board-picker-title">Boards</h1>
         </div>
-        <Link className="board-picker-all" to={boardScopePath({ kind: "all" })}>
-          <span>All boards</span>
+        <Link className="board-picker-all" to={boardScopeHref({ kind: "all" })}>
+          <span>{sources.length > 0 ? "All sources" : "All boards"}</span>
           <span>{catalogSummary(projects.length, boards.length)}</span>
         </Link>
       </header>
@@ -75,9 +90,10 @@ export function BoardPickerRoute({
         />
       </label>
       <div className="board-picker-projects">
+        {sources.length > 0 && <SourceHeadings sources={sources} />}
         {units.map((unit) => (
           <section
-            key={unit.project.id}
+            key={`${unit.sourceId ?? "local"}:${unit.project.id}`}
             className="board-picker-project"
             aria-labelledby={`board-picker-${unit.project.id}`}
           >
@@ -92,10 +108,7 @@ export function BoardPickerRoute({
             </header>
             <div className="board-picker-links">
               {unit.boards.map((board) => (
-                <Link
-                  key={board.id}
-                  to={boardScopePath({ kind: "board", boardId: board.id })}
-                >
+                <Link key={board.id} to={boardScopePath({ kind: "board", boardId: board.id })}>
                   <span>{board.name}</span>
                   <span>{board.id}</span>
                 </Link>
@@ -116,6 +129,7 @@ export function BoardPickerRoute({
 export function BoardSelector({
   boards,
   projects,
+  sources = [],
   selection,
   onOpenBoardSettings,
   onSelectScope,
@@ -157,6 +171,7 @@ export function BoardSelector({
       dialogId={dialogId}
       open={open}
       projects={projects}
+      sources={sources}
       query={query}
       searchRef={searchRef}
       selection={selection}
@@ -204,6 +219,7 @@ export function BoardSelectorView({
   dialogId = "board-selector-dialog",
   open,
   projects,
+  sources = [],
   query,
   rootRef,
   searchRef,
@@ -215,10 +231,11 @@ export function BoardSelectorView({
   onSelectScope,
   onToggle,
 }: BoardSelectorViewProps) {
-  const labels = selectedScopeLabels(projects, boards, selection);
+  const labels = selectedScopeLabels(projects, boards, sources, selection);
   const units = visibleProjectUnits(projects, boards, query);
   const allBoardsSelected = selection.kind === "all";
   const storeSummary = catalogSummary(projects.length, boards.length);
+  const aggregate = sources.length > 0;
 
   return (
     <div
@@ -285,13 +302,13 @@ export function BoardSelectorView({
                 type="button"
                 className="board-selector-option"
                 aria-current={allBoardsSelected || undefined}
-                aria-label="Select All boards"
+                aria-label={`Select ${aggregate ? "All sources" : "All boards"}`}
                 onClick={() => onSelectScope({ kind: "all" })}
               >
                 <SelectionMark selected={allBoardsSelected} />
                 <span className="board-selector-option-copy">
                   <span className="board-selector-option-primary">
-                    All boards
+                    {aggregate ? "All sources" : "All boards"}
                   </span>
                   <span className="board-selector-option-secondary">
                     {storeSummary}
@@ -300,42 +317,20 @@ export function BoardSelectorView({
               </button>
               <span className="board-selector-action-space" aria-hidden="true" />
             </div>
-            {units.map((unit) =>
-              unit.totalBoardCount === 1
-                ? (
-                    <BoardSelectorBoardRow
-                      key={unit.boards[0]?.id}
-                      board={unit.boards[0]!}
-                      projectName={unit.project.name}
-                      selectedBoardId={
-                        selection.kind === "board"
-                          ? selection.boardId
-                          : undefined
-                      }
-                      onOpenBoardSettings={onOpenBoardSettings}
-                      onSelectScope={onSelectScope}
-                    />
-                  )
-                : (
-                    <section
-                      key={unit.project.id}
-                      className="board-selector-project"
-                      aria-labelledby={`${dialogId}-${unit.project.id}`}
-                    >
-                      <div
-                        id={`${dialogId}-${unit.project.id}`}
-                        className="board-selector-project-heading"
-                      >
-                        <span>{unit.project.name}</span>
-                        <span>
-                          {unit.totalBoardCount}{" "}
-                          {unit.totalBoardCount === 1 ? "board" : "boards"}
-                        </span>
-                      </div>
-                      {unit.boards.map((board) => (
+            {aggregate
+              ? renderAggregateUnits(
+                sources,
+                units,
+                selection,
+                onOpenBoardSettings,
+                onSelectScope,
+              )
+              : units.map((unit) =>
+                  unit.totalBoardCount === 1
+                    ? (
                         <BoardSelectorBoardRow
-                          key={board.id}
-                          board={board}
+                          key={unit.boards[0]?.id}
+                          board={unit.boards[0]!}
                           projectName={unit.project.name}
                           selectedBoardId={
                             selection.kind === "board"
@@ -345,10 +340,39 @@ export function BoardSelectorView({
                           onOpenBoardSettings={onOpenBoardSettings}
                           onSelectScope={onSelectScope}
                         />
-                      ))}
-                    </section>
-                  ),
-            )}
+                      )
+                    : (
+                        <section
+                          key={`${unit.sourceId ?? "local"}:${unit.project.id}`}
+                          className="board-selector-project"
+                          aria-labelledby={`${dialogId}-${unit.project.id}`}
+                        >
+                          <div
+                            id={`${dialogId}-${unit.project.id}`}
+                            className="board-selector-project-heading"
+                          >
+                            <span>{unit.project.name}</span>
+                            <span>
+                              {unit.totalBoardCount} {unit.totalBoardCount === 1 ? "board" : "boards"}
+                            </span>
+                          </div>
+                          {unit.boards.map((board) => (
+                            <BoardSelectorBoardRow
+                              key={board.id}
+                              board={board}
+                              projectName={unit.project.name}
+                              selectedBoardId={
+                                selection.kind === "board"
+                                  ? selection.boardId
+                                  : undefined
+                              }
+                              onOpenBoardSettings={onOpenBoardSettings}
+                              onSelectScope={onSelectScope}
+                            />
+                          ))}
+                        </section>
+                      ),
+                )}
             {units.length === 0 && (
               <p className="board-selector-empty">
                 No boards or projects match your search.
@@ -385,7 +409,7 @@ export function BoardSelectorBoardRow({
         aria-current={selected || undefined}
         aria-label={`Select ${board.name}`}
         onClick={() =>
-          onSelectScope({ kind: "board", boardId: board.id })
+          onSelectScope({ kind: "board", boardId: board.id, source: board.source })
         }
       >
         <SelectionMark selected={selected} />
@@ -421,10 +445,19 @@ function SelectionMark({ selected }: { selected: boolean }) {
   );
 }
 
-interface ProjectUnit {
+export interface ProjectUnit {
   project: AvailableProject;
   boards: AvailableBoard[];
+  sourceId?: string;
+  sourceName?: string;
   totalBoardCount: number;
+}
+
+/** SourceProjectGroup is one source and its visible project groups. */
+export interface SourceProjectGroup {
+  sourceId: string;
+  sourceName: string;
+  projects: readonly ProjectUnit[];
 }
 
 function visibleProjectUnits(
@@ -433,51 +466,169 @@ function visibleProjectUnits(
   query: string,
 ): ProjectUnit[] {
   const projectById = new Map(
-    projects.map((project) => [project.id, project]),
+    projects.map((project) => [projectKey(project.source?.sourceId, project.id), project]),
   );
   const boardsByProject = new Map<string, AvailableBoard[]>();
   for (const board of boards) {
-    const projectBoards = boardsByProject.get(board.projectId) ?? [];
+    const key = projectKey(board.source?.sourceId, board.projectId);
+    const projectBoards = boardsByProject.get(key) ?? [];
     projectBoards.push(board);
-    boardsByProject.set(board.projectId, projectBoards);
+    boardsByProject.set(key, projectBoards);
   }
 
   const normalizedQuery = query.trim().toLocaleLowerCase();
   return [...boardsByProject.entries()]
-    .map(([projectId, projectBoards]) => {
-      const project = projectById.get(projectId) ?? {
+    .map(([key, projectBoards]) => {
+      const sourceId = projectBoards[0]?.source?.sourceId;
+      const projectId = projectBoards[0]?.projectId ?? key;
+      const project = projectById.get(projectKey(sourceId, projectId)) ?? {
         id: projectId,
         name: projectId,
       };
+      const sourceName = sourceId ?? "Local";
       const projectMatches = normalizedName(project.name).includes(
         normalizedQuery,
       );
+      const sourceMatches = normalizedName(sourceName).includes(normalizedQuery);
       const visibleBoards = projectBoards
         .filter(
           (board) =>
             normalizedQuery === "" ||
             projectMatches ||
+            sourceMatches ||
             normalizedName(board.name).includes(normalizedQuery),
         )
         .sort(compareByName);
       return {
         project,
         boards: visibleBoards,
+        sourceId,
+        sourceName,
         totalBoardCount: projectBoards.length,
       };
     })
     .filter((unit) => unit.boards.length > 0)
-    .sort((left, right) => compareByName(left.project, right.project));
+    .sort((left, right) =>
+      (left.sourceName ?? "").localeCompare(right.sourceName ?? "", undefined, { sensitivity: "base" }) ||
+      compareByName(left.project, right.project));
+}
+
+/** groupBoardsBySourceAndProject preserves source-qualified grouping identity. */
+export function groupBoardsBySourceAndProject(
+  sources: readonly AvailableSource[],
+  projects: readonly AvailableProject[],
+  boards: readonly AvailableBoard[],
+): SourceProjectGroup[] {
+  const units = visibleProjectUnits(projects, boards, "");
+  return sources.map((source) => ({
+    sourceId: source.source?.sourceId ?? "",
+    sourceName: source.source?.sourceId ?? "Unknown source",
+    projects: units.filter(
+      (unit) => unit.sourceId === source.source?.sourceId,
+    ),
+  })).filter((group) => group.projects.length > 0)
+    .sort((left, right) => compareByName(
+      { id: left.sourceId, name: left.sourceName },
+      { id: right.sourceId, name: right.sourceName },
+    ));
+}
+
+function renderAggregateUnits(
+  sources: readonly AvailableSource[],
+  units: readonly ProjectUnit[],
+  selection: BoardScopeSelection,
+  onOpenBoardSettings: ((boardId: string) => void) | undefined,
+  onSelectScope: (selection: ResolvedBoardScope) => void,
+): ReactNode[] {
+  return sources.flatMap((source) => {
+    const sourceId = source.source?.sourceId ?? "";
+    const sourceUnits = units.filter((unit) => unit.sourceId === sourceId);
+    if (sourceUnits.length === 0) {
+      return [
+        <section className="board-selector-source" key={`source:${sourceId}`}>
+          <div className="board-selector-source-heading">
+            <span>{sourceId || "Unknown source"}</span>
+            <span>{sourceHealthLabel(source.health ?? SourceHealth.UNSPECIFIED)}</span>
+          </div>
+        </section>,
+      ];
+    }
+    return [
+      <section className="board-selector-source" key={`source:${sourceId}`}>
+        <button
+          type="button"
+          className="board-selector-scope-option"
+          aria-current={selection.kind === "all" && selection.sourceId === sourceId || undefined}
+          onClick={() => onSelectScope({ kind: "all", sourceId })}
+        >
+          {sourceId || "Unknown source"}
+        </button>
+        {sourceUnits.map((unit) => (
+          <section className="board-selector-project" key={`${sourceId}:${unit.project.id}`}>
+            <button
+              type="button"
+              className="board-selector-scope-option board-selector-project-heading"
+              aria-current={selection.kind === "all" && selection.projectId === unit.project.id || undefined}
+              onClick={() => onSelectScope({ kind: "all", sourceId, projectId: unit.project.id })}
+            >
+              <span>{unit.project.name}</span>
+              <span>{unit.totalBoardCount} {unit.totalBoardCount === 1 ? "board" : "boards"}</span>
+            </button>
+            {unit.boards.map((board) => (
+              <BoardSelectorBoardRow
+                key={board.id}
+                board={board}
+                projectName={unit.project.name}
+                selectedBoardId={selection.kind === "board" ? selection.boardId : undefined}
+                onOpenBoardSettings={onOpenBoardSettings}
+                onSelectScope={onSelectScope}
+              />
+            ))}
+          </section>
+        ))}
+      </section>,
+    ];
+  });
+}
+
+function SourceHeadings({ sources }: { sources: readonly AvailableSource[] }) {
+  return (
+    <div className="board-picker-sources">
+      {sources.map((source) => (
+        <span key={source.source?.sourceId} className="metadata-chip">
+          {source.source?.sourceId ?? "Unknown source"}
+        </span>
+      ))}
+    </div>
+  );
 }
 
 function selectedScopeLabels(
   projects: readonly AvailableProject[],
   boards: readonly AvailableBoard[],
+  sources: readonly AvailableSource[],
   selection: BoardScopeSelection,
 ): { primary: string; secondary: string } {
   if (selection.kind === "all") {
+    if (selection.projectId !== undefined) {
+      const project = projects.find((candidate) =>
+        candidate.id === selection.projectId &&
+        (selection.sourceId === undefined ||
+          candidate.source?.sourceId === selection.sourceId),
+      );
+      return {
+        primary: project?.name ?? selection.projectId,
+        secondary: selection.sourceId ?? "Project boards",
+      };
+    }
+    if (selection.sourceId !== undefined) {
+      return {
+        primary: selection.sourceId,
+        secondary: `${boards.filter((board) => board.source?.sourceId === selection.sourceId).length} boards`,
+      };
+    }
     return {
-      primary: "All boards",
+      primary: sources.length > 0 ? "All sources" : "All boards",
       secondary: catalogSummary(projects.length, boards.length),
     };
   }
@@ -486,6 +637,9 @@ function selectedScopeLabels(
       primary: "Select a board",
       secondary: catalogSummary(projects.length, boards.length),
     };
+  }
+  if (selection.kind === "ambiguous") {
+    return { primary: selection.boardId, secondary: "Board ID is ambiguous" };
   }
   const board = boards.find((candidate) => candidate.id === selection.boardId);
   if (board === undefined) {
@@ -497,9 +651,30 @@ function selectedScopeLabels(
   return {
     primary: board.name,
     secondary:
-      projects.find((project) => project.id === board.projectId)?.name ??
-      board.projectId,
+      `${board.source?.sourceId === undefined ? "" : `${board.source.sourceId} / `}` +
+	  (projects.find((project) =>
+        project.id === board.projectId &&
+        project.source?.sourceId === board.source?.sourceId,
+      )?.name ??
+      board.projectId)
   };
+}
+
+function projectKey(sourceId: string | undefined, projectId: string): string {
+  return `${sourceId ?? "local"}:${projectId}`;
+}
+
+function sourceHealthLabel(health: SourceHealth): string {
+  switch (health) {
+    case SourceHealth.HEALTHY:
+      return "Healthy";
+    case SourceHealth.DEGRADED:
+      return "Degraded";
+    case SourceHealth.UNAVAILABLE:
+      return "Unavailable";
+    default:
+      return "Unknown";
+  }
 }
 
 function catalogSummary(projectCount: number, boardCount: number): string {

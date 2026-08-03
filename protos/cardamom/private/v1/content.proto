@@ -2,6 +2,12 @@ syntax = "proto3";
 
 package cardamom.private.v1;
 
+// PresentationContext supplies an optional route root for rendered links.
+message PresentationContext {
+  // route_prefix is a clean root-relative path used by source renderers.
+  string route_prefix = 1;
+}
+
 // MarkdownContent pairs stored Markdown with presentation HTML rendered and
 // sanitized by the server.
 message MarkdownContent {

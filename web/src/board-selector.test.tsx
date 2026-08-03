@@ -10,7 +10,17 @@ import { describe, expect, it, vi } from "vitest";
 import {
   BoardSelectorBoardRow,
   BoardSelectorView,
+  groupBoardsBySourceAndProject,
 } from "./board-selector.tsx";
+import { create } from "@bufbuild/protobuf";
+import {
+  BoardSummarySchema,
+  ProjectSchema,
+} from "./gen/cardamom/private/v1/project_pb.ts";
+import {
+  SourceCatalogEntrySchema,
+  SourceRefSchema,
+} from "./gen/cardamom/private/v1/source_pb.ts";
 
 const projects = [
   { id: "project-z", name: "Zebra" },
@@ -26,6 +36,55 @@ const boards = [
 ];
 
 describe("board selector", () => {
+  it("groups aggregate boards by source and then project", () => {
+    const builder = create(SourceRefSchema, {
+      sourceId: "builder",
+      storeLineageId: "lineage-builder",
+    });
+    const laptop = create(SourceRefSchema, {
+      sourceId: "laptop",
+      storeLineageId: "lineage-laptop",
+    });
+    const groups = groupBoardsBySourceAndProject(
+      [
+        create(SourceCatalogEntrySchema, { source: laptop }),
+        create(SourceCatalogEntrySchema, { source: builder }),
+      ],
+      [
+        create(ProjectSchema, {
+          id: "project-1",
+          name: "Build",
+          source: builder,
+        }),
+        create(ProjectSchema, {
+          id: "project-1",
+          name: "Build",
+          source: laptop,
+        }),
+      ],
+      [
+        create(BoardSummarySchema, {
+          id: "builder-board",
+          projectId: "project-1",
+          name: "Builder board",
+          source: builder,
+        }),
+        create(BoardSummarySchema, {
+          id: "laptop-board",
+          projectId: "project-1",
+          name: "Laptop board",
+          source: laptop,
+        }),
+      ],
+    );
+
+    expect(groups.map((group) => group.sourceId)).toEqual(["builder", "laptop"]);
+    expect(groups.map((group) => group.projects[0]?.boards[0]?.name)).toEqual([
+      "Builder board",
+      "Laptop board",
+    ]);
+  });
+
   it("sorts projects and keeps grouping based on the complete catalog", () => {
     const allMarkup = renderSelector("");
     const filteredMarkup = renderSelector("web");

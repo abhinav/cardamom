@@ -4,6 +4,7 @@ package cardamom.private.v1;
 
 import "cardamom/private/v1/content.proto";
 import "cardamom/private/v1/scope.proto";
+import "cardamom/private/v1/source.proto";
 import "google/protobuf/timestamp.proto";
 
 // IssueType identifies the workflow role of an issue.
@@ -185,6 +186,9 @@ message IssueSummary {
 
   // blocked reports whether an open prerequisite prevents execution.
   bool blocked = 15;
+
+  // source identifies the server that supplied this issue in aggregate mode.
+  optional SourceRef source = 16;
 }
 
 // RelatedIssue is the compact issue representation used by relationships.
@@ -206,6 +210,9 @@ message RelatedIssue {
 
   // priority is the domain ordering priority, where lower values run first.
   int32 priority = 6;
+
+  // source identifies the server that supplied this issue in aggregate mode.
+  optional SourceRef source = 7;
 }
 
 // AncestorContext carries current context inherited from one ancestor.
@@ -386,12 +393,24 @@ message ListIssuesResponse {
 
   // total_count is the number of issues matching the complete request.
   uint32 total_count = 5;
+
+  // aggregate_status reports source completeness in aggregate mode.
+  AggregateStatus aggregate_status = 6;
 }
 
 // GetIssueRequest identifies one issue by stable ID.
 message GetIssueRequest {
   // issue_id identifies the issue to read.
   string issue_id = 1;
+
+  // source identifies the aggregate source that owns issue_id when present.
+  optional SourceRef source = 2;
+
+  // board_id identifies the source-local board that owns issue_id when set.
+  optional string board_id = 3;
+
+  // presentation supplies the route root used by source Markdown rendering.
+  optional PresentationContext presentation = 4;
 }
 
 // GetIssueResponse contains the primary issue detail record.

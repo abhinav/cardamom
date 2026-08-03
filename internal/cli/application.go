@@ -3,6 +3,7 @@
 package cli
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -119,13 +120,21 @@ type Invocation struct {
 	// Actor owns custody changes and record attribution.
 	Actor string
 
-	// Store is the explicit or environment-selected physical store.
+	// Store is the explicitly or ambiently selected physical store.
 	// An empty value requests automatic discovery by process composition.
 	Store string
 
-	// Board is the explicit or environment-selected board.
+	// StoreExplicit reports whether Store came from --store rather than
+	// CARDAMOM_STORE.
+	StoreExplicit bool
+
+	// Board is the explicitly or ambiently selected board.
 	// An empty value requests normal board selection by process composition.
 	Board string
+
+	// BoardExplicit reports whether Board came from --board rather than
+	// CARDAMOM_BOARD.
+	BoardExplicit bool
 
 	// BoardIssueIDs are selectors whose owning board determines implicit scope.
 	BoardIssueIDs []string
@@ -210,6 +219,10 @@ func (a *Application) parse(ctx context.Context, args []string) (
 		grammar.Actor = a.config.DefaultActor
 	}
 	boardIssueIDs := parsedBoardIssueIDs(parseContext)
+	storeExplicit := grammar.Store != ""
+	boardExplicit := grammar.BoardSelector != ""
+	store := cmp.Or(grammar.Store, grammar.AmbientStore)
+	board := cmp.Or(grammar.BoardSelector, grammar.AmbientBoardSelector)
 
 	output := newOutput(
 		a.config.Stdout,
@@ -220,8 +233,10 @@ func (a *Application) parse(ctx context.Context, args []string) (
 	invocation := &Invocation{
 		Context:         ctx,
 		Actor:           grammar.Actor,
-		Store:           grammar.Store,
-		Board:           grammar.BoardSelector,
+		Store:           store,
+		StoreExplicit:   storeExplicit,
+		Board:           board,
+		BoardExplicit:   boardExplicit,
 		BoardIssueIDs:   boardIssueIDs,
 		Output:          output,
 		Stdin:           a.config.Stdin,

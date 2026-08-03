@@ -81,7 +81,9 @@ type Project struct {
 	// id is the stable project ID.
 	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	// name is the human-readable project name.
-	Name          string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,2,opt,name=name,proto3" json:"name,omitempty"`
+	// source identifies the server that supplied this project in aggregate mode.
+	Source        *SourceRef `protobuf:"bytes,3,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -130,6 +132,13 @@ func (x *Project) GetName() string {
 	return ""
 }
 
+func (x *Project) GetSource() *SourceRef {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
 // BoardSummary identifies a board in the server catalog.
 type BoardSummary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -138,7 +147,9 @@ type BoardSummary struct {
 	// project_id identifies the project that owns the board.
 	ProjectId string `protobuf:"bytes,2,opt,name=project_id,json=projectId,proto3" json:"project_id,omitempty"`
 	// name is the human-readable board name.
-	Name          string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
+	// source identifies the server that supplied this board in aggregate mode.
+	Source        *SourceRef `protobuf:"bytes,4,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -194,6 +205,13 @@ func (x *BoardSummary) GetName() string {
 	return ""
 }
 
+func (x *BoardSummary) GetSource() *SourceRef {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
 // Board contains browser-visible board settings and rendered context.
 type Board struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -206,7 +224,9 @@ type Board struct {
 	// description is the optional shared context inherited by board issues.
 	Description *MarkdownContent `protobuf:"bytes,4,opt,name=description,proto3,oneof" json:"description,omitempty"`
 	// created_at is the time at which the board was created.
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	// source identifies the server that supplied this board in aggregate mode.
+	Source        *SourceRef `protobuf:"bytes,6,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -272,6 +292,13 @@ func (x *Board) GetDescription() *MarkdownContent {
 func (x *Board) GetCreatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.CreatedAt
+	}
+	return nil
+}
+
+func (x *Board) GetSource() *SourceRef {
+	if x != nil {
+		return x.Source
 	}
 	return nil
 }
@@ -497,7 +524,13 @@ type GetBootstrapResponse struct {
 	// version is the running Cardamom binary version.
 	Version string `protobuf:"bytes,8,opt,name=version,proto3" json:"version,omitempty"`
 	// access_mode is the server-side write policy for this web invocation.
-	AccessMode    AccessMode `protobuf:"varint,9,opt,name=access_mode,json=accessMode,proto3,enum=cardamom.private.v1.AccessMode" json:"access_mode,omitempty"`
+	AccessMode AccessMode `protobuf:"varint,9,opt,name=access_mode,json=accessMode,proto3,enum=cardamom.private.v1.AccessMode" json:"access_mode,omitempty"`
+	// sources describes every configured source and its latest health.
+	Sources []*SourceCatalogEntry `protobuf:"bytes,10,rep,name=sources,proto3" json:"sources,omitempty"`
+	// aggregate_status reports whether every configured source contributed.
+	AggregateStatus *AggregateStatus `protobuf:"bytes,11,opt,name=aggregate_status,json=aggregateStatus,proto3" json:"aggregate_status,omitempty"`
+	// default_scope is the deterministic initial board scope for the browser.
+	DefaultScope  *BoardScope `protobuf:"bytes,14,opt,name=default_scope,json=defaultScope,proto3" json:"default_scope,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -588,11 +621,36 @@ func (x *GetBootstrapResponse) GetAccessMode() AccessMode {
 	return AccessMode_ACCESS_MODE_UNSPECIFIED
 }
 
+func (x *GetBootstrapResponse) GetSources() []*SourceCatalogEntry {
+	if x != nil {
+		return x.Sources
+	}
+	return nil
+}
+
+func (x *GetBootstrapResponse) GetAggregateStatus() *AggregateStatus {
+	if x != nil {
+		return x.AggregateStatus
+	}
+	return nil
+}
+
+func (x *GetBootstrapResponse) GetDefaultScope() *BoardScope {
+	if x != nil {
+		return x.DefaultScope
+	}
+	return nil
+}
+
 // GetBoardRequest identifies one board by stable ID.
 type GetBoardRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// board_id identifies the board to read.
-	BoardId       string `protobuf:"bytes,1,opt,name=board_id,json=boardId,proto3" json:"board_id,omitempty"`
+	BoardId string `protobuf:"bytes,1,opt,name=board_id,json=boardId,proto3" json:"board_id,omitempty"`
+	// source identifies the aggregate source that owns board_id when present.
+	Source *SourceRef `protobuf:"bytes,2,opt,name=source,proto3,oneof" json:"source,omitempty"`
+	// presentation supplies the route root used by source Markdown rendering.
+	Presentation  *PresentationContext `protobuf:"bytes,3,opt,name=presentation,proto3,oneof" json:"presentation,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -632,6 +690,20 @@ func (x *GetBoardRequest) GetBoardId() string {
 		return x.BoardId
 	}
 	return ""
+}
+
+func (x *GetBoardRequest) GetSource() *SourceRef {
+	if x != nil {
+		return x.Source
+	}
+	return nil
+}
+
+func (x *GetBoardRequest) GetPresentation() *PresentationContext {
+	if x != nil {
+		return x.Presentation
+	}
+	return nil
 }
 
 // GetBoardResponse contains the requested board.
@@ -1032,15 +1104,19 @@ var File_cardamom_private_v1_project_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\n" +
-	"!cardamom/private/v1/project.proto\x12\x13cardamom.private.v1\x1a!cardamom/private/v1/content.proto\x1a\x1fcardamom/private/v1/issue.proto\x1a\"cardamom/private/v1/mutation.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"-\n" +
+	"!cardamom/private/v1/project.proto\x12\x13cardamom.private.v1\x1a!cardamom/private/v1/content.proto\x1a\x1fcardamom/private/v1/issue.proto\x1a\"cardamom/private/v1/mutation.proto\x1a\x1fcardamom/private/v1/scope.proto\x1a cardamom/private/v1/source.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"u\n" +
 	"\aProject\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
-	"\x04name\x18\x02 \x01(\tR\x04name\"Q\n" +
+	"\x04name\x18\x02 \x01(\tR\x04name\x12;\n" +
+	"\x06source\x18\x03 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01B\t\n" +
+	"\a_source\"\x99\x01\n" +
 	"\fBoardSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x02 \x01(\tR\tprojectId\x12\x12\n" +
-	"\x04name\x18\x03 \x01(\tR\x04name\"\xe2\x01\n" +
+	"\x04name\x18\x03 \x01(\tR\x04name\x12;\n" +
+	"\x06source\x18\x04 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01B\t\n" +
+	"\a_source\"\xaa\x02\n" +
 	"\x05Board\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1048,15 +1124,17 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12K\n" +
 	"\vdescription\x18\x04 \x01(\v2$.cardamom.private.v1.MarkdownContentH\x00R\vdescription\x88\x01\x01\x129\n" +
 	"\n" +
-	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x0e\n" +
-	"\f_description\"\x15\n" +
+	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12;\n" +
+	"\x06source\x18\x06 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x01R\x06source\x88\x01\x01B\x0e\n" +
+	"\f_descriptionB\t\n" +
+	"\a_source\"\x15\n" +
 	"\x13ListProjectsRequest\"P\n" +
 	"\x14ListProjectsResponse\x128\n" +
 	"\bprojects\x18\x01 \x03(\v2\x1c.cardamom.private.v1.ProjectR\bprojects\"\x13\n" +
 	"\x11ListBoardsRequest\"O\n" +
 	"\x12ListBoardsResponse\x129\n" +
 	"\x06boards\x18\x01 \x03(\v2!.cardamom.private.v1.BoardSummaryR\x06boards\"\x15\n" +
-	"\x13GetBootstrapRequest\"\x81\x04\n" +
+	"\x13GetBootstrapRequest\"\xdb\x05\n" +
 	"\x14GetBootstrapResponse\x128\n" +
 	"\bprojects\x18\x01 \x03(\v2\x1c.cardamom.private.v1.ProjectR\bprojects\x129\n" +
 	"\x06boards\x18\x02 \x03(\v2!.cardamom.private.v1.BoardSummaryR\x06boards\x12:\n" +
@@ -1067,10 +1145,18 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x0eschema_version\x18\a \x01(\x04R\rschemaVersion\x12\x18\n" +
 	"\aversion\x18\b \x01(\tR\aversion\x12@\n" +
 	"\vaccess_mode\x18\t \x01(\x0e2\x1f.cardamom.private.v1.AccessModeR\n" +
-	"accessModeB\x1a\n" +
-	"\x18_server_default_board_idJ\x04\b\x06\x10\aR\tid_prefix\",\n" +
+	"accessMode\x12A\n" +
+	"\asources\x18\n" +
+	" \x03(\v2'.cardamom.private.v1.SourceCatalogEntryR\asources\x12O\n" +
+	"\x10aggregate_status\x18\v \x01(\v2$.cardamom.private.v1.AggregateStatusR\x0faggregateStatus\x12D\n" +
+	"\rdefault_scope\x18\x0e \x01(\v2\x1f.cardamom.private.v1.BoardScopeR\fdefaultScopeB\x1a\n" +
+	"\x18_server_default_board_idJ\x04\b\x06\x10\aR\tid_prefix\"\xd8\x01\n" +
 	"\x0fGetBoardRequest\x12\x19\n" +
-	"\bboard_id\x18\x01 \x01(\tR\aboardId\"D\n" +
+	"\bboard_id\x18\x01 \x01(\tR\aboardId\x12;\n" +
+	"\x06source\x18\x02 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01\x12Q\n" +
+	"\fpresentation\x18\x03 \x01(\v2(.cardamom.private.v1.PresentationContextH\x01R\fpresentation\x88\x01\x01B\t\n" +
+	"\a_sourceB\x0f\n" +
+	"\r_presentation\"D\n" +
 	"\x10GetBoardResponse\x120\n" +
 	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board\"\x92\x01\n" +
 	"\x14CreateProjectRequest\x12\x12\n" +
@@ -1147,48 +1233,61 @@ var file_cardamom_private_v1_project_proto_goTypes = []any{
 	(*CreateBoardResponse)(nil),   // 15: cardamom.private.v1.CreateBoardResponse
 	(*UpdateBoardRequest)(nil),    // 16: cardamom.private.v1.UpdateBoardRequest
 	(*UpdateBoardResponse)(nil),   // 17: cardamom.private.v1.UpdateBoardResponse
-	(*MarkdownContent)(nil),       // 18: cardamom.private.v1.MarkdownContent
-	(*timestamppb.Timestamp)(nil), // 19: google.protobuf.Timestamp
-	(IssueType)(0),                // 20: cardamom.private.v1.IssueType
-	(IssueStatus)(0),              // 21: cardamom.private.v1.IssueStatus
-	(*MutationContext)(nil),       // 22: cardamom.private.v1.MutationContext
+	(*SourceRef)(nil),             // 18: cardamom.private.v1.SourceRef
+	(*MarkdownContent)(nil),       // 19: cardamom.private.v1.MarkdownContent
+	(*timestamppb.Timestamp)(nil), // 20: google.protobuf.Timestamp
+	(IssueType)(0),                // 21: cardamom.private.v1.IssueType
+	(IssueStatus)(0),              // 22: cardamom.private.v1.IssueStatus
+	(*SourceCatalogEntry)(nil),    // 23: cardamom.private.v1.SourceCatalogEntry
+	(*AggregateStatus)(nil),       // 24: cardamom.private.v1.AggregateStatus
+	(*BoardScope)(nil),            // 25: cardamom.private.v1.BoardScope
+	(*PresentationContext)(nil),   // 26: cardamom.private.v1.PresentationContext
+	(*MutationContext)(nil),       // 27: cardamom.private.v1.MutationContext
 }
 var file_cardamom_private_v1_project_proto_depIdxs = []int32{
-	18, // 0: cardamom.private.v1.Board.description:type_name -> cardamom.private.v1.MarkdownContent
-	19, // 1: cardamom.private.v1.Board.created_at:type_name -> google.protobuf.Timestamp
-	1,  // 2: cardamom.private.v1.ListProjectsResponse.projects:type_name -> cardamom.private.v1.Project
-	2,  // 3: cardamom.private.v1.ListBoardsResponse.boards:type_name -> cardamom.private.v1.BoardSummary
-	1,  // 4: cardamom.private.v1.GetBootstrapResponse.projects:type_name -> cardamom.private.v1.Project
-	2,  // 5: cardamom.private.v1.GetBootstrapResponse.boards:type_name -> cardamom.private.v1.BoardSummary
-	20, // 6: cardamom.private.v1.GetBootstrapResponse.issue_types:type_name -> cardamom.private.v1.IssueType
-	21, // 7: cardamom.private.v1.GetBootstrapResponse.issue_statuses:type_name -> cardamom.private.v1.IssueStatus
-	0,  // 8: cardamom.private.v1.GetBootstrapResponse.access_mode:type_name -> cardamom.private.v1.AccessMode
-	3,  // 9: cardamom.private.v1.GetBoardResponse.board:type_name -> cardamom.private.v1.Board
-	22, // 10: cardamom.private.v1.CreateProjectRequest.context:type_name -> cardamom.private.v1.MutationContext
-	1,  // 11: cardamom.private.v1.CreateProjectResponse.project:type_name -> cardamom.private.v1.Project
-	22, // 12: cardamom.private.v1.CreateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
-	3,  // 13: cardamom.private.v1.CreateBoardResponse.board:type_name -> cardamom.private.v1.Board
-	22, // 14: cardamom.private.v1.UpdateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
-	3,  // 15: cardamom.private.v1.UpdateBoardResponse.board:type_name -> cardamom.private.v1.Board
-	4,  // 16: cardamom.private.v1.ProjectService.ListProjects:input_type -> cardamom.private.v1.ListProjectsRequest
-	6,  // 17: cardamom.private.v1.ProjectService.ListBoards:input_type -> cardamom.private.v1.ListBoardsRequest
-	8,  // 18: cardamom.private.v1.ProjectService.GetBootstrap:input_type -> cardamom.private.v1.GetBootstrapRequest
-	10, // 19: cardamom.private.v1.ProjectService.GetBoard:input_type -> cardamom.private.v1.GetBoardRequest
-	12, // 20: cardamom.private.v1.ProjectService.CreateProject:input_type -> cardamom.private.v1.CreateProjectRequest
-	14, // 21: cardamom.private.v1.ProjectService.CreateBoard:input_type -> cardamom.private.v1.CreateBoardRequest
-	16, // 22: cardamom.private.v1.ProjectService.UpdateBoard:input_type -> cardamom.private.v1.UpdateBoardRequest
-	5,  // 23: cardamom.private.v1.ProjectService.ListProjects:output_type -> cardamom.private.v1.ListProjectsResponse
-	7,  // 24: cardamom.private.v1.ProjectService.ListBoards:output_type -> cardamom.private.v1.ListBoardsResponse
-	9,  // 25: cardamom.private.v1.ProjectService.GetBootstrap:output_type -> cardamom.private.v1.GetBootstrapResponse
-	11, // 26: cardamom.private.v1.ProjectService.GetBoard:output_type -> cardamom.private.v1.GetBoardResponse
-	13, // 27: cardamom.private.v1.ProjectService.CreateProject:output_type -> cardamom.private.v1.CreateProjectResponse
-	15, // 28: cardamom.private.v1.ProjectService.CreateBoard:output_type -> cardamom.private.v1.CreateBoardResponse
-	17, // 29: cardamom.private.v1.ProjectService.UpdateBoard:output_type -> cardamom.private.v1.UpdateBoardResponse
-	23, // [23:30] is the sub-list for method output_type
-	16, // [16:23] is the sub-list for method input_type
-	16, // [16:16] is the sub-list for extension type_name
-	16, // [16:16] is the sub-list for extension extendee
-	0,  // [0:16] is the sub-list for field type_name
+	18, // 0: cardamom.private.v1.Project.source:type_name -> cardamom.private.v1.SourceRef
+	18, // 1: cardamom.private.v1.BoardSummary.source:type_name -> cardamom.private.v1.SourceRef
+	19, // 2: cardamom.private.v1.Board.description:type_name -> cardamom.private.v1.MarkdownContent
+	20, // 3: cardamom.private.v1.Board.created_at:type_name -> google.protobuf.Timestamp
+	18, // 4: cardamom.private.v1.Board.source:type_name -> cardamom.private.v1.SourceRef
+	1,  // 5: cardamom.private.v1.ListProjectsResponse.projects:type_name -> cardamom.private.v1.Project
+	2,  // 6: cardamom.private.v1.ListBoardsResponse.boards:type_name -> cardamom.private.v1.BoardSummary
+	1,  // 7: cardamom.private.v1.GetBootstrapResponse.projects:type_name -> cardamom.private.v1.Project
+	2,  // 8: cardamom.private.v1.GetBootstrapResponse.boards:type_name -> cardamom.private.v1.BoardSummary
+	21, // 9: cardamom.private.v1.GetBootstrapResponse.issue_types:type_name -> cardamom.private.v1.IssueType
+	22, // 10: cardamom.private.v1.GetBootstrapResponse.issue_statuses:type_name -> cardamom.private.v1.IssueStatus
+	0,  // 11: cardamom.private.v1.GetBootstrapResponse.access_mode:type_name -> cardamom.private.v1.AccessMode
+	23, // 12: cardamom.private.v1.GetBootstrapResponse.sources:type_name -> cardamom.private.v1.SourceCatalogEntry
+	24, // 13: cardamom.private.v1.GetBootstrapResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
+	25, // 14: cardamom.private.v1.GetBootstrapResponse.default_scope:type_name -> cardamom.private.v1.BoardScope
+	18, // 15: cardamom.private.v1.GetBoardRequest.source:type_name -> cardamom.private.v1.SourceRef
+	26, // 16: cardamom.private.v1.GetBoardRequest.presentation:type_name -> cardamom.private.v1.PresentationContext
+	3,  // 17: cardamom.private.v1.GetBoardResponse.board:type_name -> cardamom.private.v1.Board
+	27, // 18: cardamom.private.v1.CreateProjectRequest.context:type_name -> cardamom.private.v1.MutationContext
+	1,  // 19: cardamom.private.v1.CreateProjectResponse.project:type_name -> cardamom.private.v1.Project
+	27, // 20: cardamom.private.v1.CreateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	3,  // 21: cardamom.private.v1.CreateBoardResponse.board:type_name -> cardamom.private.v1.Board
+	27, // 22: cardamom.private.v1.UpdateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	3,  // 23: cardamom.private.v1.UpdateBoardResponse.board:type_name -> cardamom.private.v1.Board
+	4,  // 24: cardamom.private.v1.ProjectService.ListProjects:input_type -> cardamom.private.v1.ListProjectsRequest
+	6,  // 25: cardamom.private.v1.ProjectService.ListBoards:input_type -> cardamom.private.v1.ListBoardsRequest
+	8,  // 26: cardamom.private.v1.ProjectService.GetBootstrap:input_type -> cardamom.private.v1.GetBootstrapRequest
+	10, // 27: cardamom.private.v1.ProjectService.GetBoard:input_type -> cardamom.private.v1.GetBoardRequest
+	12, // 28: cardamom.private.v1.ProjectService.CreateProject:input_type -> cardamom.private.v1.CreateProjectRequest
+	14, // 29: cardamom.private.v1.ProjectService.CreateBoard:input_type -> cardamom.private.v1.CreateBoardRequest
+	16, // 30: cardamom.private.v1.ProjectService.UpdateBoard:input_type -> cardamom.private.v1.UpdateBoardRequest
+	5,  // 31: cardamom.private.v1.ProjectService.ListProjects:output_type -> cardamom.private.v1.ListProjectsResponse
+	7,  // 32: cardamom.private.v1.ProjectService.ListBoards:output_type -> cardamom.private.v1.ListBoardsResponse
+	9,  // 33: cardamom.private.v1.ProjectService.GetBootstrap:output_type -> cardamom.private.v1.GetBootstrapResponse
+	11, // 34: cardamom.private.v1.ProjectService.GetBoard:output_type -> cardamom.private.v1.GetBoardResponse
+	13, // 35: cardamom.private.v1.ProjectService.CreateProject:output_type -> cardamom.private.v1.CreateProjectResponse
+	15, // 36: cardamom.private.v1.ProjectService.CreateBoard:output_type -> cardamom.private.v1.CreateBoardResponse
+	17, // 37: cardamom.private.v1.ProjectService.UpdateBoard:output_type -> cardamom.private.v1.UpdateBoardResponse
+	31, // [31:38] is the sub-list for method output_type
+	24, // [24:31] is the sub-list for method input_type
+	24, // [24:24] is the sub-list for extension type_name
+	24, // [24:24] is the sub-list for extension extendee
+	0,  // [0:24] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_project_proto_init() }
@@ -1199,8 +1298,13 @@ func file_cardamom_private_v1_project_proto_init() {
 	file_cardamom_private_v1_content_proto_init()
 	file_cardamom_private_v1_issue_proto_init()
 	file_cardamom_private_v1_mutation_proto_init()
+	file_cardamom_private_v1_scope_proto_init()
+	file_cardamom_private_v1_source_proto_init()
+	file_cardamom_private_v1_project_proto_msgTypes[0].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[1].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[2].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[8].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[9].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[11].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[13].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[15].OneofWrappers = []any{}

@@ -10,7 +10,28 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/content.proto.
  */
 export const file_cardamom_private_v1_content: GenFile = /*@__PURE__*/
-  fileDesc("CiFjYXJkYW1vbS9wcml2YXRlL3YxL2NvbnRlbnQucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiOAoPTWFya2Rvd25Db250ZW50Eg4KBnNvdXJjZRgBIAEoCRIVCg1yZW5kZXJlZF9odG1sGAIgASgJQtgBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUIMQ29udGVudFByb3RvUAFaP2dvLmFiaGcuZGV2L2NhcmRhbW9tL2ludGVybmFsL2dlbi9jYXJkYW1vbS9wcml2YXRlL3YxO3ByaXZhdGV2MaICA0NQWKoCE0NhcmRhbW9tLlByaXZhdGUuVjHKAhRDYXJkYW1vbVxQcml2YXRlX1xWMeICIENhcmRhbW9tXFByaXZhdGVfXFYxXEdQQk1ldGFkYXRh6gIVQ2FyZGFtb206OlByaXZhdGU6OlYxYgZwcm90bzM");
+  fileDesc("CiFjYXJkYW1vbS9wcml2YXRlL3YxL2NvbnRlbnQucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiKwoTUHJlc2VudGF0aW9uQ29udGV4dBIUCgxyb3V0ZV9wcmVmaXgYASABKAkiOAoPTWFya2Rvd25Db250ZW50Eg4KBnNvdXJjZRgBIAEoCRIVCg1yZW5kZXJlZF9odG1sGAIgASgJQtgBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUIMQ29udGVudFByb3RvUAFaP2dvLmFiaGcuZGV2L2NhcmRhbW9tL2ludGVybmFsL2dlbi9jYXJkYW1vbS9wcml2YXRlL3YxO3ByaXZhdGV2MaICA0NQWKoCE0NhcmRhbW9tLlByaXZhdGUuVjHKAhRDYXJkYW1vbVxQcml2YXRlX1xWMeICIENhcmRhbW9tXFByaXZhdGVfXFYxXEdQQk1ldGFkYXRh6gIVQ2FyZGFtb206OlByaXZhdGU6OlYxYgZwcm90bzM");
+
+/**
+ * PresentationContext supplies an optional route root for rendered links.
+ *
+ * @generated from message cardamom.private.v1.PresentationContext
+ */
+export type PresentationContext = Message<"cardamom.private.v1.PresentationContext"> & {
+  /**
+   * route_prefix is a clean root-relative path used by source renderers.
+   *
+   * @generated from field: string route_prefix = 1;
+   */
+  routePrefix: string;
+};
+
+/**
+ * Describes the message cardamom.private.v1.PresentationContext.
+ * Use `create(PresentationContextSchema)` to create a new message.
+ */
+export const PresentationContextSchema: GenMessage<PresentationContext> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_content, 0);
 
 /**
  * MarkdownContent pairs stored Markdown with presentation HTML rendered and
@@ -39,5 +60,5 @@ export type MarkdownContent = Message<"cardamom.private.v1.MarkdownContent"> & {
  * Use `create(MarkdownContentSchema)` to create a new message.
  */
 export const MarkdownContentSchema: GenMessage<MarkdownContent> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_content, 0);
+  messageDesc(file_cardamom_private_v1_content, 1);
 

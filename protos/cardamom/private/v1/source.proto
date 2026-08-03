@@ -1,0 +1,80 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+// SourceHealth identifies the latest reachability state for one configured
+// source.
+enum SourceHealth {
+  // SOURCE_HEALTH_UNSPECIFIED does not identify a source state.
+  SOURCE_HEALTH_UNSPECIFIED = 0;
+
+  // SOURCE_HEALTH_HEALTHY means the source is reachable and compatible.
+  SOURCE_HEALTH_HEALTHY = 1;
+
+  // SOURCE_HEALTH_DEGRADED means the source is reachable with a limited
+  // capability or stale update stream.
+  SOURCE_HEALTH_DEGRADED = 2;
+
+  // SOURCE_HEALTH_UNAVAILABLE means the source cannot currently be read.
+  SOURCE_HEALTH_UNAVAILABLE = 3;
+}
+
+// SourceRef identifies a configured route and the store lineage behind it.
+message SourceRef {
+  // source_id is the configured routing alias.
+  string source_id = 1;
+
+  // store_lineage_id identifies the persistent store history behind the alias.
+  string store_lineage_id = 2;
+}
+
+// SourceProblem reports a safe diagnostic for one source.
+message SourceProblem {
+  // source_id identifies the configured source with the problem.
+  string source_id = 1;
+
+  // summary is safe to expose to the browser and omits transport details.
+  string summary = 2;
+}
+
+// AggregateStatus reports whether a multi-source read is complete.
+message AggregateStatus {
+  // complete is false when one or more selected sources did not contribute.
+  bool complete = 1;
+
+  // problems contains safe diagnostics for sources that did not contribute.
+  repeated SourceProblem problems = 2;
+}
+
+// SourceCatalogEntry describes one configured source during bootstrap.
+message SourceCatalogEntry {
+  // source identifies the configured alias and observed store lineage.
+  SourceRef source = 1;
+
+  // health is the latest source reachability and compatibility state.
+  SourceHealth health = 2;
+
+  // diagnostic is the latest safe connection or compatibility summary.
+  string diagnostic = 3;
+
+  // version is the running Cardamom version reported by the source.
+  string version = 4;
+
+  // schema_version is the source's active persisted schema version.
+  uint64 schema_version = 5;
+
+  // read_only reports whether the source permits only side-effect-free reads.
+  bool read_only = 7;
+}
+
+// SourceHealthEvent reports a source status transition on a change stream.
+message SourceHealthEvent {
+  // source identifies the source whose status changed.
+  SourceRef source = 1;
+
+  // health is the new source state.
+  SourceHealth health = 2;
+
+  // diagnostic is a safe summary of the status transition.
+  string diagnostic = 3;
+}

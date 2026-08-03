@@ -6,11 +6,17 @@ import "github.com/alecthomas/kong"
 // completion. Command-family files add syntax and Run methods to these nodes;
 // commandTree does not perform domain work.
 type commandTree struct {
-	Store         string `name:"store" group:"global" env:"CARDAMOM_STORE" placeholder:"PATH" help:"Physical Cardamom store directory. Overrides automatic discovery."`
-	BoardSelector string `name:"board" group:"global" env:"CARDAMOM_BOARD" predictor:"boards" placeholder:"BOARD" help:"Coordination board ID or exact name."`
-	Actor         string `name:"actor" group:"global" env:"CARDAMOM_ACTOR" default:"${default_actor}" placeholder:"ACTOR" help:"Identity that owns active claims and attributes changes. Defaults to the current OS username."`
-	JSON          bool   `name:"json" group:"global" help:"Emit machine-readable JSON or JSON Lines output."`
-	Quiet         bool   `name:"quiet" short:"q" group:"global" help:"Suppress status notices while preserving requested output and errors."`
+	Store         string `name:"store" group:"global" placeholder:"PATH" help:"Physical Cardamom store directory. Overrides automatic discovery ($CARDAMOM_STORE)."`
+	BoardSelector string `name:"board" group:"global" predictor:"boards" placeholder:"BOARD" help:"Coordination board ID or exact name ($CARDAMOM_BOARD)."`
+
+	// AmbientStore and AmbientBoardSelector retain environment defaults separately
+	// from explicit flags so aggregate web mode can discard local selectors.
+	AmbientStore         string `name:"private-store-from-env" hidden:"" env:"CARDAMOM_STORE"`
+	AmbientBoardSelector string `name:"private-board-from-env" hidden:"" env:"CARDAMOM_BOARD"`
+
+	Actor string `name:"actor" group:"global" env:"CARDAMOM_ACTOR" default:"${default_actor}" placeholder:"ACTOR" help:"Identity that owns active claims and attributes changes. Defaults to the current OS username."`
+	JSON  bool   `name:"json" group:"global" help:"Emit machine-readable JSON or JSON Lines output."`
+	Quiet bool   `name:"quiet" short:"q" group:"global" help:"Suppress status notices while preserving requested output and errors."`
 
 	Init    initCommand          `cmd:"" group:"starting" help:"Initialize a store, project, and first board."`
 	Project projectCommand       `cmd:"" group:"starting" help:"Create and list project namespaces."`

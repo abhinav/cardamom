@@ -210,6 +210,7 @@ type testMarkdownCall struct {
 func (r *testMarkdownRenderer) RenderBoard(
 	_ context.Context,
 	boardID board.ID,
+	_ string,
 	sources []string,
 ) ([]string, error) {
 	r.calls = append(r.calls, testMarkdownCall{

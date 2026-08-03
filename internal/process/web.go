@@ -3,17 +3,20 @@ package process
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/cli"
 	"go.abhg.dev/cardamom/internal/errkind"
+	privatev1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/markdown"
 	"go.abhg.dev/cardamom/internal/repository/store"
 	"go.abhg.dev/cardamom/internal/web"
+	"go.abhg.dev/cardamom/internal/web/aggregate"
 	"go.abhg.dev/cardamom/internal/web/attachmentconnect"
 	"go.abhg.dev/cardamom/internal/web/attachmentcontent"
 	"go.abhg.dev/cardamom/internal/web/boardscope"
@@ -41,6 +44,22 @@ func provideWeb(config *Config) cli.WebOperation {
 }
 
 func (o *webOperation) Run(ctx context.Context, request cli.WebRequest) (err error) {
+	if len(request.Sources) > 0 {
+		if request.Store != "" || request.Board != "" {
+			return errors.New("web: --source cannot be combined with --store or --board")
+		}
+		binding, err := o.openAggregate(ctx, request)
+		if err != nil {
+			return err
+		}
+		return runWebServer(ctx, request, server.Config{
+			Bind: request.Bind, Port: request.Port, NoBrowser: request.NoBrowser,
+			Notice: request.Notice, Diagnostic: request.Diagnostic,
+			HandlerPath: binding.path, Handler: binding.handler,
+			AttachmentContentPattern: binding.attachmentContentPattern,
+			AttachmentContent:        binding.attachmentContent,
+		})
+	}
 	binding, closeStore, err := o.open(ctx, request)
 	if err != nil {
 		return err
@@ -53,6 +72,31 @@ func (o *webOperation) Run(ctx context.Context, request cli.WebRequest) (err err
 		AttachmentContentPattern: binding.attachmentContentPattern,
 		AttachmentContent:        binding.attachmentContent,
 	})
+}
+
+func (o *webOperation) openAggregate(
+	ctx context.Context,
+	request cli.WebRequest,
+) (webHandlerBinding, error) {
+	sources := make([]aggregate.SourceConfig, 0, len(request.Sources))
+	for _, source := range request.Sources {
+		sources = append(sources, aggregate.SourceConfig{
+			Alias: source.Alias, URL: source.URL,
+		})
+	}
+	value, err := aggregate.New(ctx, aggregate.Config{
+		Sources: sources, Version: o.config.Version,
+	})
+	if err != nil {
+		return webHandlerBinding{}, err
+	}
+	binding := value.Binding()
+	return webHandlerBinding{
+		path:                     binding.Path,
+		handler:                  binding.Handler,
+		attachmentContentPattern: binding.AttachmentContentPattern,
+		attachmentContent:        binding.AttachmentContent,
+	}, nil
 }
 
 // webHandlerBinding identifies the route and handler for the composed web API.
@@ -81,6 +125,10 @@ func (o *webOperation) open(
 		selectedBoard = nil
 	}
 	attachments, err := provideAttachmentService(runtime)
+	if err != nil {
+		return webHandlerBinding{}, nil, errors.Join(err, runtime.close())
+	}
+	localSource, err := localSourceRef(ctx, runtime)
 	if err != nil {
 		return webHandlerBinding{}, nil, errors.Join(err, runtime.close())
 	}
@@ -113,6 +161,7 @@ func (o *webOperation) open(
 		SchemaVersion:        uint64(store.SchemaVersion()),
 		Version:              o.config.Version,
 		AccessMode:           accessMode,
+		Source:               localSource,
 	})
 	informationHandler := informationconnect.New(runtime.informationService())
 	issueHandler := issueconnect.New(issueconnect.Config{
@@ -166,6 +215,19 @@ func (o *webOperation) open(
 		attachmentContentPattern: attachmentcontent.PathPattern,
 		attachmentContent:        contentHandler,
 	}, runtime.close, nil
+}
+
+func localSourceRef(ctx context.Context, runtime *namespaceRuntime) (*privatev1.SourceRef, error) {
+	view, err := runtime.store.View(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("open store lineage view: %w", err)
+	}
+	defer func() { _ = view.Done() }()
+	lineage, err := view.LineageID(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &privatev1.SourceRef{StoreLineageId: lineage}, nil
 }
 
 // markdownReferenceResolver selects the repository that owns the board named

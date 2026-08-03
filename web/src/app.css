@@ -404,6 +404,61 @@ button:disabled {
   white-space: nowrap;
 }
 
+.board-selector-source {
+  margin: 0.35rem 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.board-selector-source-heading,
+.board-selector-scope-option {
+  min-width: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  width: 100%;
+  padding: 0.45rem 0.55rem;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface-subtle);
+  color: var(--text);
+  text-align: left;
+  font-size: 0.7rem;
+  font-weight: 750;
+}
+
+.board-selector-source-heading {
+  color: var(--muted);
+  text-transform: uppercase;
+}
+
+.board-selector-scope-option:hover,
+.board-selector-scope-option[aria-current="true"] {
+  background: var(--surface);
+  color: var(--accent);
+}
+
+.board-selector-source .board-selector-project {
+  margin: 0;
+  border: 0;
+  border-radius: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.board-selector-source .board-selector-project:last-child {
+  border-bottom: 0;
+}
+
+.board-picker-sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  padding: 0.65rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
 .board-selector-empty {
   margin: 0;
   padding: 1rem 0.55rem;
@@ -565,6 +620,57 @@ button:disabled {
   gap: 0.35rem;
   color: var(--muted);
   font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.stream-state-details {
+  position: relative;
+}
+
+.stream-state-details > summary {
+  cursor: pointer;
+  list-style: none;
+}
+
+.stream-state-details > summary::-webkit-details-marker {
+  display: none;
+}
+
+.source-health-panel {
+  position: absolute;
+  z-index: 12;
+  top: calc(100% + 0.45rem);
+  right: 0;
+  width: min(24rem, calc(100vw - 2rem));
+  display: grid;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-overlay);
+  background: var(--surface);
+  box-shadow: var(--shadow-overlay);
+  color: var(--text);
+  font-size: 0.72rem;
+}
+
+.source-health-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.15rem 0.65rem;
+  padding-top: 0.35rem;
+  border-top: 1px solid var(--border);
+}
+
+.source-health-row span:last-child {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+
+.aggregate-read-status {
+  flex: none;
+  margin: 0 0.75rem 0 0;
+  color: var(--state-in-progress);
+  font-size: 0.72rem;
   font-weight: 700;
 }
 

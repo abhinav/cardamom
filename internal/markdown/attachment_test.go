@@ -27,7 +27,7 @@ func TestRenderer_RenderBoardResolvesAttachmentDestinationsInOneBatch(t *testing
 		"`[not a reference](attachment:" + documentID.String() + ")`\n\n```markdown\n![also not](attachment:" + imageID.String() + ")\n```",
 	}
 
-	rendered, err := renderer.RenderBoard(t.Context(), "board-1", sources)
+	rendered, err := renderer.RenderBoard(t.Context(), "board-1", "", sources)
 	require.NoError(t, err)
 
 	require.Len(t, resolver.requests, 1)
@@ -70,7 +70,7 @@ func TestRenderer_RenderBoardMarksUnavailableAttachments(t *testing.T) {
 		"[malformed](attachment:not-an-id)",
 	}, "\n\n")
 
-	rendered, err := renderer.RenderBoard(t.Context(), "board-1", []string{source})
+	rendered, err := renderer.RenderBoard(t.Context(), "board-1", "", []string{source})
 	require.NoError(t, err)
 
 	require.Len(t, resolver.requests, 1)

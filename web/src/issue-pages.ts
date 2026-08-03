@@ -22,6 +22,7 @@ import {
   type ListIssuesResponse,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import type { BoardScope } from "./gen/cardamom/private/v1/scope_pb.ts";
+import type { AggregateStatus } from "./gen/cardamom/private/v1/source_pb.ts";
 import {
   buildIssueQuery,
   issueTypeLabel,
@@ -30,6 +31,7 @@ import {
   type IssueGrouping,
   type IssueViewPreferences,
 } from "./issue-collection.ts";
+import { issueIdentity } from "./provenance.ts";
 import { issueStatusPresentation } from "./issue-status.tsx";
 import { issueCollectionQueryOptions } from "./query-runtime.ts";
 
@@ -55,6 +57,7 @@ export interface IssuePageStream extends IssueStream {
   /** nextPageToken is absent after the server exhausts the stream. */
   nextPageToken?: string;
   error?: Error;
+  aggregateStatus?: AggregateStatus;
 }
 
 /** IssuePageState retains independent streams in their display order. */
@@ -169,7 +172,7 @@ export interface IssuePageQuery {
   error?: Error;
 }
 
-/** projectIssuePages preserves display order while removing cross-stream duplicates. */
+/** projectIssuePages preserves display order while removing duplicate issue identities. */
 export function projectIssuePages(
   streams: readonly IssueStream[],
   queries: readonly IssuePageQuery[],
@@ -185,10 +188,11 @@ export function projectIssuePages(
       completed = true;
     }
     const issues = pages.flatMap((page) => page.issues).filter((issue) => {
-      if (seen.has(issue.id)) {
+      const identity = issueIdentity(issue);
+      if (seen.has(identity)) {
         return false;
       }
-      seen.add(issue.id);
+      seen.add(identity);
       return true;
     });
     const lastPage = pages.at(-1);
@@ -210,6 +214,7 @@ export function projectIssuePages(
       status,
       pageCount: pages.length,
       nextPageToken: lastPage?.nextPageToken,
+      aggregateStatus: lastPage?.aggregateStatus,
       error: query?.error,
     };
   });

@@ -776,6 +776,20 @@ Read-only mode rejects browser API operations that may have side effects.
 Browser reads and raw attachment downloads remain available,
 and direct `card` CLI commands keep their ordinary access.
 
+### Aggregate dashboard
+
+Use `--source` to browse one or more Cardamom web servers
+through one read-only dashboard:
+
+```bash
+card web \
+  --source laptop=http://127.0.0.1:5757 \
+  --source builder=http://127.0.0.1:5758
+```
+
+Each source is an `alias=URL` pair.
+The aggregate dashboard does not open a local Cardamom store.
+
 ### Review without a live process
 
 Use a [Markdown collection](#markdown-collections)

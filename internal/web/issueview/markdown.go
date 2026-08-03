@@ -12,7 +12,7 @@ import (
 // HTML under the application's shared safety policy.
 type MarkdownRenderer interface {
 	// RenderBoard converts one board response's Markdown sources to safe HTML.
-	RenderBoard(context.Context, board.ID, []string) ([]string, error)
+	RenderBoard(context.Context, board.ID, string, []string) ([]string, error)
 }
 
 // OptionalMarkdown converts optional Markdown source to protocol content.
@@ -39,14 +39,18 @@ func (e *Encoder) Markdown(
 }
 
 type markdownBatch struct {
-	ctx      context.Context
-	boardID  board.ID
-	renderer MarkdownRenderer
-	content  []*privatev1.MarkdownContent
+	ctx         context.Context
+	boardID     board.ID
+	routePrefix string
+	renderer    MarkdownRenderer
+	content     []*privatev1.MarkdownContent
 }
 
 func (e *Encoder) newMarkdownBatch(ctx context.Context, boardID board.ID) *markdownBatch {
-	return &markdownBatch{ctx: ctx, boardID: boardID, renderer: e.markdown}
+	return &markdownBatch{
+		ctx: ctx, boardID: boardID, routePrefix: e.routePrefix,
+		renderer: e.markdown,
+	}
 }
 
 func (b *markdownBatch) add(source string) *privatev1.MarkdownContent {
@@ -67,7 +71,9 @@ func (b *markdownBatch) render() error {
 	for index, content := range b.content {
 		sources[index] = content.Source
 	}
-	rendered, err := b.renderer.RenderBoard(b.ctx, b.boardID, sources)
+	rendered, err := b.renderer.RenderBoard(
+		b.ctx, b.boardID, b.routePrefix, sources,
+	)
 	if err != nil {
 		return fmt.Errorf("render Markdown: %w", err)
 	}

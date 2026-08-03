@@ -101,7 +101,8 @@ func (s *Service) ListLogEntries(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.views.LogEntries(ctx, boardID, entries)
+	views := s.views.WithRoutePrefix(request.Msg.GetPresentation().GetRoutePrefix())
+	converted, err := views.LogEntries(ctx, boardID, entries)
 	if err != nil {
 		return nil, web.FromError(err)
 	}

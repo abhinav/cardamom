@@ -26,6 +26,7 @@ import {
   ListAttachmentsResponseSchema,
   type Attachment,
 } from "./gen/cardamom/private/v1/attachment_pb.ts";
+import { SourceRefSchema } from "./gen/cardamom/private/v1/source_pb.ts";
 
 describe("attachment web workflow", () => {
   it("presents each stable attachment identity beside its filename", async () => {
@@ -138,6 +139,18 @@ describe("attachment web workflow", () => {
     expect(nextAttachmentPageToken(pages[0]!)).toBe("next-page");
     expect(nextAttachmentPageToken(pages[1]!)).toBeUndefined();
     expect(attachmentsFromPages(pages)).toEqual([first, second]);
+  });
+
+  it("includes aggregate source identity in attachment reads", () => {
+    const source = create(SourceRefSchema, { sourceId: "primary" });
+
+    expect(attachmentListInput("board-1", "cm-issue", source)).toEqual({
+      boardId: "board-1",
+      issueId: "cm-issue",
+      pageSize: 100,
+      pageToken: "",
+      source,
+    });
   });
 
   it("uploads bytes in server-bounded chunks and commits the session", async () => {
