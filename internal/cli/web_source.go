@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"net/url"
 	"strings"
@@ -20,6 +21,9 @@ func (s *WebSource) UnmarshalText(text []byte) error {
 	alias, rawURL, ok := strings.Cut(string(text), "=")
 	if !ok {
 		return fmt.Errorf("source %q must use alias=url", string(text))
+	}
+	if alias == "" {
+		return errors.New("source alias is required")
 	}
 
 	endpoint, err := url.Parse(rawURL)

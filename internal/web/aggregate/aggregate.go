@@ -185,22 +185,8 @@ func probeSource(ctx context.Context, value *source) {
 		value.entry = unavailableEntry(value.config.Alias, "source returned no bootstrap")
 		return
 	}
-	entry := healthyEntry(value.config.Alias, bootstrap)
-	if bootstrap.GetAccessMode() != v1.AccessMode_ACCESS_MODE_READ_ONLY {
-		entry.Health = v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE
-		entry.Diagnostic = "source is not read-only"
-		value.entry = entry
-		return
-	}
-	if len(bootstrap.GetSources()) == 0 || !bootstrap.GetSources()[0].GetReadOnly() {
-		entry.Health = v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE
-		entry.Diagnostic = "source does not advertise read-only mode"
-		value.entry = entry
-		return
-	}
-	entry.ReadOnly = true
 	value.bootstrap = bootstrap
-	value.entry = entry
+	value.entry = healthyEntry(value.config.Alias, bootstrap)
 }
 
 func healthyEntry(alias string, bootstrap *v1.GetBootstrapResponse) *v1.SourceCatalogEntry {

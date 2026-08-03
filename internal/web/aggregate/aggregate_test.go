@@ -79,38 +79,22 @@ func TestNewStartsEmptyAggregate(t *testing.T) {
 	assert.True(t, issues.Msg.GetAggregateStatus().GetComplete())
 }
 
-func TestNewRejectsWritableSources(t *testing.T) {
-	for _, test := range []struct {
-		name       string
-		bootstrap  *v1.GetBootstrapResponse
-		diagnostic string
-	}{
-		{
-			name: "WritableSource",
-			bootstrap: func() *v1.GetBootstrapResponse {
-				value := sourceBootstrap(nil, false)
-				return value
-			}(),
-			diagnostic: "source is not read-only",
-		},
-	} {
-		t.Run(test.name, func(t *testing.T) {
-			server := newSourceServer(t, test.bootstrap, nil)
-			aggregate, err := New(t.Context(), Config{
-				Sources: []SourceConfig{{Alias: "source", URL: mustURL(t, server.URL)}},
-			})
-			require.NoError(t, err)
+func TestNewAcceptsWritableSource(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-writable", ProjectId: "project", Name: "Writable"}
+	server := newSourceServer(t, sourceBootstrap(board, false), nil)
 
-			bootstrap, err := newAggregateClient(t, aggregate).GetBootstrap(
-				t.Context(), connect.NewRequest(&v1.GetBootstrapRequest{}),
-			)
-			require.NoError(t, err)
-			require.Len(t, bootstrap.Msg.GetSources(), 1)
-			assert.Equal(t, v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE, bootstrap.Msg.GetSources()[0].GetHealth())
-			assert.Equal(t, test.diagnostic, bootstrap.Msg.GetSources()[0].GetDiagnostic())
-			assert.False(t, bootstrap.Msg.GetAggregateStatus().GetComplete())
-		})
-	}
+	aggregate, err := New(t.Context(), Config{
+		Sources: []SourceConfig{{Alias: "source", URL: mustURL(t, server.URL)}},
+	})
+	require.NoError(t, err)
+
+	bootstrap, err := newAggregateClient(t, aggregate).GetBootstrap(
+		t.Context(), connect.NewRequest(&v1.GetBootstrapRequest{}),
+	)
+	require.NoError(t, err)
+	require.Len(t, bootstrap.Msg.GetSources(), 1)
+	assert.Equal(t, v1.SourceHealth_SOURCE_HEALTH_HEALTHY, bootstrap.Msg.GetSources()[0].GetHealth())
+	assert.Len(t, bootstrap.Msg.GetBoards(), 1)
 }
 
 func TestNewRejectsInvalidSourceAliases(t *testing.T) {

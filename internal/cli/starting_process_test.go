@@ -258,6 +258,7 @@ func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 	}}
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Store = "/repo/.cardamom"
+	invocation.StoreExplicit = true
 	invocation.Board = "Mission"
 	invocation.Output = newOutput(&stdout, &stderr, true, false)
 
@@ -303,6 +304,7 @@ func TestWebCommandRejectsAggregateWithLocalSelectors(t *testing.T) {
 	operation := new(fakeWebOperation)
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Store = "/repo/.cardamom"
+	invocation.StoreExplicit = true
 	sourceURL, err := url.Parse("http://primary.test")
 	require.NoError(t, err)
 	command := &webCommand{

@@ -1,0 +1,18 @@
+# Aggregate web mode does not open a local store, so ambient selectors do not
+# participate in its selector validation.
+env CARDAMOM_STORE=$WORK/missing-store
+env CARDAMOM_BOARD=missing-board
+
+! exec card web --no-browser --source primary=http://127.0.0.1:1
+! stdout .
+stderr 'embedded web assets: web assets not found'
+! stderr 'cannot be combined with --store or --board'
+
+# Explicit selectors remain incompatible with aggregate web mode.
+! exec card --store $WORK/explicit-store web --no-browser --source primary=http://127.0.0.1:1
+! stdout .
+stderr 'web: --source cannot be combined with --store or --board'
+
+! exec card --board explicit-board web --no-browser --source primary=http://127.0.0.1:1
+! stdout .
+stderr 'web: --source cannot be combined with --store or --board'
