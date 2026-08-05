@@ -46,6 +46,9 @@ type commandTree struct {
 
 	Attachment attachmentCommand `cmd:"" group:"attachments" help:"Add, inspect, download, remove, and collect board attachments."`
 
+	Backup  backupCommand  `cmd:"" group:"backup" help:"Write selected boards to a portable archive."`
+	Restore restoreCommand `cmd:"" group:"backup" help:"Restore every board from a portable archive."`
+
 	Mail  mailCommand  `cmd:"" group:"mail" help:"Send and receive ephemeral mail."`
 	Lease leaseCommand `cmd:"" group:"leases" help:"Coordinate ownership of named external resources."`
 
@@ -65,6 +68,7 @@ func commandGroups() kong.Option {
 		{Key: "execution", Title: "Executing work"},
 		{Key: "records", Title: "Recording work"},
 		{Key: "attachments", Title: "Managing attachments"},
+		{Key: "backup", Title: "Backing up and restoring"},
 		{Key: "mail", Title: "Mail"},
 		{Key: "leases", Title: "Leases"},
 		{Key: "process", Title: "Running locally"},
