@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 
 	"go.abhg.dev/cardamom/internal/attachment"
 	domainboard "go.abhg.dev/cardamom/internal/board"
@@ -12,6 +13,7 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
+	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
 // ReadCopySnapshot reads one complete semantic board snapshot from a retained
@@ -38,14 +40,91 @@ func (r *Repository) ReadCopySnapshot(
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
 
-	snapshot.SourceLineageID, err = view.LineageID(ctx)
+	lineageID, err := view.LineageID(ctx)
 	if err != nil {
 		return snapshot, err
 	}
-	snapshot.SourceRevision, err = view.CanonicalRevision(ctx)
+	revision, err := view.CanonicalRevision(ctx)
 	if err != nil {
 		return snapshot, fmt.Errorf("read source revision: %w", err)
 	}
+	return readCopySnapshot(
+		ctx,
+		view,
+		boardID,
+		storeOverrides,
+		BackupSource{LineageID: lineageID, Revision: revision},
+		requireQuiescentSnapshot,
+	)
+}
+
+// BackupSource identifies the retained source store view shared by every board
+// in one backup capture.
+type BackupSource struct {
+	// LineageID identifies the source store persistence history.
+	LineageID string // required
+
+	// Revision is the canonical source revision retained by the view.
+	Revision int64
+}
+
+// BackupReader reads complete semantic board snapshots from a caller-owned
+// retained repository view.
+type BackupReader struct{}
+
+// copySnapshotPolicy controls whether ephemeral activity gates semantic
+// snapshot capture.
+type copySnapshotPolicy uint8
+
+const (
+	// captureCommittedSnapshot omits ephemeral records without inspecting them.
+	captureCommittedSnapshot copySnapshotPolicy = iota
+
+	// requireQuiescentSnapshot preserves board-copy's operational quarantine.
+	requireQuiescentSnapshot
+)
+
+// ReadBackupSnapshot reads committed semantic board state while omitting
+// ephemeral claims and attachment uploads.
+func (r *BackupReader) ReadBackupSnapshot(
+	ctx context.Context,
+	view *store.View,
+	boardID domainboard.ID,
+	storeOverrides configuration.Overrides,
+	source BackupSource,
+) (boardcopy.CopySnapshot, error) {
+	return readCopySnapshot(
+		ctx,
+		view,
+		boardID,
+		storeOverrides,
+		source,
+		captureCommittedSnapshot,
+	)
+}
+
+func readCopySnapshot(
+	ctx context.Context,
+	view *store.View,
+	boardID domainboard.ID,
+	storeOverrides configuration.Overrides,
+	sourceView BackupSource,
+	policy copySnapshotPolicy,
+) (snapshot boardcopy.CopySnapshot, err error) {
+	if err := storeOverrides.Validate(); err != nil {
+		return snapshot, fmt.Errorf("source store configuration: %w", err)
+	}
+	if view == nil {
+		return snapshot, errors.New("source store view is required")
+	}
+	if strings.TrimSpace(sourceView.LineageID) == "" {
+		return snapshot, errors.New("source store lineage is required")
+	}
+	if sourceView.Revision < 0 {
+		return snapshot, errors.New("source store revision cannot be negative")
+	}
+	snapshot.SourceLineageID = sourceView.LineageID
+	snapshot.SourceRevision = sourceView.Revision
 
 	queries := query.New(view)
 	source, err := queries.BoardGetCopySource(ctx, boardID.String())
@@ -85,31 +164,33 @@ func (r *Repository) ReadCopySnapshot(
 		boardLayer,
 	)
 
-	activeClaims, err := queries.BoardCountCopyActiveClaims(
-		ctx,
-		boardID.String(),
-	)
-	if err != nil {
-		return snapshot, fmt.Errorf("inspect source claims: %w", err)
-	}
-	if activeClaims != 0 {
-		return snapshot, errkind.Errorf(
-			errkind.Conflict,
-			"source board has active claims",
+	if policy == requireQuiescentSnapshot {
+		activeClaims, err := queries.BoardCountCopyActiveClaims(
+			ctx,
+			boardID.String(),
 		)
-	}
-	activeUploads, err := queries.AttachmentCountCopyActiveUploads(
-		ctx,
-		boardID.String(),
-	)
-	if err != nil {
-		return snapshot, fmt.Errorf("inspect source attachment uploads: %w", err)
-	}
-	if activeUploads != 0 {
-		return snapshot, errkind.Errorf(
-			errkind.Conflict,
-			"source board has active attachment uploads",
+		if err != nil {
+			return snapshot, fmt.Errorf("inspect source claims: %w", err)
+		}
+		if activeClaims != 0 {
+			return snapshot, errkind.Errorf(
+				errkind.Conflict,
+				"source board has active claims",
+			)
+		}
+		activeUploads, err := queries.AttachmentCountCopyActiveUploads(
+			ctx,
+			boardID.String(),
 		)
+		if err != nil {
+			return snapshot, fmt.Errorf("inspect source attachment uploads: %w", err)
+		}
+		if activeUploads != 0 {
+			return snapshot, errkind.Errorf(
+				errkind.Conflict,
+				"source board has active attachment uploads",
+			)
+		}
 	}
 
 	if snapshot.Issues, err = readCopyIssues(ctx, queries, boardID); err != nil {
