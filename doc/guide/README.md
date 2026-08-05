@@ -3,6 +3,7 @@
 - [Installation](../readme/installation.md)
 - [Concepts and issue context](concepts.md)
 - [Stores, projects, boards, and setup patterns](setups.md)
+- [Portable backups](portable-backups.md)
 - [Workflow recipes](workflows/README.md)
     - [Coordinator and worker agents](workflows/coordinator-workers.md)
     - [Shared work queue](workflows/shared-work-queue.md)
