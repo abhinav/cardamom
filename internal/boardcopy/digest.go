@@ -5,11 +5,37 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"hash"
 	"slices"
 	"strconv"
 	"time"
 )
+
+// PrepareSnapshot assigns the current version, canonical order, and semantic
+// digest required for publication outside the source store.
+func PrepareSnapshot(snapshot CopySnapshot) CopySnapshot {
+	snapshot.Version = CopySnapshotVersion
+	snapshot = canonicalCopySnapshot(snapshot)
+	snapshot.Digest = snapshotDigest(snapshot)
+	return snapshot
+}
+
+// VerifySnapshot checks the version and semantic digest of a prepared board
+// publication.
+func VerifySnapshot(snapshot CopySnapshot) error {
+	if snapshot.Version != CopySnapshotVersion {
+		return fmt.Errorf(
+			"unsupported board snapshot version %d",
+			snapshot.Version,
+		)
+	}
+	if snapshot.Digest != snapshotDigest(snapshot) {
+		return errors.New("board snapshot digest mismatch")
+	}
+	return nil
+}
 
 func canonicalCopySnapshot(snapshot CopySnapshot) CopySnapshot {
 	snapshot.Issues = slices.Clone(snapshot.Issues)

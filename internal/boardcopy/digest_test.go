@@ -122,3 +122,37 @@ func TestSnapshotDigestIsCanonicalAndUnambiguous(t *testing.T) {
 	changedSourceMetadata.Digest = "another ignored value"
 	assert.Equal(t, got, snapshotDigest(changedSourceMetadata))
 }
+
+func TestPrepareAndVerifySnapshot(t *testing.T) {
+	snapshot := CopySnapshot{
+		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
+		SourceRevision:  12,
+		Board: CopyBoard{
+			ID:        "board-source",
+			Name:      "Source",
+			CreatedAt: time.Date(2026, time.July, 29, 9, 30, 0, 0, time.UTC),
+		},
+		Configuration: configuration.Defaults(),
+		Issues: []CopyIssue{
+			{ID: "cm-2", Title: "Second"},
+			{ID: "cm-1", Title: "First"},
+		},
+	}
+
+	prepared := PrepareSnapshot(snapshot)
+	assert.Equal(t, CopySnapshotVersion, prepared.Version)
+	assert.Equal(t, []string{"cm-1", "cm-2"}, []string{
+		prepared.Issues[0].ID,
+		prepared.Issues[1].ID,
+	})
+	assert.Regexp(t, `^sha256:[0-9a-f]{64}$`, prepared.Digest)
+	assert.NoError(t, VerifySnapshot(prepared))
+
+	tampered := prepared
+	tampered.Board.Name = "Changed"
+	assert.EqualError(t, VerifySnapshot(tampered), "board snapshot digest mismatch")
+
+	tampered = prepared
+	tampered.Version++
+	assert.EqualError(t, VerifySnapshot(tampered), "unsupported board snapshot version 2")
+}
