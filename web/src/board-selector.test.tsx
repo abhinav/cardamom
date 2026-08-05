@@ -107,8 +107,33 @@ describe("board selector", () => {
       .toHaveLength(1);
   });
 
+  it("shows direct-server boards when bootstrap includes store lineage", () => {
+    const source = create(SourceCatalogEntrySchema, {
+      source: create(SourceRefSchema, { storeLineageId: "lineage-local" }),
+    });
+
+    const markup = renderToStaticMarkup(BoardSelectorView({
+      aggregate: false,
+      boards,
+      open: true,
+      projects,
+      query: "",
+      selection: { kind: "all" },
+      sources: [source],
+      onDismiss: vi.fn(),
+      onOpenBoardSettings: vi.fn(),
+      onQueryChange: vi.fn(),
+      onSelectScope: vi.fn(),
+      onToggle: vi.fn(),
+    }));
+
+    expect(markup).toContain('aria-label="Select Operations"');
+    expect(markup).toContain('aria-label="Select Web"');
+  });
+
   it("marks the selected scope and shows board and project labels", () => {
     const markup = renderToStaticMarkup(BoardSelectorView({
+      aggregate: false,
       boards,
       open: true,
       projects,
@@ -136,6 +161,7 @@ describe("board selector", () => {
 
   it("preserves board selection without exposing board settings", () => {
     const markup = renderToStaticMarkup(BoardSelectorView({
+      aggregate: false,
       boards,
       open: true,
       projects,
@@ -153,6 +179,7 @@ describe("board selector", () => {
 
   it("exposes settings only for the board named by the current scope", () => {
     const markup = renderToStaticMarkup(BoardSelectorView({
+      aggregate: false,
       boards,
       open: true,
       projects,
@@ -177,6 +204,7 @@ describe("board selector", () => {
     const onSelectScope = vi.fn();
     const onToggle = vi.fn();
     const view = BoardSelectorView({
+      aggregate: false,
       boards,
       open: true,
       projects,
@@ -234,6 +262,7 @@ describe("board selector", () => {
 
 function renderSelector(query: string): string {
   return renderToStaticMarkup(BoardSelectorView({
+    aggregate: false,
     boards,
     open: true,
     projects,

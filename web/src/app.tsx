@@ -293,6 +293,7 @@ function ApplicationShell({
         </a>
         <header className="app-header">
           <BoardSelector
+            aggregate={aggregateMode}
             boards={boards}
             sources={sources}
             projects={projects}
@@ -650,7 +651,14 @@ function RouteContent({
     <Routes>
       <Route
         path="/"
-        element={<BoardPickerRoute boards={boards} projects={projects} sources={sources} />}
+        element={
+          <BoardPickerRoute
+            aggregate={aggregateMode}
+            boards={boards}
+            projects={projects}
+            sources={sources}
+          />
+        }
       />
       <Route path="/board/:boardId" element={boardRoute} />
       <Route path="/all" element={boardRoute} />

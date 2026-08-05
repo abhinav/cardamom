@@ -44,6 +44,7 @@ interface AvailableSource {
 }
 
 interface BoardSelectorProps {
+  aggregate: boolean;
   boards: readonly AvailableBoard[];
   projects: readonly AvailableProject[];
   sources?: readonly AvailableSource[];
@@ -53,6 +54,7 @@ interface BoardSelectorProps {
 }
 
 interface BoardPickerRouteProps {
+  aggregate: boolean;
   boards: readonly AvailableBoard[];
   projects: readonly AvailableProject[];
   sources?: readonly AvailableSource[];
@@ -60,6 +62,7 @@ interface BoardPickerRouteProps {
 
 /** BoardPickerRoute renders the complete board catalog at the root route. */
 export function BoardPickerRoute({
+  aggregate,
   boards,
   projects,
   sources = [],
@@ -75,7 +78,7 @@ export function BoardPickerRoute({
           <h1 id="board-picker-title">Boards</h1>
         </div>
         <Link className="board-picker-all" to={boardScopeHref({ kind: "all" })}>
-          <span>{sources.length > 0 ? "All sources" : "All boards"}</span>
+          <span>{aggregate ? "All sources" : "All boards"}</span>
           <span>{catalogSummary(projects.length, boards.length)}</span>
         </Link>
       </header>
@@ -90,7 +93,7 @@ export function BoardPickerRoute({
         />
       </label>
       <div className="board-picker-projects">
-        {sources.length > 0 && <SourceHeadings sources={sources} />}
+        {aggregate && <SourceHeadings sources={sources} />}
         {units.map((unit) => (
           <section
             key={`${unit.sourceId ?? "local"}:${unit.project.id}`}
@@ -127,6 +130,7 @@ export function BoardPickerRoute({
 }
 
 export function BoardSelector({
+  aggregate,
   boards,
   projects,
   sources = [],
@@ -167,6 +171,7 @@ export function BoardSelector({
 
   return (
     <BoardSelectorView
+      aggregate={aggregate}
       boards={boards}
       dialogId={dialogId}
       open={open}
@@ -215,6 +220,7 @@ interface BoardSelectorViewProps extends BoardSelectorProps {
 }
 
 export function BoardSelectorView({
+  aggregate,
   boards,
   dialogId = "board-selector-dialog",
   open,
@@ -231,11 +237,16 @@ export function BoardSelectorView({
   onSelectScope,
   onToggle,
 }: BoardSelectorViewProps) {
-  const labels = selectedScopeLabels(projects, boards, sources, selection);
+  const labels = selectedScopeLabels(
+    aggregate,
+    projects,
+    boards,
+    sources,
+    selection,
+  );
   const units = visibleProjectUnits(projects, boards, query);
   const allBoardsSelected = selection.kind === "all";
   const storeSummary = catalogSummary(projects.length, boards.length);
-  const aggregate = sources.length > 0;
 
   return (
     <div
@@ -604,6 +615,7 @@ function SourceHeadings({ sources }: { sources: readonly AvailableSource[] }) {
 }
 
 function selectedScopeLabels(
+  aggregate: boolean,
   projects: readonly AvailableProject[],
   boards: readonly AvailableBoard[],
   sources: readonly AvailableSource[],
@@ -628,7 +640,7 @@ function selectedScopeLabels(
       };
     }
     return {
-      primary: sources.length > 0 ? "All sources" : "All boards",
+      primary: aggregate ? "All sources" : "All boards",
       secondary: catalogSummary(projects.length, boards.length),
     };
   }
