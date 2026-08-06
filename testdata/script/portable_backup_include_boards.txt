@@ -1,0 +1,48 @@
+env TZ=UTC
+at 2026-08-05T12:00:00Z
+mkdir source
+
+# Repeated selectors include complete boards across project boundaries.
+exec card --store $WORK/source init --no-config --prefix reserve- --board-name Reserve
+exec card --store $WORK/source --json project create Engineering --prefix eng-
+cmp stdout $WORK/golden/engineering-project.json
+exec card --store $WORK/source --json board create --project project_11111111111111111111 Primary
+cmp stdout $WORK/golden/primary-board.json
+exec card --store $WORK/source --json board create --project project_11111111111111111111 Secondary
+cmp stdout $WORK/golden/secondary-board.json
+exec card --store $WORK/source --json project create Research --prefix res-
+cmp stdout $WORK/golden/research-project.json
+exec card --store $WORK/source --json board create --project project_22222222222222222222 Research
+cmp stdout $WORK/golden/research-board.json
+
+exec card --json --store $WORK/source backup $WORK/selected.cardamom --include-board Primary --include-board Secondary --include-board Research
+cmpenv stdout $WORK/golden/backup.json
+exec card --json --store $WORK/destination restore $WORK/selected.cardamom
+cmpenv stdout $WORK/golden/restore.json
+
+exec card --store $WORK/destination --json project list
+cmp stdout $WORK/golden/projects.jsonl
+exec card --store $WORK/destination --json board list
+cmp stdout $WORK/golden/boards.jsonl
+
+-- golden/engineering-project.json --
+{"id":"project_11111111111111111111","name":"Engineering","created":1785931200}
+-- golden/primary-board.json --
+{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
+-- golden/secondary-board.json --
+{"id":"board_22222222222222222222","project_id":"project_11111111111111111111","name":"Secondary","created":1785931200}
+-- golden/research-project.json --
+{"id":"project_22222222222222222222","name":"Research","created":1785931200}
+-- golden/research-board.json --
+{"id":"board_33333333333333333333","project_id":"project_22222222222222222222","name":"Research","created":1785931200}
+-- golden/backup.json --
+{"source":"$WORK/source","destination":"$WORK/selected.cardamom","projects":2,"boards":3,"blobs":0}
+-- golden/restore.json --
+{"source":"$WORK/selected.cardamom","destination":"$WORK/destination","projects":2,"boards":3,"blobs":0,"already_completed_boards":0}
+-- golden/projects.jsonl --
+{"id":"project_11111111111111111111","name":"Engineering","created":1785931200}
+{"id":"project_22222222222222222222","name":"Research","created":1785931200}
+-- golden/boards.jsonl --
+{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
+{"id":"board_22222222222222222222","project_id":"project_11111111111111111111","name":"Secondary","created":1785931200}
+{"id":"board_33333333333333333333","project_id":"project_22222222222222222222","name":"Research","created":1785931200}

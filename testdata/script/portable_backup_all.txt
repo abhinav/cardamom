@@ -1,0 +1,35 @@
+env TZ=UTC
+at 2026-08-05T12:00:00Z
+mkdir source
+
+# --all includes the selected board and every other board in the store.
+exec card --store $WORK/source init --no-config --prefix all- --board-name Primary
+exec card --store $WORK/source --json project create Research --prefix res-
+cmp stdout $WORK/golden/research-project.json
+exec card --store $WORK/source --json board create --project project_11111111111111111111 Research
+cmp stdout $WORK/golden/research-board.json
+
+exec card --json --store $WORK/source backup $WORK/all.cardamom --all
+cmpenv stdout $WORK/golden/backup.json
+exec card --json --store $WORK/destination restore $WORK/all.cardamom
+cmpenv stdout $WORK/golden/restore.json
+
+exec card --store $WORK/destination --json project list
+cmp stdout $WORK/golden/projects.jsonl
+exec card --store $WORK/destination --json board list
+cmp stdout $WORK/golden/boards.jsonl
+
+-- golden/research-project.json --
+{"id":"project_11111111111111111111","name":"Research","created":1785931200}
+-- golden/research-board.json --
+{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Research","created":1785931200}
+-- golden/backup.json --
+{"source":"$WORK/source","destination":"$WORK/all.cardamom","projects":2,"boards":2,"blobs":0}
+-- golden/restore.json --
+{"source":"$WORK/all.cardamom","destination":"$WORK/destination","projects":2,"boards":2,"blobs":0,"already_completed_boards":0}
+-- golden/projects.jsonl --
+{"id":"project_11111111111111111111","name":"Research","created":1785931200}
+{"id":"project_00000000000000000000","name":"script-portable_backup_all","created":1785931200}
+-- golden/boards.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Primary","created":1785931200}
+{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Research","created":1785931200}

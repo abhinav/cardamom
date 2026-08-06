@@ -68,7 +68,7 @@ func commandGroups() kong.Option {
 		{Key: "execution", Title: "Executing work"},
 		{Key: "records", Title: "Recording work"},
 		{Key: "attachments", Title: "Managing attachments"},
-		{Key: "backup", Title: "Backing up and restoring"},
+		{Key: "backup", Title: "Backup and restoration"},
 		{Key: "mail", Title: "Mail"},
 		{Key: "leases", Title: "Leases"},
 		{Key: "process", Title: "Running locally"},

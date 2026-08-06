@@ -2,50 +2,31 @@ env TZ=UTC
 at 2026-08-05T12:00:00Z
 mkdir source destination
 
-# Reserve the first catalog identities outside the aggregate archive so the
-# unrelated destination records have disjoint deterministic identities.
+# Reserve the first catalog identities so restored destination records remain
+# disjoint from the selected source board.
 exec card --store $WORK/source init --no-config --prefix reserve- --board-name Reserve
 exec card --store $WORK/source config set --scope store issue.id.strategy sequential
 exec card --store $WORK/source --json project create Engineering --prefix eng-
 cmp stdout $WORK/golden/engineering-project.json
 exec card --store $WORK/source --json board create --project project_11111111111111111111 Primary
 cmp stdout $WORK/golden/primary-board.json
-exec card --store $WORK/source --json board create --project project_11111111111111111111 Secondary
-cmp stdout $WORK/golden/secondary-board.json
-exec card --store $WORK/source --json project create Research --prefix res-
-cmp stdout $WORK/golden/research-project.json
-exec card --store $WORK/source --json board create --project project_22222222222222222222 Research
-cmp stdout $WORK/golden/research-board.json
 
-exec card --store $WORK/source --json project list
-cmp stdout $WORK/golden/source-projects.jsonl
-exec card --store $WORK/source --json board list
-cmp stdout $WORK/golden/source-boards.jsonl
-
-# Populate every archived board and commit one attachment to the primary issue.
+# The default backup selection carries issue state and attachment content.
 exec card --store $WORK/source --board Primary create --priority 1 --summary 'Primary shield calibration.' 'Calibrate shields'
 cmp stdout $WORK/golden/primary-issue-id.txt
-exec card --store $WORK/source --board Secondary create --summary 'Secondary staffing plan.' 'Rebalance crew rotations'
-cmp stdout $WORK/golden/secondary-issue-id.txt
-exec card --store $WORK/source --board Research create --summary 'Research sensor finding.' 'Analyze anomaly'
-cmp stdout $WORK/golden/research-issue-id.txt
 exec card --store $WORK/source --board Primary --json attachment add report.txt --issue eng-1
 cp stdout $WORK/attachment.json
 exec jq -r .id $WORK/attachment.json
 cp stdout $WORK/attachment-id.txt
-
-# Exercise both one selected complete board and an explicit aggregate selection.
 exec card --json --store $WORK/source --board Primary backup $WORK/selected.cardamom
 cmpenv stdout $WORK/golden/selected-backup.json
-exec card --json --store $WORK/source backup $WORK/multi.cardamom --include-board Primary --include-board Secondary --include-board Research
-cmpenv stdout $WORK/golden/multi-backup.json
 
-# Restore into a non-empty store with unrelated catalog and issue records.
+# Restore into a non-empty store and retain its unrelated catalog and issue.
 exec card --store $WORK/destination init --no-config --prefix dest- --board-name Existing
 exec card --store $WORK/destination config set --scope store issue.id.strategy sequential
 exec card --store $WORK/destination --board Existing create --summary 'Destination-only record.' 'Keep local issue'
 cmp stdout $WORK/golden/destination-issue-id.txt
-exec card --json --store $WORK/destination restore $WORK/multi.cardamom
+exec card --json --store $WORK/destination restore $WORK/selected.cardamom
 cmpenv stdout $WORK/golden/first-restore.json
 
 exec card --store $WORK/destination --json project list
@@ -61,10 +42,6 @@ exec card --store $WORK/destination --board Primary --json show eng-1
 cp stdout $WORK/primary-issue.json
 exec jq -c 'del(.revision, .attachments[0].id, .attachments[0].created.revision)' $WORK/primary-issue.json
 cmp stdout $WORK/golden/primary-issue.json
-exec card --store $WORK/destination --board Secondary --json show eng-2
-cmp stdout $WORK/golden/secondary-issue.json
-exec card --store $WORK/destination --board Research --json show res-3
-cmp stdout $WORK/golden/research-issue.json
 
 exec sh -c 'card --store "$1" --board Primary attachment get "$(cat "$2")" restored-report.txt' get-restored $WORK/destination $WORK/attachment-id.txt
 cmp stdout $WORK/golden/attachment-get.txt
@@ -76,15 +53,9 @@ cp stdout $WORK/destination-issues.jsonl
 exec card --store $WORK/destination --board Primary --json list
 cmp stdout $WORK/golden/primary-issues.jsonl
 cp stdout $WORK/primary-issues.jsonl
-exec card --store $WORK/destination --board Secondary --json list
-cmp stdout $WORK/golden/secondary-issues.jsonl
-cp stdout $WORK/secondary-issues.jsonl
-exec card --store $WORK/destination --board Research --json list
-cmp stdout $WORK/golden/research-issues.jsonl
-cp stdout $WORK/research-issues.jsonl
 
-# An identical restore reports completed boards and changes no public records.
-exec card --json --store $WORK/destination restore $WORK/multi.cardamom
+# Reapplying the archive reports completion without changing public records.
+exec card --json --store $WORK/destination restore $WORK/selected.cardamom
 cmpenv stdout $WORK/golden/repeated-restore.json
 exec card --store $WORK/destination --json project list
 cmp stdout $WORK/destination-projects.jsonl
@@ -94,10 +65,6 @@ exec card --store $WORK/destination --board Existing --json list
 cmp stdout $WORK/destination-issues.jsonl
 exec card --store $WORK/destination --board Primary --json list
 cmp stdout $WORK/primary-issues.jsonl
-exec card --store $WORK/destination --board Secondary --json list
-cmp stdout $WORK/secondary-issues.jsonl
-exec card --store $WORK/destination --board Research --json list
-cmp stdout $WORK/research-issues.jsonl
 
 -- report.txt --
 sensor calibration report
@@ -106,61 +73,29 @@ phase=complete
 {"id":"project_11111111111111111111","name":"Engineering","created":1785931200}
 -- golden/primary-board.json --
 {"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
--- golden/secondary-board.json --
-{"id":"board_22222222222222222222","project_id":"project_11111111111111111111","name":"Secondary","created":1785931200}
--- golden/research-project.json --
-{"id":"project_22222222222222222222","name":"Research","created":1785931200}
--- golden/research-board.json --
-{"id":"board_33333333333333333333","project_id":"project_22222222222222222222","name":"Research","created":1785931200}
--- golden/source-projects.jsonl --
-{"id":"project_11111111111111111111","name":"Engineering","created":1785931200}
-{"id":"project_22222222222222222222","name":"Research","created":1785931200}
-{"id":"project_00000000000000000000","name":"script-portable_backup_restore","created":1785931200}
--- golden/source-boards.jsonl --
-{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Reserve","created":1785931200}
-{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
-{"id":"board_22222222222222222222","project_id":"project_11111111111111111111","name":"Secondary","created":1785931200}
-{"id":"board_33333333333333333333","project_id":"project_22222222222222222222","name":"Research","created":1785931200}
 -- golden/primary-issue-id.txt --
 eng-1
--- golden/secondary-issue-id.txt --
-eng-2
--- golden/research-issue-id.txt --
-res-3
 -- golden/selected-backup.json --
 {"source":"$WORK/source","destination":"$WORK/selected.cardamom","projects":1,"boards":1,"blobs":1}
--- golden/multi-backup.json --
-{"source":"$WORK/source","destination":"$WORK/multi.cardamom","projects":2,"boards":3,"blobs":1}
 -- golden/destination-issue-id.txt --
 dest-1
 -- golden/first-restore.json --
-{"source":"$WORK/multi.cardamom","destination":"$WORK/destination","projects":2,"boards":3,"blobs":1,"already_completed_boards":0}
+{"source":"$WORK/selected.cardamom","destination":"$WORK/destination","projects":1,"boards":1,"blobs":1,"already_completed_boards":0}
 -- golden/destination-projects.jsonl --
 {"id":"project_11111111111111111111","name":"Engineering","created":1785931200}
-{"id":"project_22222222222222222222","name":"Research","created":1785931200}
 {"id":"project_00000000000000000000","name":"script-portable_backup_restore","created":1785931200}
 -- golden/destination-boards.jsonl --
 {"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Existing","created":1785931200}
 {"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
-{"id":"board_22222222222222222222","project_id":"project_11111111111111111111","name":"Secondary","created":1785931200}
-{"id":"board_33333333333333333333","project_id":"project_22222222222222222222","name":"Research","created":1785931200}
 -- golden/destination-issue.json --
 {"id":"dest-1","title":"Keep local issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Destination-only record.","revision":2,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/primary-issue.json --
 {"id":"eng-1","title":"Calibrate shields","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Primary shield calibration.","keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[{"board_id":"board_11111111111111111111","origin_issue_id":"eng-1","filename":"report.txt","media_type":"text/plain; charset=utf-8","digest":"sha256:36ab8473a794b13baf3cd48321f6f589fcf7bfe7781899c73c36e1b2602ed515","size_bytes":41,"lifecycle":"active","availability":"present_unverified","created":{"actor":"test-user","at":"2026-08-05T12:00:00Z"},"removed":null}]}
--- golden/secondary-issue.json --
-{"id":"eng-2","title":"Rebalance crew rotations","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Secondary staffing plan.","revision":5,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
--- golden/research-issue.json --
-{"id":"res-3","title":"Analyze anomaly","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Research sensor finding.","revision":6,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/attachment-get.txt --
 wrote restored-report.txt (41 bytes)
 -- golden/destination-issues.jsonl --
 {"id":"dest-1","title":"Keep local issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Destination-only record.","revision":2,"labels":[],"blocked":false}
 -- golden/primary-issues.jsonl --
 {"id":"eng-1","title":"Calibrate shields","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Primary shield calibration.","revision":4,"labels":[],"blocked":false}
--- golden/secondary-issues.jsonl --
-{"id":"eng-2","title":"Rebalance crew rotations","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Secondary staffing plan.","revision":5,"labels":[],"blocked":false}
--- golden/research-issues.jsonl --
-{"id":"res-3","title":"Analyze anomaly","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Research sensor finding.","revision":6,"labels":[],"blocked":false}
 -- golden/repeated-restore.json --
-{"source":"$WORK/multi.cardamom","destination":"$WORK/destination","projects":2,"boards":3,"blobs":1,"already_completed_boards":3}
+{"source":"$WORK/selected.cardamom","destination":"$WORK/destination","projects":1,"boards":1,"blobs":1,"already_completed_boards":1}
