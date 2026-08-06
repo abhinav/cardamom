@@ -1,0 +1,379 @@
+syntax = "proto3";
+
+package cardamom.private.backup.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// Manifest is the deterministic index written as the final member of a
+// portable Cardamom backup archive.
+message Manifest {
+  // version selects the archive layout and manifest contract.
+  // Readers accept only version 1.
+  uint32 version = 1;
+
+  // projects contains each project referenced by boards exactly once,
+  // ordered by project ID.
+  repeated Project projects = 2;
+
+  // boards contains each source board exactly once,
+  // ordered by source board ID.
+  repeated BoardPublication boards = 3;
+
+  // blobs contains each attachment body digest exactly once,
+  // ordered by digest.
+  repeated Blob blobs = 4;
+}
+
+// Project preserves source project metadata for grouping board restorations.
+message Project {
+  // id is an archive-scoped foreign key used by BoardPublication.project_id.
+  // Restoration may assign a different destination project identity.
+  string id = 1;
+
+  string name = 2;
+
+  // created_at is the source project's creation timestamp.
+  google.protobuf.Timestamp created_at = 3;
+}
+
+// BoardPublication binds one source board view to its serialized snapshot
+// member and source project.
+message BoardPublication {
+  // project_id must reference one Manifest.projects entry.
+  string project_id = 1;
+
+  // source_lineage_id is the stable lineage minted by the source store.
+  // Together with source_board_id and snapshot_version,
+  // it identifies a restoration receipt series.
+  string source_lineage_id = 2;
+
+  // source_board_id is the board identity in the source store.
+  // Restoration remaps this value to a destination board identity.
+  string source_board_id = 3;
+
+  // source_revision is the retained source view from which the snapshot was read.
+  int64 source_revision = 4;
+
+  // snapshot_version selects the semantic board-copy digest contract.
+  // Readers accept only the current board-copy version.
+  uint32 snapshot_version = 5;
+
+  // snapshot_digest is the canonical SHA-256 digest of the semantic snapshot.
+  string snapshot_digest = 6;
+
+  // member is required and describes the encoded BoardSnapshot.
+  // Its name must be boards/sha256/<snapshot digest hex>.
+  Member member = 7;
+}
+
+// Blob indexes one deduplicated attachment body stored in the archive.
+message Blob {
+  // digest is the canonical sha256:<lowercase hex> content identity.
+  string digest = 1;
+
+  // size_bytes is the uncompressed content length in bytes.
+  uint64 size_bytes = 2;
+
+  // member must be blobs/sha256/<digest hex>.
+  string member = 3;
+}
+
+// Member records the uncompressed integrity facts used to verify one ZIP member.
+message Member {
+  // name is the canonical extensionless ZIP member path.
+  string name = 1;
+
+  // size_bytes is the uncompressed member length in bytes.
+  uint64 size_bytes = 2;
+
+  // digest is the canonical SHA-256 digest of the uncompressed member bytes.
+  string digest = 3;
+}
+
+// BoardSnapshot is the complete semantic board-copy publication encoded in a
+// BoardPublication member.
+//
+// The source publication fields must match the enclosing BoardPublication.
+// Collection order is canonical and contributes to digest verification.
+message BoardSnapshot {
+  // source_lineage_id must equal BoardPublication.source_lineage_id.
+  string source_lineage_id = 1;
+
+  // source_revision must equal BoardPublication.source_revision.
+  int64 source_revision = 2;
+
+  // version must equal BoardPublication.snapshot_version.
+  uint32 version = 3;
+
+  // digest must equal BoardPublication.snapshot_digest.
+  string digest = 4;
+
+  // board is required and its ID must equal BoardPublication.source_board_id.
+  Board board = 5;
+
+  // configuration is required and contains the effective source policy.
+  Configuration configuration = 6;
+
+  // issues is complete and ordered by issue ID.
+  repeated Issue issues = 7;
+
+  // labels is ordered by issue ID and then label value.
+  repeated Label labels = 8;
+
+  // dependencies is ordered by dependent issue ID and then prerequisite ID.
+  repeated Dependency dependencies = 9;
+
+  // containment is ordered by child issue ID and then parent issue ID.
+  repeated Containment containment = 10;
+
+  // external_keys is ordered by producer key and then issue ID.
+  repeated ExternalKey external_keys = 11;
+
+  // log_entries is ordered by source Log order and then Log entry ID.
+  repeated LogEntry log_entries = 12;
+
+  // states contains at most one current recovery record per issue,
+  // ordered by issue ID.
+  repeated State states = 13;
+
+  // results contains at most one current durable outcome per issue,
+  // ordered by issue ID.
+  repeated Result results = 14;
+
+  // checkpoints contains one terminal decision per checkpoint issue,
+  // ordered by issue ID.
+  repeated Checkpoint checkpoints = 15;
+
+  // attachments includes active and removed metadata,
+  // ordered by attachment ID.
+  repeated Attachment attachments = 16;
+}
+
+// Board preserves the source namespace and presentation restored into a new
+// destination board.
+message Board {
+  // id is the source identity used by every board-scoped relationship.
+  // Restoration maps it to a newly allocated destination board identity.
+  string id = 1;
+
+  string name = 2;
+
+  // description preserves absence separately from an empty description.
+  optional string description = 3;
+
+  // created_at is the source board's creation timestamp.
+  google.protobuf.Timestamp created_at = 4;
+}
+
+// Configuration captures the effective source values restored as destination
+// board policy rather than the source store's inheritance layers.
+message Configuration {
+  // issue_id_prefix is prepended to IDs allocated after restoration.
+  string issue_id_prefix = 1;
+
+  // issue_id_strategy must be random or sequential.
+  string issue_id_strategy = 2;
+
+  // issue_summary_max_bytes is the UTF-8 byte admission limit for summaries.
+  uint64 issue_summary_max_bytes = 3;
+
+  // attachment_max_bytes is the attachment body admission limit in bytes.
+  uint64 attachment_max_bytes = 4;
+}
+
+// Issue preserves one source issue and the source IDs referenced by related
+// records; restoration remaps those IDs consistently.
+message Issue {
+  // id is unique within the source board.
+  string id = 1;
+
+  string title = 2;
+
+  // kind must be workstream, task, checkpoint, or routine.
+  string kind = 3;
+
+  // lifecycle must be open, closed, or cancelled.
+  string lifecycle = 4;
+
+  // priority is in the range 0 through 4,
+  // where lower values are selected first.
+  int64 priority = 5;
+
+  google.protobuf.Timestamp created_at = 6;
+
+  // updated_at is the latest persisted source issue change.
+  google.protobuf.Timestamp updated_at = 7;
+
+  // closed_at is present only after a terminal lifecycle transition.
+  google.protobuf.Timestamp closed_at = 8;
+
+  // waiting_reason is present while the issue awaits directed continuation.
+  optional string waiting_reason = 9;
+
+  // waiting_since records when the current directed wait began.
+  google.protobuf.Timestamp waiting_since = 10;
+
+  // summary preserves absence separately from an empty stable contract.
+  optional string summary = 11;
+
+  // details preserves absence separately from empty expanded context.
+  optional string details = 12;
+}
+
+// Label preserves one inert metadata association.
+message Label {
+  // issue_id references Issue.id.
+  string issue_id = 1;
+
+  string value = 2;
+}
+
+// Dependency preserves one readiness edge from a dependent issue to its
+// prerequisite.
+message Dependency {
+  // issue_id references the dependent Issue.id.
+  string issue_id = 1;
+
+  // prerequisite_id references the Issue.id that must complete first.
+  string prerequisite_id = 2;
+}
+
+// Containment preserves one hierarchy edge without implying a readiness
+// dependency.
+message Containment {
+  // child_id references the contained Issue.id.
+  string child_id = 1;
+
+  // parent_id references the containing workstream or routine Issue.id.
+  string parent_id = 2;
+}
+
+// ExternalKey preserves one board-scoped producer identity association.
+message ExternalKey {
+  // key is unique within the source board's producer namespace.
+  string key = 1;
+
+  // issue_id references Issue.id.
+  string issue_id = 2;
+}
+
+// LogEntry preserves one immutable source Log record.
+message LogEntry {
+  // order is the stable source board sequence used to restore chronology.
+  uint64 order = 1;
+
+  // id is the source identity referenced by State.snapshot_log_entry_id.
+  string id = 2;
+
+  // issue_id references the owning Issue.id.
+  string issue_id = 3;
+
+  // kind must be post or state_snapshot.
+  string kind = 4;
+
+  // author is absent when the source record has no attributed author.
+  optional string author = 5;
+
+  // committer is absent when the source record has no persisted committer.
+  optional string committer = 6;
+
+  // body is the durable Markdown record content.
+  string body = 7;
+
+  // created_at is absent when the source timestamp is unknown.
+  google.protobuf.Timestamp created_at = 8;
+
+  // next_action is meaningful only for state_snapshot records.
+  optional string next_action = 9;
+}
+
+// State preserves one issue's mutable recovery surface at the retained source
+// revision.
+message State {
+  // issue_id references the owning Issue.id.
+  string issue_id = 1;
+
+  // body is the current recovery truth in Markdown.
+  string body = 2;
+
+  // author is absent when the current state's author is unknown.
+  optional string author = 3;
+
+  // updated_at is absent when the latest source change time is unknown.
+  google.protobuf.Timestamp updated_at = 4;
+
+  // snapshot_log_entry_id references the committed state_snapshot LogEntry,
+  // when the current state has one.
+  optional string snapshot_log_entry_id = 5;
+
+  // next_action is absent when no planned transition is recorded.
+  optional string next_action = 6;
+}
+
+// Result preserves one issue's current durable outcome at the retained source
+// revision.
+message Result {
+  // issue_id references the owning Issue.id.
+  string issue_id = 1;
+
+  // body is the durable Markdown outcome restored as the current Result.
+  string body = 2;
+}
+
+// Checkpoint preserves the terminal decision for one checkpoint issue.
+message Checkpoint {
+  // issue_id references an Issue.id whose kind is checkpoint.
+  string issue_id = 1;
+
+  // outcome must be approved or denied.
+  string outcome = 2;
+
+  // reason is the persisted decision rationale.
+  string reason = 3;
+
+  // decided_at is the source decision timestamp.
+  google.protobuf.Timestamp decided_at = 4;
+}
+
+// Attachment preserves board-scoped metadata for active and removed
+// attachments; the referenced content is indexed separately by Manifest.blobs.
+message Attachment {
+  // id is the source identity preserved in the destination board.
+  // The restoration receipt records the same value as source and destination.
+  string id = 1;
+
+  // origin_issue_id references Issue.id when the attachment originated on an issue.
+  optional string origin_issue_id = 2;
+
+  // blob identifies the immutable attachment body required for restoration.
+  BlobDescriptor blob = 3;
+
+  string filename = 4;
+
+  // media_type is the canonical MIME media type.
+  string media_type = 5;
+
+  // lifecycle must be active or removed.
+  string lifecycle = 6;
+
+  string created_actor = 7;
+
+  // created_at is the source attachment creation timestamp.
+  google.protobuf.Timestamp created_at = 8;
+
+  // removed_actor is present when the source removal recorded an actor.
+  optional string removed_actor = 9;
+
+  // removed_at is present for removed attachments.
+  google.protobuf.Timestamp removed_at = 10;
+}
+
+// BlobDescriptor identifies immutable content referenced by attachment
+// metadata.
+message BlobDescriptor {
+  // digest is the canonical sha256:<lowercase hex> content identity.
+  string digest = 1;
+
+  // size_bytes is the complete uncompressed content length in bytes.
+  uint64 size_bytes = 2;
+}

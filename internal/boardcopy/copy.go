@@ -362,9 +362,7 @@ func (s *CopyService) Copy(
 		)
 	}
 
-	snapshot.Version = CopySnapshotVersion
-	snapshot = canonicalCopySnapshot(snapshot)
-	snapshot.Digest = snapshotDigest(snapshot)
+	snapshot = PrepareSnapshot(snapshot)
 	descriptors := uniqueBlobDescriptors(snapshot.Attachments)
 	receipt, found, err := s.destination.ReadCopyReceipt(
 		ctx,
