@@ -1,10 +1,12 @@
-package backup
+package backup_test
 
 import (
+	"archive/zip"
 	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -14,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/attachment"
+	domainbackup "go.abhg.dev/cardamom/internal/backup"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
@@ -53,8 +56,10 @@ func TestRestoreService_preservesDestinationAndReappliesIdentically(t *testing.T
 	})
 	require.NoError(t, err)
 
-	reader := restoreTestReader(t, archive)
-	result, err := destination.service.Restore(t.Context(), reader)
+	result, err := destination.service.Restore(
+		t.Context(),
+		prepareRestoreTestArchive(t, archive),
+	)
 	require.NoError(t, err)
 	assert.Equal(t, []project.Snapshot{alpha, beta}, result.Projects)
 	assert.Equal(t, 1, result.BlobCount)
@@ -83,7 +88,7 @@ func TestRestoreService_preservesDestinationAndReappliesIdentically(t *testing.T
 
 	reapplied, err := destination.service.Restore(
 		t.Context(),
-		restoreTestReader(t, archive),
+		prepareRestoreTestArchive(t, archive),
 	)
 	require.NoError(t, err)
 	require.Len(t, reapplied.Boards, 2)
@@ -113,7 +118,7 @@ func TestRestoreService_rejectsIncompatibleProjectIdentity(t *testing.T) {
 
 	_, err = destination.service.Restore(
 		t.Context(),
-		restoreTestReader(t, archive),
+		prepareRestoreTestArchive(t, archive),
 	)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, `project "project-alpha" conflicts with archived metadata`)
@@ -127,7 +132,7 @@ func TestRestoreService_rejectsIncompatibleProjectIdentity(t *testing.T) {
 	assert.ErrorIs(t, err, os.ErrNotExist)
 }
 
-func TestRestoreService_rejectsArchiveFailuresBeforeMutation(t *testing.T) {
+func TestPrepareRestore_rejectsArchiveFailuresBeforeMutation(t *testing.T) {
 	createdAt := restoreTestTime()
 	archived := restoreTestProject(t, "project-alpha", "Alpha", createdAt)
 	complete := restoreTestArchive(t, []project.Snapshot{archived}, []restoreTestBoard{
@@ -135,17 +140,16 @@ func TestRestoreService_rejectsArchiveFailuresBeforeMutation(t *testing.T) {
 	}, true)
 
 	t.Run("CorruptBlob", func(t *testing.T) {
-		corrupt := rewriteZip(t, complete, func(name string, body []byte) ([]byte, bool) {
+		corrupt := rewriteRestoreZip(t, complete, func(name string, body []byte) []byte {
 			if strings.HasPrefix(name, "blobs/") {
 				body[0] ^= 1
 			}
-			return body, true
+			return body
 		})
 		destination := newRestoreTestDestination(t, nil, createdAt)
 
-		_, err := destination.service.Restore(
-			t.Context(),
-			restoreTestReader(t, corrupt),
+		_, err := domainbackup.PrepareRestore(
+			t.Context(), restoreTestReader(t, corrupt),
 		)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "content digest mismatch")
@@ -158,9 +162,8 @@ func TestRestoreService_rejectsArchiveFailuresBeforeMutation(t *testing.T) {
 		}, false)
 		destination := newRestoreTestDestination(t, nil, createdAt)
 
-		_, err := destination.service.Restore(
-			t.Context(),
-			restoreTestReader(t, incomplete),
+		_, err := domainbackup.PrepareRestore(
+			t.Context(), restoreTestReader(t, incomplete),
 		)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "references unindexed blob")
@@ -180,13 +183,16 @@ func TestRestoreService_resumesAfterCommittedBoard(t *testing.T) {
 		CopySnapshotDestination: destination.boards,
 		fail:                    true,
 	}
-	service := NewRestoreService(RestoreServiceConfig{
+	service := domainbackup.NewRestoreService(domainbackup.RestoreServiceConfig{
 		Projects: destination.projects,
 		Boards:   failingBoards,
 		Blobs:    destination.blobs,
 	})
 
-	_, err := service.Restore(t.Context(), restoreTestReader(t, archive))
+	_, err := service.Restore(
+		t.Context(),
+		prepareRestoreTestArchive(t, archive),
+	)
 	assert.EqualError(t, err, `restore board "board-beta": injected board import failure`)
 	boards, err := destination.projects.ListAllBoards(t.Context())
 	require.NoError(t, err)
@@ -194,7 +200,10 @@ func TestRestoreService_resumesAfterCommittedBoard(t *testing.T) {
 	assert.Equal(t, "Alpha board", boards[0].Name())
 
 	failingBoards.fail = false
-	result, err := service.Restore(t.Context(), restoreTestReader(t, archive))
+	result, err := service.Restore(
+		t.Context(),
+		prepareRestoreTestArchive(t, archive),
+	)
 	require.NoError(t, err)
 	require.Len(t, result.Boards, 2)
 	assert.True(t, result.Boards[0].AlreadyCompleted)
@@ -209,7 +218,7 @@ type restoreTestDestination struct {
 	projects  *repositoryproject.Repository
 	boards    *repositoryboard.CopyRepository
 	blobs     *repositoryattachment.Repository
-	service   *RestoreService
+	service   *domainbackup.RestoreService
 }
 
 func newRestoreTestDestination(
@@ -242,7 +251,7 @@ func newRestoreTestDestination(
 		projects:  projects,
 		boards:    boards,
 		blobs:     blobs,
-		service: NewRestoreService(RestoreServiceConfig{
+		service: domainbackup.NewRestoreService(domainbackup.RestoreServiceConfig{
 			Projects: projects,
 			Boards:   boards,
 			Blobs:    blobs,
@@ -314,7 +323,7 @@ func restoreTestArchive(
 	t.Helper()
 	descriptor, body := restoreTestBlob(t)
 	var archive bytes.Buffer
-	writer := NewWriter(&archive)
+	writer := domainbackup.NewWriter(&archive)
 	for _, snapshot := range projects {
 		require.NoError(t, writer.AddProject(snapshot))
 	}
@@ -383,11 +392,24 @@ func restoreTestBlob(t *testing.T) (attachment.BlobDescriptor, []byte) {
 	}, body
 }
 
-func restoreTestReader(t *testing.T, archive []byte) *Reader {
+func restoreTestReader(t *testing.T, archive []byte) *domainbackup.Reader {
 	t.Helper()
-	reader, err := NewReader(bytes.NewReader(archive), int64(len(archive)))
+	reader, err := domainbackup.NewReader(bytes.NewReader(archive), int64(len(archive)))
 	require.NoError(t, err)
 	return reader
+}
+
+func prepareRestoreTestArchive(
+	t *testing.T,
+	archive []byte,
+) *domainbackup.PreparedRestore {
+	t.Helper()
+	prepared, err := domainbackup.PrepareRestore(
+		t.Context(),
+		restoreTestReader(t, archive),
+	)
+	require.NoError(t, err)
+	return prepared
 }
 
 func restoreTestTime() time.Time {
@@ -408,4 +430,30 @@ func boardNames(values []*board.State) []string {
 		out = append(out, value.Name())
 	}
 	return out
+}
+
+func rewriteRestoreZip(
+	t *testing.T,
+	archive []byte,
+	edit func(string, []byte) []byte,
+) []byte {
+	t.Helper()
+	reader, err := zip.NewReader(bytes.NewReader(archive), int64(len(archive)))
+	require.NoError(t, err)
+	var changed bytes.Buffer
+	writer := zip.NewWriter(&changed)
+	for _, file := range reader.File {
+		source, err := file.Open()
+		require.NoError(t, err)
+		body, readErr := io.ReadAll(source)
+		require.NoError(t, errors.Join(readErr, source.Close()))
+		member, err := writer.CreateHeader(&zip.FileHeader{
+			Name: file.Name, Method: zip.Store,
+		})
+		require.NoError(t, err)
+		_, err = member.Write(edit(file.Name, body))
+		require.NoError(t, err)
+	}
+	require.NoError(t, writer.Close())
+	return changed.Bytes()
 }

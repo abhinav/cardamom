@@ -35,19 +35,22 @@ func TestOperation_WriteSelectsBoardsAndDeduplicatesBlobs(t *testing.T) {
 	}
 
 	tests := []struct {
-		name       string
-		selection  Selection
-		wantBoards []board.ID
+		name         string
+		selection    Selection
+		wantProjects int
+		wantBoards   []board.ID
 	}{
 		{
-			name:       "AllBoards",
-			selection:  AllBoards(),
-			wantBoards: []board.ID{"board-one", "board-two"},
+			name:         "AllBoards",
+			selection:    AllBoards(),
+			wantProjects: 2,
+			wantBoards:   []board.ID{"board-one", "board-two"},
 		},
 		{
-			name:       "SelectedBoards",
-			selection:  mustSelectBoards(t, "board-two"),
-			wantBoards: []board.ID{"board-two"},
+			name:         "SelectedBoards",
+			selection:    mustSelectBoards(t, "board-two"),
+			wantProjects: 1,
+			wantBoards:   []board.ID{"board-two"},
 		},
 	}
 
@@ -73,6 +76,7 @@ func TestOperation_WriteSelectsBoardsAndDeduplicatesBlobs(t *testing.T) {
 			})
 			require.NoError(t, err)
 			assert.Equal(t, int64(7), result.SourceRevision)
+			assert.Equal(t, tt.wantProjects, result.Projects)
 			assert.Equal(t, len(tt.wantBoards), result.Boards)
 			assert.Equal(t, 1, result.Blobs)
 			assert.Equal(t, tt.selection, source.selection)

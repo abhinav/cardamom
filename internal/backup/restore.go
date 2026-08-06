@@ -5,12 +5,87 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/must"
 	"go.abhg.dev/cardamom/internal/project"
 )
+
+// PreparedRestore contains one fully verified archive ready for destination
+// validation and application.
+//
+// The source backing the Reader must remain readable until Restore completes.
+// Board snapshots are materialized during preparation, while verified blob
+// bodies are reopened and streamed during application.
+type PreparedRestore struct {
+	reader   *Reader
+	projects []project.Snapshot
+	boards   []preparedRestoreBoard
+	blobs    []attachment.BlobDescriptor
+}
+
+// preparedRestoreBoard keeps one verified snapshot associated with the
+// publication metadata needed during destination application.
+type preparedRestoreBoard struct {
+	publication Board
+	snapshot    boardcopy.CopySnapshot
+}
+
+// PrepareRestore reads and verifies every archived board and blob without
+// consulting or mutating a destination.
+func PrepareRestore(
+	ctx context.Context,
+	reader *Reader,
+) (*PreparedRestore, error) {
+	if reader == nil {
+		return nil, errors.New("backup reader is required")
+	}
+
+	descriptors := reader.Blobs()
+	indexedBlobs := make(map[attachment.Digest]attachment.BlobDescriptor, len(descriptors))
+	for _, descriptor := range descriptors {
+		indexedBlobs[descriptor.Digest] = descriptor
+	}
+
+	publications := reader.Boards()
+	boards := make([]preparedRestoreBoard, 0, len(publications))
+	for _, publication := range publications {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		snapshot, err := reader.ReadBoard(publication)
+		if err != nil {
+			return nil, err
+		}
+		for _, value := range snapshot.Attachments {
+			indexed, found := indexedBlobs[value.Blob.Digest]
+			if !found || indexed.SizeBytes != value.Blob.SizeBytes {
+				return nil, fmt.Errorf(
+					"archive board %q attachment %q references unindexed blob %s",
+					publication.SourceBoardID,
+					value.ID,
+					value.Blob.Digest,
+				)
+			}
+		}
+		boards = append(boards, preparedRestoreBoard{
+			publication: publication,
+			snapshot:    snapshot,
+		})
+	}
+
+	for _, descriptor := range descriptors {
+		if err := verifyArchiveBlob(ctx, reader, descriptor); err != nil {
+			return nil, err
+		}
+	}
+	return &PreparedRestore{
+		reader: reader, projects: reader.Projects(), boards: boards,
+		blobs: descriptors,
+	}, nil
+}
 
 // ProjectDestination preflights and reconciles archived project identity.
 type ProjectDestination interface {
@@ -60,83 +135,44 @@ type RestoreResult struct {
 	BlobCount int
 }
 
-// Restore preflights the complete archive before publishing any destination
-// state, then imports each board as an independently restartable operation.
+// Restore validates destination compatibility before applying one prepared
+// archive, then imports each board as an independently restartable operation.
 func (s *RestoreService) Restore(
 	ctx context.Context,
-	reader *Reader,
+	prepared *PreparedRestore,
 ) (RestoreResult, error) {
-	if reader == nil {
-		return RestoreResult{}, errors.New("backup reader is required")
+	if prepared == nil || prepared.reader == nil {
+		return RestoreResult{}, errors.New("prepared backup restore is required")
 	}
 
-	projects := reader.Projects()
+	projects := prepared.projects
 	if err := s.projects.ValidateRestoreProjects(ctx, projects); err != nil {
 		return RestoreResult{}, fmt.Errorf("validate destination projects: %w", err)
 	}
-
-	descriptors := reader.Blobs()
-	indexedBlobs := make(map[attachment.Digest]attachment.BlobDescriptor, len(descriptors))
-	for _, descriptor := range descriptors {
-		indexedBlobs[descriptor.Digest] = descriptor
-	}
-
-	publications := reader.Boards()
-	snapshots := make([]boardcopy.CopySnapshot, 0, len(publications))
-	for _, publication := range publications {
-		if err := ctx.Err(); err != nil {
-			return RestoreResult{}, err
-		}
-		snapshot, err := reader.ReadBoard(publication)
-		if err != nil {
-			return RestoreResult{}, err
-		}
-		for _, value := range snapshot.Attachments {
-			indexed, found := indexedBlobs[value.Blob.Digest]
-			if !found || indexed.SizeBytes != value.Blob.SizeBytes {
-				return RestoreResult{}, fmt.Errorf(
-					"archive board %q attachment %q references unindexed blob %s",
-					publication.SourceBoardID,
-					value.ID,
-					value.Blob.Digest,
-				)
-			}
-		}
-		snapshots = append(snapshots, snapshot)
-	}
-
-	for _, descriptor := range descriptors {
-		if err := verifyArchiveBlob(ctx, reader, descriptor); err != nil {
-			return RestoreResult{}, err
-		}
-	}
-
-	// No destination mutation may move above this archive-wide integrity
-	// barrier.
 	if err := s.projects.RestoreProjects(ctx, projects); err != nil {
 		return RestoreResult{}, fmt.Errorf("restore projects: %w", err)
 	}
-	for _, descriptor := range descriptors {
-		if err := s.publishBlob(ctx, reader, descriptor); err != nil {
+	for _, descriptor := range prepared.blobs {
+		if err := s.publishBlob(ctx, prepared.reader, descriptor); err != nil {
 			return RestoreResult{}, err
 		}
 	}
 
 	result := RestoreResult{
-		Projects:  projects,
-		Boards:    make([]boardcopy.CopyOutcome, 0, len(snapshots)),
-		BlobCount: len(descriptors),
+		Projects:  slices.Clone(projects),
+		Boards:    make([]boardcopy.CopyOutcome, 0, len(prepared.boards)),
+		BlobCount: len(prepared.blobs),
 	}
-	for index, snapshot := range snapshots {
+	for _, board := range prepared.boards {
 		outcome, err := s.restoreBoard(
 			ctx,
-			snapshot,
-			publications[index].ProjectID,
+			board.snapshot,
+			board.publication.ProjectID,
 		)
 		if err != nil {
 			return RestoreResult{}, fmt.Errorf(
 				"restore board %q: %w",
-				publications[index].SourceBoardID,
+				board.publication.SourceBoardID,
 				err,
 			)
 		}

@@ -181,6 +181,9 @@ type WriteResult struct {
 	// SourceRevision is the canonical source revision represented by every board.
 	SourceRevision int64
 
+	// Projects is the number of project records in the archive.
+	Projects int
+
 	// Boards is the number of complete board snapshots in the archive.
 	Boards int
 
@@ -245,6 +248,7 @@ func (o *Operation) Write(
 	return WriteResult{
 		Destination:    request.Destination,
 		SourceRevision: captured.SourceRevision,
+		Projects:       len(captured.Projects),
 		Boards:         len(captured.Boards),
 		Blobs:          len(descriptors),
 	}, nil
