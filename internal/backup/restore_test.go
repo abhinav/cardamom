@@ -20,12 +20,14 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
+	backupv1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/backup/v1"
 	"go.abhg.dev/cardamom/internal/project"
 	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
 	repositoryattachment "go.abhg.dev/cardamom/internal/repository/attachment"
 	repositoryboard "go.abhg.dev/cardamom/internal/repository/board"
 	repositoryproject "go.abhg.dev/cardamom/internal/repository/project"
 	"go.abhg.dev/cardamom/internal/repository/store"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRestoreService_preservesDestinationAndReappliesIdentically(t *testing.T) {
@@ -169,6 +171,29 @@ func TestPrepareRestore_rejectsArchiveFailuresBeforeMutation(t *testing.T) {
 		assert.ErrorContains(t, err, "references unindexed blob")
 		assertRestoreDestinationEmpty(t, destination)
 	})
+
+	t.Run("SemanticDigestMismatch", func(t *testing.T) {
+		mismatched := rewriteRestoreZip(t, complete, func(name string, body []byte) []byte {
+			if name != domainbackup.ManifestMember {
+				return body
+			}
+			var manifest backupv1.Manifest
+			require.NoError(t, proto.Unmarshal(body, &manifest))
+			require.Len(t, manifest.Boards, 1)
+			manifest.Boards[0].SnapshotDigest = "sha256:" + strings.Repeat("0", 64)
+			changed, err := proto.MarshalOptions{Deterministic: true}.Marshal(&manifest)
+			require.NoError(t, err)
+			return changed
+		})
+		destination := newRestoreTestDestination(t, nil, createdAt)
+
+		_, err := domainbackup.PrepareRestore(
+			t.Context(), restoreTestReader(t, mismatched),
+		)
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "semantic digest")
+		assertRestoreDestinationEmpty(t, destination)
+	})
 }
 
 func TestRestoreService_resumesAfterCommittedBoard(t *testing.T) {
@@ -180,8 +205,8 @@ func TestRestoreService_resumesAfterCommittedBoard(t *testing.T) {
 	}, true)
 	destination := newRestoreTestDestination(t, nil, createdAt)
 	failingBoards := &failSecondBoardDestination{
-		CopySnapshotDestination: destination.boards,
-		fail:                    true,
+		RecordDestination: destination.boards,
+		fail:              true,
 	}
 	service := domainbackup.NewRestoreService(domainbackup.RestoreServiceConfig{
 		Projects: destination.projects,
@@ -272,21 +297,22 @@ func assertRestoreDestinationEmpty(t *testing.T, destination *restoreTestDestina
 }
 
 type failSecondBoardDestination struct {
-	boardcopy.CopySnapshotDestination
+	boardcopy.RecordDestination
 	imports int
 	fail    bool
 }
 
-func (d *failSecondBoardDestination) ImportCopySnapshot(
+func (d *failSecondBoardDestination) ImportCopyRecords(
 	ctx context.Context,
-	snapshot boardcopy.CopySnapshot,
+	index boardcopy.RecordIndex,
+	records boardcopy.RecordSequence,
 	options boardcopy.CopyOptions,
 ) (boardcopy.CopyImportResult, error) {
 	d.imports++
 	if d.fail && d.imports == 2 {
-		return boardcopy.CopyImportResult{}, errors.New("injected board import failure")
+		return nil, errors.New("injected board import failure")
 	}
-	return d.CopySnapshotDestination.ImportCopySnapshot(ctx, snapshot, options)
+	return d.RecordDestination.ImportCopyRecords(ctx, index, records, options)
 }
 
 type restoreTestClock struct {
@@ -328,9 +354,11 @@ func restoreTestArchive(
 		require.NoError(t, writer.AddProject(snapshot))
 	}
 	for _, publication := range boards {
+		snapshot := restoreTestBoardSnapshot(publication, descriptor)
 		require.NoError(t, writer.AddBoard(
 			publication.projectID,
-			restoreTestBoardSnapshot(publication, descriptor),
+			board.ID(snapshot.Board.ID),
+			restoreTestBoardRecords(snapshot),
 		))
 	}
 	if includeBlob {
@@ -340,14 +368,44 @@ func restoreTestArchive(
 	return archive.Bytes()
 }
 
+func restoreTestBoardRecords(
+	snapshot restoreBoardSnapshot,
+) boardcopy.RecordSequence {
+	return func(yield func(boardcopy.Record, error) bool) {
+		if !yield(boardcopy.RecordHeader{
+			Version:         boardcopy.CopySnapshotVersion,
+			SourceLineageID: snapshot.SourceLineageID,
+			SourceRevision:  snapshot.SourceRevision,
+			Board:           snapshot.Board,
+			Configuration:   snapshot.Configuration,
+		}, nil) {
+			return
+		}
+		for _, issue := range snapshot.Issues {
+			if !yield(issue, nil) {
+				return
+			}
+		}
+		for _, attachment := range snapshot.Attachments {
+			if !yield(attachment, nil) {
+				return
+			}
+		}
+		yield(boardcopy.RecordTrailer{Counts: boardcopy.RecordCounts{
+			Issues:      uint64(len(snapshot.Issues)),
+			Attachments: uint64(len(snapshot.Attachments)),
+		}}, nil)
+	}
+}
+
 func restoreTestBoardSnapshot(
 	publication restoreTestBoard,
 	descriptor attachment.BlobDescriptor,
-) boardcopy.CopySnapshot {
+) restoreBoardSnapshot {
 	createdAt := restoreTestTime()
 	issueID := "cm-" + publication.suffix
 	attachmentID := "att_" + strings.Repeat(publication.suffix, 25) + "a"
-	return boardcopy.CopySnapshot{
+	return restoreBoardSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  12,
 		Board: boardcopy.CopyBoard{
@@ -366,6 +424,15 @@ func restoreTestBoardSnapshot(
 			CreatedActor: "worker", CreatedAt: createdAt,
 		}},
 	}
+}
+
+type restoreBoardSnapshot struct {
+	SourceLineageID string
+	SourceRevision  int64
+	Board           boardcopy.CopyBoard
+	Configuration   configuration.Configuration
+	Issues          []boardcopy.CopyIssue
+	Attachments     []boardcopy.CopyAttachment
 }
 
 func restoreTestProject(

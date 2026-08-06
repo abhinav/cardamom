@@ -12,11 +12,12 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
+	"go.abhg.dev/cardamom/internal/project"
 	repositoryboard "go.abhg.dev/cardamom/internal/repository/board"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
-func TestReader_CaptureUsesOneRetainedViewForAllAndSelectedBoards(t *testing.T) {
+func TestReader_CaptureUsesOneViewForAllAndSelectedBoards(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "board.sqlite3")
 	readerStore := openBackupTestStore(t, path)
 	writerStore := openBackupTestStore(t, path)
@@ -27,40 +28,51 @@ func TestReader_CaptureUsesOneRetainedViewForAllAndSelectedBoards(t *testing.T) 
 		writer:   writerStore,
 	}
 
+	allDestination := &backupTestCaptureDestination{}
 	all, err := reader.Capture(
 		t.Context(),
 		domainbackup.AllBoards(),
 		configuration.Overrides{},
+		allDestination,
 	)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), all.SourceRevision)
-	require.Len(t, all.Projects, 2)
-	require.Len(t, all.Boards, 2)
-	assert.Equal(t, "board-one", all.Boards[0].Snapshot.Board.ID)
-	assert.Equal(t, "original", *all.Boards[1].Snapshot.Board.Description)
-	for _, captured := range all.Boards {
-		assert.Equal(t, all.SourceLineageID, captured.Snapshot.SourceLineageID)
-		assert.Equal(t, all.SourceRevision, captured.Snapshot.SourceRevision)
+	assert.Equal(t, 2, all.Projects)
+	assert.Equal(t, 2, all.Boards)
+	require.Len(t, allDestination.projects, 2)
+	require.Len(t, allDestination.boards, 2)
+	assert.Equal(t, board.ID("board-one"), allDestination.boards[0].boardID)
+	header := allDestination.boards[1].records[0].(boardcopy.RecordHeader)
+	assert.Equal(t, "original", *header.Board.Description)
+	for _, captured := range allDestination.boards {
+		header := captured.records[0].(boardcopy.RecordHeader)
+		assert.Equal(t, all.SourceLineageID, header.SourceLineageID)
+		assert.Equal(t, all.SourceRevision, header.SourceRevision)
 	}
 
+	selectedDestination := &backupTestCaptureDestination{}
 	selected, err := reader.Capture(
 		t.Context(),
 		mustBackupSelection(t, "board-two"),
 		configuration.Overrides{},
+		selectedDestination,
 	)
 	require.NoError(t, err)
-	require.Len(t, selected.Projects, 1)
-	require.Len(t, selected.Boards, 1)
-	assert.Equal(t, "project-two", selected.Projects[0].ID.String())
-	assert.Equal(t, "board-two", selected.Boards[0].Snapshot.Board.ID)
+	assert.Equal(t, 1, selected.Projects)
+	assert.Equal(t, 1, selected.Boards)
+	require.Len(t, selectedDestination.projects, 1)
+	require.Len(t, selectedDestination.boards, 1)
+	assert.Equal(t, "project-two", selectedDestination.projects[0].ID.String())
+	assert.Equal(t, board.ID("board-two"), selectedDestination.boards[0].boardID)
 
-	_, err = reader.Capture(
+	_, captureErr := reader.Capture(
 		t.Context(),
 		mustBackupSelection(t, "board-missing"),
 		configuration.Overrides{},
+		&backupTestCaptureDestination{},
 	)
-	require.Error(t, err)
-	assert.ErrorContains(t, err, `board "board-missing" not found`)
+	require.Error(t, captureErr)
+	assert.ErrorContains(t, captureErr, `board "board-missing" not found`)
 }
 
 func TestReader_CaptureIgnoresEphemeralActivity(t *testing.T) {
@@ -82,13 +94,26 @@ INSERT INTO attachment_uploads (
 	require.NoError(t, change.Commit())
 
 	reader := New(persistence)
+	destination := &backupTestCaptureDestination{}
 	captured, err := reader.Capture(
 		t.Context(),
 		mustBackupSelection(t, "board-one"),
 		configuration.Overrides{},
+		destination,
 	)
 	require.NoError(t, err)
-	require.Len(t, captured.Boards, 1)
+	assert.Equal(t, 1, captured.Boards)
+	require.Len(t, destination.boards, 1)
+	var issues []boardcopy.CopyIssue
+	var attachments []boardcopy.CopyAttachment
+	for _, record := range destination.boards[0].records {
+		switch value := record.(type) {
+		case boardcopy.CopyIssue:
+			issues = append(issues, value)
+		case boardcopy.CopyAttachment:
+			attachments = append(attachments, value)
+		}
+	}
 	assert.Equal(t, []boardcopy.CopyIssue{{
 		ID:        "one-1",
 		Title:     "Committed",
@@ -97,12 +122,12 @@ INSERT INTO attachment_uploads (
 		Priority:  2,
 		CreatedAt: backupTestTime(1000),
 		UpdatedAt: backupTestTime(1001),
-	}}, captured.Boards[0].Snapshot.Issues)
-	require.Len(t, captured.Boards[0].Snapshot.Attachments, 1)
+	}}, issues)
+	require.Len(t, attachments, 1)
 	assert.Equal(
 		t,
 		"att_aaaaaaaaaaaaaaaaaaaaaaaaaa",
-		captured.Boards[0].Snapshot.Attachments[0].ID,
+		attachments[0].ID,
 	)
 }
 
@@ -112,41 +137,87 @@ type mutatingBackupBoardReader struct {
 	reads    int
 }
 
-func (r *mutatingBackupBoardReader) ReadBackupSnapshot(
+type backupTestCaptureDestination struct {
+	projects []project.Snapshot
+	boards   []backupTestCapturedBoard
+}
+
+func (d *backupTestCaptureDestination) AddProject(snapshot project.Snapshot) error {
+	d.projects = append(d.projects, snapshot)
+	return nil
+}
+
+func (d *backupTestCaptureDestination) AddBoard(
+	projectID project.ID,
+	boardID board.ID,
+	records boardcopy.RecordSequence,
+) error {
+	var captured []boardcopy.Record
+	for record, err := range records {
+		if err != nil {
+			return err
+		}
+		captured = append(captured, record)
+	}
+	d.boards = append(d.boards, backupTestCapturedBoard{
+		projectID: projectID,
+		boardID:   boardID,
+		records:   captured,
+	})
+	return nil
+}
+
+type backupTestCapturedBoard struct {
+	projectID project.ID
+	boardID   board.ID
+	records   []boardcopy.Record
+}
+
+func (r *mutatingBackupBoardReader) ReadBackupRecords(
 	ctx context.Context,
 	view *store.View,
 	boardID board.ID,
 	storeOverrides configuration.Overrides,
 	source repositoryboard.BackupSource,
-) (boardcopy.CopySnapshot, error) {
-	if r.reads == 1 {
-		change, err := r.writer.Change(ctx)
-		if err != nil {
-			return boardcopy.CopySnapshot{}, err
-		}
-		defer func() { _ = change.Done() }()
-		_, err = change.ExecContext(ctx, `
-UPDATE boards
-SET description = 'changed', revision = 3
-WHERE id = 'board-two';
-UPDATE store_state
-SET current_revision = 3
-WHERE singleton = 1`)
-		if err != nil {
-			return boardcopy.CopySnapshot{}, err
-		}
-		if err := change.Commit(); err != nil {
-			return boardcopy.CopySnapshot{}, err
-		}
-	}
-	r.reads++
-	return r.delegate.ReadBackupSnapshot(
+) boardcopy.RecordSequence {
+	sequence := r.delegate.ReadBackupRecords(
 		ctx,
 		view,
 		boardID,
 		storeOverrides,
 		source,
 	)
+	return func(yield func(boardcopy.Record, error) bool) {
+		if r.reads == 1 {
+			change, err := r.writer.Change(ctx)
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			defer func() { _ = change.Done() }()
+			_, err = change.ExecContext(ctx, `
+UPDATE boards
+SET description = 'changed', revision = 3
+WHERE id = 'board-two';
+UPDATE store_state
+SET current_revision = 3
+WHERE singleton = 1`)
+			if err != nil {
+				yield(nil, err)
+				return
+			}
+			if err := change.Commit(); err != nil {
+				yield(nil, err)
+				return
+			}
+		}
+		r.reads++
+		for record, err := range sequence {
+			if !yield(record, err) {
+				return
+			}
+		}
+	}
 }
 
 func openBackupTestStore(t *testing.T, path string) *store.Store {

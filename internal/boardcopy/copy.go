@@ -7,9 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"slices"
 	"strings"
-	"time"
 
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
@@ -17,133 +15,6 @@ import (
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/must"
 )
-
-const (
-	// CopySnapshotVersion identifies the first semantic board-copy schema.
-	CopySnapshotVersion = 1
-)
-
-// CopySnapshot is one complete, schema-independent board publication.
-//
-// SourceLineageID and SourceRevision identify the retained source view.
-// Digest covers the portable semantic fields and is assigned by Service.
-type CopySnapshot struct {
-	SourceLineageID string
-	SourceRevision  int64
-	Version         int
-	Digest          string
-	Board           CopyBoard
-	Configuration   configuration.Configuration
-	Issues          []CopyIssue
-	Labels          []CopyLabel
-	Dependencies    []CopyDependency
-	Containment     []CopyContainment
-	ExternalKeys    []CopyExternalKey
-	LogEntries      []CopyLogEntry
-	States          []CopyState
-	Results         []CopyResultRecord
-	Checkpoints     []CopyCheckpoint
-	Attachments     []CopyAttachment
-}
-
-// CopyBoard contains the portable board namespace fields.
-type CopyBoard struct {
-	ID          string
-	Name        string
-	Description *string
-	CreatedAt   time.Time
-}
-
-// CopyIssue contains one portable issue projection.
-type CopyIssue struct {
-	ID            string
-	Title         string
-	Kind          string
-	Lifecycle     string
-	Priority      int64
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
-	ClosedAt      *time.Time
-	WaitingReason *string
-	WaitingSince  *time.Time
-	Summary       *string
-	Details       *string
-}
-
-// CopyLabel associates one inert label with an issue.
-type CopyLabel struct {
-	IssueID string
-	Label   string
-}
-
-// CopyDependency records one issue prerequisite edge.
-type CopyDependency struct {
-	IssueID        string
-	PrerequisiteID string
-}
-
-// CopyContainment records one child-parent edge.
-type CopyContainment struct {
-	ChildID  string
-	ParentID string
-}
-
-// CopyExternalKey associates one board-scoped producer key with an issue.
-type CopyExternalKey struct {
-	Key     string
-	IssueID string
-}
-
-// CopyLogEntry contains one immutable Log record in source order.
-type CopyLogEntry struct {
-	Order      uint64
-	ID         string
-	IssueID    string
-	Kind       string
-	Author     *string
-	Committer  *string
-	Body       string
-	CreatedAt  *time.Time
-	NextAction *string
-}
-
-// CopyState contains one issue's mutable recovery record.
-type CopyState struct {
-	IssueID            string
-	Body               string
-	Author             *string
-	UpdatedAt          *time.Time
-	SnapshotLogEntryID *string
-	NextAction         *string
-}
-
-// CopyResultRecord contains one issue's current durable outcome.
-type CopyResultRecord struct {
-	IssueID string
-	Body    string
-}
-
-// CopyCheckpoint contains one immutable checkpoint decision.
-type CopyCheckpoint struct {
-	IssueID   string
-	Outcome   string
-	Reason    string
-	DecidedAt time.Time
-}
-
-// CopyAttachment contains active or removed board-scoped attachment metadata.
-type CopyAttachment struct {
-	ID            string
-	OriginIssueID *string
-	Blob          attachment.BlobDescriptor
-	Filename      string
-	MediaType     string
-	Lifecycle     string
-	CreatedActor  string
-	CreatedAt     time.Time
-	RemovedActor  *string
-	RemovedAt     *time.Time
-}
 
 // CopyOptions selects the destination namespace and optional board name.
 type CopyOptions struct {
@@ -217,49 +88,77 @@ type CopyReceipt struct {
 	Mappings             CopyMappings
 }
 
-// CopyImportResult reports either a new publication or a receipt that won a
-// concurrent import race.
-type CopyImportResult struct {
-	// Published is set only when the import created the destination board.
-	Published *CopyOutcome
+// CopyImportResult is one successful atomic repository import outcome.
+//
+// The sealed result distinguishes a newly published board from a concurrent
+// import that found the winning persisted receipt.
+type CopyImportResult interface {
+	evaluateCopyImport(RecordIndex, CopyOptions) (CopyOutcome, error)
+}
 
-	// Competing is set only when the import found and committed a no-op around
-	// an existing receipt.
-	Competing *CopyReceipt
+// publishedCopyImport carries the outcome committed by a new publication.
+type publishedCopyImport struct {
+	outcome CopyOutcome
 }
 
 // NewPublishedCopyImport reports a newly published destination board.
 func NewPublishedCopyImport(outcome CopyOutcome) CopyImportResult {
-	return CopyImportResult{Published: &outcome}
+	return publishedCopyImport{outcome: outcome}
 }
 
-// NewCompetingCopyImport reports persisted receipt facts found during import.
-func NewCompetingCopyImport(receipt CopyReceipt) CopyImportResult {
-	return CopyImportResult{Competing: &receipt}
+func (r publishedCopyImport) evaluateCopyImport(
+	RecordIndex,
+	CopyOptions,
+) (CopyOutcome, error) {
+	return r.outcome, nil
 }
 
-// CopySnapshotSource reads one retained semantic board view.
-type CopySnapshotSource interface {
-	ReadCopySnapshot(
-		context.Context,
-		board.ID,
-		configuration.Overrides,
-	) (CopySnapshot, error)
+// concurrentCopyImport carries the receipt that won a concurrent import.
+type concurrentCopyImport struct {
+	receipt CopyReceipt
 }
 
-// CopySnapshotDestination atomically imports one semantic board snapshot.
-type CopySnapshotDestination interface {
+// NewConcurrentCopyImport reports the receipt found during a concurrent
+// import.
+func NewConcurrentCopyImport(receipt CopyReceipt) CopyImportResult {
+	return concurrentCopyImport{receipt: receipt}
+}
+
+func (r concurrentCopyImport) evaluateCopyImport(
+	index RecordIndex,
+	options CopyOptions,
+) (CopyOutcome, error) {
+	return EvaluateRecordReceipt(index, options, r.receipt)
+}
+
+// EvaluateCopyImport applies boardcopy policy to a repository import result.
+func EvaluateCopyImport(
+	index RecordIndex,
+	options CopyOptions,
+	result CopyImportResult,
+) (CopyOutcome, error) {
+	return result.evaluateCopyImport(index, options)
+}
+
+// CopyReceiptDestination reads durable destination publication receipts.
+type CopyReceiptDestination interface {
 	// ReadCopyReceipt returns persisted publication facts when present.
 	ReadCopyReceipt(
 		context.Context,
 		CopyReceiptKey,
 	) (CopyReceipt, bool, error)
+}
 
-	// ImportCopySnapshot atomically publishes metadata or returns a competing
+// RecordDestination atomically imports one indexed semantic record sequence.
+type RecordDestination interface {
+	CopyReceiptDestination
+
+	// ImportCopyRecords atomically publishes metadata or returns a competing
 	// receipt after committing its no-op transaction.
-	ImportCopySnapshot(
+	ImportCopyRecords(
 		context.Context,
-		CopySnapshot,
+		RecordIndex,
+		RecordSequence,
 		CopyOptions,
 	) (CopyImportResult, error)
 }
@@ -288,17 +187,17 @@ type CopyConfiguration interface {
 
 // CopyServiceConfig supplies the finite collaborators for one board copy.
 type CopyServiceConfig struct {
-	Source           CopySnapshotSource      // required
-	Destination      CopySnapshotDestination // required
-	SourceBlobs      CopyBlobSource          // required
-	DestinationBlobs CopyBlobDestination     // required
-	Configuration    CopyConfiguration       // required
+	Source           RecordSource        // required
+	Destination      RecordDestination   // required
+	SourceBlobs      CopyBlobSource      // required
+	DestinationBlobs CopyBlobDestination // required
+	Configuration    CopyConfiguration   // required
 }
 
 // CopyService owns one non-destructive board copy between physical stores.
 type CopyService struct {
-	source           CopySnapshotSource
-	destination      CopySnapshotDestination
+	source           RecordSource
+	destination      RecordDestination
 	sourceBlobs      CopyBlobSource
 	destinationBlobs CopyBlobDestination
 	configuration    CopyConfiguration
@@ -343,10 +242,8 @@ func (s *CopyService) Copy(
 	if err != nil {
 		return CopyOutcome{}, fmt.Errorf("read source store configuration: %w", err)
 	}
-	snapshot, err := s.source.ReadCopySnapshot(
-		ctx,
-		request.SourceBoardID,
-		before,
+	index, err := IndexRecords(
+		s.source.ReadCopyRecords(ctx, request.SourceBoardID, before),
 	)
 	if err != nil {
 		return CopyOutcome{}, err
@@ -362,28 +259,26 @@ func (s *CopyService) Copy(
 		)
 	}
 
-	snapshot = PrepareSnapshot(snapshot)
-	descriptors := uniqueBlobDescriptors(snapshot.Attachments)
 	receipt, found, err := s.destination.ReadCopyReceipt(
 		ctx,
-		copyReceiptKey(snapshot),
+		copyReceiptKey(index),
 	)
 	if err != nil {
 		return CopyOutcome{}, err
 	}
 	if found {
-		outcome, err := EvaluateCopyReceipt(
-			snapshot,
+		outcome, err := EvaluateRecordReceipt(
+			index,
 			request.Options,
 			receipt,
 		)
 		if err != nil {
 			return CopyOutcome{}, err
 		}
-		outcome.Counts.Blobs = len(descriptors)
+		outcome.Counts.Blobs = len(index.Blobs)
 		return outcome, nil
 	}
-	for _, descriptor := range descriptors {
+	for _, descriptor := range index.Blobs {
 		reader, err := s.sourceBlobs.OpenCopyBlob(ctx, descriptor)
 		if err != nil {
 			return CopyOutcome{}, fmt.Errorf(
@@ -403,49 +298,51 @@ func (s *CopyService) Copy(
 		}
 	}
 
-	importResult, err := s.destination.ImportCopySnapshot(
+	importResult, err := s.destination.ImportCopyRecords(
 		ctx,
-		snapshot,
+		index,
+		s.source.ReadCopyRecords(ctx, request.SourceBoardID, before),
 		request.Options,
 	)
 	if err != nil {
 		return CopyOutcome{}, err
 	}
-	var outcome CopyOutcome
-	switch {
-	case importResult.Published != nil && importResult.Competing == nil:
-		outcome = *importResult.Published
-	case importResult.Published == nil && importResult.Competing != nil:
-		outcome, err = EvaluateCopyReceipt(
-			snapshot,
-			request.Options,
-			*importResult.Competing,
-		)
-		if err != nil {
-			return CopyOutcome{}, err
-		}
-	default:
-		return CopyOutcome{}, errors.New(
-			"destination board copy returned an invalid import result",
-		)
+	outcome, err := EvaluateCopyImport(index, request.Options, importResult)
+	if err != nil {
+		return CopyOutcome{}, err
 	}
-	outcome.Counts.Blobs = len(descriptors)
+	outcome.Counts.Blobs = len(index.Blobs)
 	return outcome, nil
 }
 
-// EvaluateCopyReceipt applies retry policy to persisted receipt facts.
-func EvaluateCopyReceipt(
-	snapshot CopySnapshot,
+// EvaluateRecordReceipt applies retry policy to an indexed record publication.
+func EvaluateRecordReceipt(
+	index RecordIndex,
 	options CopyOptions,
 	receipt CopyReceipt,
 ) (CopyOutcome, error) {
-	if receipt.SnapshotDigest != snapshot.Digest {
+	return evaluateCopyReceipt(
+		index.Digest,
+		copyDestinationName(index, options),
+		copyCounts(index),
+		options,
+		receipt,
+	)
+}
+
+func evaluateCopyReceipt(
+	digest string,
+	name string,
+	counts CopyCounts,
+	options CopyOptions,
+	receipt CopyReceipt,
+) (CopyOutcome, error) {
+	if receipt.SnapshotDigest != digest {
 		return CopyOutcome{}, errkind.Errorf(
 			errkind.Conflict,
 			"source board has changed since its previous copy; incremental synchronization is not supported",
 		)
 	}
-	name := copyDestinationName(snapshot, options)
 	if receipt.DestinationProjectID != options.ProjectID ||
 		receipt.DestinationName != name {
 		return CopyOutcome{}, errkind.Errorf(
@@ -464,49 +361,34 @@ func EvaluateCopyReceipt(
 		DestinationName:      receipt.DestinationName,
 		DestinationRevision:  receipt.DestinationRevision,
 		AlreadyCompleted:     true,
-		Counts:               copyCounts(snapshot),
+		Counts:               counts,
 		Mappings:             receipt.Mappings,
 	}, nil
 }
 
-func copyReceiptKey(snapshot CopySnapshot) CopyReceiptKey {
+func copyReceiptKey(index RecordIndex) CopyReceiptKey {
 	return CopyReceiptKey{
-		SourceLineageID: snapshot.SourceLineageID,
-		SourceBoardID:   snapshot.Board.ID,
-		SnapshotVersion: snapshot.Version,
+		SourceLineageID: index.Header.SourceLineageID,
+		SourceBoardID:   index.Header.Board.ID,
+		SnapshotVersion: index.Header.Version,
 	}
 }
 
 func copyDestinationName(
-	snapshot CopySnapshot,
+	index RecordIndex,
 	options CopyOptions,
 ) string {
-	name := snapshot.Board.Name
+	name := index.Header.Board.Name
 	if options.Name != nil {
 		name = *options.Name
 	}
 	return strings.TrimSpace(name)
 }
 
-func copyCounts(snapshot CopySnapshot) CopyCounts {
+func copyCounts(index RecordIndex) CopyCounts {
 	return CopyCounts{
-		Issues:      len(snapshot.Issues),
-		LogEntries:  len(snapshot.LogEntries),
-		Attachments: len(snapshot.Attachments),
+		Issues:      len(index.IssueIDs),
+		LogEntries:  len(index.LogEntryIDs),
+		Attachments: len(index.AttachmentIDs),
 	}
-}
-
-func uniqueBlobDescriptors(values []CopyAttachment) []attachment.BlobDescriptor {
-	byDigest := make(map[attachment.Digest]attachment.BlobDescriptor)
-	for _, value := range values {
-		byDigest[value.Blob.Digest] = value.Blob
-	}
-	out := make([]attachment.BlobDescriptor, 0, len(byDigest))
-	for _, descriptor := range byDigest {
-		out = append(out, descriptor)
-	}
-	slices.SortFunc(out, func(left, right attachment.BlobDescriptor) int {
-		return strings.Compare(left.Digest.String(), right.Digest.String())
-	})
-	return out
 }

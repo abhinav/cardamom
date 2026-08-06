@@ -4,7 +4,7 @@ FROM attachment_uploads
 WHERE board_id = sqlc.arg(board_id)
     AND state = 'active';
 
--- name: AttachmentListCopyMetadata :many
+-- name: AttachmentListCopyMetadataPage :many
 SELECT
     id,
     origin_issue_id,
@@ -19,7 +19,9 @@ SELECT
     removed_at
 FROM attachments
 WHERE board_id = sqlc.arg(board_id)
-ORDER BY id;
+    AND id > sqlc.arg(after_id)
+ORDER BY id
+LIMIT sqlc.arg(page_size);
 
 -- name: AttachmentInsertCopiedMetadata :exec
 INSERT INTO attachments (

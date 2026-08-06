@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/backup/v1/backup.proto.
  */
 export const file_cardamom_private_backup_v1_backup: GenFile = /*@__PURE__*/
-  fileDesc("CidjYXJkYW1vbS9wcml2YXRlL2JhY2t1cC92MS9iYWNrdXAucHJvdG8SGmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxIsEBCghNYW5pZmVzdBIPCgd2ZXJzaW9uGAEgASgNEjUKCHByb2plY3RzGAIgAygLMiMuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuUHJvamVjdBI8CgZib2FyZHMYAyADKAsyLC5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5Cb2FyZFB1YmxpY2F0aW9uEi8KBWJsb2JzGAQgAygLMiAuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuQmxvYiJTCgdQcm9qZWN0EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSLgoKY3JlYXRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAi2gEKEEJvYXJkUHVibGljYXRpb24SEgoKcHJvamVjdF9pZBgBIAEoCRIZChFzb3VyY2VfbGluZWFnZV9pZBgCIAEoCRIXCg9zb3VyY2VfYm9hcmRfaWQYAyABKAkSFwoPc291cmNlX3JldmlzaW9uGAQgASgDEhgKEHNuYXBzaG90X3ZlcnNpb24YBSABKA0SFwoPc25hcHNob3RfZGlnZXN0GAYgASgJEjIKBm1lbWJlchgHIAEoCzIiLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLk1lbWJlciI6CgRCbG9iEg4KBmRpZ2VzdBgBIAEoCRISCgpzaXplX2J5dGVzGAIgASgEEg4KBm1lbWJlchgDIAEoCSI6CgZNZW1iZXISDAoEbmFtZRgBIAEoCRISCgpzaXplX2J5dGVzGAIgASgEEg4KBmRpZ2VzdBgDIAEoCSKXBgoNQm9hcmRTbmFwc2hvdBIZChFzb3VyY2VfbGluZWFnZV9pZBgBIAEoCRIXCg9zb3VyY2VfcmV2aXNpb24YAiABKAMSDwoHdmVyc2lvbhgDIAEoDRIOCgZkaWdlc3QYBCABKAkSMAoFYm9hcmQYBSABKAsyIS5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5Cb2FyZBJACg1jb25maWd1cmF0aW9uGAYgASgLMikuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuQ29uZmlndXJhdGlvbhIxCgZpc3N1ZXMYByADKAsyIS5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5Jc3N1ZRIxCgZsYWJlbHMYCCADKAsyIS5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5MYWJlbBI8CgxkZXBlbmRlbmNpZXMYCSADKAsyJi5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5EZXBlbmRlbmN5EjwKC2NvbnRhaW5tZW50GAogAygLMicuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuQ29udGFpbm1lbnQSPgoNZXh0ZXJuYWxfa2V5cxgLIAMoCzInLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLkV4dGVybmFsS2V5EjkKC2xvZ19lbnRyaWVzGAwgAygLMiQuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuTG9nRW50cnkSMQoGc3RhdGVzGA0gAygLMiEuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuU3RhdGUSMwoHcmVzdWx0cxgOIAMoCzIiLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLlJlc3VsdBI7CgtjaGVja3BvaW50cxgPIAMoCzImLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLkNoZWNrcG9pbnQSOwoLYXR0YWNobWVudHMYECADKAsyJi5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5BdHRhY2htZW50InsKBUJvYXJkEgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSGAoLZGVzY3JpcHRpb24YAyABKAlIAIgBARIuCgpjcmVhdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEIOCgxfZGVzY3JpcHRpb24iggEKDUNvbmZpZ3VyYXRpb24SFwoPaXNzdWVfaWRfcHJlZml4GAEgASgJEhkKEWlzc3VlX2lkX3N0cmF0ZWd5GAIgASgJEh8KF2lzc3VlX3N1bW1hcnlfbWF4X2J5dGVzGAMgASgEEhwKFGF0dGFjaG1lbnRfbWF4X2J5dGVzGAQgASgEIosDCgVJc3N1ZRIKCgJpZBgBIAEoCRINCgV0aXRsZRgCIAEoCRIMCgRraW5kGAMgASgJEhEKCWxpZmVjeWNsZRgEIAEoCRIQCghwcmlvcml0eRgFIAEoAxIuCgpjcmVhdGVkX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAcgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBItCgljbG9zZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhsKDndhaXRpbmdfcmVhc29uGAkgASgJSACIAQESMQoNd2FpdGluZ19zaW5jZRgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFAoHc3VtbWFyeRgLIAEoCUgBiAEBEhQKB2RldGFpbHMYDCABKAlIAogBAUIRCg9fd2FpdGluZ19yZWFzb25CCgoIX3N1bW1hcnlCCgoIX2RldGFpbHMiKAoFTGFiZWwSEAoIaXNzdWVfaWQYASABKAkSDQoFdmFsdWUYAiABKAkiNwoKRGVwZW5kZW5jeRIQCghpc3N1ZV9pZBgBIAEoCRIXCg9wcmVyZXF1aXNpdGVfaWQYAiABKAkiMgoLQ29udGFpbm1lbnQSEAoIY2hpbGRfaWQYASABKAkSEQoJcGFyZW50X2lkGAIgASgJIiwKC0V4dGVybmFsS2V5EgsKA2tleRgBIAEoCRIQCghpc3N1ZV9pZBgCIAEoCSLzAQoITG9nRW50cnkSDQoFb3JkZXIYASABKAQSCgoCaWQYAiABKAkSEAoIaXNzdWVfaWQYAyABKAkSDAoEa2luZBgEIAEoCRITCgZhdXRob3IYBSABKAlIAIgBARIWCgljb21taXR0ZXIYBiABKAlIAYgBARIMCgRib2R5GAcgASgJEi4KCmNyZWF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKC25leHRfYWN0aW9uGAkgASgJSAKIAQFCCQoHX2F1dGhvckIMCgpfY29tbWl0dGVyQg4KDF9uZXh0X2FjdGlvbiLfAQoFU3RhdGUSEAoIaXNzdWVfaWQYASABKAkSDAoEYm9keRgCIAEoCRITCgZhdXRob3IYAyABKAlIAIgBARIuCgp1cGRhdGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIiChVzbmFwc2hvdF9sb2dfZW50cnlfaWQYBSABKAlIAYgBARIYCgtuZXh0X2FjdGlvbhgGIAEoCUgCiAEBQgkKB19hdXRob3JCGAoWX3NuYXBzaG90X2xvZ19lbnRyeV9pZEIOCgxfbmV4dF9hY3Rpb24iKAoGUmVzdWx0EhAKCGlzc3VlX2lkGAEgASgJEgwKBGJvZHkYAiABKAkibwoKQ2hlY2twb2ludBIQCghpc3N1ZV9pZBgBIAEoCRIPCgdvdXRjb21lGAIgASgJEg4KBnJlYXNvbhgDIAEoCRIuCgpkZWNpZGVkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcCLiAgoKQXR0YWNobWVudBIKCgJpZBgBIAEoCRIcCg9vcmlnaW5faXNzdWVfaWQYAiABKAlIAIgBARI4CgRibG9iGAMgASgLMiouY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuQmxvYkRlc2NyaXB0b3ISEAoIZmlsZW5hbWUYBCABKAkSEgoKbWVkaWFfdHlwZRgFIAEoCRIRCglsaWZlY3ljbGUYBiABKAkSFQoNY3JlYXRlZF9hY3RvchgHIAEoCRIuCgpjcmVhdGVkX2F0GAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIaCg1yZW1vdmVkX2FjdG9yGAkgASgJSAGIAQESLgoKcmVtb3ZlZF9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBCEgoQX29yaWdpbl9pc3N1ZV9pZEIQCg5fcmVtb3ZlZF9hY3RvciI0Cg5CbG9iRGVzY3JpcHRvchIOCgZkaWdlc3QYASABKAkSEgoKc2l6ZV9ieXRlcxgCIAEoBEKBAgoeY29tLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxQgtCYWNrdXBQcm90b1ABWkVnby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS9iYWNrdXAvdjE7YmFja3VwdjGiAgNDUEKqAhpDYXJkYW1vbS5Qcml2YXRlLkJhY2t1cC5WMcoCG0NhcmRhbW9tXFByaXZhdGVfXEJhY2t1cFxWMeICJ0NhcmRhbW9tXFByaXZhdGVfXEJhY2t1cFxWMVxHUEJNZXRhZGF0YeoCHUNhcmRhbW9tOjpQcml2YXRlOjpCYWNrdXA6OlYxYgZwcm90bzM", [file_google_protobuf_timestamp]);
+  fileDesc("CidjYXJkYW1vbS9wcml2YXRlL2JhY2t1cC92MS9iYWNrdXAucHJvdG8SGmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxIsEBCghNYW5pZmVzdBIPCgd2ZXJzaW9uGAEgASgNEjUKCHByb2plY3RzGAIgAygLMiMuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuUHJvamVjdBI8CgZib2FyZHMYAyADKAsyLC5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5Cb2FyZFB1YmxpY2F0aW9uEi8KBWJsb2JzGAQgAygLMiAuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuQmxvYiJTCgdQcm9qZWN0EgoKAmlkGAEgASgJEgwKBG5hbWUYAiABKAkSLgoKY3JlYXRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAi2gEKEEJvYXJkUHVibGljYXRpb24SEgoKcHJvamVjdF9pZBgBIAEoCRIZChFzb3VyY2VfbGluZWFnZV9pZBgCIAEoCRIXCg9zb3VyY2VfYm9hcmRfaWQYAyABKAkSFwoPc291cmNlX3JldmlzaW9uGAQgASgDEhgKEHNuYXBzaG90X3ZlcnNpb24YBSABKA0SFwoPc25hcHNob3RfZGlnZXN0GAYgASgJEjIKBm1lbWJlchgHIAEoCzIiLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLk1lbWJlciI6CgRCbG9iEg4KBmRpZ2VzdBgBIAEoCRISCgpzaXplX2J5dGVzGAIgASgEEg4KBm1lbWJlchgDIAEoCSI6CgZNZW1iZXISDAoEbmFtZRgBIAEoCRISCgpzaXplX2J5dGVzGAIgASgEEg4KBmRpZ2VzdBgDIAEoCSLWBQoLQm9hcmRSZWNvcmQSOQoGaGVhZGVyGAEgASgLMicuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuQm9hcmRIZWFkZXJIABIyCgVpc3N1ZRgCIAEoCzIhLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLklzc3VlSAASMgoFbGFiZWwYAyABKAsyIS5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5MYWJlbEgAEjwKCmRlcGVuZGVuY3kYBCABKAsyJi5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5EZXBlbmRlbmN5SAASPgoLY29udGFpbm1lbnQYBSABKAsyJy5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5Db250YWlubWVudEgAEj8KDGV4dGVybmFsX2tleRgGIAEoCzInLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLkV4dGVybmFsS2V5SAASOQoJbG9nX2VudHJ5GAcgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuTG9nRW50cnlIABIyCgVzdGF0ZRgIIAEoCzIhLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLlN0YXRlSAASNAoGcmVzdWx0GAkgASgLMiIuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuUmVzdWx0SAASPAoKY2hlY2twb2ludBgKIAEoCzImLmNhcmRhbW9tLnByaXZhdGUuYmFja3VwLnYxLkNoZWNrcG9pbnRIABI8CgphdHRhY2htZW50GAsgASgLMiYuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuQXR0YWNobWVudEgAEjsKB3RyYWlsZXIYDCABKAsyKC5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5Cb2FyZFRyYWlsZXJIAEIHCgV2YWx1ZSLGAQoLQm9hcmRIZWFkZXISDwoHdmVyc2lvbhgBIAEoDRIZChFzb3VyY2VfbGluZWFnZV9pZBgCIAEoCRIXCg9zb3VyY2VfcmV2aXNpb24YAyABKAMSMAoFYm9hcmQYBCABKAsyIS5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5Cb2FyZBJACg1jb25maWd1cmF0aW9uGAUgASgLMikuY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjEuQ29uZmlndXJhdGlvbiLQAQoMQm9hcmRUcmFpbGVyEg4KBmlzc3VlcxgBIAEoBBIOCgZsYWJlbHMYAiABKAQSFAoMZGVwZW5kZW5jaWVzGAMgASgEEhMKC2NvbnRhaW5tZW50GAQgASgEEhUKDWV4dGVybmFsX2tleXMYBSABKAQSEwoLbG9nX2VudHJpZXMYBiABKAQSDgoGc3RhdGVzGAcgASgEEg8KB3Jlc3VsdHMYCCABKAQSEwoLY2hlY2twb2ludHMYCSABKAQSEwoLYXR0YWNobWVudHMYCiABKAQiewoFQm9hcmQSCgoCaWQYASABKAkSDAoEbmFtZRgCIAEoCRIYCgtkZXNjcmlwdGlvbhgDIAEoCUgAiAEBEi4KCmNyZWF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wQg4KDF9kZXNjcmlwdGlvbiKCAQoNQ29uZmlndXJhdGlvbhIXCg9pc3N1ZV9pZF9wcmVmaXgYASABKAkSGQoRaXNzdWVfaWRfc3RyYXRlZ3kYAiABKAkSHwoXaXNzdWVfc3VtbWFyeV9tYXhfYnl0ZXMYAyABKAQSHAoUYXR0YWNobWVudF9tYXhfYnl0ZXMYBCABKAQiiwMKBUlzc3VlEgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJEgwKBGtpbmQYAyABKAkSEQoJbGlmZWN5Y2xlGAQgASgJEhAKCHByaW9yaXR5GAUgASgDEi4KCmNyZWF0ZWRfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi4KCnVwZGF0ZWRfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEi0KCWNsb3NlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGwoOd2FpdGluZ19yZWFzb24YCSABKAlIAIgBARIxCg13YWl0aW5nX3NpbmNlGAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIUCgdzdW1tYXJ5GAsgASgJSAGIAQESFAoHZGV0YWlscxgMIAEoCUgCiAEBQhEKD193YWl0aW5nX3JlYXNvbkIKCghfc3VtbWFyeUIKCghfZGV0YWlscyIoCgVMYWJlbBIQCghpc3N1ZV9pZBgBIAEoCRINCgV2YWx1ZRgCIAEoCSI3CgpEZXBlbmRlbmN5EhAKCGlzc3VlX2lkGAEgASgJEhcKD3ByZXJlcXVpc2l0ZV9pZBgCIAEoCSIyCgtDb250YWlubWVudBIQCghjaGlsZF9pZBgBIAEoCRIRCglwYXJlbnRfaWQYAiABKAkiLAoLRXh0ZXJuYWxLZXkSCwoDa2V5GAEgASgJEhAKCGlzc3VlX2lkGAIgASgJIvMBCghMb2dFbnRyeRINCgVvcmRlchgBIAEoBBIKCgJpZBgCIAEoCRIQCghpc3N1ZV9pZBgDIAEoCRIMCgRraW5kGAQgASgJEhMKBmF1dGhvchgFIAEoCUgAiAEBEhYKCWNvbW1pdHRlchgGIAEoCUgBiAEBEgwKBGJvZHkYByABKAkSLgoKY3JlYXRlZF9hdBgIIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASGAoLbmV4dF9hY3Rpb24YCSABKAlIAogBAUIJCgdfYXV0aG9yQgwKCl9jb21taXR0ZXJCDgoMX25leHRfYWN0aW9uIt8BCgVTdGF0ZRIQCghpc3N1ZV9pZBgBIAEoCRIMCgRib2R5GAIgASgJEhMKBmF1dGhvchgDIAEoCUgAiAEBEi4KCnVwZGF0ZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEiIKFXNuYXBzaG90X2xvZ19lbnRyeV9pZBgFIAEoCUgBiAEBEhgKC25leHRfYWN0aW9uGAYgASgJSAKIAQFCCQoHX2F1dGhvckIYChZfc25hcHNob3RfbG9nX2VudHJ5X2lkQg4KDF9uZXh0X2FjdGlvbiIoCgZSZXN1bHQSEAoIaXNzdWVfaWQYASABKAkSDAoEYm9keRgCIAEoCSJvCgpDaGVja3BvaW50EhAKCGlzc3VlX2lkGAEgASgJEg8KB291dGNvbWUYAiABKAkSDgoGcmVhc29uGAMgASgJEi4KCmRlY2lkZWRfYXQYBCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIuICCgpBdHRhY2htZW50EgoKAmlkGAEgASgJEhwKD29yaWdpbl9pc3N1ZV9pZBgCIAEoCUgAiAEBEjgKBGJsb2IYAyABKAsyKi5jYXJkYW1vbS5wcml2YXRlLmJhY2t1cC52MS5CbG9iRGVzY3JpcHRvchIQCghmaWxlbmFtZRgEIAEoCRISCgptZWRpYV90eXBlGAUgASgJEhEKCWxpZmVjeWNsZRgGIAEoCRIVCg1jcmVhdGVkX2FjdG9yGAcgASgJEi4KCmNyZWF0ZWRfYXQYCCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhoKDXJlbW92ZWRfYWN0b3IYCSABKAlIAYgBARIuCgpyZW1vdmVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEISChBfb3JpZ2luX2lzc3VlX2lkQhAKDl9yZW1vdmVkX2FjdG9yIjQKDkJsb2JEZXNjcmlwdG9yEg4KBmRpZ2VzdBgBIAEoCRISCgpzaXplX2J5dGVzGAIgASgEQoECCh5jb20uY2FyZGFtb20ucHJpdmF0ZS5iYWNrdXAudjFCC0JhY2t1cFByb3RvUAFaRWdvLmFiaGcuZGV2L2NhcmRhbW9tL2ludGVybmFsL2dlbi9jYXJkYW1vbS9wcml2YXRlL2JhY2t1cC92MTtiYWNrdXB2MaICA0NQQqoCGkNhcmRhbW9tLlByaXZhdGUuQmFja3VwLlYxygIbQ2FyZGFtb21cUHJpdmF0ZV9cQmFja3VwXFYx4gInQ2FyZGFtb21cUHJpdmF0ZV9cQmFja3VwXFYxXEdQQk1ldGFkYXRh6gIdQ2FyZGFtb206OlByaXZhdGU6OkJhY2t1cDo6VjFiBnByb3RvMw", [file_google_protobuf_timestamp]);
 
 /**
  * Manifest is the deterministic index written as the final member of a
@@ -96,8 +96,8 @@ export const ProjectSchema: GenMessage<Project> = /*@__PURE__*/
   messageDesc(file_cardamom_private_backup_v1_backup, 1);
 
 /**
- * BoardPublication binds one source board view to its serialized snapshot
- * member and source project.
+ * BoardPublication binds one source board view to its incremental record member
+ * and source project.
  *
  * @generated from message cardamom.private.backup.v1.BoardPublication
  */
@@ -135,22 +135,25 @@ export type BoardPublication = Message<"cardamom.private.backup.v1.BoardPublicat
 
   /**
    * snapshot_version selects the semantic board-copy digest contract.
-   * Readers accept only the current board-copy version.
+   * It must equal BoardHeader.version in the referenced member.
+   * Archive format version 1 readers accept semantic version 2.
    *
    * @generated from field: uint32 snapshot_version = 5;
    */
   snapshotVersion: number;
 
   /**
-   * snapshot_digest is the canonical SHA-256 digest of the semantic snapshot.
+   * snapshot_digest is the SHA-256 digest of the versioned deterministic
+   * semantic fields in the complete canonical BoardRecord sequence.
+   * It excludes source lineage, source revision, and archive protobuf framing.
    *
    * @generated from field: string snapshot_digest = 6;
    */
   snapshotDigest: string;
 
   /**
-   * member is required and describes the encoded BoardSnapshot.
-   * Its name must be boards/sha256/<snapshot digest hex>.
+   * member is required and describes the encoded BoardRecord sequence.
+   * Its name must be boards/id/<unpadded base64url source_board_id>.
    *
    * @generated from field: cardamom.private.backup.v1.Member member = 7;
    */
@@ -235,138 +238,243 @@ export const MemberSchema: GenMessage<Member> = /*@__PURE__*/
   messageDesc(file_cardamom_private_backup_v1_backup, 4);
 
 /**
- * BoardSnapshot is the complete semantic board-copy publication encoded in a
- * BoardPublication member.
+ * BoardRecord is one length-delimited value in an archive format version 1
+ * board member.
  *
- * The source publication fields must match the enclosing BoardPublication.
- * Collection order is canonical and contributes to digest verification.
+ * A canonical member contains one header, payload sections in field-number
+ * order with each section using the key order below, and one trailer.
+ * Deterministic protobuf framing determines Member.digest and Member.size_bytes.
+ * BoardPublication.snapshot_digest instead covers normalized semantic fields
+ * and is not embedded in this sequence.
  *
- * @generated from message cardamom.private.backup.v1.BoardSnapshot
+ * @generated from message cardamom.private.backup.v1.BoardRecord
  */
-export type BoardSnapshot = Message<"cardamom.private.backup.v1.BoardSnapshot"> & {
+export type BoardRecord = Message<"cardamom.private.backup.v1.BoardRecord"> & {
   /**
-   * source_lineage_id must equal BoardPublication.source_lineage_id.
-   *
-   * @generated from field: string source_lineage_id = 1;
+   * @generated from oneof cardamom.private.backup.v1.BoardRecord.value
    */
-  sourceLineageId: string;
+  value: {
+    /**
+     * @generated from field: cardamom.private.backup.v1.BoardHeader header = 1;
+     */
+    value: BoardHeader;
+    case: "header";
+  } | {
+    /**
+     * issue records are ordered by Issue.id.
+     *
+     * @generated from field: cardamom.private.backup.v1.Issue issue = 2;
+     */
+    value: Issue;
+    case: "issue";
+  } | {
+    /**
+     * label records are ordered by Label.issue_id, then Label.value.
+     *
+     * @generated from field: cardamom.private.backup.v1.Label label = 3;
+     */
+    value: Label;
+    case: "label";
+  } | {
+    /**
+     * dependency records are ordered by Dependency.issue_id,
+     * then Dependency.prerequisite_id.
+     *
+     * @generated from field: cardamom.private.backup.v1.Dependency dependency = 4;
+     */
+    value: Dependency;
+    case: "dependency";
+  } | {
+    /**
+     * containment records are ordered by Containment.child_id.
+     *
+     * @generated from field: cardamom.private.backup.v1.Containment containment = 5;
+     */
+    value: Containment;
+    case: "containment";
+  } | {
+    /**
+     * external_key records are ordered by ExternalKey.key,
+     * then ExternalKey.issue_id.
+     *
+     * @generated from field: cardamom.private.backup.v1.ExternalKey external_key = 6;
+     */
+    value: ExternalKey;
+    case: "externalKey";
+  } | {
+    /**
+     * log_entry records use contiguous zero-based LogEntry.order values.
+     *
+     * @generated from field: cardamom.private.backup.v1.LogEntry log_entry = 7;
+     */
+    value: LogEntry;
+    case: "logEntry";
+  } | {
+    /**
+     * state records are ordered by State.issue_id.
+     *
+     * @generated from field: cardamom.private.backup.v1.State state = 8;
+     */
+    value: State;
+    case: "state";
+  } | {
+    /**
+     * result records are ordered by Result.issue_id.
+     *
+     * @generated from field: cardamom.private.backup.v1.Result result = 9;
+     */
+    value: Result;
+    case: "result";
+  } | {
+    /**
+     * checkpoint records are ordered by Checkpoint.issue_id.
+     *
+     * @generated from field: cardamom.private.backup.v1.Checkpoint checkpoint = 10;
+     */
+    value: Checkpoint;
+    case: "checkpoint";
+  } | {
+    /**
+     * attachment records are ordered by Attachment.id.
+     *
+     * @generated from field: cardamom.private.backup.v1.Attachment attachment = 11;
+     */
+    value: Attachment;
+    case: "attachment";
+  } | {
+    /**
+     * @generated from field: cardamom.private.backup.v1.BoardTrailer trailer = 12;
+     */
+    value: BoardTrailer;
+    case: "trailer";
+  } | { case: undefined; value?: undefined };
+};
 
-  /**
-   * source_revision must equal BoardPublication.source_revision.
-   *
-   * @generated from field: int64 source_revision = 2;
-   */
-  sourceRevision: bigint;
+/**
+ * Describes the message cardamom.private.backup.v1.BoardRecord.
+ * Use `create(BoardRecordSchema)` to create a new message.
+ */
+export const BoardRecordSchema: GenMessage<BoardRecord> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_backup_v1_backup, 5);
 
+/**
+ * BoardHeader is the required first record in a board member.
+ *
+ * @generated from message cardamom.private.backup.v1.BoardHeader
+ */
+export type BoardHeader = Message<"cardamom.private.backup.v1.BoardHeader"> & {
   /**
-   * version must equal BoardPublication.snapshot_version.
+   * version selects the semantic board-copy contract.
+   * Archive format version 1 readers accept semantic version 2.
    *
-   * @generated from field: uint32 version = 3;
+   * @generated from field: uint32 version = 1;
    */
   version: number;
 
   /**
-   * digest must equal BoardPublication.snapshot_digest.
+   * source_lineage_id is the stable lineage minted by the source store.
+   * The semantic digest excludes this retained-view coordinate.
    *
-   * @generated from field: string digest = 4;
+   * @generated from field: string source_lineage_id = 2;
    */
-  digest: string;
+  sourceLineageId: string;
 
   /**
-   * board is required and its ID must equal BoardPublication.source_board_id.
+   * source_revision is the retained source view used for every record.
+   * The semantic digest excludes this retained-view coordinate.
    *
-   * @generated from field: cardamom.private.backup.v1.Board board = 5;
+   * @generated from field: int64 source_revision = 3;
+   */
+  sourceRevision: bigint;
+
+  /**
+   * board is required and identifies the source board namespace.
+   *
+   * @generated from field: cardamom.private.backup.v1.Board board = 4;
    */
   board?: Board | undefined;
 
   /**
    * configuration is required and contains the effective source policy.
    *
-   * @generated from field: cardamom.private.backup.v1.Configuration configuration = 6;
+   * @generated from field: cardamom.private.backup.v1.Configuration configuration = 5;
    */
   configuration?: Configuration | undefined;
-
-  /**
-   * issues is complete and ordered by issue ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.Issue issues = 7;
-   */
-  issues: Issue[];
-
-  /**
-   * labels is ordered by issue ID and then label value.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.Label labels = 8;
-   */
-  labels: Label[];
-
-  /**
-   * dependencies is ordered by dependent issue ID and then prerequisite ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.Dependency dependencies = 9;
-   */
-  dependencies: Dependency[];
-
-  /**
-   * containment is ordered by child issue ID and then parent issue ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.Containment containment = 10;
-   */
-  containment: Containment[];
-
-  /**
-   * external_keys is ordered by producer key and then issue ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.ExternalKey external_keys = 11;
-   */
-  externalKeys: ExternalKey[];
-
-  /**
-   * log_entries is ordered by source Log order and then Log entry ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.LogEntry log_entries = 12;
-   */
-  logEntries: LogEntry[];
-
-  /**
-   * states contains at most one current recovery record per issue,
-   * ordered by issue ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.State states = 13;
-   */
-  states: State[];
-
-  /**
-   * results contains at most one current durable outcome per issue,
-   * ordered by issue ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.Result results = 14;
-   */
-  results: Result[];
-
-  /**
-   * checkpoints contains one terminal decision per checkpoint issue,
-   * ordered by issue ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.Checkpoint checkpoints = 15;
-   */
-  checkpoints: Checkpoint[];
-
-  /**
-   * attachments includes active and removed metadata,
-   * ordered by attachment ID.
-   *
-   * @generated from field: repeated cardamom.private.backup.v1.Attachment attachments = 16;
-   */
-  attachments: Attachment[];
 };
 
 /**
- * Describes the message cardamom.private.backup.v1.BoardSnapshot.
- * Use `create(BoardSnapshotSchema)` to create a new message.
+ * Describes the message cardamom.private.backup.v1.BoardHeader.
+ * Use `create(BoardHeaderSchema)` to create a new message.
  */
-export const BoardSnapshotSchema: GenMessage<BoardSnapshot> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 5);
+export const BoardHeaderSchema: GenMessage<BoardHeader> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_backup_v1_backup, 6);
+
+/**
+ * BoardTrailer is the required final record in a board member.
+ *
+ * Counts detect a stream that ends at an intermediate record boundary without
+ * requiring a digest value inside the stream.
+ *
+ * @generated from message cardamom.private.backup.v1.BoardTrailer
+ */
+export type BoardTrailer = Message<"cardamom.private.backup.v1.BoardTrailer"> & {
+  /**
+   * @generated from field: uint64 issues = 1;
+   */
+  issues: bigint;
+
+  /**
+   * @generated from field: uint64 labels = 2;
+   */
+  labels: bigint;
+
+  /**
+   * @generated from field: uint64 dependencies = 3;
+   */
+  dependencies: bigint;
+
+  /**
+   * @generated from field: uint64 containment = 4;
+   */
+  containment: bigint;
+
+  /**
+   * @generated from field: uint64 external_keys = 5;
+   */
+  externalKeys: bigint;
+
+  /**
+   * @generated from field: uint64 log_entries = 6;
+   */
+  logEntries: bigint;
+
+  /**
+   * @generated from field: uint64 states = 7;
+   */
+  states: bigint;
+
+  /**
+   * @generated from field: uint64 results = 8;
+   */
+  results: bigint;
+
+  /**
+   * @generated from field: uint64 checkpoints = 9;
+   */
+  checkpoints: bigint;
+
+  /**
+   * @generated from field: uint64 attachments = 10;
+   */
+  attachments: bigint;
+};
+
+/**
+ * Describes the message cardamom.private.backup.v1.BoardTrailer.
+ * Use `create(BoardTrailerSchema)` to create a new message.
+ */
+export const BoardTrailerSchema: GenMessage<BoardTrailer> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_backup_v1_backup, 7);
 
 /**
  * Board preserves the source namespace and presentation restored into a new
@@ -408,7 +516,7 @@ export type Board = Message<"cardamom.private.backup.v1.Board"> & {
  * Use `create(BoardSchema)` to create a new message.
  */
 export const BoardSchema: GenMessage<Board> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 6);
+  messageDesc(file_cardamom_private_backup_v1_backup, 8);
 
 /**
  * Configuration captures the effective source values restored as destination
@@ -451,7 +559,7 @@ export type Configuration = Message<"cardamom.private.backup.v1.Configuration"> 
  * Use `create(ConfigurationSchema)` to create a new message.
  */
 export const ConfigurationSchema: GenMessage<Configuration> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 7);
+  messageDesc(file_cardamom_private_backup_v1_backup, 9);
 
 /**
  * Issue preserves one source issue and the source IDs referenced by related
@@ -547,7 +655,7 @@ export type Issue = Message<"cardamom.private.backup.v1.Issue"> & {
  * Use `create(IssueSchema)` to create a new message.
  */
 export const IssueSchema: GenMessage<Issue> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 8);
+  messageDesc(file_cardamom_private_backup_v1_backup, 10);
 
 /**
  * Label preserves one inert metadata association.
@@ -573,7 +681,7 @@ export type Label = Message<"cardamom.private.backup.v1.Label"> & {
  * Use `create(LabelSchema)` to create a new message.
  */
 export const LabelSchema: GenMessage<Label> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 9);
+  messageDesc(file_cardamom_private_backup_v1_backup, 11);
 
 /**
  * Dependency preserves one readiness edge from a dependent issue to its
@@ -602,7 +710,7 @@ export type Dependency = Message<"cardamom.private.backup.v1.Dependency"> & {
  * Use `create(DependencySchema)` to create a new message.
  */
 export const DependencySchema: GenMessage<Dependency> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 10);
+  messageDesc(file_cardamom_private_backup_v1_backup, 12);
 
 /**
  * Containment preserves one hierarchy edge without implying a readiness
@@ -631,7 +739,7 @@ export type Containment = Message<"cardamom.private.backup.v1.Containment"> & {
  * Use `create(ContainmentSchema)` to create a new message.
  */
 export const ContainmentSchema: GenMessage<Containment> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 11);
+  messageDesc(file_cardamom_private_backup_v1_backup, 13);
 
 /**
  * ExternalKey preserves one board-scoped producer identity association.
@@ -659,7 +767,7 @@ export type ExternalKey = Message<"cardamom.private.backup.v1.ExternalKey"> & {
  * Use `create(ExternalKeySchema)` to create a new message.
  */
 export const ExternalKeySchema: GenMessage<ExternalKey> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 12);
+  messageDesc(file_cardamom_private_backup_v1_backup, 14);
 
 /**
  * LogEntry preserves one immutable source Log record.
@@ -736,7 +844,7 @@ export type LogEntry = Message<"cardamom.private.backup.v1.LogEntry"> & {
  * Use `create(LogEntrySchema)` to create a new message.
  */
 export const LogEntrySchema: GenMessage<LogEntry> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 13);
+  messageDesc(file_cardamom_private_backup_v1_backup, 15);
 
 /**
  * State preserves one issue's mutable recovery surface at the retained source
@@ -794,7 +902,7 @@ export type State = Message<"cardamom.private.backup.v1.State"> & {
  * Use `create(StateSchema)` to create a new message.
  */
 export const StateSchema: GenMessage<State> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 14);
+  messageDesc(file_cardamom_private_backup_v1_backup, 16);
 
 /**
  * Result preserves one issue's current durable outcome at the retained source
@@ -823,7 +931,7 @@ export type Result = Message<"cardamom.private.backup.v1.Result"> & {
  * Use `create(ResultSchema)` to create a new message.
  */
 export const ResultSchema: GenMessage<Result> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 15);
+  messageDesc(file_cardamom_private_backup_v1_backup, 17);
 
 /**
  * Checkpoint preserves the terminal decision for one checkpoint issue.
@@ -865,7 +973,7 @@ export type Checkpoint = Message<"cardamom.private.backup.v1.Checkpoint"> & {
  * Use `create(CheckpointSchema)` to create a new message.
  */
 export const CheckpointSchema: GenMessage<Checkpoint> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 16);
+  messageDesc(file_cardamom_private_backup_v1_backup, 18);
 
 /**
  * Attachment preserves board-scoped metadata for active and removed
@@ -947,7 +1055,7 @@ export type Attachment = Message<"cardamom.private.backup.v1.Attachment"> & {
  * Use `create(AttachmentSchema)` to create a new message.
  */
 export const AttachmentSchema: GenMessage<Attachment> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 17);
+  messageDesc(file_cardamom_private_backup_v1_backup, 19);
 
 /**
  * BlobDescriptor identifies immutable content referenced by attachment
@@ -976,5 +1084,5 @@ export type BlobDescriptor = Message<"cardamom.private.backup.v1.BlobDescriptor"
  * Use `create(BlobDescriptorSchema)` to create a new message.
  */
 export const BlobDescriptorSchema: GenMessage<BlobDescriptor> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_backup_v1_backup, 18);
+  messageDesc(file_cardamom_private_backup_v1_backup, 20);
 

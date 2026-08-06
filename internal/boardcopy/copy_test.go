@@ -21,7 +21,7 @@ func TestCopyService_CopyPublishesUniqueBlobsBeforeMetadata(t *testing.T) {
 	require.NoError(t, err)
 	descriptor := attachment.BlobDescriptor{Digest: digest, SizeBytes: 4}
 	dependencies := &copyDependencies{
-		snapshot: CopySnapshot{
+		snapshot: copyTestSnapshot{
 			SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 			SourceRevision:  7,
 			Board: CopyBoard{
@@ -55,8 +55,13 @@ func TestCopyService_CopyPublishesUniqueBlobsBeforeMetadata(t *testing.T) {
 	assert.True(t, dependencies.importCalled)
 	assert.Equal(t, "data", string(dependencies.published))
 	assert.Equal(t, 1, outcome.Counts.Blobs)
-	assert.NotEmpty(t, dependencies.importSnapshot.Digest)
-	assert.Equal(t, CopySnapshotVersion, dependencies.importSnapshot.Version)
+	assert.NotEmpty(t, dependencies.importIndex.Digest)
+	assert.Equal(t, CopySnapshotVersion, dependencies.importIndex.Header.Version)
+	assert.Equal(t, CopyReceiptKey{
+		SourceLineageID: dependencies.snapshot.SourceLineageID,
+		SourceBoardID:   dependencies.snapshot.Board.ID,
+		SnapshotVersion: 2,
+	}, dependencies.receiptKey)
 }
 
 func TestCopyService_CopyReturnsReceiptBeforeReadingBlobs(t *testing.T) {
@@ -64,7 +69,7 @@ func TestCopyService_CopyReturnsReceiptBeforeReadingBlobs(t *testing.T) {
 		"sha256:3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7",
 	)
 	require.NoError(t, err)
-	snapshot := CopySnapshot{
+	snapshot := copyTestSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  7,
 		Board: CopyBoard{
@@ -78,9 +83,7 @@ func TestCopyService_CopyReturnsReceiptBeforeReadingBlobs(t *testing.T) {
 			},
 		}},
 	}
-	digestSnapshot := canonicalCopySnapshot(snapshot)
-	digestSnapshot.Version = CopySnapshotVersion
-	digestSnapshot.Digest = snapshotDigest(digestSnapshot)
+	index := copyTestIndex(t, snapshot)
 	dependencies := &copyDependencies{
 		snapshot:     snapshot,
 		receiptFound: true,
@@ -88,8 +91,8 @@ func TestCopyService_CopyReturnsReceiptBeforeReadingBlobs(t *testing.T) {
 			SourceLineageID:      snapshot.SourceLineageID,
 			SourceBoardID:        snapshot.Board.ID,
 			SourceRevision:       3,
-			SnapshotVersion:      digestSnapshot.Version,
-			SnapshotDigest:       digestSnapshot.Digest,
+			SnapshotVersion:      index.Header.Version,
+			SnapshotDigest:       index.Digest,
 			DestinationProjectID: "project-destination",
 			DestinationBoardID:   "board-prior",
 			DestinationName:      "Source",
@@ -118,7 +121,7 @@ func TestCopyService_CopyReturnsReceiptBeforeReadingBlobs(t *testing.T) {
 }
 
 func TestCopyService_CopyEvaluatesIdenticalReceiptFromImportRace(t *testing.T) {
-	snapshot := CopySnapshot{
+	snapshot := copyTestSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  7,
 		Board: CopyBoard{
@@ -126,18 +129,15 @@ func TestCopyService_CopyEvaluatesIdenticalReceiptFromImportRace(t *testing.T) {
 		},
 		Configuration: configuration.Defaults(),
 	}
-	digestSnapshot := snapshot
-	digestSnapshot.Version = CopySnapshotVersion
-	digestSnapshot = canonicalCopySnapshot(digestSnapshot)
-	digestSnapshot.Digest = snapshotDigest(digestSnapshot)
+	index := copyTestIndex(t, snapshot)
 	dependencies := &copyDependencies{
 		snapshot: snapshot,
-		importResult: NewCompetingCopyImport(CopyReceipt{
+		importResult: NewConcurrentCopyImport(CopyReceipt{
 			SourceLineageID:      snapshot.SourceLineageID,
 			SourceBoardID:        snapshot.Board.ID,
 			SourceRevision:       3,
-			SnapshotVersion:      digestSnapshot.Version,
-			SnapshotDigest:       digestSnapshot.Digest,
+			SnapshotVersion:      index.Header.Version,
+			SnapshotDigest:       index.Digest,
 			DestinationProjectID: "project-destination",
 			DestinationBoardID:   "board-prior",
 			DestinationName:      "Source",
@@ -163,7 +163,7 @@ func TestCopyService_CopyEvaluatesIdenticalReceiptFromImportRace(t *testing.T) {
 }
 
 func TestCopyService_CopyRejectsConflictingReceiptFromImportRace(t *testing.T) {
-	snapshot := CopySnapshot{
+	snapshot := copyTestSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  7,
 		Board: CopyBoard{
@@ -173,7 +173,7 @@ func TestCopyService_CopyRejectsConflictingReceiptFromImportRace(t *testing.T) {
 	}
 	dependencies := &copyDependencies{
 		snapshot: snapshot,
-		importResult: NewCompetingCopyImport(CopyReceipt{
+		importResult: NewConcurrentCopyImport(CopyReceipt{
 			SourceLineageID:      snapshot.SourceLineageID,
 			SourceBoardID:        snapshot.Board.ID,
 			SourceRevision:       3,
@@ -201,21 +201,76 @@ func TestCopyService_CopyRejectsConflictingReceiptFromImportRace(t *testing.T) {
 	assert.ErrorContains(t, err, "incremental synchronization is not supported")
 }
 
-func TestEvaluateCopyReceiptRejectsChangedPublication(t *testing.T) {
-	snapshot := CopySnapshot{
+func TestEvaluateCopyImportReturnsPublishedOutcome(t *testing.T) {
+	published := CopyOutcome{
+		SourceLineageID:      "store_0123456789abcdef0123456789abcdef",
+		SourceBoardID:        "board-source",
+		SourceRevision:       7,
+		SnapshotVersion:      CopySnapshotVersion,
+		SnapshotDigest:       "sha256:published",
+		DestinationProjectID: "project-destination",
+		DestinationBoardID:   "board-published",
+		DestinationName:      "Published",
+		DestinationRevision:  11,
+	}
+
+	outcome, err := EvaluateCopyImport(
+		RecordIndex{},
+		CopyOptions{},
+		NewPublishedCopyImport(published),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, published, outcome)
+	assert.False(t, outcome.AlreadyCompleted)
+}
+
+func TestEvaluateCopyImportEvaluatesConcurrentWinner(t *testing.T) {
+	snapshot := copyTestSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  7,
-		Version:         CopySnapshotVersion,
-		Digest:          "current",
 		Board: CopyBoard{
 			ID: "board-source", Name: "Source",
 		},
+		Configuration: configuration.Defaults(),
 	}
+	index := copyTestIndex(t, snapshot)
+
+	outcome, err := EvaluateCopyImport(
+		index,
+		CopyOptions{ProjectID: "project-destination"},
+		NewConcurrentCopyImport(CopyReceipt{
+			SourceLineageID:      snapshot.SourceLineageID,
+			SourceBoardID:        snapshot.Board.ID,
+			SourceRevision:       3,
+			SnapshotVersion:      index.Header.Version,
+			SnapshotDigest:       index.Digest,
+			DestinationProjectID: "project-destination",
+			DestinationBoardID:   "board-winner",
+			DestinationName:      "Source",
+			DestinationRevision:  11,
+		}),
+	)
+	require.NoError(t, err)
+	assert.True(t, outcome.AlreadyCompleted)
+	assert.Equal(t, "board-winner", outcome.DestinationBoardID)
+	assert.Equal(t, int64(3), outcome.SourceRevision)
+}
+
+func TestEvaluateRecordReceiptRejectsChangedPublication(t *testing.T) {
+	snapshot := copyTestSnapshot{
+		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
+		SourceRevision:  7,
+		Board: CopyBoard{
+			ID: "board-source", Name: "Source",
+		},
+		Configuration: configuration.Defaults(),
+	}
+	index := copyTestIndex(t, snapshot)
 	receipt := CopyReceipt{
 		SourceLineageID:      snapshot.SourceLineageID,
 		SourceBoardID:        snapshot.Board.ID,
 		SourceRevision:       3,
-		SnapshotVersion:      snapshot.Version,
+		SnapshotVersion:      index.Header.Version,
 		SnapshotDigest:       "prior",
 		DestinationProjectID: "project-destination",
 		DestinationBoardID:   "board-prior",
@@ -223,8 +278,8 @@ func TestEvaluateCopyReceiptRejectsChangedPublication(t *testing.T) {
 		DestinationRevision:  11,
 	}
 
-	_, err := EvaluateCopyReceipt(
-		snapshot,
+	_, err := EvaluateRecordReceipt(
+		index,
 		CopyOptions{ProjectID: "project-destination"},
 		receipt,
 	)
@@ -232,22 +287,22 @@ func TestEvaluateCopyReceiptRejectsChangedPublication(t *testing.T) {
 	assert.ErrorContains(t, err, "incremental synchronization is not supported")
 }
 
-func TestEvaluateCopyReceiptRejectsDifferentDestinationOptions(t *testing.T) {
-	snapshot := CopySnapshot{
+func TestEvaluateRecordReceiptRejectsDifferentDestinationOptions(t *testing.T) {
+	snapshot := copyTestSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  7,
-		Version:         CopySnapshotVersion,
-		Digest:          "same",
 		Board: CopyBoard{
 			ID: "board-source", Name: "Source",
 		},
+		Configuration: configuration.Defaults(),
 	}
+	index := copyTestIndex(t, snapshot)
 	receipt := CopyReceipt{
 		SourceLineageID:      snapshot.SourceLineageID,
 		SourceBoardID:        snapshot.Board.ID,
 		SourceRevision:       3,
-		SnapshotVersion:      snapshot.Version,
-		SnapshotDigest:       snapshot.Digest,
+		SnapshotVersion:      index.Header.Version,
+		SnapshotDigest:       index.Digest,
 		DestinationProjectID: "project-destination",
 		DestinationBoardID:   "board-prior",
 		DestinationName:      "Source",
@@ -255,8 +310,8 @@ func TestEvaluateCopyReceiptRejectsDifferentDestinationOptions(t *testing.T) {
 	}
 	renamed := "Renamed"
 
-	_, err := EvaluateCopyReceipt(
-		snapshot,
+	_, err := EvaluateRecordReceipt(
+		index,
 		CopyOptions{
 			ProjectID: "project-destination",
 			Name:      &renamed,
@@ -274,7 +329,7 @@ func TestCopyService_CopyRejectsConfigurationChange(t *testing.T) {
 	require.NoError(t, err)
 	after.Issue.ID.Prefix = &prefix
 	dependencies := &copyDependencies{
-		snapshot: CopySnapshot{
+		snapshot: copyTestSnapshot{
 			SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 			Board: CopyBoard{
 				ID: "board-source", Name: "Source",
@@ -299,10 +354,11 @@ func TestCopyService_CopyRejectsConfigurationChange(t *testing.T) {
 }
 
 type copyDependencies struct {
-	snapshot       CopySnapshot
-	importSnapshot CopySnapshot
+	snapshot       copyTestSnapshot
+	importIndex    RecordIndex
 	importResult   CopyImportResult
 	receipt        CopyReceipt
+	receiptKey     CopyReceiptKey
 	receiptFound   bool
 	configurations []configuration.Overrides
 	blob           []byte
@@ -312,6 +368,23 @@ type copyDependencies struct {
 	openBlobCalls      int
 	publishBlobCalls   int
 	importCalled       bool
+}
+
+type copyTestSnapshot struct {
+	SourceLineageID string
+	SourceRevision  int64
+	Board           CopyBoard
+	Configuration   configuration.Configuration
+	Issues          []CopyIssue
+	Labels          []CopyLabel
+	Dependencies    []CopyDependency
+	Containment     []CopyContainment
+	ExternalKeys    []CopyExternalKey
+	LogEntries      []CopyLogEntry
+	States          []CopyState
+	Results         []CopyResultRecord
+	Checkpoints     []CopyCheckpoint
+	Attachments     []CopyAttachment
 }
 
 func (d *copyDependencies) ReadStoreConfiguration(
@@ -325,28 +398,34 @@ func (d *copyDependencies) ReadStoreConfiguration(
 	return value, nil
 }
 
-func (d *copyDependencies) ReadCopySnapshot(
+func (d *copyDependencies) ReadCopyRecords(
 	context.Context,
 	board.ID,
 	configuration.Overrides,
-) (CopySnapshot, error) {
-	return d.snapshot, nil
+) RecordSequence {
+	return copyTestRecords(d.snapshot)
 }
 
 func (d *copyDependencies) ReadCopyReceipt(
-	context.Context,
-	CopyReceiptKey,
+	_ context.Context,
+	key CopyReceiptKey,
 ) (CopyReceipt, bool, error) {
+	d.receiptKey = key
 	return d.receipt, d.receiptFound, nil
 }
 
-func (d *copyDependencies) ImportCopySnapshot(
+func (d *copyDependencies) ImportCopyRecords(
 	_ context.Context,
-	snapshot CopySnapshot,
+	index RecordIndex,
+	records RecordSequence,
 	_ CopyOptions,
 ) (CopyImportResult, error) {
 	d.importCalled = true
-	d.importSnapshot = snapshot
+	d.importIndex = index
+	_, err := IndexRecords(records)
+	if err != nil {
+		return nil, err
+	}
 	return d.importResult, nil
 }
 
@@ -370,4 +449,60 @@ func (d *copyDependencies) PublishCopyBlob(
 	body, err := io.ReadAll(reader)
 	d.published = body
 	return err
+}
+
+func copyTestRecords(snapshot copyTestSnapshot) RecordSequence {
+	counts := RecordCounts{
+		Issues: uint64(len(snapshot.Issues)), Labels: uint64(len(snapshot.Labels)),
+		Dependencies: uint64(len(snapshot.Dependencies)),
+		Containment:  uint64(len(snapshot.Containment)),
+		ExternalKeys: uint64(len(snapshot.ExternalKeys)),
+		LogEntries:   uint64(len(snapshot.LogEntries)),
+		States:       uint64(len(snapshot.States)), Results: uint64(len(snapshot.Results)),
+		Checkpoints: uint64(len(snapshot.Checkpoints)),
+		Attachments: uint64(len(snapshot.Attachments)),
+	}
+	return func(yield func(Record, error) bool) {
+		if !yield(RecordHeader{
+			Version: CopySnapshotVersion, SourceLineageID: snapshot.SourceLineageID,
+			SourceRevision: snapshot.SourceRevision, Board: snapshot.Board,
+			Configuration: snapshot.Configuration,
+		}, nil) {
+			return
+		}
+		for _, records := range [][]Record{
+			copyTestRecordValues(snapshot.Issues),
+			copyTestRecordValues(snapshot.Labels),
+			copyTestRecordValues(snapshot.Dependencies),
+			copyTestRecordValues(snapshot.Containment),
+			copyTestRecordValues(snapshot.ExternalKeys),
+			copyTestRecordValues(snapshot.LogEntries),
+			copyTestRecordValues(snapshot.States),
+			copyTestRecordValues(snapshot.Results),
+			copyTestRecordValues(snapshot.Checkpoints),
+			copyTestRecordValues(snapshot.Attachments),
+		} {
+			for _, record := range records {
+				if !yield(record, nil) {
+					return
+				}
+			}
+		}
+		yield(RecordTrailer{Counts: counts}, nil)
+	}
+}
+
+func copyTestIndex(t *testing.T, snapshot copyTestSnapshot) RecordIndex {
+	t.Helper()
+	index, err := IndexRecords(copyTestRecords(snapshot))
+	require.NoError(t, err)
+	return index
+}
+
+func copyTestRecordValues[T Record](values []T) []Record {
+	records := make([]Record, 0, len(values))
+	for _, value := range values {
+		records = append(records, value)
+	}
+	return records
 }

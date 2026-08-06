@@ -17,20 +17,21 @@ import (
 // validation and application.
 //
 // The source backing the Reader must remain readable until Restore completes.
-// Board snapshots are materialized during preparation, while verified blob
-// bodies are reopened and streamed during application.
+// Preparation retains compact project, publication, record-index, and blob
+// metadata.
+// Board members and verified blob bodies are reopened during application.
 type PreparedRestore struct {
 	reader   *Reader
 	projects []project.Snapshot
-	boards   []preparedRestoreBoard
+	boards   []preparedBoard
 	blobs    []attachment.BlobDescriptor
 }
 
-// preparedRestoreBoard keeps one verified snapshot associated with the
-// publication metadata needed during destination application.
-type preparedRestoreBoard struct {
+// preparedBoard binds one manifest publication to its fully verified semantic
+// index without retaining its record bodies.
+type preparedBoard struct {
 	publication Board
-	snapshot    boardcopy.CopySnapshot
+	index       boardcopy.RecordIndex
 }
 
 // PrepareRestore reads and verifies every archived board and blob without
@@ -50,29 +51,28 @@ func PrepareRestore(
 	}
 
 	publications := reader.Boards()
-	boards := make([]preparedRestoreBoard, 0, len(publications))
+	preparedBoards := make([]preparedBoard, 0, len(publications))
 	for _, publication := range publications {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		snapshot, err := reader.ReadBoard(publication)
+		index, err := preflightBoard(ctx, reader, publication)
 		if err != nil {
 			return nil, err
 		}
-		for _, value := range snapshot.Attachments {
-			indexed, found := indexedBlobs[value.Blob.Digest]
-			if !found || indexed.SizeBytes != value.Blob.SizeBytes {
+		for _, descriptor := range index.Blobs {
+			indexed, found := indexedBlobs[descriptor.Digest]
+			if !found || indexed.SizeBytes != descriptor.SizeBytes {
 				return nil, fmt.Errorf(
-					"archive board %q attachment %q references unindexed blob %s",
+					"archive board %q references unindexed blob %s",
 					publication.SourceBoardID,
-					value.ID,
-					value.Blob.Digest,
+					descriptor.Digest,
 				)
 			}
 		}
-		boards = append(boards, preparedRestoreBoard{
+		preparedBoards = append(preparedBoards, preparedBoard{
 			publication: publication,
-			snapshot:    snapshot,
+			index:       index,
 		})
 	}
 
@@ -82,9 +82,68 @@ func PrepareRestore(
 		}
 	}
 	return &PreparedRestore{
-		reader: reader, projects: reader.Projects(), boards: boards,
+		reader: reader, projects: reader.Projects(), boards: preparedBoards,
 		blobs: descriptors,
 	}, nil
+}
+
+func preflightBoard(
+	ctx context.Context,
+	reader *Reader,
+	publication Board,
+) (boardcopy.RecordIndex, error) {
+	records, err := reader.OpenBoard(publication)
+	if err != nil {
+		return boardcopy.RecordIndex{}, err
+	}
+	indexer := boardcopy.NewRecordIndexer()
+	for record, recordErr := range records {
+		if err := ctx.Err(); err != nil {
+			return boardcopy.RecordIndex{}, err
+		}
+		if recordErr != nil {
+			return boardcopy.RecordIndex{}, fmt.Errorf(
+				"read archive board %q: %w",
+				publication.SourceBoardID,
+				recordErr,
+			)
+		}
+		if err := indexer.Add(record); err != nil {
+			return boardcopy.RecordIndex{}, fmt.Errorf(
+				"read archive board %q: %w",
+				publication.SourceBoardID,
+				err,
+			)
+		}
+	}
+	if err := ctx.Err(); err != nil {
+		return boardcopy.RecordIndex{}, err
+	}
+	index, err := indexer.Finish()
+	if err != nil {
+		return boardcopy.RecordIndex{}, fmt.Errorf(
+			"read archive board %q: %w",
+			publication.SourceBoardID,
+			err,
+		)
+	}
+	header := index.Header
+	if header.SourceLineageID != publication.SourceLineageID ||
+		header.SourceRevision != publication.SourceRevision ||
+		header.Version != publication.SnapshotVersion ||
+		header.Board.ID != publication.SourceBoardID.String() {
+		return boardcopy.RecordIndex{}, fmt.Errorf(
+			"archive board %q does not match its manifest publication",
+			publication.SourceBoardID,
+		)
+	}
+	if index.Digest != publication.SnapshotDigest {
+		return boardcopy.RecordIndex{}, fmt.Errorf(
+			"archive board %q semantic digest does not match its manifest publication",
+			publication.SourceBoardID,
+		)
+	}
+	return index, nil
 }
 
 // ProjectDestination preflights and reconciles archived project identity.
@@ -99,15 +158,15 @@ type ProjectDestination interface {
 
 // RestoreServiceConfig supplies destination persistence for one restore.
 type RestoreServiceConfig struct {
-	Projects ProjectDestination                // required
-	Boards   boardcopy.CopySnapshotDestination // required
-	Blobs    boardcopy.CopyBlobDestination     // required
+	Projects ProjectDestination            // required
+	Boards   boardcopy.RecordDestination   // required
+	Blobs    boardcopy.CopyBlobDestination // required
 }
 
 // RestoreService loads complete portable backups into an existing store.
 type RestoreService struct {
 	projects ProjectDestination
-	boards   boardcopy.CopySnapshotDestination
+	boards   boardcopy.RecordDestination
 	blobs    boardcopy.CopyBlobDestination
 }
 
@@ -163,16 +222,16 @@ func (s *RestoreService) Restore(
 		Boards:    make([]boardcopy.CopyOutcome, 0, len(prepared.boards)),
 		BlobCount: len(prepared.blobs),
 	}
-	for _, board := range prepared.boards {
+	for _, preparedBoard := range prepared.boards {
 		outcome, err := s.restoreBoard(
 			ctx,
-			board.snapshot,
-			board.publication.ProjectID,
+			prepared.reader,
+			preparedBoard,
 		)
 		if err != nil {
 			return RestoreResult{}, fmt.Errorf(
 				"restore board %q: %w",
-				board.publication.SourceBoardID,
+				preparedBoard.publication.SourceBoardID,
 				err,
 			)
 		}
@@ -223,60 +282,45 @@ func (s *RestoreService) publishBlob(
 
 func (s *RestoreService) restoreBoard(
 	ctx context.Context,
-	snapshot boardcopy.CopySnapshot,
-	projectID project.ID,
+	reader *Reader,
+	prepared preparedBoard,
 ) (boardcopy.CopyOutcome, error) {
-	options := boardcopy.CopyOptions{ProjectID: projectID.String()}
+	index := prepared.index
+	options := boardcopy.CopyOptions{
+		ProjectID: prepared.publication.ProjectID.String(),
+	}
 	receipt, found, err := s.boards.ReadCopyReceipt(
 		ctx,
 		boardcopy.CopyReceiptKey{
-			SourceLineageID: snapshot.SourceLineageID,
-			SourceBoardID:   snapshot.Board.ID,
-			SnapshotVersion: snapshot.Version,
+			SourceLineageID: index.Header.SourceLineageID,
+			SourceBoardID:   index.Header.Board.ID,
+			SnapshotVersion: index.Header.Version,
 		},
 	)
 	if err != nil {
 		return boardcopy.CopyOutcome{}, err
 	}
 	if found {
-		outcome, err := boardcopy.EvaluateCopyReceipt(snapshot, options, receipt)
+		outcome, err := boardcopy.EvaluateRecordReceipt(index, options, receipt)
 		if err != nil {
 			return boardcopy.CopyOutcome{}, err
 		}
-		outcome.Counts.Blobs = snapshotBlobCount(snapshot)
+		outcome.Counts.Blobs = len(index.Blobs)
 		return outcome, nil
 	}
 
-	imported, err := s.boards.ImportCopySnapshot(ctx, snapshot, options)
+	records, err := reader.OpenBoard(prepared.publication)
 	if err != nil {
 		return boardcopy.CopyOutcome{}, err
 	}
-	var outcome boardcopy.CopyOutcome
-	switch {
-	case imported.Published != nil && imported.Competing == nil:
-		outcome = *imported.Published
-	case imported.Published == nil && imported.Competing != nil:
-		outcome, err = boardcopy.EvaluateCopyReceipt(
-			snapshot,
-			options,
-			*imported.Competing,
-		)
-		if err != nil {
-			return boardcopy.CopyOutcome{}, err
-		}
-	default:
-		return boardcopy.CopyOutcome{}, errors.New(
-			"destination board copy returned an invalid import result",
-		)
+	imported, err := s.boards.ImportCopyRecords(ctx, index, records, options)
+	if err != nil {
+		return boardcopy.CopyOutcome{}, err
 	}
-	outcome.Counts.Blobs = snapshotBlobCount(snapshot)
+	outcome, err := boardcopy.EvaluateCopyImport(index, options, imported)
+	if err != nil {
+		return boardcopy.CopyOutcome{}, err
+	}
+	outcome.Counts.Blobs = len(index.Blobs)
 	return outcome, nil
-}
-
-func snapshotBlobCount(snapshot boardcopy.CopySnapshot) int {
-	digests := make(map[attachment.Digest]struct{}, len(snapshot.Attachments))
-	for _, value := range snapshot.Attachments {
-		digests[value.Blob.Digest] = struct{}{}
-	}
-	return len(digests)
 }

@@ -164,8 +164,8 @@ func (x *Project) GetCreatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
-// BoardPublication binds one source board view to its serialized snapshot
-// member and source project.
+// BoardPublication binds one source board view to its incremental record member
+// and source project.
 type BoardPublication struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// project_id must reference one Manifest.projects entry.
@@ -180,12 +180,15 @@ type BoardPublication struct {
 	// source_revision is the retained source view from which the snapshot was read.
 	SourceRevision int64 `protobuf:"varint,4,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
 	// snapshot_version selects the semantic board-copy digest contract.
-	// Readers accept only the current board-copy version.
+	// It must equal BoardHeader.version in the referenced member.
+	// Archive format version 1 readers accept semantic version 2.
 	SnapshotVersion uint32 `protobuf:"varint,5,opt,name=snapshot_version,json=snapshotVersion,proto3" json:"snapshot_version,omitempty"`
-	// snapshot_digest is the canonical SHA-256 digest of the semantic snapshot.
+	// snapshot_digest is the SHA-256 digest of the versioned deterministic
+	// semantic fields in the complete canonical BoardRecord sequence.
+	// It excludes source lineage, source revision, and archive protobuf framing.
 	SnapshotDigest string `protobuf:"bytes,6,opt,name=snapshot_digest,json=snapshotDigest,proto3" json:"snapshot_digest,omitempty"`
-	// member is required and describes the encoded BoardSnapshot.
-	// Its name must be boards/sha256/<snapshot digest hex>.
+	// member is required and describes the encoded BoardRecord sequence.
+	// Its name must be boards/id/<unpadded base64url source_board_id>.
 	Member        *Member `protobuf:"bytes,7,opt,name=member,proto3" json:"member,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -398,67 +401,49 @@ func (x *Member) GetDigest() string {
 	return ""
 }
 
-// BoardSnapshot is the complete semantic board-copy publication encoded in a
-// BoardPublication member.
+// BoardRecord is one length-delimited value in an archive format version 1
+// board member.
 //
-// The source publication fields must match the enclosing BoardPublication.
-// Collection order is canonical and contributes to digest verification.
-type BoardSnapshot struct {
+// A canonical member contains one header, payload sections in field-number
+// order with each section using the key order below, and one trailer.
+// Deterministic protobuf framing determines Member.digest and Member.size_bytes.
+// BoardPublication.snapshot_digest instead covers normalized semantic fields
+// and is not embedded in this sequence.
+type BoardRecord struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// source_lineage_id must equal BoardPublication.source_lineage_id.
-	SourceLineageId string `protobuf:"bytes,1,opt,name=source_lineage_id,json=sourceLineageId,proto3" json:"source_lineage_id,omitempty"`
-	// source_revision must equal BoardPublication.source_revision.
-	SourceRevision int64 `protobuf:"varint,2,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
-	// version must equal BoardPublication.snapshot_version.
-	Version uint32 `protobuf:"varint,3,opt,name=version,proto3" json:"version,omitempty"`
-	// digest must equal BoardPublication.snapshot_digest.
-	Digest string `protobuf:"bytes,4,opt,name=digest,proto3" json:"digest,omitempty"`
-	// board is required and its ID must equal BoardPublication.source_board_id.
-	Board *Board `protobuf:"bytes,5,opt,name=board,proto3" json:"board,omitempty"`
-	// configuration is required and contains the effective source policy.
-	Configuration *Configuration `protobuf:"bytes,6,opt,name=configuration,proto3" json:"configuration,omitempty"`
-	// issues is complete and ordered by issue ID.
-	Issues []*Issue `protobuf:"bytes,7,rep,name=issues,proto3" json:"issues,omitempty"`
-	// labels is ordered by issue ID and then label value.
-	Labels []*Label `protobuf:"bytes,8,rep,name=labels,proto3" json:"labels,omitempty"`
-	// dependencies is ordered by dependent issue ID and then prerequisite ID.
-	Dependencies []*Dependency `protobuf:"bytes,9,rep,name=dependencies,proto3" json:"dependencies,omitempty"`
-	// containment is ordered by child issue ID and then parent issue ID.
-	Containment []*Containment `protobuf:"bytes,10,rep,name=containment,proto3" json:"containment,omitempty"`
-	// external_keys is ordered by producer key and then issue ID.
-	ExternalKeys []*ExternalKey `protobuf:"bytes,11,rep,name=external_keys,json=externalKeys,proto3" json:"external_keys,omitempty"`
-	// log_entries is ordered by source Log order and then Log entry ID.
-	LogEntries []*LogEntry `protobuf:"bytes,12,rep,name=log_entries,json=logEntries,proto3" json:"log_entries,omitempty"`
-	// states contains at most one current recovery record per issue,
-	// ordered by issue ID.
-	States []*State `protobuf:"bytes,13,rep,name=states,proto3" json:"states,omitempty"`
-	// results contains at most one current durable outcome per issue,
-	// ordered by issue ID.
-	Results []*Result `protobuf:"bytes,14,rep,name=results,proto3" json:"results,omitempty"`
-	// checkpoints contains one terminal decision per checkpoint issue,
-	// ordered by issue ID.
-	Checkpoints []*Checkpoint `protobuf:"bytes,15,rep,name=checkpoints,proto3" json:"checkpoints,omitempty"`
-	// attachments includes active and removed metadata,
-	// ordered by attachment ID.
-	Attachments   []*Attachment `protobuf:"bytes,16,rep,name=attachments,proto3" json:"attachments,omitempty"`
+	// Types that are valid to be assigned to Value:
+	//
+	//	*BoardRecord_Header
+	//	*BoardRecord_Issue
+	//	*BoardRecord_Label
+	//	*BoardRecord_Dependency
+	//	*BoardRecord_Containment
+	//	*BoardRecord_ExternalKey
+	//	*BoardRecord_LogEntry
+	//	*BoardRecord_State
+	//	*BoardRecord_Result
+	//	*BoardRecord_Checkpoint
+	//	*BoardRecord_Attachment
+	//	*BoardRecord_Trailer
+	Value         isBoardRecord_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BoardSnapshot) Reset() {
-	*x = BoardSnapshot{}
+func (x *BoardRecord) Reset() {
+	*x = BoardRecord{}
 	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BoardSnapshot) String() string {
+func (x *BoardRecord) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BoardSnapshot) ProtoMessage() {}
+func (*BoardRecord) ProtoMessage() {}
 
-func (x *BoardSnapshot) ProtoReflect() protoreflect.Message {
+func (x *BoardRecord) ProtoReflect() protoreflect.Message {
 	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -470,121 +455,417 @@ func (x *BoardSnapshot) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BoardSnapshot.ProtoReflect.Descriptor instead.
-func (*BoardSnapshot) Descriptor() ([]byte, []int) {
+// Deprecated: Use BoardRecord.ProtoReflect.Descriptor instead.
+func (*BoardRecord) Descriptor() ([]byte, []int) {
 	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{5}
 }
 
-func (x *BoardSnapshot) GetSourceLineageId() string {
+func (x *BoardRecord) GetValue() isBoardRecord_Value {
 	if x != nil {
-		return x.SourceLineageId
+		return x.Value
 	}
-	return ""
+	return nil
 }
 
-func (x *BoardSnapshot) GetSourceRevision() int64 {
+func (x *BoardRecord) GetHeader() *BoardHeader {
 	if x != nil {
-		return x.SourceRevision
+		if x, ok := x.Value.(*BoardRecord_Header); ok {
+			return x.Header
+		}
 	}
-	return 0
+	return nil
 }
 
-func (x *BoardSnapshot) GetVersion() uint32 {
+func (x *BoardRecord) GetIssue() *Issue {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Issue); ok {
+			return x.Issue
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetLabel() *Label {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Label); ok {
+			return x.Label
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetDependency() *Dependency {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Dependency); ok {
+			return x.Dependency
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetContainment() *Containment {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Containment); ok {
+			return x.Containment
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetExternalKey() *ExternalKey {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_ExternalKey); ok {
+			return x.ExternalKey
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetLogEntry() *LogEntry {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_LogEntry); ok {
+			return x.LogEntry
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetState() *State {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_State); ok {
+			return x.State
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetResult() *Result {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Result); ok {
+			return x.Result
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetCheckpoint() *Checkpoint {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Checkpoint); ok {
+			return x.Checkpoint
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetAttachment() *Attachment {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Attachment); ok {
+			return x.Attachment
+		}
+	}
+	return nil
+}
+
+func (x *BoardRecord) GetTrailer() *BoardTrailer {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Trailer); ok {
+			return x.Trailer
+		}
+	}
+	return nil
+}
+
+type isBoardRecord_Value interface {
+	isBoardRecord_Value()
+}
+
+type BoardRecord_Header struct {
+	Header *BoardHeader `protobuf:"bytes,1,opt,name=header,proto3,oneof"`
+}
+
+type BoardRecord_Issue struct {
+	// issue records are ordered by Issue.id.
+	Issue *Issue `protobuf:"bytes,2,opt,name=issue,proto3,oneof"`
+}
+
+type BoardRecord_Label struct {
+	// label records are ordered by Label.issue_id, then Label.value.
+	Label *Label `protobuf:"bytes,3,opt,name=label,proto3,oneof"`
+}
+
+type BoardRecord_Dependency struct {
+	// dependency records are ordered by Dependency.issue_id,
+	// then Dependency.prerequisite_id.
+	Dependency *Dependency `protobuf:"bytes,4,opt,name=dependency,proto3,oneof"`
+}
+
+type BoardRecord_Containment struct {
+	// containment records are ordered by Containment.child_id.
+	Containment *Containment `protobuf:"bytes,5,opt,name=containment,proto3,oneof"`
+}
+
+type BoardRecord_ExternalKey struct {
+	// external_key records are ordered by ExternalKey.key,
+	// then ExternalKey.issue_id.
+	ExternalKey *ExternalKey `protobuf:"bytes,6,opt,name=external_key,json=externalKey,proto3,oneof"`
+}
+
+type BoardRecord_LogEntry struct {
+	// log_entry records use contiguous zero-based LogEntry.order values.
+	LogEntry *LogEntry `protobuf:"bytes,7,opt,name=log_entry,json=logEntry,proto3,oneof"`
+}
+
+type BoardRecord_State struct {
+	// state records are ordered by State.issue_id.
+	State *State `protobuf:"bytes,8,opt,name=state,proto3,oneof"`
+}
+
+type BoardRecord_Result struct {
+	// result records are ordered by Result.issue_id.
+	Result *Result `protobuf:"bytes,9,opt,name=result,proto3,oneof"`
+}
+
+type BoardRecord_Checkpoint struct {
+	// checkpoint records are ordered by Checkpoint.issue_id.
+	Checkpoint *Checkpoint `protobuf:"bytes,10,opt,name=checkpoint,proto3,oneof"`
+}
+
+type BoardRecord_Attachment struct {
+	// attachment records are ordered by Attachment.id.
+	Attachment *Attachment `protobuf:"bytes,11,opt,name=attachment,proto3,oneof"`
+}
+
+type BoardRecord_Trailer struct {
+	Trailer *BoardTrailer `protobuf:"bytes,12,opt,name=trailer,proto3,oneof"`
+}
+
+func (*BoardRecord_Header) isBoardRecord_Value() {}
+
+func (*BoardRecord_Issue) isBoardRecord_Value() {}
+
+func (*BoardRecord_Label) isBoardRecord_Value() {}
+
+func (*BoardRecord_Dependency) isBoardRecord_Value() {}
+
+func (*BoardRecord_Containment) isBoardRecord_Value() {}
+
+func (*BoardRecord_ExternalKey) isBoardRecord_Value() {}
+
+func (*BoardRecord_LogEntry) isBoardRecord_Value() {}
+
+func (*BoardRecord_State) isBoardRecord_Value() {}
+
+func (*BoardRecord_Result) isBoardRecord_Value() {}
+
+func (*BoardRecord_Checkpoint) isBoardRecord_Value() {}
+
+func (*BoardRecord_Attachment) isBoardRecord_Value() {}
+
+func (*BoardRecord_Trailer) isBoardRecord_Value() {}
+
+// BoardHeader is the required first record in a board member.
+type BoardHeader struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// version selects the semantic board-copy contract.
+	// Archive format version 1 readers accept semantic version 2.
+	Version uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
+	// source_lineage_id is the stable lineage minted by the source store.
+	// The semantic digest excludes this retained-view coordinate.
+	SourceLineageId string `protobuf:"bytes,2,opt,name=source_lineage_id,json=sourceLineageId,proto3" json:"source_lineage_id,omitempty"`
+	// source_revision is the retained source view used for every record.
+	// The semantic digest excludes this retained-view coordinate.
+	SourceRevision int64 `protobuf:"varint,3,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
+	// board is required and identifies the source board namespace.
+	Board *Board `protobuf:"bytes,4,opt,name=board,proto3" json:"board,omitempty"`
+	// configuration is required and contains the effective source policy.
+	Configuration *Configuration `protobuf:"bytes,5,opt,name=configuration,proto3" json:"configuration,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BoardHeader) Reset() {
+	*x = BoardHeader{}
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BoardHeader) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardHeader) ProtoMessage() {}
+
+func (x *BoardHeader) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardHeader.ProtoReflect.Descriptor instead.
+func (*BoardHeader) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *BoardHeader) GetVersion() uint32 {
 	if x != nil {
 		return x.Version
 	}
 	return 0
 }
 
-func (x *BoardSnapshot) GetDigest() string {
+func (x *BoardHeader) GetSourceLineageId() string {
 	if x != nil {
-		return x.Digest
+		return x.SourceLineageId
 	}
 	return ""
 }
 
-func (x *BoardSnapshot) GetBoard() *Board {
+func (x *BoardHeader) GetSourceRevision() int64 {
+	if x != nil {
+		return x.SourceRevision
+	}
+	return 0
+}
+
+func (x *BoardHeader) GetBoard() *Board {
 	if x != nil {
 		return x.Board
 	}
 	return nil
 }
 
-func (x *BoardSnapshot) GetConfiguration() *Configuration {
+func (x *BoardHeader) GetConfiguration() *Configuration {
 	if x != nil {
 		return x.Configuration
 	}
 	return nil
 }
 
-func (x *BoardSnapshot) GetIssues() []*Issue {
+// BoardTrailer is the required final record in a board member.
+//
+// Counts detect a stream that ends at an intermediate record boundary without
+// requiring a digest value inside the stream.
+type BoardTrailer struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Issues        uint64                 `protobuf:"varint,1,opt,name=issues,proto3" json:"issues,omitempty"`
+	Labels        uint64                 `protobuf:"varint,2,opt,name=labels,proto3" json:"labels,omitempty"`
+	Dependencies  uint64                 `protobuf:"varint,3,opt,name=dependencies,proto3" json:"dependencies,omitempty"`
+	Containment   uint64                 `protobuf:"varint,4,opt,name=containment,proto3" json:"containment,omitempty"`
+	ExternalKeys  uint64                 `protobuf:"varint,5,opt,name=external_keys,json=externalKeys,proto3" json:"external_keys,omitempty"`
+	LogEntries    uint64                 `protobuf:"varint,6,opt,name=log_entries,json=logEntries,proto3" json:"log_entries,omitempty"`
+	States        uint64                 `protobuf:"varint,7,opt,name=states,proto3" json:"states,omitempty"`
+	Results       uint64                 `protobuf:"varint,8,opt,name=results,proto3" json:"results,omitempty"`
+	Checkpoints   uint64                 `protobuf:"varint,9,opt,name=checkpoints,proto3" json:"checkpoints,omitempty"`
+	Attachments   uint64                 `protobuf:"varint,10,opt,name=attachments,proto3" json:"attachments,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BoardTrailer) Reset() {
+	*x = BoardTrailer{}
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BoardTrailer) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardTrailer) ProtoMessage() {}
+
+func (x *BoardTrailer) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardTrailer.ProtoReflect.Descriptor instead.
+func (*BoardTrailer) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *BoardTrailer) GetIssues() uint64 {
 	if x != nil {
 		return x.Issues
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetLabels() []*Label {
+func (x *BoardTrailer) GetLabels() uint64 {
 	if x != nil {
 		return x.Labels
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetDependencies() []*Dependency {
+func (x *BoardTrailer) GetDependencies() uint64 {
 	if x != nil {
 		return x.Dependencies
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetContainment() []*Containment {
+func (x *BoardTrailer) GetContainment() uint64 {
 	if x != nil {
 		return x.Containment
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetExternalKeys() []*ExternalKey {
+func (x *BoardTrailer) GetExternalKeys() uint64 {
 	if x != nil {
 		return x.ExternalKeys
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetLogEntries() []*LogEntry {
+func (x *BoardTrailer) GetLogEntries() uint64 {
 	if x != nil {
 		return x.LogEntries
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetStates() []*State {
+func (x *BoardTrailer) GetStates() uint64 {
 	if x != nil {
 		return x.States
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetResults() []*Result {
+func (x *BoardTrailer) GetResults() uint64 {
 	if x != nil {
 		return x.Results
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetCheckpoints() []*Checkpoint {
+func (x *BoardTrailer) GetCheckpoints() uint64 {
 	if x != nil {
 		return x.Checkpoints
 	}
-	return nil
+	return 0
 }
 
-func (x *BoardSnapshot) GetAttachments() []*Attachment {
+func (x *BoardTrailer) GetAttachments() uint64 {
 	if x != nil {
 		return x.Attachments
 	}
-	return nil
+	return 0
 }
 
 // Board preserves the source namespace and presentation restored into a new
@@ -605,7 +886,7 @@ type Board struct {
 
 func (x *Board) Reset() {
 	*x = Board{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[6]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -617,7 +898,7 @@ func (x *Board) String() string {
 func (*Board) ProtoMessage() {}
 
 func (x *Board) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[6]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -630,7 +911,7 @@ func (x *Board) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Board.ProtoReflect.Descriptor instead.
 func (*Board) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{6}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *Board) GetId() string {
@@ -679,7 +960,7 @@ type Configuration struct {
 
 func (x *Configuration) Reset() {
 	*x = Configuration{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[7]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -691,7 +972,7 @@ func (x *Configuration) String() string {
 func (*Configuration) ProtoMessage() {}
 
 func (x *Configuration) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[7]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -704,7 +985,7 @@ func (x *Configuration) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Configuration.ProtoReflect.Descriptor instead.
 func (*Configuration) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{7}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *Configuration) GetIssueIdPrefix() string {
@@ -768,7 +1049,7 @@ type Issue struct {
 
 func (x *Issue) Reset() {
 	*x = Issue{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[8]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -780,7 +1061,7 @@ func (x *Issue) String() string {
 func (*Issue) ProtoMessage() {}
 
 func (x *Issue) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[8]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -793,7 +1074,7 @@ func (x *Issue) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Issue.ProtoReflect.Descriptor instead.
 func (*Issue) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{8}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *Issue) GetId() string {
@@ -892,7 +1173,7 @@ type Label struct {
 
 func (x *Label) Reset() {
 	*x = Label{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[9]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -904,7 +1185,7 @@ func (x *Label) String() string {
 func (*Label) ProtoMessage() {}
 
 func (x *Label) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[9]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -917,7 +1198,7 @@ func (x *Label) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Label.ProtoReflect.Descriptor instead.
 func (*Label) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{9}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *Label) GetIssueId() string {
@@ -948,7 +1229,7 @@ type Dependency struct {
 
 func (x *Dependency) Reset() {
 	*x = Dependency{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[10]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -960,7 +1241,7 @@ func (x *Dependency) String() string {
 func (*Dependency) ProtoMessage() {}
 
 func (x *Dependency) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[10]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -973,7 +1254,7 @@ func (x *Dependency) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Dependency.ProtoReflect.Descriptor instead.
 func (*Dependency) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{10}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *Dependency) GetIssueId() string {
@@ -1004,7 +1285,7 @@ type Containment struct {
 
 func (x *Containment) Reset() {
 	*x = Containment{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[11]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1016,7 +1297,7 @@ func (x *Containment) String() string {
 func (*Containment) ProtoMessage() {}
 
 func (x *Containment) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[11]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1029,7 +1310,7 @@ func (x *Containment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Containment.ProtoReflect.Descriptor instead.
 func (*Containment) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{11}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *Containment) GetChildId() string {
@@ -1059,7 +1340,7 @@ type ExternalKey struct {
 
 func (x *ExternalKey) Reset() {
 	*x = ExternalKey{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[12]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1071,7 +1352,7 @@ func (x *ExternalKey) String() string {
 func (*ExternalKey) ProtoMessage() {}
 
 func (x *ExternalKey) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[12]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1084,7 +1365,7 @@ func (x *ExternalKey) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ExternalKey.ProtoReflect.Descriptor instead.
 func (*ExternalKey) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{12}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ExternalKey) GetKey() string {
@@ -1128,7 +1409,7 @@ type LogEntry struct {
 
 func (x *LogEntry) Reset() {
 	*x = LogEntry{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[13]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1140,7 +1421,7 @@ func (x *LogEntry) String() string {
 func (*LogEntry) ProtoMessage() {}
 
 func (x *LogEntry) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[13]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1153,7 +1434,7 @@ func (x *LogEntry) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LogEntry.ProtoReflect.Descriptor instead.
 func (*LogEntry) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{13}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *LogEntry) GetOrder() uint64 {
@@ -1242,7 +1523,7 @@ type State struct {
 
 func (x *State) Reset() {
 	*x = State{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[14]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1254,7 +1535,7 @@ func (x *State) String() string {
 func (*State) ProtoMessage() {}
 
 func (x *State) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[14]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1267,7 +1548,7 @@ func (x *State) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use State.ProtoReflect.Descriptor instead.
 func (*State) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{14}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *State) GetIssueId() string {
@@ -1326,7 +1607,7 @@ type Result struct {
 
 func (x *Result) Reset() {
 	*x = Result{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[15]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1338,7 +1619,7 @@ func (x *Result) String() string {
 func (*Result) ProtoMessage() {}
 
 func (x *Result) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[15]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1351,7 +1632,7 @@ func (x *Result) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Result.ProtoReflect.Descriptor instead.
 func (*Result) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{15}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *Result) GetIssueId() string {
@@ -1385,7 +1666,7 @@ type Checkpoint struct {
 
 func (x *Checkpoint) Reset() {
 	*x = Checkpoint{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[16]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1397,7 +1678,7 @@ func (x *Checkpoint) String() string {
 func (*Checkpoint) ProtoMessage() {}
 
 func (x *Checkpoint) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[16]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1410,7 +1691,7 @@ func (x *Checkpoint) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Checkpoint.ProtoReflect.Descriptor instead.
 func (*Checkpoint) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{16}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *Checkpoint) GetIssueId() string {
@@ -1470,7 +1751,7 @@ type Attachment struct {
 
 func (x *Attachment) Reset() {
 	*x = Attachment{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[17]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1482,7 +1763,7 @@ func (x *Attachment) String() string {
 func (*Attachment) ProtoMessage() {}
 
 func (x *Attachment) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[17]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1495,7 +1776,7 @@ func (x *Attachment) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Attachment.ProtoReflect.Descriptor instead.
 func (*Attachment) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{17}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *Attachment) GetId() string {
@@ -1582,7 +1863,7 @@ type BlobDescriptor struct {
 
 func (x *BlobDescriptor) Reset() {
 	*x = BlobDescriptor{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[18]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1594,7 +1875,7 @@ func (x *BlobDescriptor) String() string {
 func (*BlobDescriptor) ProtoMessage() {}
 
 func (x *BlobDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[18]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1607,7 +1888,7 @@ func (x *BlobDescriptor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BlobDescriptor.ProtoReflect.Descriptor instead.
 func (*BlobDescriptor) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{18}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *BlobDescriptor) GetDigest() string {
@@ -1657,26 +1938,47 @@ const file_cardamom_private_backup_v1_backup_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x02 \x01(\x04R\tsizeBytes\x12\x16\n" +
-	"\x06digest\x18\x03 \x01(\tR\x06digest\"\xcf\a\n" +
-	"\rBoardSnapshot\x12*\n" +
-	"\x11source_lineage_id\x18\x01 \x01(\tR\x0fsourceLineageId\x12'\n" +
-	"\x0fsource_revision\x18\x02 \x01(\x03R\x0esourceRevision\x12\x18\n" +
-	"\aversion\x18\x03 \x01(\rR\aversion\x12\x16\n" +
-	"\x06digest\x18\x04 \x01(\tR\x06digest\x127\n" +
-	"\x05board\x18\x05 \x01(\v2!.cardamom.private.backup.v1.BoardR\x05board\x12O\n" +
-	"\rconfiguration\x18\x06 \x01(\v2).cardamom.private.backup.v1.ConfigurationR\rconfiguration\x129\n" +
-	"\x06issues\x18\a \x03(\v2!.cardamom.private.backup.v1.IssueR\x06issues\x129\n" +
-	"\x06labels\x18\b \x03(\v2!.cardamom.private.backup.v1.LabelR\x06labels\x12J\n" +
-	"\fdependencies\x18\t \x03(\v2&.cardamom.private.backup.v1.DependencyR\fdependencies\x12I\n" +
-	"\vcontainment\x18\n" +
-	" \x03(\v2'.cardamom.private.backup.v1.ContainmentR\vcontainment\x12L\n" +
-	"\rexternal_keys\x18\v \x03(\v2'.cardamom.private.backup.v1.ExternalKeyR\fexternalKeys\x12E\n" +
-	"\vlog_entries\x18\f \x03(\v2$.cardamom.private.backup.v1.LogEntryR\n" +
-	"logEntries\x129\n" +
-	"\x06states\x18\r \x03(\v2!.cardamom.private.backup.v1.StateR\x06states\x12<\n" +
-	"\aresults\x18\x0e \x03(\v2\".cardamom.private.backup.v1.ResultR\aresults\x12H\n" +
-	"\vcheckpoints\x18\x0f \x03(\v2&.cardamom.private.backup.v1.CheckpointR\vcheckpoints\x12H\n" +
-	"\vattachments\x18\x10 \x03(\v2&.cardamom.private.backup.v1.AttachmentR\vattachments\"\x9d\x01\n" +
+	"\x06digest\x18\x03 \x01(\tR\x06digest\"\xcc\x06\n" +
+	"\vBoardRecord\x12A\n" +
+	"\x06header\x18\x01 \x01(\v2'.cardamom.private.backup.v1.BoardHeaderH\x00R\x06header\x129\n" +
+	"\x05issue\x18\x02 \x01(\v2!.cardamom.private.backup.v1.IssueH\x00R\x05issue\x129\n" +
+	"\x05label\x18\x03 \x01(\v2!.cardamom.private.backup.v1.LabelH\x00R\x05label\x12H\n" +
+	"\n" +
+	"dependency\x18\x04 \x01(\v2&.cardamom.private.backup.v1.DependencyH\x00R\n" +
+	"dependency\x12K\n" +
+	"\vcontainment\x18\x05 \x01(\v2'.cardamom.private.backup.v1.ContainmentH\x00R\vcontainment\x12L\n" +
+	"\fexternal_key\x18\x06 \x01(\v2'.cardamom.private.backup.v1.ExternalKeyH\x00R\vexternalKey\x12C\n" +
+	"\tlog_entry\x18\a \x01(\v2$.cardamom.private.backup.v1.LogEntryH\x00R\blogEntry\x129\n" +
+	"\x05state\x18\b \x01(\v2!.cardamom.private.backup.v1.StateH\x00R\x05state\x12<\n" +
+	"\x06result\x18\t \x01(\v2\".cardamom.private.backup.v1.ResultH\x00R\x06result\x12H\n" +
+	"\n" +
+	"checkpoint\x18\n" +
+	" \x01(\v2&.cardamom.private.backup.v1.CheckpointH\x00R\n" +
+	"checkpoint\x12H\n" +
+	"\n" +
+	"attachment\x18\v \x01(\v2&.cardamom.private.backup.v1.AttachmentH\x00R\n" +
+	"attachment\x12D\n" +
+	"\atrailer\x18\f \x01(\v2(.cardamom.private.backup.v1.BoardTrailerH\x00R\atrailerB\a\n" +
+	"\x05value\"\x86\x02\n" +
+	"\vBoardHeader\x12\x18\n" +
+	"\aversion\x18\x01 \x01(\rR\aversion\x12*\n" +
+	"\x11source_lineage_id\x18\x02 \x01(\tR\x0fsourceLineageId\x12'\n" +
+	"\x0fsource_revision\x18\x03 \x01(\x03R\x0esourceRevision\x127\n" +
+	"\x05board\x18\x04 \x01(\v2!.cardamom.private.backup.v1.BoardR\x05board\x12O\n" +
+	"\rconfiguration\x18\x05 \x01(\v2).cardamom.private.backup.v1.ConfigurationR\rconfiguration\"\xc0\x02\n" +
+	"\fBoardTrailer\x12\x16\n" +
+	"\x06issues\x18\x01 \x01(\x04R\x06issues\x12\x16\n" +
+	"\x06labels\x18\x02 \x01(\x04R\x06labels\x12\"\n" +
+	"\fdependencies\x18\x03 \x01(\x04R\fdependencies\x12 \n" +
+	"\vcontainment\x18\x04 \x01(\x04R\vcontainment\x12#\n" +
+	"\rexternal_keys\x18\x05 \x01(\x04R\fexternalKeys\x12\x1f\n" +
+	"\vlog_entries\x18\x06 \x01(\x04R\n" +
+	"logEntries\x12\x16\n" +
+	"\x06states\x18\a \x01(\x04R\x06states\x12\x18\n" +
+	"\aresults\x18\b \x01(\x04R\aresults\x12 \n" +
+	"\vcheckpoints\x18\t \x01(\x04R\vcheckpoints\x12 \n" +
+	"\vattachments\x18\n" +
+	" \x01(\x04R\vattachments\"\x9d\x01\n" +
 	"\x05Board\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
@@ -1797,63 +2099,67 @@ func file_cardamom_private_backup_v1_backup_proto_rawDescGZIP() []byte {
 	return file_cardamom_private_backup_v1_backup_proto_rawDescData
 }
 
-var file_cardamom_private_backup_v1_backup_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
+var file_cardamom_private_backup_v1_backup_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
 var file_cardamom_private_backup_v1_backup_proto_goTypes = []any{
 	(*Manifest)(nil),              // 0: cardamom.private.backup.v1.Manifest
 	(*Project)(nil),               // 1: cardamom.private.backup.v1.Project
 	(*BoardPublication)(nil),      // 2: cardamom.private.backup.v1.BoardPublication
 	(*Blob)(nil),                  // 3: cardamom.private.backup.v1.Blob
 	(*Member)(nil),                // 4: cardamom.private.backup.v1.Member
-	(*BoardSnapshot)(nil),         // 5: cardamom.private.backup.v1.BoardSnapshot
-	(*Board)(nil),                 // 6: cardamom.private.backup.v1.Board
-	(*Configuration)(nil),         // 7: cardamom.private.backup.v1.Configuration
-	(*Issue)(nil),                 // 8: cardamom.private.backup.v1.Issue
-	(*Label)(nil),                 // 9: cardamom.private.backup.v1.Label
-	(*Dependency)(nil),            // 10: cardamom.private.backup.v1.Dependency
-	(*Containment)(nil),           // 11: cardamom.private.backup.v1.Containment
-	(*ExternalKey)(nil),           // 12: cardamom.private.backup.v1.ExternalKey
-	(*LogEntry)(nil),              // 13: cardamom.private.backup.v1.LogEntry
-	(*State)(nil),                 // 14: cardamom.private.backup.v1.State
-	(*Result)(nil),                // 15: cardamom.private.backup.v1.Result
-	(*Checkpoint)(nil),            // 16: cardamom.private.backup.v1.Checkpoint
-	(*Attachment)(nil),            // 17: cardamom.private.backup.v1.Attachment
-	(*BlobDescriptor)(nil),        // 18: cardamom.private.backup.v1.BlobDescriptor
-	(*timestamppb.Timestamp)(nil), // 19: google.protobuf.Timestamp
+	(*BoardRecord)(nil),           // 5: cardamom.private.backup.v1.BoardRecord
+	(*BoardHeader)(nil),           // 6: cardamom.private.backup.v1.BoardHeader
+	(*BoardTrailer)(nil),          // 7: cardamom.private.backup.v1.BoardTrailer
+	(*Board)(nil),                 // 8: cardamom.private.backup.v1.Board
+	(*Configuration)(nil),         // 9: cardamom.private.backup.v1.Configuration
+	(*Issue)(nil),                 // 10: cardamom.private.backup.v1.Issue
+	(*Label)(nil),                 // 11: cardamom.private.backup.v1.Label
+	(*Dependency)(nil),            // 12: cardamom.private.backup.v1.Dependency
+	(*Containment)(nil),           // 13: cardamom.private.backup.v1.Containment
+	(*ExternalKey)(nil),           // 14: cardamom.private.backup.v1.ExternalKey
+	(*LogEntry)(nil),              // 15: cardamom.private.backup.v1.LogEntry
+	(*State)(nil),                 // 16: cardamom.private.backup.v1.State
+	(*Result)(nil),                // 17: cardamom.private.backup.v1.Result
+	(*Checkpoint)(nil),            // 18: cardamom.private.backup.v1.Checkpoint
+	(*Attachment)(nil),            // 19: cardamom.private.backup.v1.Attachment
+	(*BlobDescriptor)(nil),        // 20: cardamom.private.backup.v1.BlobDescriptor
+	(*timestamppb.Timestamp)(nil), // 21: google.protobuf.Timestamp
 }
 var file_cardamom_private_backup_v1_backup_proto_depIdxs = []int32{
 	1,  // 0: cardamom.private.backup.v1.Manifest.projects:type_name -> cardamom.private.backup.v1.Project
 	2,  // 1: cardamom.private.backup.v1.Manifest.boards:type_name -> cardamom.private.backup.v1.BoardPublication
 	3,  // 2: cardamom.private.backup.v1.Manifest.blobs:type_name -> cardamom.private.backup.v1.Blob
-	19, // 3: cardamom.private.backup.v1.Project.created_at:type_name -> google.protobuf.Timestamp
+	21, // 3: cardamom.private.backup.v1.Project.created_at:type_name -> google.protobuf.Timestamp
 	4,  // 4: cardamom.private.backup.v1.BoardPublication.member:type_name -> cardamom.private.backup.v1.Member
-	6,  // 5: cardamom.private.backup.v1.BoardSnapshot.board:type_name -> cardamom.private.backup.v1.Board
-	7,  // 6: cardamom.private.backup.v1.BoardSnapshot.configuration:type_name -> cardamom.private.backup.v1.Configuration
-	8,  // 7: cardamom.private.backup.v1.BoardSnapshot.issues:type_name -> cardamom.private.backup.v1.Issue
-	9,  // 8: cardamom.private.backup.v1.BoardSnapshot.labels:type_name -> cardamom.private.backup.v1.Label
-	10, // 9: cardamom.private.backup.v1.BoardSnapshot.dependencies:type_name -> cardamom.private.backup.v1.Dependency
-	11, // 10: cardamom.private.backup.v1.BoardSnapshot.containment:type_name -> cardamom.private.backup.v1.Containment
-	12, // 11: cardamom.private.backup.v1.BoardSnapshot.external_keys:type_name -> cardamom.private.backup.v1.ExternalKey
-	13, // 12: cardamom.private.backup.v1.BoardSnapshot.log_entries:type_name -> cardamom.private.backup.v1.LogEntry
-	14, // 13: cardamom.private.backup.v1.BoardSnapshot.states:type_name -> cardamom.private.backup.v1.State
-	15, // 14: cardamom.private.backup.v1.BoardSnapshot.results:type_name -> cardamom.private.backup.v1.Result
-	16, // 15: cardamom.private.backup.v1.BoardSnapshot.checkpoints:type_name -> cardamom.private.backup.v1.Checkpoint
-	17, // 16: cardamom.private.backup.v1.BoardSnapshot.attachments:type_name -> cardamom.private.backup.v1.Attachment
-	19, // 17: cardamom.private.backup.v1.Board.created_at:type_name -> google.protobuf.Timestamp
-	19, // 18: cardamom.private.backup.v1.Issue.created_at:type_name -> google.protobuf.Timestamp
-	19, // 19: cardamom.private.backup.v1.Issue.updated_at:type_name -> google.protobuf.Timestamp
-	19, // 20: cardamom.private.backup.v1.Issue.closed_at:type_name -> google.protobuf.Timestamp
-	19, // 21: cardamom.private.backup.v1.Issue.waiting_since:type_name -> google.protobuf.Timestamp
-	19, // 22: cardamom.private.backup.v1.LogEntry.created_at:type_name -> google.protobuf.Timestamp
-	19, // 23: cardamom.private.backup.v1.State.updated_at:type_name -> google.protobuf.Timestamp
-	19, // 24: cardamom.private.backup.v1.Checkpoint.decided_at:type_name -> google.protobuf.Timestamp
-	18, // 25: cardamom.private.backup.v1.Attachment.blob:type_name -> cardamom.private.backup.v1.BlobDescriptor
-	19, // 26: cardamom.private.backup.v1.Attachment.created_at:type_name -> google.protobuf.Timestamp
-	19, // 27: cardamom.private.backup.v1.Attachment.removed_at:type_name -> google.protobuf.Timestamp
-	28, // [28:28] is the sub-list for method output_type
-	28, // [28:28] is the sub-list for method input_type
-	28, // [28:28] is the sub-list for extension type_name
-	28, // [28:28] is the sub-list for extension extendee
-	0,  // [0:28] is the sub-list for field type_name
+	6,  // 5: cardamom.private.backup.v1.BoardRecord.header:type_name -> cardamom.private.backup.v1.BoardHeader
+	10, // 6: cardamom.private.backup.v1.BoardRecord.issue:type_name -> cardamom.private.backup.v1.Issue
+	11, // 7: cardamom.private.backup.v1.BoardRecord.label:type_name -> cardamom.private.backup.v1.Label
+	12, // 8: cardamom.private.backup.v1.BoardRecord.dependency:type_name -> cardamom.private.backup.v1.Dependency
+	13, // 9: cardamom.private.backup.v1.BoardRecord.containment:type_name -> cardamom.private.backup.v1.Containment
+	14, // 10: cardamom.private.backup.v1.BoardRecord.external_key:type_name -> cardamom.private.backup.v1.ExternalKey
+	15, // 11: cardamom.private.backup.v1.BoardRecord.log_entry:type_name -> cardamom.private.backup.v1.LogEntry
+	16, // 12: cardamom.private.backup.v1.BoardRecord.state:type_name -> cardamom.private.backup.v1.State
+	17, // 13: cardamom.private.backup.v1.BoardRecord.result:type_name -> cardamom.private.backup.v1.Result
+	18, // 14: cardamom.private.backup.v1.BoardRecord.checkpoint:type_name -> cardamom.private.backup.v1.Checkpoint
+	19, // 15: cardamom.private.backup.v1.BoardRecord.attachment:type_name -> cardamom.private.backup.v1.Attachment
+	7,  // 16: cardamom.private.backup.v1.BoardRecord.trailer:type_name -> cardamom.private.backup.v1.BoardTrailer
+	8,  // 17: cardamom.private.backup.v1.BoardHeader.board:type_name -> cardamom.private.backup.v1.Board
+	9,  // 18: cardamom.private.backup.v1.BoardHeader.configuration:type_name -> cardamom.private.backup.v1.Configuration
+	21, // 19: cardamom.private.backup.v1.Board.created_at:type_name -> google.protobuf.Timestamp
+	21, // 20: cardamom.private.backup.v1.Issue.created_at:type_name -> google.protobuf.Timestamp
+	21, // 21: cardamom.private.backup.v1.Issue.updated_at:type_name -> google.protobuf.Timestamp
+	21, // 22: cardamom.private.backup.v1.Issue.closed_at:type_name -> google.protobuf.Timestamp
+	21, // 23: cardamom.private.backup.v1.Issue.waiting_since:type_name -> google.protobuf.Timestamp
+	21, // 24: cardamom.private.backup.v1.LogEntry.created_at:type_name -> google.protobuf.Timestamp
+	21, // 25: cardamom.private.backup.v1.State.updated_at:type_name -> google.protobuf.Timestamp
+	21, // 26: cardamom.private.backup.v1.Checkpoint.decided_at:type_name -> google.protobuf.Timestamp
+	20, // 27: cardamom.private.backup.v1.Attachment.blob:type_name -> cardamom.private.backup.v1.BlobDescriptor
+	21, // 28: cardamom.private.backup.v1.Attachment.created_at:type_name -> google.protobuf.Timestamp
+	21, // 29: cardamom.private.backup.v1.Attachment.removed_at:type_name -> google.protobuf.Timestamp
+	30, // [30:30] is the sub-list for method output_type
+	30, // [30:30] is the sub-list for method input_type
+	30, // [30:30] is the sub-list for extension type_name
+	30, // [30:30] is the sub-list for extension extendee
+	0,  // [0:30] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_backup_v1_backup_proto_init() }
@@ -1861,18 +2167,32 @@ func file_cardamom_private_backup_v1_backup_proto_init() {
 	if File_cardamom_private_backup_v1_backup_proto != nil {
 		return
 	}
-	file_cardamom_private_backup_v1_backup_proto_msgTypes[6].OneofWrappers = []any{}
+	file_cardamom_private_backup_v1_backup_proto_msgTypes[5].OneofWrappers = []any{
+		(*BoardRecord_Header)(nil),
+		(*BoardRecord_Issue)(nil),
+		(*BoardRecord_Label)(nil),
+		(*BoardRecord_Dependency)(nil),
+		(*BoardRecord_Containment)(nil),
+		(*BoardRecord_ExternalKey)(nil),
+		(*BoardRecord_LogEntry)(nil),
+		(*BoardRecord_State)(nil),
+		(*BoardRecord_Result)(nil),
+		(*BoardRecord_Checkpoint)(nil),
+		(*BoardRecord_Attachment)(nil),
+		(*BoardRecord_Trailer)(nil),
+	}
 	file_cardamom_private_backup_v1_backup_proto_msgTypes[8].OneofWrappers = []any{}
-	file_cardamom_private_backup_v1_backup_proto_msgTypes[13].OneofWrappers = []any{}
-	file_cardamom_private_backup_v1_backup_proto_msgTypes[14].OneofWrappers = []any{}
-	file_cardamom_private_backup_v1_backup_proto_msgTypes[17].OneofWrappers = []any{}
+	file_cardamom_private_backup_v1_backup_proto_msgTypes[10].OneofWrappers = []any{}
+	file_cardamom_private_backup_v1_backup_proto_msgTypes[15].OneofWrappers = []any{}
+	file_cardamom_private_backup_v1_backup_proto_msgTypes[16].OneofWrappers = []any{}
+	file_cardamom_private_backup_v1_backup_proto_msgTypes[19].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_backup_v1_backup_proto_rawDesc), len(file_cardamom_private_backup_v1_backup_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   19,
+			NumMessages:   21,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

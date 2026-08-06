@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/attachment"
+	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
 	backupv1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/backup/v1"
@@ -27,7 +28,11 @@ func TestArchiveRoundTrip(t *testing.T) {
 	var archive bytes.Buffer
 	writer := NewWriter(&archive)
 	require.NoError(t, writer.AddProject(projectSnapshot))
-	require.NoError(t, writer.AddBoard(projectSnapshot.ID, boardSnapshot))
+	require.NoError(t, writer.AddBoard(
+		projectSnapshot.ID,
+		board.ID(boardSnapshot.Board.ID),
+		boardRecordSequence(testBoardRecords(boardSnapshot)),
+	))
 	stream := &boundedRead{reader: bytes.NewReader(body), max: 64 << 10}
 	require.NoError(t, writer.AddBlob(descriptor, stream))
 	require.NoError(t, writer.Close())
@@ -44,10 +49,7 @@ func TestArchiveRoundTrip(t *testing.T) {
 	slices.Sort(names)
 	assert.Equal(t, []string{
 		"blobs/sha256/3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7",
-		"boards/sha256/" + strings.TrimPrefix(
-			boardcopy.PrepareSnapshot(boardSnapshot).Digest,
-			"sha256:",
-		),
+		"boards/id/Ym9hcmQtc291cmNl",
 		ManifestMember,
 	}, names)
 
@@ -59,9 +61,9 @@ func TestArchiveRoundTrip(t *testing.T) {
 	assert.Equal(t, boardSnapshot.Board.ID, reader.Boards()[0].SourceBoardID.String())
 	assert.Equal(t, []attachment.BlobDescriptor{descriptor}, reader.Blobs())
 
-	gotBoard, err := reader.ReadBoard(reader.Boards()[0])
+	records, err := reader.OpenBoard(reader.Boards()[0])
 	require.NoError(t, err)
-	assert.Equal(t, boardcopy.PrepareSnapshot(boardSnapshot), gotBoard)
+	assert.Equal(t, testBoardRecords(boardSnapshot), collectBoardRecords(t, records))
 
 	blob, err := reader.OpenBlob(reader.Blobs()[0])
 	require.NoError(t, err)
@@ -78,7 +80,7 @@ func TestReaderRejectsValuesOutsideCatalog(t *testing.T) {
 
 	publication := reader.Boards()[0]
 	publication.SourceRevision++
-	_, err = reader.ReadBoard(publication)
+	_, err = reader.OpenBoard(publication)
 	assert.EqualError(t, err, `archive board "board-source" is not in this catalog`)
 
 	descriptor := reader.Blobs()[0]
@@ -148,7 +150,11 @@ func TestWriterRejectsInvalidContentAndDuplicateRecords(t *testing.T) {
 
 	t.Run("UnknownProject", func(t *testing.T) {
 		writer := NewWriter(io.Discard)
-		err := writer.AddBoard(projectSnapshot.ID, boardSnapshot)
+		err := writer.AddBoard(
+			projectSnapshot.ID,
+			board.ID(boardSnapshot.Board.ID),
+			boardRecordSequence(testBoardRecords(boardSnapshot)),
+		)
 		assert.EqualError(t, err, `archive project "project-source" is not registered`)
 	})
 
@@ -162,8 +168,16 @@ func TestWriterRejectsInvalidContentAndDuplicateRecords(t *testing.T) {
 	t.Run("DuplicateBoard", func(t *testing.T) {
 		writer := NewWriter(io.Discard)
 		require.NoError(t, writer.AddProject(projectSnapshot))
-		require.NoError(t, writer.AddBoard(projectSnapshot.ID, boardSnapshot))
-		err := writer.AddBoard(projectSnapshot.ID, boardSnapshot)
+		require.NoError(t, writer.AddBoard(
+			projectSnapshot.ID,
+			board.ID(boardSnapshot.Board.ID),
+			boardRecordSequence(testBoardRecords(boardSnapshot)),
+		))
+		err := writer.AddBoard(
+			projectSnapshot.ID,
+			board.ID(boardSnapshot.Board.ID),
+			boardRecordSequence(testBoardRecords(boardSnapshot)),
+		)
 		assert.EqualError(t, err, `archive board "board-source" is duplicated`)
 	})
 
@@ -257,14 +271,17 @@ func TestReaderVerifiesMemberIntegrity(t *testing.T) {
 	t.Run("Board", func(t *testing.T) {
 		changed := rewriteZip(t, archive, func(name string, body []byte) ([]byte, bool) {
 			if strings.HasPrefix(name, "boards/") {
-				body[len(body)-1] ^= 1
+				changed := bytes.Replace(body, []byte("Issue"), []byte("issue"), 1)
+				require.NotEqual(t, body, changed)
+				body = changed
 			}
 			return body, true
 		})
 		reader, err := NewReader(bytes.NewReader(changed), int64(len(changed)))
 		require.NoError(t, err)
-		_, err = reader.ReadBoard(reader.Boards()[0])
-		assert.Contains(t, err.Error(), "content digest mismatch")
+		records, err := reader.OpenBoard(reader.Boards()[0])
+		require.NoError(t, err)
+		assert.Contains(t, collectBoardRecordError(records).Error(), "content digest mismatch")
 	})
 
 	t.Run("BlobCloseDrains", func(t *testing.T) {
@@ -287,8 +304,12 @@ func TestReaderVerifiesMemberIntegrity(t *testing.T) {
 		})
 		reader, err := NewReader(bytes.NewReader(changed), int64(len(changed)))
 		require.NoError(t, err)
-		_, err = reader.ReadBoard(reader.Boards()[0])
-		assert.EqualError(t, err, `archive board "board-source" does not match its manifest publication`)
+		_, err = PrepareRestore(t.Context(), reader)
+		assert.EqualError(
+			t,
+			err,
+			`archive board "board-source" does not match its manifest publication`,
+		)
 	})
 }
 
@@ -317,7 +338,11 @@ func archiveTestBytes(t *testing.T) []byte {
 	var archive bytes.Buffer
 	writer := NewWriter(&archive)
 	require.NoError(t, writer.AddProject(projectSnapshot))
-	require.NoError(t, writer.AddBoard(projectSnapshot.ID, boardSnapshot))
+	require.NoError(t, writer.AddBoard(
+		projectSnapshot.ID,
+		board.ID(boardSnapshot.Board.ID),
+		boardRecordSequence(testBoardRecords(boardSnapshot)),
+	))
 	require.NoError(t, writer.AddBlob(descriptor, bytes.NewReader(body)))
 	require.NoError(t, writer.Close())
 	return archive.Bytes()
@@ -339,7 +364,7 @@ func setManifestSize(t *testing.T, manifest *backupv1.Manifest, size int) {
 
 func archiveTestValues(t *testing.T) (
 	project.Snapshot,
-	boardcopy.CopySnapshot,
+	testBoardSnapshot,
 	attachment.BlobDescriptor,
 	[]byte,
 ) {
@@ -355,7 +380,7 @@ func archiveTestValues(t *testing.T) (
 	projectID, err := project.NewID("project-source")
 	require.NoError(t, err)
 	descriptor := attachment.BlobDescriptor{Digest: digest, SizeBytes: 4}
-	return project.Snapshot{ID: projectID, Name: "Source Project", Created: createdAt}, boardcopy.CopySnapshot{
+	return project.Snapshot{ID: projectID, Name: "Source Project", Created: createdAt}, testBoardSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  12,
 		Board: boardcopy.CopyBoard{
@@ -381,7 +406,7 @@ func archiveTestValues(t *testing.T) (
 		Containment:  []boardcopy.CopyContainment{{ChildID: "cm-1", ParentID: "cm-2"}},
 		ExternalKeys: []boardcopy.CopyExternalKey{{Key: "external", IssueID: "cm-1"}},
 		LogEntries: []boardcopy.CopyLogEntry{{
-			Order: 1, ID: "log_source", IssueID: "cm-1", Kind: "post",
+			Order: 0, ID: "log_source", IssueID: "cm-1", Kind: "post",
 			Author: &actor, Committer: &actor, Body: "Log", CreatedAt: &createdAt,
 			NextAction: new("Continue"),
 		}},
