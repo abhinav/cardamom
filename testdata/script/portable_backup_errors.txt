@@ -1,0 +1,22 @@
+# Root help names the backup and restore command family.
+exec card --help
+stdout '^Backup and restoration$'
+! stdout '^Backing up and restoring$'
+
+# Aggregate selectors reject incompatible command-line selections.
+! exec card --store $WORK/source backup $WORK/archive.cardamom --include-board Primary --all
+! stdout .
+cmp stderr $WORK/golden/include-all-error.txt
+
+! exec card --store $WORK/source --board Primary backup $WORK/archive.cardamom --include-board Secondary
+! stdout .
+cmp stderr $WORK/golden/board-include-error.txt
+
+! exec card --store $WORK/source --board Primary backup $WORK/archive.cardamom --all
+! stdout .
+cmp stderr $WORK/golden/board-include-error.txt
+
+-- golden/include-all-error.txt --
+error: --include-board cannot be combined with --all
+-- golden/board-include-error.txt --
+error: --board cannot be combined with --include-board or --all

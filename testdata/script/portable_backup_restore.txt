@@ -1,0 +1,101 @@
+env TZ=UTC
+at 2026-08-05T12:00:00Z
+mkdir source destination
+
+# Reserve the first catalog identities so restored destination records remain
+# disjoint from the selected source board.
+exec card --store $WORK/source init --no-config --prefix reserve- --board-name Reserve
+exec card --store $WORK/source config set --scope store issue.id.strategy sequential
+exec card --store $WORK/source --json project create Engineering --prefix eng-
+cmp stdout $WORK/golden/engineering-project.json
+exec card --store $WORK/source --json board create --project project_11111111111111111111 Primary
+cmp stdout $WORK/golden/primary-board.json
+
+# The default backup selection carries issue state and attachment content.
+exec card --store $WORK/source --board Primary create --priority 1 --summary 'Primary shield calibration.' 'Calibrate shields'
+cmp stdout $WORK/golden/primary-issue-id.txt
+exec card --store $WORK/source --board Primary --json attachment add report.txt --issue eng-1
+cp stdout $WORK/attachment.json
+exec jq -r .id $WORK/attachment.json
+cp stdout $WORK/attachment-id.txt
+exec card --json --store $WORK/source --board Primary backup $WORK/selected.cardamom
+cmpenv stdout $WORK/golden/selected-backup.json
+
+# Restore into a non-empty store and retain its unrelated catalog and issue.
+exec card --store $WORK/destination init --no-config --prefix dest- --board-name Existing
+exec card --store $WORK/destination config set --scope store issue.id.strategy sequential
+exec card --store $WORK/destination --board Existing create --summary 'Destination-only record.' 'Keep local issue'
+cmp stdout $WORK/golden/destination-issue-id.txt
+exec card --json --store $WORK/destination restore $WORK/selected.cardamom
+cmpenv stdout $WORK/golden/first-restore.json
+
+exec card --store $WORK/destination --json project list
+cmp stdout $WORK/golden/destination-projects.jsonl
+cp stdout $WORK/destination-projects.jsonl
+exec card --store $WORK/destination --json board list
+cmp stdout $WORK/golden/destination-boards.jsonl
+cp stdout $WORK/destination-boards.jsonl
+
+exec card --store $WORK/destination --board Existing --json show dest-1
+cmp stdout $WORK/golden/destination-issue.json
+exec card --store $WORK/destination --board Primary --json show eng-1
+cp stdout $WORK/primary-issue.json
+exec jq -c 'del(.revision, .attachments[0].id, .attachments[0].created.revision)' $WORK/primary-issue.json
+cmp stdout $WORK/golden/primary-issue.json
+
+exec sh -c 'card --store "$1" --board Primary attachment get "$(cat "$2")" restored-report.txt' get-restored $WORK/destination $WORK/attachment-id.txt
+cmp stdout $WORK/golden/attachment-get.txt
+cmp restored-report.txt $WORK/report.txt
+
+exec card --store $WORK/destination --board Existing --json list
+cmp stdout $WORK/golden/destination-issues.jsonl
+cp stdout $WORK/destination-issues.jsonl
+exec card --store $WORK/destination --board Primary --json list
+cmp stdout $WORK/golden/primary-issues.jsonl
+cp stdout $WORK/primary-issues.jsonl
+
+# Reapplying the archive reports completion without changing public records.
+exec card --json --store $WORK/destination restore $WORK/selected.cardamom
+cmpenv stdout $WORK/golden/repeated-restore.json
+exec card --store $WORK/destination --json project list
+cmp stdout $WORK/destination-projects.jsonl
+exec card --store $WORK/destination --json board list
+cmp stdout $WORK/destination-boards.jsonl
+exec card --store $WORK/destination --board Existing --json list
+cmp stdout $WORK/destination-issues.jsonl
+exec card --store $WORK/destination --board Primary --json list
+cmp stdout $WORK/primary-issues.jsonl
+
+-- report.txt --
+sensor calibration report
+phase=complete
+-- golden/engineering-project.json --
+{"id":"project_11111111111111111111","name":"Engineering","created":1785931200}
+-- golden/primary-board.json --
+{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
+-- golden/primary-issue-id.txt --
+eng-1
+-- golden/selected-backup.json --
+{"source":"$WORK/source","destination":"$WORK/selected.cardamom","projects":1,"boards":1,"blobs":1}
+-- golden/destination-issue-id.txt --
+dest-1
+-- golden/first-restore.json --
+{"source":"$WORK/selected.cardamom","destination":"$WORK/destination","projects":1,"boards":1,"blobs":1,"already_completed_boards":0}
+-- golden/destination-projects.jsonl --
+{"id":"project_11111111111111111111","name":"Engineering","created":1785931200}
+{"id":"project_00000000000000000000","name":"script-portable_backup_restore","created":1785931200}
+-- golden/destination-boards.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Existing","created":1785931200}
+{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
+-- golden/destination-issue.json --
+{"id":"dest-1","title":"Keep local issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Destination-only record.","revision":2,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/primary-issue.json --
+{"id":"eng-1","title":"Calibrate shields","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Primary shield calibration.","keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[{"board_id":"board_11111111111111111111","origin_issue_id":"eng-1","filename":"report.txt","media_type":"text/plain; charset=utf-8","digest":"sha256:36ab8473a794b13baf3cd48321f6f589fcf7bfe7781899c73c36e1b2602ed515","size_bytes":41,"lifecycle":"active","availability":"present_unverified","created":{"actor":"test-user","at":"2026-08-05T12:00:00Z"},"removed":null}]}
+-- golden/attachment-get.txt --
+wrote restored-report.txt (41 bytes)
+-- golden/destination-issues.jsonl --
+{"id":"dest-1","title":"Keep local issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Destination-only record.","revision":2,"labels":[],"blocked":false}
+-- golden/primary-issues.jsonl --
+{"id":"eng-1","title":"Calibrate shields","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Primary shield calibration.","revision":4,"labels":[],"blocked":false}
+-- golden/repeated-restore.json --
+{"source":"$WORK/selected.cardamom","destination":"$WORK/destination","projects":1,"boards":1,"blobs":1,"already_completed_boards":1}
