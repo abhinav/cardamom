@@ -3,6 +3,7 @@ package backup
 import (
 	"archive/zip"
 	"crypto/sha256"
+	"encoding/base64"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -48,7 +49,7 @@ type Board struct {
 	// SnapshotVersion identifies the semantic board-copy contract.
 	SnapshotVersion int
 
-	// SnapshotDigest identifies the canonical semantic snapshot.
+	// SnapshotDigest identifies canonical semantics after source normalization.
 	SnapshotDigest string
 
 	// member contains the validated ZIP lookup and integrity metadata.
@@ -61,23 +62,25 @@ type Board struct {
 // A content error after a member starts poisons the writer and is returned again
 // from Close.
 type Writer struct {
-	archive  *zip.Writer
-	manifest backupv1.Manifest
-	projects map[project.ID]struct{}
-	boards   map[board.ID]struct{}
-	blobs    map[attachment.Digest]struct{}
-	err      error
-	closed   bool
+	archive         *zip.Writer
+	manifest        backupv1.Manifest
+	projects        map[project.ID]struct{}
+	boards          map[board.ID]struct{}
+	blobs           map[attachment.Digest]struct{}
+	referencedBlobs map[attachment.Digest]attachment.BlobDescriptor
+	err             error
+	closed          bool
 }
 
 // NewWriter constructs a streaming portable backup writer.
 func NewWriter(destination io.Writer) *Writer {
 	return &Writer{
-		archive:  zip.NewWriter(destination),
-		manifest: backupv1.Manifest{Version: Version},
-		projects: make(map[project.ID]struct{}),
-		boards:   make(map[board.ID]struct{}),
-		blobs:    make(map[attachment.Digest]struct{}),
+		archive:         zip.NewWriter(destination),
+		manifest:        backupv1.Manifest{Version: Version},
+		projects:        make(map[project.ID]struct{}),
+		boards:          make(map[board.ID]struct{}),
+		blobs:           make(map[attachment.Digest]struct{}),
+		referencedBlobs: make(map[attachment.Digest]attachment.BlobDescriptor),
 	}
 }
 
@@ -104,10 +107,11 @@ func (w *Writer) AddProject(snapshot project.Snapshot) error {
 	return nil
 }
 
-// AddBoard writes one complete semantic board-copy snapshot.
+// AddBoard streams one complete semantic board publication into its ZIP member.
 func (w *Writer) AddBoard(
 	projectID project.ID,
-	snapshot boardcopy.CopySnapshot,
+	boardID board.ID,
+	records boardcopy.RecordSequence,
 ) error {
 	if err := w.ready(); err != nil {
 		return err
@@ -115,46 +119,95 @@ func (w *Writer) AddBoard(
 	if _, exists := w.projects[projectID]; !exists {
 		return fmt.Errorf("archive project %q is not registered", projectID)
 	}
-	boardID, err := board.NewID(snapshot.Board.ID)
+	boardID, err := board.NewID(boardID.String())
 	if err != nil {
 		return fmt.Errorf("validate archive board: %w", err)
 	}
 	if _, exists := w.boards[boardID]; exists {
 		return fmt.Errorf("archive board %q is duplicated", boardID)
 	}
-	if strings.TrimSpace(snapshot.SourceLineageID) == "" {
-		return errors.New("archive board source lineage is required")
+	if records == nil {
+		return fmt.Errorf("archive board %q records are required", boardID)
 	}
-
-	snapshot = boardcopy.PrepareSnapshot(snapshot)
-	encoded, err := snapshotToProto(snapshot)
+	memberName := boardMember(boardID)
+	destination, err := w.archive.CreateHeader(&zip.FileHeader{
+		Name:   memberName,
+		Method: zip.Deflate,
+	})
 	if err != nil {
-		return fmt.Errorf("encode archive board %q: %w", boardID, err)
+		return w.poison(fmt.Errorf(
+			"write archive board %q: create member %q: %w",
+			boardID,
+			memberName,
+			err,
+		))
 	}
-	body, err := proto.MarshalOptions{Deterministic: true}.Marshal(encoded)
-	if err != nil {
-		return fmt.Errorf("marshal archive board %q: %w", boardID, err)
+	member := newArchiveMemberWriter(destination)
+	encoder := NewBoardRecordEncoder(member)
+	indexer := boardcopy.NewRecordIndexer()
+	for record, recordErr := range records {
+		if recordErr != nil {
+			return w.poison(fmt.Errorf(
+				"write archive board %q: read record: %w",
+				boardID,
+				recordErr,
+			))
+		}
+		if err := indexer.Add(record); err != nil {
+			return w.poison(fmt.Errorf("write archive board %q: %w", boardID, err))
+		}
+		if err := encoder.Write(record); err != nil {
+			return w.poison(fmt.Errorf("write archive board %q: %w", boardID, err))
+		}
 	}
-	memberName, err := boardMember(snapshot.Digest)
-	if err != nil {
-		return fmt.Errorf("name archive board %q: %w", boardID, err)
-	}
-	descriptor, err := w.writeBytes(memberName, zip.Deflate, body)
+	index, err := indexer.Finish()
 	if err != nil {
 		return w.poison(fmt.Errorf("write archive board %q: %w", boardID, err))
 	}
+	if index.Header.Board.ID != boardID.String() {
+		return w.poison(fmt.Errorf(
+			"write archive board %q: record header identifies board %q",
+			boardID,
+			index.Header.Board.ID,
+		))
+	}
+	for _, descriptor := range index.Blobs {
+		prior, found := w.referencedBlobs[descriptor.Digest]
+		if found && prior != descriptor {
+			return w.poison(fmt.Errorf(
+				"write archive board %q: blob %s has conflicting descriptors",
+				boardID,
+				descriptor.Digest,
+			))
+		}
+		w.referencedBlobs[descriptor.Digest] = descriptor
+	}
+	descriptor := member.Descriptor(memberName)
+	header := index.Header
 
 	w.boards[boardID] = struct{}{}
 	w.manifest.Boards = append(w.manifest.Boards, &backupv1.BoardPublication{
 		ProjectId:       projectID.String(),
-		SourceLineageId: snapshot.SourceLineageID,
+		SourceLineageId: header.SourceLineageID,
 		SourceBoardId:   boardID.String(),
-		SourceRevision:  snapshot.SourceRevision,
-		SnapshotVersion: uint32(snapshot.Version),
-		SnapshotDigest:  snapshot.Digest,
+		SourceRevision:  header.SourceRevision,
+		SnapshotVersion: uint32(header.Version),
+		SnapshotDigest:  index.Digest,
 		Member:          memberToProto(descriptor),
 	})
 	return nil
+}
+
+// ReferencedBlobs returns deduplicated attachment content referenced by boards.
+func (w *Writer) ReferencedBlobs() []attachment.BlobDescriptor {
+	descriptors := make([]attachment.BlobDescriptor, 0, len(w.referencedBlobs))
+	for _, descriptor := range w.referencedBlobs {
+		descriptors = append(descriptors, descriptor)
+	}
+	slices.SortFunc(descriptors, func(left, right attachment.BlobDescriptor) int {
+		return strings.Compare(left.Digest.String(), right.Digest.String())
+	})
+	return descriptors
 }
 
 // AddBlob streams one verified, deduplicated attachment body into the archive.
@@ -351,61 +404,58 @@ func (r *Reader) Blobs() []attachment.BlobDescriptor {
 	return slices.Clone(r.blobs)
 }
 
-// ReadBoard reads, verifies, and decodes one publication returned by Boards.
-func (r *Reader) ReadBoard(publication Board) (boardcopy.CopySnapshot, error) {
+// OpenBoard returns one incremental publication from Boards.
+// Full iteration verifies protobuf framing, member size, and member digest.
+func (r *Reader) OpenBoard(
+	publication Board,
+) (boardcopy.RecordSequence, error) {
 	if _, found := r.boardCatalog[publication]; !found {
-		return boardcopy.CopySnapshot{}, fmt.Errorf(
+		return nil, fmt.Errorf(
 			"archive board %q is not in this catalog",
 			publication.SourceBoardID,
 		)
 	}
-	reader, err := openVerifiedMember(r.files[publication.member.name], publication.member)
-	if err != nil {
-		return boardcopy.CopySnapshot{}, err
-	}
-	body, readErr := io.ReadAll(reader)
-	err = errors.Join(readErr, reader.Close())
-	if err != nil {
-		return boardcopy.CopySnapshot{}, fmt.Errorf(
-			"read archive board %q: %w",
-			publication.SourceBoardID,
-			err,
+	return func(yield func(boardcopy.Record, error) bool) {
+		reader, err := openVerifiedMember(
+			r.files[publication.member.name],
+			publication.member,
 		)
-	}
-	var encoded backupv1.BoardSnapshot
-	if err := proto.Unmarshal(body, &encoded); err != nil {
-		return boardcopy.CopySnapshot{}, fmt.Errorf(
-			"unmarshal archive board %q: %w",
-			publication.SourceBoardID,
-			err,
-		)
-	}
-	snapshot, err := snapshotFromProto(&encoded)
-	if err != nil {
-		return boardcopy.CopySnapshot{}, fmt.Errorf(
-			"decode archive board %q: %w",
-			publication.SourceBoardID,
-			err,
-		)
-	}
-	if err := boardcopy.VerifySnapshot(snapshot); err != nil {
-		return boardcopy.CopySnapshot{}, fmt.Errorf(
-			"verify archive board %q: %w",
-			publication.SourceBoardID,
-			err,
-		)
-	}
-	if snapshot.SourceLineageID != publication.SourceLineageID ||
-		snapshot.SourceRevision != publication.SourceRevision ||
-		snapshot.Version != publication.SnapshotVersion ||
-		snapshot.Digest != publication.SnapshotDigest ||
-		snapshot.Board.ID != publication.SourceBoardID.String() {
-		return boardcopy.CopySnapshot{}, fmt.Errorf(
-			"archive board %q does not match its manifest publication",
-			publication.SourceBoardID,
-		)
-	}
-	return snapshot, nil
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		mayYield := true
+		defer func() {
+			err := reader.Close()
+			if err != nil && mayYield {
+				yield(nil, fmt.Errorf(
+					"read archive board %q: %w",
+					publication.SourceBoardID,
+					err,
+				))
+			}
+		}()
+
+		decoder := NewBoardRecordDecoder(reader, publication.member.sizeBytes)
+		for {
+			record, err := decoder.Read()
+			if errors.Is(err, io.EOF) {
+				return
+			}
+			if err != nil {
+				mayYield = yield(nil, fmt.Errorf(
+					"read archive board %q: %w",
+					publication.SourceBoardID,
+					err,
+				))
+				return
+			}
+			if !yield(record, nil) {
+				mayYield = false
+				return
+			}
+		}
+	}, nil
 }
 
 // OpenBlob opens one descriptor returned by Blobs and verifies its size and
@@ -445,12 +495,9 @@ func memberToProto(value archiveMember) *backupv1.Member {
 	}
 }
 
-func boardMember(digest string) (string, error) {
-	parsed, err := attachment.NewDigest(digest)
-	if err != nil {
-		return "", err
-	}
-	return "boards/sha256/" + strings.TrimPrefix(parsed.String(), "sha256:"), nil
+func boardMember(boardID board.ID) string {
+	encoded := base64.RawURLEncoding.EncodeToString([]byte(boardID.String()))
+	return "boards/id/" + encoded
 }
 
 func blobMember(digest attachment.Digest) string {
@@ -479,6 +526,38 @@ type verifiedMemberReader struct {
 	err      error
 	done     bool
 	closed   bool
+}
+
+// archiveMemberWriter records integrity facts for the uncompressed bytes that
+// the ZIP member accepts.
+type archiveMemberWriter struct {
+	destination io.Writer
+	hash        hash.Hash
+	size        uint64
+}
+
+func newArchiveMemberWriter(destination io.Writer) *archiveMemberWriter {
+	return &archiveMemberWriter{destination: destination, hash: sha256.New()}
+}
+
+func (w *archiveMemberWriter) Write(p []byte) (int, error) {
+	n, err := w.destination.Write(p)
+	if n > 0 {
+		w.size += uint64(n)
+		_, _ = w.hash.Write(p[:n])
+	}
+	if err == nil && n != len(p) {
+		err = io.ErrShortWrite
+	}
+	return n, err
+}
+
+func (w *archiveMemberWriter) Descriptor(name string) archiveMember {
+	return archiveMember{
+		name:      name,
+		sizeBytes: w.size,
+		digest:    digestString(w.hash.Sum(nil)),
+	}
 }
 
 func openVerifiedMember(

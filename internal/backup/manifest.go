@@ -85,14 +85,7 @@ func validateManifest(
 				publication.GetSnapshotVersion(),
 			)
 		}
-		name, err := boardMember(publication.GetSnapshotDigest())
-		if err != nil {
-			return nil, nil, nil, fmt.Errorf(
-				"archive board %q has invalid snapshot digest: %w",
-				boardID,
-				err,
-			)
-		}
+		name := boardMember(boardID)
 		indexed, err := memberFromProto(publication.GetMember())
 		if err != nil {
 			return nil, nil, nil, fmt.Errorf(
@@ -106,6 +99,13 @@ func validateManifest(
 				"archive board %q uses noncanonical member %q",
 				boardID,
 				indexed.name,
+			)
+		}
+		if _, err := attachment.NewDigest(publication.GetSnapshotDigest()); err != nil {
+			return nil, nil, nil, fmt.Errorf(
+				"archive board %q has invalid snapshot digest: %w",
+				boardID,
+				err,
 			)
 		}
 		if err := registerMember(expectedMembers, files, indexed); err != nil {

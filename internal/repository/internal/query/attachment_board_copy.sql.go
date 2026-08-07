@@ -95,7 +95,7 @@ func (q *Queries) AttachmentInsertCopiedMetadata(ctx context.Context, arg Attach
 	return err
 }
 
-const attachmentListCopyMetadata = `-- name: AttachmentListCopyMetadata :many
+const attachmentListCopyMetadataPage = `-- name: AttachmentListCopyMetadataPage :many
 SELECT
     id,
     origin_issue_id,
@@ -110,10 +110,18 @@ SELECT
     removed_at
 FROM attachments
 WHERE board_id = ?1
+    AND id > ?2
 ORDER BY id
+LIMIT ?3
 `
 
-type AttachmentListCopyMetadataRow struct {
+type AttachmentListCopyMetadataPageParams struct {
+	BoardID  string
+	AfterID  string
+	PageSize int64
+}
+
+type AttachmentListCopyMetadataPageRow struct {
 	ID            string
 	OriginIssueID *string
 	BlobDigest    string
@@ -127,15 +135,15 @@ type AttachmentListCopyMetadataRow struct {
 	RemovedAt     *time.Time
 }
 
-func (q *Queries) AttachmentListCopyMetadata(ctx context.Context, boardID string) ([]AttachmentListCopyMetadataRow, error) {
-	rows, err := q.db.QueryContext(ctx, attachmentListCopyMetadata, boardID)
+func (q *Queries) AttachmentListCopyMetadataPage(ctx context.Context, arg AttachmentListCopyMetadataPageParams) ([]AttachmentListCopyMetadataPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, attachmentListCopyMetadataPage, arg.BoardID, arg.AfterID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []AttachmentListCopyMetadataRow
+	var items []AttachmentListCopyMetadataPageRow
 	for rows.Next() {
-		var i AttachmentListCopyMetadataRow
+		var i AttachmentListCopyMetadataPageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.OriginIssueID,

@@ -91,6 +91,10 @@ Keep command and Connect packages limited to parsing, protocol translation,
 and rendering.
 Domain operations own product policy.
 Repository implementations own persistence and transaction boundaries.
+Operations over persisted collections must stream or batch record bodies
+and large payloads rather than materializing complete datasets.
+Compact metadata and indexes may remain in memory
+when that keeps the design simpler.
 Author new stable production repository SQL for sqlc generation;
 repository ownership does not permit handwritten runtime queries.
 `internal/process` owns process lifetime and dependency composition.

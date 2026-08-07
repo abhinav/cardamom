@@ -36,8 +36,8 @@ message Project {
   google.protobuf.Timestamp created_at = 3;
 }
 
-// BoardPublication binds one source board view to its serialized snapshot
-// member and source project.
+// BoardPublication binds one source board view to its incremental record member
+// and source project.
 message BoardPublication {
   // project_id must reference one Manifest.projects entry.
   string project_id = 1;
@@ -55,14 +55,17 @@ message BoardPublication {
   int64 source_revision = 4;
 
   // snapshot_version selects the semantic board-copy digest contract.
-  // Readers accept only the current board-copy version.
+  // It must equal BoardHeader.version in the referenced member.
+  // Archive format version 1 readers accept semantic version 2.
   uint32 snapshot_version = 5;
 
-  // snapshot_digest is the canonical SHA-256 digest of the semantic snapshot.
+  // snapshot_digest is the SHA-256 digest of the versioned deterministic
+  // semantic fields in the complete canonical BoardRecord sequence.
+  // It excludes source lineage, source revision, and archive protobuf framing.
   string snapshot_digest = 6;
 
-  // member is required and describes the encoded BoardSnapshot.
-  // Its name must be boards/sha256/<snapshot digest hex>.
+  // member is required and describes the encoded BoardRecord sequence.
+  // Its name must be boards/id/<unpadded base64url source_board_id>.
   Member member = 7;
 }
 
@@ -90,63 +93,90 @@ message Member {
   string digest = 3;
 }
 
-// BoardSnapshot is the complete semantic board-copy publication encoded in a
-// BoardPublication member.
+// BoardRecord is one length-delimited value in an archive format version 1
+// board member.
 //
-// The source publication fields must match the enclosing BoardPublication.
-// Collection order is canonical and contributes to digest verification.
-message BoardSnapshot {
-  // source_lineage_id must equal BoardPublication.source_lineage_id.
-  string source_lineage_id = 1;
+// A canonical member contains one header, payload sections in field-number
+// order with each section using the key order below, and one trailer.
+// Deterministic protobuf framing determines Member.digest and Member.size_bytes.
+// BoardPublication.snapshot_digest instead covers normalized semantic fields
+// and is not embedded in this sequence.
+message BoardRecord {
+  oneof value {
+    BoardHeader header = 1;
 
-  // source_revision must equal BoardPublication.source_revision.
-  int64 source_revision = 2;
+    // issue records are ordered by Issue.id.
+    Issue issue = 2;
 
-  // version must equal BoardPublication.snapshot_version.
-  uint32 version = 3;
+    // label records are ordered by Label.issue_id, then Label.value.
+    Label label = 3;
 
-  // digest must equal BoardPublication.snapshot_digest.
-  string digest = 4;
+    // dependency records are ordered by Dependency.issue_id,
+    // then Dependency.prerequisite_id.
+    Dependency dependency = 4;
 
-  // board is required and its ID must equal BoardPublication.source_board_id.
-  Board board = 5;
+    // containment records are ordered by Containment.child_id.
+    Containment containment = 5;
+
+    // external_key records are ordered by ExternalKey.key,
+    // then ExternalKey.issue_id.
+    ExternalKey external_key = 6;
+
+    // log_entry records use contiguous zero-based LogEntry.order values.
+    LogEntry log_entry = 7;
+
+    // state records are ordered by State.issue_id.
+    State state = 8;
+
+    // result records are ordered by Result.issue_id.
+    Result result = 9;
+
+    // checkpoint records are ordered by Checkpoint.issue_id.
+    Checkpoint checkpoint = 10;
+
+    // attachment records are ordered by Attachment.id.
+    Attachment attachment = 11;
+
+    BoardTrailer trailer = 12;
+  }
+}
+
+// BoardHeader is the required first record in a board member.
+message BoardHeader {
+  // version selects the semantic board-copy contract.
+  // Archive format version 1 readers accept semantic version 2.
+  uint32 version = 1;
+
+  // source_lineage_id is the stable lineage minted by the source store.
+  // The semantic digest excludes this retained-view coordinate.
+  string source_lineage_id = 2;
+
+  // source_revision is the retained source view used for every record.
+  // The semantic digest excludes this retained-view coordinate.
+  int64 source_revision = 3;
+
+  // board is required and identifies the source board namespace.
+  Board board = 4;
 
   // configuration is required and contains the effective source policy.
-  Configuration configuration = 6;
+  Configuration configuration = 5;
+}
 
-  // issues is complete and ordered by issue ID.
-  repeated Issue issues = 7;
-
-  // labels is ordered by issue ID and then label value.
-  repeated Label labels = 8;
-
-  // dependencies is ordered by dependent issue ID and then prerequisite ID.
-  repeated Dependency dependencies = 9;
-
-  // containment is ordered by child issue ID and then parent issue ID.
-  repeated Containment containment = 10;
-
-  // external_keys is ordered by producer key and then issue ID.
-  repeated ExternalKey external_keys = 11;
-
-  // log_entries is ordered by source Log order and then Log entry ID.
-  repeated LogEntry log_entries = 12;
-
-  // states contains at most one current recovery record per issue,
-  // ordered by issue ID.
-  repeated State states = 13;
-
-  // results contains at most one current durable outcome per issue,
-  // ordered by issue ID.
-  repeated Result results = 14;
-
-  // checkpoints contains one terminal decision per checkpoint issue,
-  // ordered by issue ID.
-  repeated Checkpoint checkpoints = 15;
-
-  // attachments includes active and removed metadata,
-  // ordered by attachment ID.
-  repeated Attachment attachments = 16;
+// BoardTrailer is the required final record in a board member.
+//
+// Counts detect a stream that ends at an intermediate record boundary without
+// requiring a digest value inside the stream.
+message BoardTrailer {
+  uint64 issues = 1;
+  uint64 labels = 2;
+  uint64 dependencies = 3;
+  uint64 containment = 4;
+  uint64 external_keys = 5;
+  uint64 log_entries = 6;
+  uint64 states = 7;
+  uint64 results = 8;
+  uint64 checkpoints = 9;
+  uint64 attachments = 10;
 }
 
 // Board preserves the source namespace and presentation restored into a new

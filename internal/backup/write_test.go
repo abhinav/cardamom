@@ -23,15 +23,9 @@ func TestOperation_WriteSelectsBoardsAndDeduplicatesBlobs(t *testing.T) {
 	descriptor := testWriteBlobDescriptor(t)
 	projectOne := testWriteProject("project-one")
 	projectTwo := testWriteProject("project-two")
-	boards := []CapturedBoard{
-		{
-			ProjectID: projectOne.ID,
-			Snapshot:  testWriteBoard("board-one", descriptor),
-		},
-		{
-			ProjectID: projectTwo.ID,
-			Snapshot:  testWriteBoard("board-two", descriptor),
-		},
+	boards := []writeTestCapturedBoard{
+		testWriteCapturedBoard(projectOne.ID, "board-one", descriptor),
+		testWriteCapturedBoard(projectTwo.ID, "board-two", descriptor),
 	}
 
 	tests := []struct {
@@ -109,10 +103,11 @@ func TestOperation_WriteRejectsConfigurationChange(t *testing.T) {
 	operation := NewOperation(OperationConfig{
 		Source: &writeTestSource{
 			projects: []project.Snapshot{testWriteProject("project-one")},
-			boards: []CapturedBoard{{
-				ProjectID: "project-one",
-				Snapshot:  testWriteBoard("board-one", testWriteBlobDescriptor(t)),
-			}},
+			boards: []writeTestCapturedBoard{testWriteCapturedBoard(
+				"project-one",
+				"board-one",
+				testWriteBlobDescriptor(t),
+			)},
 		},
 		Blobs:         &writeTestBlobs{},
 		Configuration: &changingWriteTestConfiguration{values: []configuration.Overrides{before, after}},
@@ -135,10 +130,11 @@ func TestOperation_WriteFailurePreservesDestination(t *testing.T) {
 	operation := NewOperation(OperationConfig{
 		Source: &writeTestSource{
 			projects: []project.Snapshot{testWriteProject("project-one")},
-			boards: []CapturedBoard{{
-				ProjectID: "project-one",
-				Snapshot:  testWriteBoard("board-one", descriptor),
-			}},
+			boards: []writeTestCapturedBoard{testWriteCapturedBoard(
+				"project-one",
+				"board-one",
+				descriptor,
+			)},
 		},
 		Blobs:         &writeTestBlobs{body: []byte("bad")},
 		Configuration: writeTestConfiguration{},
@@ -159,6 +155,36 @@ func TestOperation_WriteFailurePreservesDestination(t *testing.T) {
 	)
 	require.NoError(t, globErr)
 	assert.Empty(t, temporary)
+}
+
+func TestOperation_WriteReleasesCaptureBeforeConfigurationAndBlobs(t *testing.T) {
+	descriptor := testWriteBlobDescriptor(t)
+	lifetime := &writeTestCaptureLifetime{}
+	source := &lifetimeWriteTestSource{
+		lifetime: lifetime,
+		project:  testWriteProject("project-one"),
+		board:    testWriteCapturedBoard("project-one", "board-one", descriptor),
+	}
+	configuration := &lifetimeWriteTestConfiguration{lifetime: lifetime}
+	blobs := &lifetimeWriteTestBlobs{
+		lifetime: lifetime,
+		body:     []byte("data"),
+	}
+	operation := NewOperation(OperationConfig{
+		Source:        source,
+		Blobs:         blobs,
+		Configuration: configuration,
+		Publisher:     &FilePublisher{},
+	})
+
+	_, err := operation.Write(t.Context(), WriteRequest{
+		Destination: filepath.Join(t.TempDir(), "portable-backup"),
+		Selection:   AllBoards(),
+	})
+	require.NoError(t, err)
+	assert.False(t, lifetime.active)
+	assert.Equal(t, 2, configuration.reads)
+	assert.Equal(t, 1, blobs.opens)
 }
 
 func TestFilePublisher_PublishFailurePreservesDestination(t *testing.T) {
@@ -183,15 +209,92 @@ func TestFilePublisher_PublishFailurePreservesDestination(t *testing.T) {
 
 type writeTestSource struct {
 	projects  []project.Snapshot
-	boards    []CapturedBoard
+	boards    []writeTestCapturedBoard
 	selection Selection
+}
+
+type writeTestCapturedBoard struct {
+	projectID project.ID
+	boardID   board.ID
+	records   boardcopy.RecordSequence
+}
+
+type writeTestCaptureLifetime struct {
+	active bool
+}
+
+type lifetimeWriteTestSource struct {
+	lifetime *writeTestCaptureLifetime
+	project  project.Snapshot
+	board    writeTestCapturedBoard
+}
+
+func (s *lifetimeWriteTestSource) Capture(
+	_ context.Context,
+	_ Selection,
+	_ configuration.Overrides,
+	destination CaptureDestination,
+) (CaptureResult, error) {
+	s.lifetime.active = true
+	defer func() { s.lifetime.active = false }()
+	if err := destination.AddProject(s.project); err != nil {
+		return CaptureResult{}, err
+	}
+	if err := destination.AddBoard(
+		s.board.projectID,
+		s.board.boardID,
+		s.board.records,
+	); err != nil {
+		return CaptureResult{}, err
+	}
+	return CaptureResult{
+		SourceLineageID: "lineage-one",
+		SourceRevision:  7,
+		Projects:        1,
+		Boards:          1,
+	}, nil
+}
+
+type lifetimeWriteTestConfiguration struct {
+	lifetime *writeTestCaptureLifetime
+	reads    int
+}
+
+func (c *lifetimeWriteTestConfiguration) ReadStoreConfiguration(
+	context.Context,
+) (configuration.Overrides, error) {
+	if c.reads > 0 && c.lifetime.active {
+		return configuration.Overrides{}, errors.New(
+			"source configuration read during capture",
+		)
+	}
+	c.reads++
+	return configuration.Overrides{}, nil
+}
+
+type lifetimeWriteTestBlobs struct {
+	lifetime *writeTestCaptureLifetime
+	body     []byte
+	opens    int
+}
+
+func (b *lifetimeWriteTestBlobs) OpenCopyBlob(
+	context.Context,
+	attachment.BlobDescriptor,
+) (io.ReadCloser, error) {
+	if b.lifetime.active {
+		return nil, errors.New("source blob opened during capture")
+	}
+	b.opens++
+	return io.NopCloser(bytes.NewReader(b.body)), nil
 }
 
 func (s *writeTestSource) Capture(
 	_ context.Context,
 	selection Selection,
 	_ configuration.Overrides,
-) (Capture, error) {
+	destination CaptureDestination,
+) (CaptureResult, error) {
 	s.selection = selection
 	selected := s.boards
 	projects := s.projects
@@ -203,11 +306,11 @@ func (s *writeTestSource) Capture(
 		selected = nil
 		projectIDs := make(map[project.ID]struct{})
 		for _, value := range s.boards {
-			if _, found := wanted[board.ID(value.Snapshot.Board.ID)]; !found {
+			if _, found := wanted[value.boardID]; !found {
 				continue
 			}
 			selected = append(selected, value)
-			projectIDs[value.ProjectID] = struct{}{}
+			projectIDs[value.projectID] = struct{}{}
 		}
 		projects = nil
 		for _, value := range s.projects {
@@ -216,11 +319,25 @@ func (s *writeTestSource) Capture(
 			}
 		}
 	}
-	return Capture{
+	for _, value := range projects {
+		if err := destination.AddProject(value); err != nil {
+			return CaptureResult{}, err
+		}
+	}
+	for _, value := range selected {
+		if err := destination.AddBoard(
+			value.projectID,
+			value.boardID,
+			value.records,
+		); err != nil {
+			return CaptureResult{}, err
+		}
+	}
+	return CaptureResult{
 		SourceLineageID: "lineage-one",
 		SourceRevision:  7,
-		Projects:        projects,
-		Boards:          selected,
+		Projects:        len(projects),
+		Boards:          len(selected),
 	}, nil
 }
 
@@ -273,8 +390,8 @@ func testWriteProject(id project.ID) project.Snapshot {
 func testWriteBoard(
 	id board.ID,
 	descriptor attachment.BlobDescriptor,
-) boardcopy.CopySnapshot {
-	snapshot := boardcopy.CopySnapshot{
+) testBoardSnapshot {
+	snapshot := testBoardSnapshot{
 		SourceLineageID: "lineage-one",
 		SourceRevision:  7,
 		Board: boardcopy.CopyBoard{
@@ -294,6 +411,19 @@ func testWriteBoard(
 		}}
 	}
 	return snapshot
+}
+
+func testWriteCapturedBoard(
+	projectID project.ID,
+	boardID board.ID,
+	descriptor attachment.BlobDescriptor,
+) writeTestCapturedBoard {
+	snapshot := testWriteBoard(boardID, descriptor)
+	return writeTestCapturedBoard{
+		projectID: projectID,
+		boardID:   boardID,
+		records:   boardRecordSequence(testBoardRecords(snapshot)),
+	}
 }
 
 func testWriteBlobDescriptor(t *testing.T) attachment.BlobDescriptor {

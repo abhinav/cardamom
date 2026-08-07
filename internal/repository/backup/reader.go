@@ -25,7 +25,7 @@ var _ domainbackup.Source = (*Reader)(nil)
 type Reader struct {
 	store    *store.Store   // required
 	projects projectCatalog // required
-	boards   boardSnapshots // required
+	boards   boardRecords   // required
 }
 
 // projectCatalog resolves selected boards and their project metadata through a
@@ -38,15 +38,15 @@ type projectCatalog interface {
 	) ([]repositoryproject.BackupBoard, error)
 }
 
-// boardSnapshots reads semantic board state without ending the retained view.
-type boardSnapshots interface {
-	ReadBackupSnapshot(
+// boardRecords yields semantic board state without ending the retained view.
+type boardRecords interface {
+	ReadBackupRecords(
 		context.Context,
 		*store.View,
 		board.ID,
 		configuration.Overrides,
 		repositoryboard.BackupSource,
-	) (boardcopy.CopySnapshot, error)
+	) boardcopy.RecordSequence
 }
 
 // New binds backup capture to one store and its owner-local readers.
@@ -59,60 +59,73 @@ func New(persistence *store.Store) *Reader {
 	}
 }
 
-// Capture reads project metadata and every selected semantic board snapshot
-// from one retained canonical revision.
+// Capture streams selected project and board state from one retained canonical
+// revision, then releases the view before returning.
 func (r *Reader) Capture(
 	ctx context.Context,
 	selection domainbackup.Selection,
 	storeOverrides configuration.Overrides,
-) (captured domainbackup.Capture, err error) {
+	destination domainbackup.CaptureDestination,
+) (result domainbackup.CaptureResult, err error) {
 	if err := storeOverrides.Validate(); err != nil {
-		return captured, fmt.Errorf("source store configuration: %w", err)
+		return result, fmt.Errorf("source store configuration: %w", err)
 	}
 	view, err := r.store.View(ctx)
 	if err != nil {
-		return captured, fmt.Errorf("begin backup capture: %w", err)
+		return result, fmt.Errorf("begin backup capture: %w", err)
 	}
-	defer func() { err = errors.Join(err, view.Done()) }()
+	defer func() {
+		if closeErr := view.Done(); closeErr != nil {
+			err = errors.Join(
+				err,
+				fmt.Errorf("close backup capture: %w", closeErr),
+			)
+		}
+	}()
 
 	lineageID, err := view.LineageID(ctx)
 	if err != nil {
-		return captured, err
+		return result, err
 	}
 	revision, err := view.CanonicalRevision(ctx)
 	if err != nil {
-		return captured, fmt.Errorf("read backup source revision: %w", err)
+		return result, fmt.Errorf("read backup source revision: %w", err)
 	}
 	selected, err := r.projects.ReadBackupBoards(ctx, view, selection)
 	if err != nil {
-		return captured, err
+		return result, err
 	}
 	source := repositoryboard.BackupSource{
 		LineageID: lineageID,
 		Revision:  revision,
 	}
-	captured.SourceLineageID = lineageID
-	captured.SourceRevision = revision
+	result = domainbackup.CaptureResult{
+		SourceLineageID: lineageID,
+		SourceRevision:  revision,
+	}
 	projectIDs := make(map[project.ID]struct{})
 	for _, selectedBoard := range selected {
 		if _, found := projectIDs[selectedBoard.Project.ID]; !found {
-			captured.Projects = append(captured.Projects, selectedBoard.Project)
+			if err := destination.AddProject(selectedBoard.Project); err != nil {
+				return result, err
+			}
 			projectIDs[selectedBoard.Project.ID] = struct{}{}
+			result.Projects++
 		}
-		snapshot, err := r.boards.ReadBackupSnapshot(
-			ctx,
-			view,
+		if err := destination.AddBoard(
+			selectedBoard.Project.ID,
 			selectedBoard.BoardID,
-			storeOverrides,
-			source,
-		)
-		if err != nil {
-			return captured, err
+			r.boards.ReadBackupRecords(
+				ctx,
+				view,
+				selectedBoard.BoardID,
+				storeOverrides,
+				source,
+			),
+		); err != nil {
+			return result, err
 		}
-		captured.Boards = append(captured.Boards, domainbackup.CapturedBoard{
-			ProjectID: selectedBoard.Project.ID,
-			Snapshot:  snapshot,
-		})
+		result.Boards++
 	}
-	return captured, nil
+	return result, nil
 }

@@ -77,29 +77,37 @@ func (q *Queries) BoardGetCopySource(ctx context.Context, boardID string) (Board
 	return i, err
 }
 
-const boardListCopyCheckpoints = `-- name: BoardListCopyCheckpoints :many
+const boardListCopyCheckpointPage = `-- name: BoardListCopyCheckpointPage :many
 SELECT issue_id, outcome, reason, decided_at
 FROM checkpoint_decisions
 WHERE board_id = ?1
+    AND issue_id > ?2
 ORDER BY issue_id
+LIMIT ?3
 `
 
-type BoardListCopyCheckpointsRow struct {
+type BoardListCopyCheckpointPageParams struct {
+	BoardID      string
+	AfterIssueID string
+	PageSize     int64
+}
+
+type BoardListCopyCheckpointPageRow struct {
 	IssueID   string
 	Outcome   string
 	Reason    string
 	DecidedAt time.Time
 }
 
-func (q *Queries) BoardListCopyCheckpoints(ctx context.Context, boardID string) ([]BoardListCopyCheckpointsRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyCheckpoints, boardID)
+func (q *Queries) BoardListCopyCheckpointPage(ctx context.Context, arg BoardListCopyCheckpointPageParams) ([]BoardListCopyCheckpointPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyCheckpointPage, arg.BoardID, arg.AfterIssueID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyCheckpointsRow
+	var items []BoardListCopyCheckpointPageRow
 	for rows.Next() {
-		var i BoardListCopyCheckpointsRow
+		var i BoardListCopyCheckpointPageRow
 		if err := rows.Scan(
 			&i.IssueID,
 			&i.Outcome,
@@ -119,27 +127,35 @@ func (q *Queries) BoardListCopyCheckpoints(ctx context.Context, boardID string) 
 	return items, nil
 }
 
-const boardListCopyContainment = `-- name: BoardListCopyContainment :many
+const boardListCopyContainmentPage = `-- name: BoardListCopyContainmentPage :many
 SELECT child_id, parent_id
 FROM containment
 WHERE board_id = ?1
-ORDER BY child_id
+    AND child_id > ?2
+ORDER BY child_id, parent_id
+LIMIT ?3
 `
 
-type BoardListCopyContainmentRow struct {
+type BoardListCopyContainmentPageParams struct {
+	BoardID      string
+	AfterChildID string
+	PageSize     int64
+}
+
+type BoardListCopyContainmentPageRow struct {
 	ChildID  string
 	ParentID string
 }
 
-func (q *Queries) BoardListCopyContainment(ctx context.Context, boardID string) ([]BoardListCopyContainmentRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyContainment, boardID)
+func (q *Queries) BoardListCopyContainmentPage(ctx context.Context, arg BoardListCopyContainmentPageParams) ([]BoardListCopyContainmentPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyContainmentPage, arg.BoardID, arg.AfterChildID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyContainmentRow
+	var items []BoardListCopyContainmentPageRow
 	for rows.Next() {
-		var i BoardListCopyContainmentRow
+		var i BoardListCopyContainmentPageRow
 		if err := rows.Scan(&i.ChildID, &i.ParentID); err != nil {
 			return nil, err
 		}
@@ -154,27 +170,47 @@ func (q *Queries) BoardListCopyContainment(ctx context.Context, boardID string) 
 	return items, nil
 }
 
-const boardListCopyDependencies = `-- name: BoardListCopyDependencies :many
+const boardListCopyDependencyPage = `-- name: BoardListCopyDependencyPage :many
 SELECT issue_id, prerequisite_id
 FROM dependencies
 WHERE board_id = ?1
+    AND (
+        issue_id > ?2
+        OR (
+            issue_id = ?2
+            AND prerequisite_id > ?3
+        )
+    )
 ORDER BY issue_id, prerequisite_id
+LIMIT ?4
 `
 
-type BoardListCopyDependenciesRow struct {
+type BoardListCopyDependencyPageParams struct {
+	BoardID             string
+	AfterIssueID        string
+	AfterPrerequisiteID string
+	PageSize            int64
+}
+
+type BoardListCopyDependencyPageRow struct {
 	IssueID        string
 	PrerequisiteID string
 }
 
-func (q *Queries) BoardListCopyDependencies(ctx context.Context, boardID string) ([]BoardListCopyDependenciesRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyDependencies, boardID)
+func (q *Queries) BoardListCopyDependencyPage(ctx context.Context, arg BoardListCopyDependencyPageParams) ([]BoardListCopyDependencyPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyDependencyPage,
+		arg.BoardID,
+		arg.AfterIssueID,
+		arg.AfterPrerequisiteID,
+		arg.PageSize,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyDependenciesRow
+	var items []BoardListCopyDependencyPageRow
 	for rows.Next() {
-		var i BoardListCopyDependenciesRow
+		var i BoardListCopyDependencyPageRow
 		if err := rows.Scan(&i.IssueID, &i.PrerequisiteID); err != nil {
 			return nil, err
 		}
@@ -189,27 +225,47 @@ func (q *Queries) BoardListCopyDependencies(ctx context.Context, boardID string)
 	return items, nil
 }
 
-const boardListCopyExternalKeys = `-- name: BoardListCopyExternalKeys :many
+const boardListCopyExternalKeyPage = `-- name: BoardListCopyExternalKeyPage :many
 SELECT external_key, issue_id
 FROM issue_external_keys
 WHERE board_id = ?1
-ORDER BY external_key
+    AND (
+        external_key > ?2
+        OR (
+            external_key = ?2
+            AND issue_id > ?3
+        )
+    )
+ORDER BY external_key, issue_id
+LIMIT ?4
 `
 
-type BoardListCopyExternalKeysRow struct {
+type BoardListCopyExternalKeyPageParams struct {
+	BoardID          string
+	AfterExternalKey string
+	AfterIssueID     string
+	PageSize         int64
+}
+
+type BoardListCopyExternalKeyPageRow struct {
 	ExternalKey string
 	IssueID     string
 }
 
-func (q *Queries) BoardListCopyExternalKeys(ctx context.Context, boardID string) ([]BoardListCopyExternalKeysRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyExternalKeys, boardID)
+func (q *Queries) BoardListCopyExternalKeyPage(ctx context.Context, arg BoardListCopyExternalKeyPageParams) ([]BoardListCopyExternalKeyPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyExternalKeyPage,
+		arg.BoardID,
+		arg.AfterExternalKey,
+		arg.AfterIssueID,
+		arg.PageSize,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyExternalKeysRow
+	var items []BoardListCopyExternalKeyPageRow
 	for rows.Next() {
-		var i BoardListCopyExternalKeysRow
+		var i BoardListCopyExternalKeyPageRow
 		if err := rows.Scan(&i.ExternalKey, &i.IssueID); err != nil {
 			return nil, err
 		}
@@ -224,7 +280,8 @@ func (q *Queries) BoardListCopyExternalKeys(ctx context.Context, boardID string)
 	return items, nil
 }
 
-const boardListCopyIssues = `-- name: BoardListCopyIssues :many
+const boardListCopyIssuePage = `-- name: BoardListCopyIssuePage :many
+
 SELECT
     id,
     title,
@@ -240,10 +297,18 @@ SELECT
     details
 FROM issues
 WHERE board_id = ?1
+    AND id > ?2
 ORDER BY id
+LIMIT ?3
 `
 
-type BoardListCopyIssuesRow struct {
+type BoardListCopyIssuePageParams struct {
+	BoardID  string
+	AfterID  string
+	PageSize int64
+}
+
+type BoardListCopyIssuePageRow struct {
 	ID            string
 	Title         string
 	Kind          string
@@ -258,15 +323,17 @@ type BoardListCopyIssuesRow struct {
 	Details       *string
 }
 
-func (q *Queries) BoardListCopyIssues(ctx context.Context, boardID string) ([]BoardListCopyIssuesRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyIssues, boardID)
+// Incremental copy and backup traversal. Each query returns one bounded keyset
+// page from a caller-owned retained view.
+func (q *Queries) BoardListCopyIssuePage(ctx context.Context, arg BoardListCopyIssuePageParams) ([]BoardListCopyIssuePageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyIssuePage, arg.BoardID, arg.AfterID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyIssuesRow
+	var items []BoardListCopyIssuePageRow
 	for rows.Next() {
-		var i BoardListCopyIssuesRow
+		var i BoardListCopyIssuePageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Title,
@@ -294,27 +361,47 @@ func (q *Queries) BoardListCopyIssues(ctx context.Context, boardID string) ([]Bo
 	return items, nil
 }
 
-const boardListCopyLabels = `-- name: BoardListCopyLabels :many
+const boardListCopyLabelPage = `-- name: BoardListCopyLabelPage :many
 SELECT issue_id, label
 FROM issue_labels
 WHERE board_id = ?1
+    AND (
+        issue_id > ?2
+        OR (
+            issue_id = ?2
+            AND label > ?3
+        )
+    )
 ORDER BY issue_id, label
+LIMIT ?4
 `
 
-type BoardListCopyLabelsRow struct {
+type BoardListCopyLabelPageParams struct {
+	BoardID      string
+	AfterIssueID string
+	AfterLabel   string
+	PageSize     int64
+}
+
+type BoardListCopyLabelPageRow struct {
 	IssueID string
 	Label   string
 }
 
-func (q *Queries) BoardListCopyLabels(ctx context.Context, boardID string) ([]BoardListCopyLabelsRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyLabels, boardID)
+func (q *Queries) BoardListCopyLabelPage(ctx context.Context, arg BoardListCopyLabelPageParams) ([]BoardListCopyLabelPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyLabelPage,
+		arg.BoardID,
+		arg.AfterIssueID,
+		arg.AfterLabel,
+		arg.PageSize,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyLabelsRow
+	var items []BoardListCopyLabelPageRow
 	for rows.Next() {
-		var i BoardListCopyLabelsRow
+		var i BoardListCopyLabelPageRow
 		if err := rows.Scan(&i.IssueID, &i.Label); err != nil {
 			return nil, err
 		}
@@ -329,34 +416,53 @@ func (q *Queries) BoardListCopyLabels(ctx context.Context, boardID string) ([]Bo
 	return items, nil
 }
 
-const boardListCopyLogEntries = `-- name: BoardListCopyLogEntries :many
-SELECT id, issue_id, kind, author, committer, body, created_at, next_action
+const boardListCopyLogEntryPage = `-- name: BoardListCopyLogEntryPage :many
+SELECT
+    local_sequence,
+    id,
+    issue_id,
+    kind,
+    author,
+    committer,
+    body,
+    created_at,
+    next_action
 FROM issue_log_entries
 WHERE board_id = ?1
-ORDER BY local_sequence
+    AND local_sequence > ?2
+ORDER BY local_sequence, id
+LIMIT ?3
 `
 
-type BoardListCopyLogEntriesRow struct {
-	ID         string
-	IssueID    string
-	Kind       string
-	Author     *string
-	Committer  *string
-	Body       string
-	CreatedAt  *time.Time
-	NextAction *string
+type BoardListCopyLogEntryPageParams struct {
+	BoardID            string
+	AfterLocalSequence int64
+	PageSize           int64
 }
 
-func (q *Queries) BoardListCopyLogEntries(ctx context.Context, boardID string) ([]BoardListCopyLogEntriesRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyLogEntries, boardID)
+type BoardListCopyLogEntryPageRow struct {
+	LocalSequence int64
+	ID            string
+	IssueID       string
+	Kind          string
+	Author        *string
+	Committer     *string
+	Body          string
+	CreatedAt     *time.Time
+	NextAction    *string
+}
+
+func (q *Queries) BoardListCopyLogEntryPage(ctx context.Context, arg BoardListCopyLogEntryPageParams) ([]BoardListCopyLogEntryPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyLogEntryPage, arg.BoardID, arg.AfterLocalSequence, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyLogEntriesRow
+	var items []BoardListCopyLogEntryPageRow
 	for rows.Next() {
-		var i BoardListCopyLogEntriesRow
+		var i BoardListCopyLogEntryPageRow
 		if err := rows.Scan(
+			&i.LocalSequence,
 			&i.ID,
 			&i.IssueID,
 			&i.Kind,
@@ -379,27 +485,35 @@ func (q *Queries) BoardListCopyLogEntries(ctx context.Context, boardID string) (
 	return items, nil
 }
 
-const boardListCopyResults = `-- name: BoardListCopyResults :many
+const boardListCopyResultPage = `-- name: BoardListCopyResultPage :many
 SELECT issue_id, body
 FROM issue_results
 WHERE board_id = ?1
+    AND issue_id > ?2
 ORDER BY issue_id
+LIMIT ?3
 `
 
-type BoardListCopyResultsRow struct {
+type BoardListCopyResultPageParams struct {
+	BoardID      string
+	AfterIssueID string
+	PageSize     int64
+}
+
+type BoardListCopyResultPageRow struct {
 	IssueID string
 	Body    string
 }
 
-func (q *Queries) BoardListCopyResults(ctx context.Context, boardID string) ([]BoardListCopyResultsRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyResults, boardID)
+func (q *Queries) BoardListCopyResultPage(ctx context.Context, arg BoardListCopyResultPageParams) ([]BoardListCopyResultPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyResultPage, arg.BoardID, arg.AfterIssueID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyResultsRow
+	var items []BoardListCopyResultPageRow
 	for rows.Next() {
-		var i BoardListCopyResultsRow
+		var i BoardListCopyResultPageRow
 		if err := rows.Scan(&i.IssueID, &i.Body); err != nil {
 			return nil, err
 		}
@@ -414,14 +528,22 @@ func (q *Queries) BoardListCopyResults(ctx context.Context, boardID string) ([]B
 	return items, nil
 }
 
-const boardListCopyStates = `-- name: BoardListCopyStates :many
+const boardListCopyStatePage = `-- name: BoardListCopyStatePage :many
 SELECT issue_id, body, author, updated_at, snapshot_log_entry_id, next_action
 FROM issue_states
 WHERE board_id = ?1
+    AND issue_id > ?2
 ORDER BY issue_id
+LIMIT ?3
 `
 
-type BoardListCopyStatesRow struct {
+type BoardListCopyStatePageParams struct {
+	BoardID      string
+	AfterIssueID string
+	PageSize     int64
+}
+
+type BoardListCopyStatePageRow struct {
 	IssueID            string
 	Body               string
 	Author             *string
@@ -430,15 +552,15 @@ type BoardListCopyStatesRow struct {
 	NextAction         *string
 }
 
-func (q *Queries) BoardListCopyStates(ctx context.Context, boardID string) ([]BoardListCopyStatesRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyStates, boardID)
+func (q *Queries) BoardListCopyStatePage(ctx context.Context, arg BoardListCopyStatePageParams) ([]BoardListCopyStatePageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyStatePage, arg.BoardID, arg.AfterIssueID, arg.PageSize)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []BoardListCopyStatesRow
+	var items []BoardListCopyStatePageRow
 	for rows.Next() {
-		var i BoardListCopyStatesRow
+		var i BoardListCopyStatePageRow
 		if err := rows.Scan(
 			&i.IssueID,
 			&i.Body,

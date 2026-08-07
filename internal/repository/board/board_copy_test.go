@@ -52,9 +52,7 @@ func TestCopyRepositoryCopiesCompleteBoardAndRemapsCollisions(t *testing.T) {
 	require.NoError(t, err)
 	destinationRepository, err := NewCopyRepository(
 		destinationStore,
-		CopyRepositoryConfig{
-			Entropy: copyTestEntropy(),
-		},
+		CopyRepositoryConfig{Entropy: copyTestEntropy()},
 	)
 	require.NoError(t, err)
 	service := boardcopy.NewCopyService(boardcopy.CopyServiceConfig{
@@ -237,29 +235,33 @@ WHERE singleton = 1`,
 	assert.Equal(t, outcome.DestinationBoardID, retry.DestinationBoardID)
 	assert.Equal(t, int64(2), retry.SourceRevision)
 
-	snapshot, err := sourceRepository.ReadCopySnapshot(
-		t.Context(),
-		"board-source",
-		configuration.Overrides{},
+	index, err := boardcopy.IndexRecords(
+		sourceRepository.ReadCopyRecords(
+			t.Context(),
+			"board-source",
+			configuration.Overrides{},
+		),
 	)
 	require.NoError(t, err)
-	snapshot.Version = outcome.SnapshotVersion
-	snapshot.Digest = outcome.SnapshotDigest
-	renamed := "Different destination"
-	importResult, err := destinationRepository.ImportCopySnapshot(
+	assert.Equal(t, outcome.SnapshotDigest, index.Digest)
+	options := boardcopy.CopyOptions{ProjectID: "project-destination"}
+	importResult, err := destinationRepository.ImportCopyRecords(
 		t.Context(),
-		snapshot,
-		boardcopy.CopyOptions{
-			ProjectID: "project-destination",
-			Name:      &renamed,
-		},
+		index,
+		sourceRepository.ReadCopyRecords(
+			t.Context(),
+			"board-source",
+			configuration.Overrides{},
+		),
+		options,
 	)
 	require.NoError(t, err)
-	assert.Nil(t, importResult.Published)
-	require.NotNil(t, importResult.Competing)
-	assert.Equal(t, outcome.SnapshotDigest, importResult.Competing.SnapshotDigest)
-	assert.Equal(t, int64(2), importResult.Competing.SourceRevision)
-	assert.Equal(t, "Source", importResult.Competing.DestinationName)
+	concurrent, err := boardcopy.EvaluateCopyImport(index, options, importResult)
+	require.NoError(t, err)
+	assert.True(t, concurrent.AlreadyCompleted)
+	assert.Equal(t, outcome.SnapshotDigest, concurrent.SnapshotDigest)
+	assert.Equal(t, int64(2), concurrent.SourceRevision)
+	assert.Equal(t, "Source", concurrent.DestinationName)
 
 	change, err := sourceStore.Change(t.Context())
 	require.NoError(t, err)
@@ -302,7 +304,75 @@ WHERE singleton = 1`)
 	assert.ErrorContains(t, err, "incremental synchronization is not supported")
 }
 
-func TestRepository_ReadCopySnapshotRejectsOperationalState(t *testing.T) {
+func TestCopyRepositoryRollsBackChangedSecondRecordPass(t *testing.T) {
+	root := t.TempDir()
+	sourceDirectory := filepath.Join(root, "source")
+	destinationDirectory := filepath.Join(root, "destination")
+	require.NoError(t, os.MkdirAll(sourceDirectory, 0o700))
+	require.NoError(t, os.MkdirAll(destinationDirectory, 0o700))
+	sourceStore := openCopyTestStore(t, sourceDirectory)
+	destinationStore := openCopyTestStore(t, destinationDirectory)
+	seedCopySource(t, sourceStore, copyTestBlobDescriptor(t))
+	seedCopyDestinationCollisions(t, destinationStore)
+
+	source, err := New(sourceStore, Config{BoardID: "board-source"})
+	require.NoError(t, err)
+	destination, err := NewCopyRepository(
+		destinationStore,
+		CopyRepositoryConfig{Entropy: copyTestEntropy()},
+	)
+	require.NoError(t, err)
+	index, err := boardcopy.IndexRecords(
+		source.ReadCopyRecords(
+			t.Context(),
+			"board-source",
+			configuration.Overrides{},
+		),
+	)
+	require.NoError(t, err)
+
+	change, err := sourceStore.Change(t.Context())
+	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+UPDATE issues
+SET title = 'Changed between passes'
+WHERE board_id = 'board-source' AND id = 'src-1';
+UPDATE store_state
+SET current_revision = current_revision + 1
+WHERE singleton = 1`)
+	require.NoError(t, err)
+	require.NoError(t, change.Commit())
+	require.NoError(t, change.Done())
+
+	_, err = destination.ImportCopyRecords(
+		t.Context(),
+		index,
+		source.ReadCopyRecords(
+			t.Context(),
+			"board-source",
+			configuration.Overrides{},
+		),
+		boardcopy.CopyOptions{ProjectID: "project-destination"},
+	)
+	require.Error(t, err)
+	assert.ErrorContains(t, err, "source board changed while copying records")
+
+	view, err := destinationStore.View(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, view.Done()) }()
+	var boardCount, receiptCount int64
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+SELECT count(*)
+FROM boards
+WHERE project_id = 'project-destination' AND name = 'Source'`).Scan(&boardCount))
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+SELECT count(*)
+FROM board_copy_receipts`).Scan(&receiptCount))
+	assert.Zero(t, boardCount)
+	assert.Zero(t, receiptCount)
+}
+
+func TestRepository_ReadCopyRecordsRejectsOperationalState(t *testing.T) {
 	t.Run("ActiveClaim", func(t *testing.T) {
 		directory := t.TempDir()
 		persistence := openCopyTestStore(t, directory)
@@ -318,10 +388,12 @@ INSERT INTO active_claims (
 		repository, err := New(persistence, Config{BoardID: "board-source"})
 		require.NoError(t, err)
 
-		_, err = repository.ReadCopySnapshot(
-			t.Context(),
-			"board-source",
-			configuration.Overrides{},
+		_, err = boardcopy.IndexRecords(
+			repository.ReadCopyRecords(
+				t.Context(),
+				"board-source",
+				configuration.Overrides{},
+			),
 		)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "active claims")
@@ -342,10 +414,12 @@ INSERT INTO attachment_uploads (
 		repository, err := New(persistence, Config{BoardID: "board-source"})
 		require.NoError(t, err)
 
-		_, err = repository.ReadCopySnapshot(
-			t.Context(),
-			"board-source",
-			configuration.Overrides{},
+		_, err = boardcopy.IndexRecords(
+			repository.ReadCopyRecords(
+				t.Context(),
+				"board-source",
+				configuration.Overrides{},
+			),
 		)
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "active attachment uploads")

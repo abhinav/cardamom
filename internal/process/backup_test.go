@@ -243,7 +243,9 @@ func corruptBackupBoard(t *testing.T, archivePath string) {
 		require.NoError(t, err)
 		require.NoError(t, source.Close())
 		if strings.HasPrefix(file.Name, "boards/") {
-			memberBody[0] ^= 1
+			corrupt := bytes.Replace(memberBody, []byte("Bridge"), []byte("bridge"), 1)
+			require.NotEqual(t, memberBody, corrupt)
+			memberBody = corrupt
 			found = true
 		}
 		member, err := writer.CreateHeader(&zip.FileHeader{

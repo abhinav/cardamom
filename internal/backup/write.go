@@ -73,40 +73,42 @@ func (s Selection) validate() error {
 	return errkind.Errorf(errkind.InvalidInput, "backup board selection is required")
 }
 
-// CapturedBoard associates one complete semantic snapshot with its source
-// project.
-type CapturedBoard struct {
-	// ProjectID identifies the source project recorded in the archive.
-	ProjectID project.ID // required
+// CaptureDestination receives selected backup state while its source view is
+// retained.
+type CaptureDestination interface {
+	// AddProject adds one project referenced by a selected board.
+	AddProject(project.Snapshot) error
 
-	// Snapshot is the complete semantic board state from the retained source view.
-	Snapshot boardcopy.CopySnapshot // required
+	// AddBoard consumes one selected board record stream before returning.
+	AddBoard(project.ID, board.ID, boardcopy.RecordSequence) error
 }
 
-// Capture contains project metadata and board snapshots from one retained
-// source revision.
-type Capture struct {
+// CaptureResult identifies the retained source revision and captured
+// population.
+type CaptureResult struct {
 	// SourceLineageID identifies the source store persistence history.
-	SourceLineageID string // required
+	SourceLineageID string
 
 	// SourceRevision is the canonical revision retained during capture.
 	SourceRevision int64
 
-	// Projects contains metadata for the projects referenced by Boards.
-	Projects []project.Snapshot
+	// Projects is the number of source projects sent to the destination.
+	Projects int
 
-	// Boards contains every selected complete semantic board snapshot.
-	Boards []CapturedBoard
+	// Boards is the number of selected boards sent to the destination.
+	Boards int
 }
 
 // Source captures selected semantic board state from one retained store view.
 type Source interface {
-	// Capture returns source metadata and semantic snapshots from one revision.
+	// Capture streams selected state to destination and releases its persistence
+	// view before returning.
 	Capture(
 		context.Context,
 		Selection,
 		configuration.Overrides,
-	) (Capture, error)
+		CaptureDestination,
+	) (CaptureResult, error)
 }
 
 // BlobSource opens verified committed attachment content.
@@ -184,7 +186,7 @@ type WriteResult struct {
 	// Projects is the number of project records in the archive.
 	Projects int
 
-	// Boards is the number of complete board snapshots in the archive.
+	// Boards is the number of complete board publications in the archive.
 	Boards int
 
 	// Blobs is the number of unique attachment bodies in the archive.
@@ -213,126 +215,132 @@ func (o *Operation) Write(
 	if err := before.Validate(); err != nil {
 		return WriteResult{}, fmt.Errorf("source store configuration: %w", err)
 	}
-	captured, err := o.source.Capture(ctx, request.Selection, before)
-	if err != nil {
-		return WriteResult{}, fmt.Errorf("capture source boards: %w", err)
-	}
-	after, err := o.configuration.ReadStoreConfiguration(ctx)
-	if err != nil {
-		return WriteResult{}, fmt.Errorf("reread source store configuration: %w", err)
-	}
-	if err := after.Validate(); err != nil {
-		return WriteResult{}, fmt.Errorf("source store configuration after capture: %w", err)
-	}
-	if !before.Equal(after) {
-		return WriteResult{}, errkind.Errorf(
-			errkind.Conflict,
-			"source store configuration changed while capturing the backup",
-		)
-	}
-
-	descriptors, err := validateCapture(captured)
-	if err != nil {
-		return WriteResult{}, err
-	}
+	var written WriteResult
 	err = o.publisher.Publish(
 		ctx,
 		request.Destination,
 		func(destination io.Writer) error {
-			return o.writeArchive(ctx, destination, captured, descriptors)
+			var err error
+			written, err = o.writeArchive(
+				ctx,
+				destination,
+				request.Selection,
+				before,
+			)
+			return err
 		},
 	)
 	if err != nil {
 		return WriteResult{}, fmt.Errorf("publish backup: %w", err)
 	}
-	return WriteResult{
-		Destination:    request.Destination,
-		SourceRevision: captured.SourceRevision,
-		Projects:       len(captured.Projects),
-		Boards:         len(captured.Boards),
-		Blobs:          len(descriptors),
-	}, nil
-}
-
-func validateCapture(captured Capture) ([]attachment.BlobDescriptor, error) {
-	if strings.TrimSpace(captured.SourceLineageID) == "" {
-		return nil, errors.New("backup source lineage is required")
-	}
-	if captured.SourceRevision < 0 {
-		return nil, errors.New("backup source revision cannot be negative")
-	}
-	byDigest := make(map[attachment.Digest]attachment.BlobDescriptor)
-	for _, value := range captured.Boards {
-		if value.Snapshot.SourceLineageID != captured.SourceLineageID ||
-			value.Snapshot.SourceRevision != captured.SourceRevision {
-			return nil, fmt.Errorf(
-				"backup board %q does not match retained source revision",
-				value.Snapshot.Board.ID,
-			)
-		}
-		for _, metadata := range value.Snapshot.Attachments {
-			descriptor := metadata.Blob
-			if err := descriptor.Validate(); err != nil {
-				return nil, fmt.Errorf(
-					"backup board %q attachment %q: %w",
-					value.Snapshot.Board.ID,
-					metadata.ID,
-					err,
-				)
-			}
-			prior, found := byDigest[descriptor.Digest]
-			if found && prior != descriptor {
-				return nil, fmt.Errorf(
-					"backup blob %s has conflicting descriptors",
-					descriptor.Digest,
-				)
-			}
-			byDigest[descriptor.Digest] = descriptor
-		}
-	}
-	descriptors := make([]attachment.BlobDescriptor, 0, len(byDigest))
-	for _, descriptor := range byDigest {
-		descriptors = append(descriptors, descriptor)
-	}
-	slices.SortFunc(descriptors, func(left, right attachment.BlobDescriptor) int {
-		return strings.Compare(left.Digest.String(), right.Digest.String())
-	})
-	return descriptors, nil
+	written.Destination = request.Destination
+	return written, nil
 }
 
 func (o *Operation) writeArchive(
 	ctx context.Context,
 	destination io.Writer,
-	captured Capture,
-	descriptors []attachment.BlobDescriptor,
-) (err error) {
+	selection Selection,
+	storeOverrides configuration.Overrides,
+) (result WriteResult, err error) {
 	archive := NewWriter(destination)
 	defer func() { err = errors.Join(err, archive.Close()) }()
-	for _, sourceProject := range captured.Projects {
-		if err := archive.AddProject(sourceProject); err != nil {
-			return err
-		}
+	captured, err := o.source.Capture(
+		ctx,
+		selection,
+		storeOverrides,
+		archive,
+	)
+	if err != nil {
+		return WriteResult{}, fmt.Errorf("capture source boards: %w", err)
 	}
-	for _, capturedBoard := range captured.Boards {
-		if err := archive.AddBoard(
-			capturedBoard.ProjectID,
-			capturedBoard.Snapshot,
-		); err != nil {
-			return err
-		}
+	if err := validateCapture(captured, archive); err != nil {
+		return WriteResult{}, fmt.Errorf("capture source boards: %w", err)
 	}
+
+	after, err := o.configuration.ReadStoreConfiguration(ctx)
+	if err != nil {
+		return WriteResult{}, fmt.Errorf(
+			"capture source boards: reread source store configuration: %w",
+			err,
+		)
+	}
+	if err := after.Validate(); err != nil {
+		return WriteResult{}, fmt.Errorf(
+			"capture source boards: source store configuration after capture: %w",
+			err,
+		)
+	}
+	if !storeOverrides.Equal(after) {
+		return WriteResult{}, fmt.Errorf(
+			"capture source boards: %w",
+			errkind.Errorf(
+				errkind.Conflict,
+				"source store configuration changed while capturing the backup",
+			),
+		)
+	}
+
+	descriptors := archive.ReferencedBlobs()
 	for _, descriptor := range descriptors {
 		if err := ctx.Err(); err != nil {
-			return err
+			return WriteResult{}, fmt.Errorf("capture source boards: %w", err)
 		}
 		reader, err := o.blobs.OpenCopyBlob(ctx, descriptor)
 		if err != nil {
-			return fmt.Errorf("open source blob %s: %w", descriptor.Digest, err)
+			return WriteResult{}, fmt.Errorf(
+				"capture source boards: open source blob %s: %w",
+				descriptor.Digest,
+				err,
+			)
 		}
 		writeErr := archive.AddBlob(descriptor, reader)
 		closeErr := reader.Close()
 		if err := errors.Join(writeErr, closeErr); err != nil {
-			return fmt.Errorf("write source blob %s: %w", descriptor.Digest, err)
+			return WriteResult{}, fmt.Errorf(
+				"capture source boards: write source blob %s: %w",
+				descriptor.Digest,
+				err,
+			)
+		}
+	}
+	result = WriteResult{
+		SourceRevision: captured.SourceRevision,
+		Projects:       captured.Projects,
+		Boards:         captured.Boards,
+		Blobs:          len(descriptors),
+	}
+	return result, nil
+}
+
+func validateCapture(captured CaptureResult, archive *Writer) error {
+	if strings.TrimSpace(captured.SourceLineageID) == "" {
+		return errors.New("backup source lineage is required")
+	}
+	if captured.SourceRevision < 0 {
+		return errors.New("backup source revision cannot be negative")
+	}
+	if captured.Projects != len(archive.manifest.Projects) {
+		return fmt.Errorf(
+			"backup source reported %d projects after capturing %d",
+			captured.Projects,
+			len(archive.manifest.Projects),
+		)
+	}
+	if captured.Boards != len(archive.manifest.Boards) {
+		return fmt.Errorf(
+			"backup source reported %d boards after capturing %d",
+			captured.Boards,
+			len(archive.manifest.Boards),
+		)
+	}
+	for _, publication := range archive.manifest.Boards {
+		if publication.GetSourceLineageId() != captured.SourceLineageID ||
+			publication.GetSourceRevision() != captured.SourceRevision {
+			return fmt.Errorf(
+				"backup board %q does not match retained source revision",
+				publication.GetSourceBoardId(),
+			)
 		}
 	}
 	return nil

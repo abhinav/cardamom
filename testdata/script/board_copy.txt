@@ -63,7 +63,7 @@ exec card --store $WORK/destination board list
 stdout 'Existing'
 stdout 'Source'
 
-# Changed snapshots remain a v1 policy error rather than a schema constraint.
+# Changed publications remain a policy error rather than a schema constraint.
 exec card --store $WORK/source --board Source board edit --description Changed
 ! exec card --store $WORK/source --board Source board copy --to-store $WORK/destination
 cmp stderr $WORK/golden/changed-snapshot.txt

@@ -10,11 +10,12 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
 
-	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/errkind"
@@ -71,10 +72,21 @@ func (r *CopyRepository) ReadCopyReceipt(
 	return r.readCopyReceipt(ctx, query.New(view), key)
 }
 
-// ImportCopySnapshot atomically creates one destination board and receipt.
-func (r *CopyRepository) ImportCopySnapshot(
+// ImportCopyRecords atomically creates one destination board and receipt from
+// an incremental record sequence.
+func (r *CopyRepository) ImportCopyRecords(
 	ctx context.Context,
-	snapshot boardcopy.CopySnapshot,
+	index boardcopy.RecordIndex,
+	records boardcopy.RecordSequence,
+	options boardcopy.CopyOptions,
+) (result boardcopy.CopyImportResult, err error) {
+	return r.importCopyRecords(ctx, index, records, options)
+}
+
+func (r *CopyRepository) importCopyRecords(
+	ctx context.Context,
+	index boardcopy.RecordIndex,
+	records boardcopy.RecordSequence,
 	options boardcopy.CopyOptions,
 ) (result boardcopy.CopyImportResult, err error) {
 	change, err := r.store.Change(ctx)
@@ -84,7 +96,7 @@ func (r *CopyRepository) ImportCopySnapshot(
 	defer func() { err = errors.Join(err, change.Done()) }()
 	queries := query.New(change)
 
-	name := snapshot.Board.Name
+	name := index.Header.Board.Name
 	if options.Name != nil {
 		name = *options.Name
 	}
@@ -99,9 +111,9 @@ func (r *CopyRepository) ImportCopySnapshot(
 		ctx,
 		queries,
 		boardcopy.CopyReceiptKey{
-			SourceLineageID: snapshot.SourceLineageID,
-			SourceBoardID:   snapshot.Board.ID,
-			SnapshotVersion: snapshot.Version,
+			SourceLineageID: index.Header.SourceLineageID,
+			SourceBoardID:   index.Header.Board.ID,
+			SnapshotVersion: index.Header.Version,
 		},
 	)
 	if err != nil {
@@ -111,7 +123,7 @@ func (r *CopyRepository) ImportCopySnapshot(
 		if err := change.Commit(); err != nil {
 			return result, err
 		}
-		return boardcopy.NewCompetingCopyImport(receipt), nil
+		return boardcopy.NewConcurrentCopyImport(receipt), nil
 	}
 	if err := requireCopyProject(ctx, queries, options.ProjectID); err != nil {
 		return result, err
@@ -135,7 +147,7 @@ func (r *CopyRepository) ImportCopySnapshot(
 		)
 	}
 
-	boardID, err := r.allocateCopyBoardID(ctx, queries, snapshot.Board.ID)
+	boardID, err := r.allocateCopyBoardID(ctx, queries, index.Header.Board.ID)
 	if err != nil {
 		return result, err
 	}
@@ -143,19 +155,20 @@ func (r *CopyRepository) ImportCopySnapshot(
 		ctx,
 		change,
 		queries,
-		snapshot,
+		index.IssueIDs,
+		index.Header.Configuration.Issue.ID,
 	)
 	if err != nil {
 		return result, err
 	}
-	logMappings, err := r.allocateCopyLogIDs(ctx, queries, snapshot)
+	logMappings, err := r.allocateCopyLogIDs(ctx, queries, index.LogEntryIDs)
 	if err != nil {
 		return result, err
 	}
-	attachmentMappings := identityMappingsForAttachments(snapshot.Attachments)
+	attachmentMappings := identityMappings(index.AttachmentIDs)
 
 	revisionCount := int64(1)
-	if hasRemovedCopyAttachment(snapshot.Attachments) {
+	if index.RemovedAttachments {
 		revisionCount = 2
 	}
 	revisions, err := change.ReserveRevisions(ctx, revisionCount)
@@ -163,24 +176,42 @@ func (r *CopyRepository) ImportCopySnapshot(
 		return result, fmt.Errorf("reserve destination revisions: %w", err)
 	}
 
-	if err := importCopyMetadata(
-		ctx,
-		queries,
-		snapshot,
-		options.ProjectID,
-		name,
-		boardID,
-		issueMappings,
-		logMappings,
-		revisions.FirstRevision(),
-		revisions.LastRevision(),
-	); err != nil {
-		return result, err
+	issueIDs := mappingIndex(issueMappings)
+	logIDs := mappingIndex(logMappings)
+	importer := copyRecordImporter{
+		ctx: ctx, queries: queries, projectID: options.ProjectID,
+		name: name, boardID: boardID,
+		issueIDs: issueIDs, logIDs: logIDs,
+		rewrite:       copyReferenceRewriter(issueIDs, logIDs),
+		firstRevision: revisions.FirstRevision(),
+		lastRevision:  revisions.LastRevision(),
+	}
+	indexer := boardcopy.NewRecordIndexer()
+	for record, recordErr := range records {
+		if recordErr != nil {
+			return result, recordErr
+		}
+		if err := indexer.Add(record); err != nil {
+			return result, fmt.Errorf("validate destination board records: %w", err)
+		}
+		if err := importer.Import(record); err != nil {
+			return result, err
+		}
+	}
+	actual, err := indexer.Finish()
+	if err != nil {
+		return result, fmt.Errorf("validate destination board records: %w", err)
+	}
+	if !sameRecordIndex(index, actual) {
+		return result, errkind.Errorf(
+			errkind.Conflict,
+			"source board changed while copying records",
+		)
 	}
 	receiptID, err := insertCopyReceipt(
 		ctx,
 		queries,
-		snapshot,
+		index,
 		options.ProjectID,
 		name,
 		boardID,
@@ -203,7 +234,7 @@ func (r *CopyRepository) ImportCopySnapshot(
 	if err := advanceCopyIssueAllocator(
 		ctx,
 		change,
-		snapshot.Configuration,
+		index.Header.Configuration,
 		issueMappings,
 	); err != nil {
 		return result, err
@@ -216,7 +247,7 @@ func (r *CopyRepository) ImportCopySnapshot(
 	}
 
 	outcome := copyOutcome(
-		snapshot,
+		index,
 		options.ProjectID,
 		name,
 		boardID,
@@ -227,6 +258,24 @@ func (r *CopyRepository) ImportCopySnapshot(
 		attachmentMappings,
 	)
 	return boardcopy.NewPublishedCopyImport(outcome), nil
+}
+
+func sameRecordIndex(
+	expected boardcopy.RecordIndex,
+	actual boardcopy.RecordIndex,
+) bool {
+	expectedHeader := expected.Header
+	expectedHeader.SourceRevision = 0
+	actualHeader := actual.Header
+	actualHeader.SourceRevision = 0
+	return expected.Digest == actual.Digest &&
+		reflect.DeepEqual(expectedHeader, actualHeader) &&
+		expected.Counts == actual.Counts &&
+		slices.Equal(expected.IssueIDs, actual.IssueIDs) &&
+		slices.Equal(expected.LogEntryIDs, actual.LogEntryIDs) &&
+		slices.Equal(expected.AttachmentIDs, actual.AttachmentIDs) &&
+		slices.Equal(expected.Blobs, actual.Blobs) &&
+		expected.RemovedAttachments == actual.RemovedAttachments
 }
 
 func requireCopyProject(
@@ -375,19 +424,20 @@ func (r *CopyRepository) allocateCopyIssueIDs(
 	ctx context.Context,
 	change *store.Change,
 	queries *query.Queries,
-	snapshot boardcopy.CopySnapshot,
+	sourceIDs []string,
+	policy configuration.IssueIDConfiguration,
 ) ([]boardcopy.CopyIdentityMap, error) {
 	issueCount, err := queries.BoardCountAllIssues(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("count destination issues: %w", err)
 	}
-	reserved := make(map[string]struct{}, len(snapshot.Issues))
-	for _, source := range snapshot.Issues {
-		reserved[source.ID] = struct{}{}
+	reserved := make(map[string]struct{}, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		reserved[sourceID] = struct{}{}
 	}
-	out := make([]boardcopy.CopyIdentityMap, 0, len(snapshot.Issues))
-	for _, source := range snapshot.Issues {
-		destination := source.ID
+	out := make([]boardcopy.CopyIdentityMap, 0, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		destination := sourceID
 		exists, err := queries.BoardIssueIDExists(ctx, destination)
 		if err != nil {
 			return nil, fmt.Errorf("inspect destination issue identity: %w", err)
@@ -397,7 +447,7 @@ func (r *CopyRepository) allocateCopyIssueIDs(
 				ctx,
 				change,
 				queries,
-				snapshot.Configuration.Issue.ID,
+				policy,
 				issueCount,
 				reserved,
 			)
@@ -407,7 +457,7 @@ func (r *CopyRepository) allocateCopyIssueIDs(
 		}
 		reserved[destination] = struct{}{}
 		out = append(out, boardcopy.CopyIdentityMap{
-			Source: source.ID, Destination: destination,
+			Source: sourceID, Destination: destination,
 		})
 		issueCount++
 	}
@@ -473,15 +523,15 @@ func (r *CopyRepository) allocateCopyIssueID(
 func (r *CopyRepository) allocateCopyLogIDs(
 	ctx context.Context,
 	queries *query.Queries,
-	snapshot boardcopy.CopySnapshot,
+	sourceIDs []string,
 ) ([]boardcopy.CopyIdentityMap, error) {
-	reserved := make(map[string]struct{}, len(snapshot.LogEntries))
-	for _, source := range snapshot.LogEntries {
-		reserved[source.ID] = struct{}{}
+	reserved := make(map[string]struct{}, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		reserved[sourceID] = struct{}{}
 	}
-	out := make([]boardcopy.CopyIdentityMap, 0, len(snapshot.LogEntries))
-	for _, source := range snapshot.LogEntries {
-		destination := source.ID
+	out := make([]boardcopy.CopyIdentityMap, 0, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		destination := sourceID
 		exists, err := queries.BoardCopyLogIDExists(ctx, destination)
 		if err != nil {
 			return nil, fmt.Errorf("inspect destination Log identity: %w", err)
@@ -517,267 +567,20 @@ func (r *CopyRepository) allocateCopyLogIDs(
 		}
 		reserved[destination] = struct{}{}
 		out = append(out, boardcopy.CopyIdentityMap{
-			Source: source.ID, Destination: destination,
+			Source: sourceID, Destination: destination,
 		})
 	}
 	return out, nil
 }
 
-func identityMappingsForAttachments(
-	values []boardcopy.CopyAttachment,
-) []boardcopy.CopyIdentityMap {
+func identityMappings(values []string) []boardcopy.CopyIdentityMap {
 	out := make([]boardcopy.CopyIdentityMap, 0, len(values))
 	for _, value := range values {
 		out = append(out, boardcopy.CopyIdentityMap{
-			Source: value.ID, Destination: value.ID,
+			Source: value, Destination: value,
 		})
 	}
 	return out
-}
-
-func hasRemovedCopyAttachment(values []boardcopy.CopyAttachment) bool {
-	for _, value := range values {
-		if value.Lifecycle == attachment.LifecycleRemoved.String() {
-			return true
-		}
-	}
-	return false
-}
-
-func importCopyMetadata(
-	ctx context.Context,
-	queries *query.Queries,
-	snapshot boardcopy.CopySnapshot,
-	projectID string,
-	name string,
-	boardID string,
-	issueMappings []boardcopy.CopyIdentityMap,
-	logMappings []boardcopy.CopyIdentityMap,
-	firstRevision int64,
-	lastRevision int64,
-) error {
-	issueIDs := mappingIndex(issueMappings)
-	logIDs := mappingIndex(logMappings)
-	rewrite := copyReferenceRewriter(issueIDs, logIDs)
-
-	description := rewriteOptionalCopyMarkdown(snapshot.Board.Description, rewrite)
-	prefix := snapshot.Configuration.Issue.ID.Prefix.String()
-	strategy := snapshot.Configuration.Issue.ID.Strategy.String()
-	summaryMaxBytes := int64(
-		snapshot.Configuration.Issue.Summary.MaxBytes.Uint64(),
-	)
-	attachmentMaxBytes := int64(
-		snapshot.Configuration.Attachment.MaxBytes.Uint64(),
-	)
-	if err := queries.ProjectInsertCopiedBoard(
-		ctx,
-		query.ProjectInsertCopiedBoardParams{
-			ID:                   boardID,
-			ProjectID:            projectID,
-			Name:                 name,
-			Description:          description,
-			CreatedAt:            snapshot.Board.CreatedAt,
-			IssueIDPrefix:        &prefix,
-			IssueIDStrategy:      &strategy,
-			IssueSummaryMaxBytes: &summaryMaxBytes,
-			AttachmentMaxBytes:   &attachmentMaxBytes,
-			Revision:             lastRevision,
-		},
-	); err != nil {
-		return fmt.Errorf("create destination board: %w", err)
-	}
-
-	for _, value := range snapshot.Issues {
-		err := queries.BoardInsertCopiedIssue(
-			ctx,
-			query.BoardInsertCopiedIssueParams{
-				ID:            issueIDs[value.ID],
-				BoardID:       boardID,
-				Title:         value.Title,
-				Kind:          value.Kind,
-				Lifecycle:     value.Lifecycle,
-				Priority:      value.Priority,
-				CreatedAt:     value.CreatedAt,
-				UpdatedAt:     value.UpdatedAt,
-				ClosedAt:      value.ClosedAt,
-				WaitingReason: value.WaitingReason,
-				WaitingSince:  value.WaitingSince,
-				Summary: rewriteOptionalCopyMarkdown(
-					value.Summary,
-					rewrite,
-				),
-				Details: rewriteOptionalCopyMarkdown(
-					value.Details,
-					rewrite,
-				),
-				Revision: lastRevision,
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("create destination issue %q: %w", value.ID, err)
-		}
-	}
-	for _, value := range snapshot.Labels {
-		if err := queries.BoardInsertIssueLabel(
-			ctx,
-			query.BoardInsertIssueLabelParams{
-				BoardID: boardID,
-				IssueID: issueIDs[value.IssueID],
-				Label:   value.Label,
-			},
-		); err != nil {
-			return fmt.Errorf("create destination issue label: %w", err)
-		}
-	}
-	for _, value := range snapshot.Dependencies {
-		if err := queries.BoardInsertIssueDependency(
-			ctx,
-			query.BoardInsertIssueDependencyParams{
-				BoardID:        boardID,
-				IssueID:        issueIDs[value.IssueID],
-				PrerequisiteID: issueIDs[value.PrerequisiteID],
-			},
-		); err != nil {
-			return fmt.Errorf("create destination dependency: %w", err)
-		}
-	}
-	for _, value := range snapshot.Containment {
-		if err := queries.BoardInsertIssueParent(
-			ctx,
-			query.BoardInsertIssueParentParams{
-				BoardID:  boardID,
-				ChildID:  issueIDs[value.ChildID],
-				ParentID: issueIDs[value.ParentID],
-			},
-		); err != nil {
-			return fmt.Errorf("create destination containment: %w", err)
-		}
-	}
-	for _, value := range snapshot.ExternalKeys {
-		if err := queries.BoardInsertIssueExternalKey(
-			ctx,
-			query.BoardInsertIssueExternalKeyParams{
-				BoardID:     boardID,
-				ExternalKey: value.Key,
-				IssueID:     issueIDs[value.IssueID],
-			},
-		); err != nil {
-			return fmt.Errorf("create destination external key: %w", err)
-		}
-	}
-	for _, value := range snapshot.LogEntries {
-		if err := queries.BoardInsertIssueLogEntry(
-			ctx,
-			query.BoardInsertIssueLogEntryParams{
-				ID:         logIDs[value.ID],
-				BoardID:    boardID,
-				IssueID:    issueIDs[value.IssueID],
-				Kind:       value.Kind,
-				Author:     value.Author,
-				Committer:  value.Committer,
-				Body:       rewrite(value.Body),
-				CreatedAt:  value.CreatedAt,
-				NextAction: rewriteOptionalCopyMarkdown(value.NextAction, rewrite),
-			},
-		); err != nil {
-			return fmt.Errorf("create destination Log entry %q: %w", value.ID, err)
-		}
-	}
-	for _, value := range snapshot.States {
-		var snapshotID *string
-		if value.SnapshotLogEntryID != nil {
-			mapped := logIDs[*value.SnapshotLogEntryID]
-			snapshotID = &mapped
-		}
-		if err := queries.BoardUpsertIssueState(
-			ctx,
-			query.BoardUpsertIssueStateParams{
-				IssueID:            issueIDs[value.IssueID],
-				BoardID:            boardID,
-				Body:               rewrite(value.Body),
-				Author:             value.Author,
-				UpdatedAt:          value.UpdatedAt,
-				SnapshotLogEntryID: snapshotID,
-				NextAction: rewriteOptionalCopyMarkdown(
-					value.NextAction,
-					rewrite,
-				),
-			},
-		); err != nil {
-			return fmt.Errorf("create destination State: %w", err)
-		}
-	}
-	for _, value := range snapshot.Results {
-		if err := queries.BoardUpsertIssueResult(
-			ctx,
-			query.BoardUpsertIssueResultParams{
-				IssueID: issueIDs[value.IssueID],
-				BoardID: boardID,
-				Body:    rewrite(value.Body),
-			},
-		); err != nil {
-			return fmt.Errorf("create destination Result: %w", err)
-		}
-	}
-	for _, value := range snapshot.Checkpoints {
-		if err := queries.BoardInsertCheckpointDecision(
-			ctx,
-			query.BoardInsertCheckpointDecisionParams{
-				IssueID:   issueIDs[value.IssueID],
-				BoardID:   boardID,
-				Outcome:   value.Outcome,
-				Reason:    rewrite(value.Reason),
-				DecidedAt: value.DecidedAt,
-				Revision:  lastRevision,
-			},
-		); err != nil {
-			return fmt.Errorf("create destination checkpoint decision: %w", err)
-		}
-	}
-	for _, value := range snapshot.Attachments {
-		if err := queries.AttachmentRetainBlob(
-			ctx,
-			query.AttachmentRetainBlobParams{
-				Digest:    value.Blob.Digest.String(),
-				SizeBytes: int64(value.Blob.SizeBytes),
-			},
-		); err != nil {
-			return fmt.Errorf("create destination blob descriptor: %w", err)
-		}
-		var originIssueID *string
-		if value.OriginIssueID != nil {
-			mapped := issueIDs[*value.OriginIssueID]
-			originIssueID = &mapped
-		}
-		createdRevision := lastRevision
-		var removedRevision *int64
-		if value.Lifecycle == attachment.LifecycleRemoved.String() {
-			createdRevision = firstRevision
-			removedRevision = &lastRevision
-		}
-		if err := queries.AttachmentInsertCopiedMetadata(
-			ctx,
-			query.AttachmentInsertCopiedMetadataParams{
-				BoardID:         boardID,
-				ID:              value.ID,
-				OriginIssueID:   originIssueID,
-				BlobDigest:      value.Blob.Digest.String(),
-				BlobSizeBytes:   int64(value.Blob.SizeBytes),
-				Filename:        value.Filename,
-				MediaType:       value.MediaType,
-				Lifecycle:       value.Lifecycle,
-				CreatedActor:    value.CreatedActor,
-				CreatedAt:       value.CreatedAt,
-				CreatedRevision: createdRevision,
-				RemovedActor:    value.RemovedActor,
-				RemovedAt:       value.RemovedAt,
-				RemovedRevision: removedRevision,
-			},
-		); err != nil {
-			return fmt.Errorf("create destination attachment %q: %w", value.ID, err)
-		}
-	}
-	return nil
 }
 
 func mappingIndex(values []boardcopy.CopyIdentityMap) map[string]string {
@@ -828,7 +631,7 @@ func rewriteOptionalCopyMarkdown(
 func insertCopyReceipt(
 	ctx context.Context,
 	queries *query.Queries,
-	snapshot boardcopy.CopySnapshot,
+	index boardcopy.RecordIndex,
 	projectID string,
 	name string,
 	boardID string,
@@ -838,11 +641,11 @@ func insertCopyReceipt(
 	receiptID, err := queries.BoardInsertCopyReceipt(
 		ctx,
 		query.BoardInsertCopyReceiptParams{
-			SourceLineageID:      snapshot.SourceLineageID,
-			SourceBoardID:        snapshot.Board.ID,
-			SnapshotVersion:      int64(snapshot.Version),
-			SnapshotDigest:       snapshot.Digest,
-			SourceRevision:       snapshot.SourceRevision,
+			SourceLineageID:      index.Header.SourceLineageID,
+			SourceBoardID:        index.Header.Board.ID,
+			SnapshotVersion:      int64(index.Header.Version),
+			SnapshotDigest:       index.Digest,
+			SourceRevision:       index.Header.SourceRevision,
 			DestinationProjectID: projectID,
 			DestinationName:      name,
 			DestinationBoardID:   boardID,
@@ -940,7 +743,7 @@ func advanceCopyIssueAllocator(
 }
 
 func copyOutcome(
-	snapshot boardcopy.CopySnapshot,
+	index boardcopy.RecordIndex,
 	projectID string,
 	name string,
 	boardID string,
@@ -951,32 +754,27 @@ func copyOutcome(
 	attachmentMappings []boardcopy.CopyIdentityMap,
 ) boardcopy.CopyOutcome {
 	return boardcopy.CopyOutcome{
-		SourceLineageID:      snapshot.SourceLineageID,
-		SourceBoardID:        snapshot.Board.ID,
-		SourceRevision:       snapshot.SourceRevision,
-		SnapshotVersion:      snapshot.Version,
-		SnapshotDigest:       snapshot.Digest,
+		SourceLineageID:      index.Header.SourceLineageID,
+		SourceBoardID:        index.Header.Board.ID,
+		SourceRevision:       index.Header.SourceRevision,
+		SnapshotVersion:      index.Header.Version,
+		SnapshotDigest:       index.Digest,
 		DestinationProjectID: projectID,
 		DestinationBoardID:   boardID,
 		DestinationName:      name,
 		DestinationRevision:  revision,
 		AlreadyCompleted:     alreadyCompleted,
-		Counts:               copyCounts(snapshot),
+		Counts: boardcopy.CopyCounts{
+			Issues: len(index.IssueIDs), LogEntries: len(index.LogEntryIDs),
+			Attachments: len(index.AttachmentIDs),
+		},
 		Mappings: boardcopy.CopyMappings{
 			Board: boardcopy.CopyIdentityMap{
-				Source: snapshot.Board.ID, Destination: boardID,
+				Source: index.Header.Board.ID, Destination: boardID,
 			},
 			Issues:      issueMappings,
 			LogEntries:  logMappings,
 			Attachments: attachmentMappings,
 		},
-	}
-}
-
-func copyCounts(snapshot boardcopy.CopySnapshot) boardcopy.CopyCounts {
-	return boardcopy.CopyCounts{
-		Issues:      len(snapshot.Issues),
-		LogEntries:  len(snapshot.LogEntries),
-		Attachments: len(snapshot.Attachments),
 	}
 }

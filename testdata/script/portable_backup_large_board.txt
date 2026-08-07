@@ -1,0 +1,67 @@
+env TZ=UTC
+at 2026-08-05T12:00:00Z
+mkdir source
+
+exec card --store $WORK/source init --no-config --prefix batch- --board-name Large
+exec card --store $WORK/source config set --scope store issue.id.strategy sequential
+
+# Generate enough issues to require another repository page without making the
+# fixture or assertions exhaustive.
+exec jq -n -f generate-issues.jq
+cp stdout $WORK/issues.json
+exec card --store $WORK/source --board Large apply $WORK/issues.json
+stdout '^applied document: 129 create, 0 update, 0 skip, 0 no change$'
+
+exec card --json --store $WORK/source --board Large backup $WORK/large.cardamom
+cmpenv stdout $WORK/golden/backup.json
+exec card --json --store $WORK/destination restore $WORK/large.cardamom
+cmpenv stdout $WORK/golden/restore.json
+
+# Verify the restored population and representative records around the
+# repository page boundary through public JSON output.
+exec card --json --store $WORK/destination --board Large list --limit 0
+cp stdout $WORK/restored.jsonl
+exec jq -sc -f summarize-restored.jq $WORK/restored.jsonl
+cmp stdout $WORK/golden/restored-summary.json
+
+-- generate-issues.jq --
+{
+  version: 1,
+  issues: [
+    range(1; 130) as $number
+    | {
+        alias: "issue-\($number)",
+        title: "Transfer issue \($number)",
+        type: "task",
+        summary: "Payload \($number) survives backup and restore.",
+        labels: {
+          values: (
+            if $number == 1 then ["marker:first"]
+            elif $number == 128 then ["marker:boundary"]
+            elif $number == 129 then ["marker:continuation"]
+            else ["transfer"]
+            end
+          )
+        }
+      }
+  ]
+}
+-- summarize-restored.jq --
+. as $issues
+| {
+    count: ($issues | length),
+    representatives: (
+      [
+        $issues[]
+        | select(.id == "batch-1" or .id == "batch-128" or .id == "batch-129")
+        | {id, title, summary, labels}
+      ]
+      | sort_by(.id | ltrimstr("batch-") | tonumber)
+    )
+  }
+-- golden/backup.json --
+{"source":"$WORK/source","destination":"$WORK/large.cardamom","projects":1,"boards":1,"blobs":0}
+-- golden/restore.json --
+{"source":"$WORK/large.cardamom","destination":"$WORK/destination","projects":1,"boards":1,"blobs":0,"already_completed_boards":0}
+-- golden/restored-summary.json --
+{"count":129,"representatives":[{"id":"batch-1","title":"Transfer issue 1","summary":"Payload 1 survives backup and restore.","labels":["marker:first"]},{"id":"batch-128","title":"Transfer issue 128","summary":"Payload 128 survives backup and restore.","labels":["marker:boundary"]},{"id":"batch-129","title":"Transfer issue 129","summary":"Payload 129 survives backup and restore.","labels":["marker:continuation"]}]}
