@@ -34,5 +34,5 @@ jsonl-2
 -- golden/list-one.jsonl --
 {"id":"jsonl-1","title":"First issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":2,"labels":[],"blocked":false}
 -- golden/list-many.jsonl --
-{"id":"jsonl-2","title":"Second issue","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":3,"labels":[],"blocked":false}
 {"id":"jsonl-1","title":"First issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":2,"labels":[],"blocked":false}
+{"id":"jsonl-2","title":"Second issue","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":3,"labels":[],"blocked":false}

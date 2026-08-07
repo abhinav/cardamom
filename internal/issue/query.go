@@ -153,7 +153,7 @@ type ListRequest struct {
 	// TitleRegexp performs a Go regular-expression match against the title.
 	TitleRegexp *regexp.Regexp
 
-	// Sort selects a supported issue field or the default priority order.
+	// Sort selects a supported issue field. Empty uses creation order.
 	Sort string
 
 	// Reverse reverses the selected order.

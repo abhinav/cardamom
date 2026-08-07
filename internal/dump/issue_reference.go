@@ -17,6 +17,10 @@ type referenceTargets struct {
 	// The selected issue index contains every issue page emitted by the dump.
 	selectedIssues map[string]struct{}
 
+	// The issue creation index retains presentation order for relationships to
+	// issues outside the selected dump.
+	issueCreated map[string]int64
+
 	// The log owner index maps every board log identity to its owning issue.
 	logOwners map[issue.LogID]string
 }
@@ -25,12 +29,17 @@ func newReferenceTargets(
 	board BoardSnapshot,
 	selectedIssues map[string]struct{},
 ) referenceTargets {
+	issueCreated := make(map[string]int64, len(board.Issues))
+	for _, value := range board.Issues {
+		issueCreated[value.ID] = value.Created
+	}
 	logOwners := make(map[issue.LogID]string, len(board.LogEntries))
 	for _, entry := range board.LogEntries {
 		logOwners[entry.ID] = entry.IssueID
 	}
 	return referenceTargets{
 		selectedIssues: selectedIssues,
+		issueCreated:   issueCreated,
 		logOwners:      logOwners,
 	}
 }

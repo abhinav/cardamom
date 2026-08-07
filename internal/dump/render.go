@@ -5,6 +5,7 @@ import (
 	"cmp"
 	"fmt"
 	"io"
+	"maps"
 	"net/url"
 	"path"
 	"regexp"
@@ -45,12 +46,18 @@ func render(snapshot Snapshot) (RenderedDump, error) {
 			return RenderedDump{}, fmt.Errorf("render issue %q: issue ID is not safe for a dump path", issue.ID)
 		}
 	}
-	slices.SortFunc(issues, func(a, b Issue) int { return cmp.Compare(a.ID, b.ID) })
+	slices.SortFunc(issues, compareIssueCreation)
+	issueCreated := make(map[string]int64, len(snapshot.referenceTargets.issueCreated)+len(issues))
+	maps.Copy(issueCreated, snapshot.referenceTargets.issueCreated)
+	for _, value := range issues {
+		issueCreated[value.ID] = value.Created
+	}
 
 	view := renderView{
-		snapshot: snapshot,
-		issues:   issues,
-		byID:     make(map[string]Issue, len(issues)),
+		snapshot:     snapshot,
+		issues:       issues,
+		byID:         make(map[string]Issue, len(issues)),
+		issueCreated: issueCreated,
 	}
 	for _, issue := range issues {
 		view.byID[issue.ID] = issue
@@ -83,7 +90,7 @@ func render(snapshot Snapshot) (RenderedDump, error) {
 	return RenderedDump{
 		Provenance: snapshot.Provenance,
 		Revision:   snapshot.Revision,
-		Selection:  normalizedRenderedSelection(snapshot.Selection),
+		Selection:  normalizedRenderedSelection(snapshot.Selection, issueCreated),
 		IssueCount: len(issues),
 		Files:      files,
 	}, nil
@@ -113,6 +120,10 @@ type renderView struct {
 	snapshot Snapshot
 	issues   []Issue
 	byID     map[string]Issue
+
+	// issueCreated includes the full board so selected pages retain creation
+	// order for relationships to issues outside the dump.
+	issueCreated map[string]int64
 }
 
 func (v *renderView) boardPage() []byte {
@@ -413,7 +424,7 @@ func (v *renderView) writeRelation(out *bytes.Buffer, heading, issueID string, k
 			}
 		}
 	}
-	slices.Sort(ids)
+	slices.SortFunc(ids, v.compareIssueIDs)
 	ids = slices.Compact(ids)
 	if len(ids) == 0 {
 		writeLine(out, "None.")
@@ -430,10 +441,34 @@ func (v *renderView) writeRelation(out *bytes.Buffer, heading, issueID string, k
 	writeLine(out, "")
 }
 
-func normalizedRenderedSelection(selection Selection) Selection {
+func (v *renderView) compareIssueIDs(left, right string) int {
+	leftCreated, leftKnown := v.issueCreated[left]
+	rightCreated, rightKnown := v.issueCreated[right]
+	switch {
+	case leftKnown && rightKnown:
+		if order := cmp.Compare(leftCreated, rightCreated); order != 0 {
+			return order
+		}
+	case leftKnown:
+		return -1
+	case rightKnown:
+		return 1
+	}
+	return cmp.Compare(left, right)
+}
+
+func normalizedRenderedSelection(
+	selection Selection,
+	issueCreated map[string]int64,
+) Selection {
 	result := selection
 	result.IssueIDs = slices.Clone(selection.IssueIDs)
-	slices.Sort(result.IssueIDs)
+	slices.SortFunc(result.IssueIDs, func(left, right string) int {
+		if order := cmp.Compare(issueCreated[left], issueCreated[right]); order != 0 {
+			return order
+		}
+		return cmp.Compare(left, right)
+	})
 	result.IssueIDs = slices.Compact(result.IssueIDs)
 	return result
 }
@@ -457,15 +492,7 @@ func selectionText(selection Selection) string {
 }
 
 func sortTreeIssues(issues []Issue) {
-	slices.SortFunc(issues, func(a, b Issue) int {
-		if order := cmp.Compare(a.Priority, b.Priority); order != 0 {
-			return order
-		}
-		if order := cmp.Compare(a.Created, b.Created); order != 0 {
-			return order
-		}
-		return cmp.Compare(a.ID, b.ID)
-	})
+	slices.SortFunc(issues, compareIssueCreation)
 }
 
 func canonicalIssuePath(issue Issue) string {

@@ -1,0 +1,3 @@
+kind: Changed
+body: Order issue lists by creation time unless an explicit sort is requested.
+time: 2026-08-06T20:31:42.773733-07:00

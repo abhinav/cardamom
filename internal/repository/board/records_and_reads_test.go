@@ -1,7 +1,9 @@
 package board
 
 import (
+	"bytes"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -470,9 +472,9 @@ func TestRepositoryReadsReadyBlockedAndActionableCheckpoints(t *testing.T) {
 	executor := execution.NewExecutor(repository, repository)
 	requests := []planning.CreateIssueRequest{
 		{Title: "Ready task", Type: "task", Priority: 1, Labels: []string{"ready"}},
-		{Title: "Blocked task", Type: "task", Priority: 0, DependsOn: []string{"pool-1"}},
+		{Title: "Blocked task", Type: "task", Priority: 2, DependsOn: []string{"pool-1"}},
 		{Title: "Blocked routine", Type: "routine", Priority: 0, DependsOn: []string{"pool-1"}},
-		{Title: "Blocked checkpoint", Type: "checkpoint", Priority: 2, DependsOn: []string{"pool-1"}},
+		{Title: "Blocked checkpoint", Type: "checkpoint", Priority: 0, DependsOn: []string{"pool-1"}},
 		{Title: "Actionable checkpoint", Type: "checkpoint", Priority: 2, Labels: []string{"gate"}},
 		{Title: "Waiting task", Type: "task", Priority: 2},
 		{Title: "Claimed blocked task", Type: "task", Priority: 2},
@@ -504,7 +506,7 @@ func TestRepositoryReadsReadyBlockedAndActionableCheckpoints(t *testing.T) {
 	assert.Equal(t, []string{"pool-1"}, summaryIDs(ready))
 	blocked, err := repository.ListBlockedIssues(t.Context(), issue.ListBlockedRequest{})
 	require.NoError(t, err)
-	assert.Equal(t, []string{"pool-2", "pool-4"}, summaryIDs(blocked))
+	assert.Equal(t, []string{"pool-4", "pool-2"}, summaryIDs(blocked))
 
 	checkpoints, err := repository.ListActionableCheckpoints(t.Context())
 	require.NoError(t, err)
@@ -540,6 +542,61 @@ func TestRepositoryReadsIssueStoryWithoutSiblingDescendants(t *testing.T) {
 	assert.NotContains(t, containmentIDs(view.Detail.Story.Containment), "story-4")
 }
 
+func TestRepositoryReadsRelationshipsAndContainmentInCreationOrder(t *testing.T) {
+	entropy := bytes.Join([][]byte{
+		bytes.Repeat([]byte{12}, 4),
+		bytes.Repeat([]byte{25}, 4),
+		bytes.Repeat([]byte{0}, 4),
+	}, nil)
+	repository := openBoardRepository(t, Config{
+		BoardID: mustBoardID(t, "board-test"), IDPrefix: "order-",
+		IDStrategy: "random", Entropy: bytes.NewReader(entropy),
+	})
+	planner := planning.NewPlanner(repository, repository, nil)
+
+	repository.clock = fixedClock{now: time.Unix(1_700_000_001, 0).UTC()}
+	parent, err := planner.CreateIssue(
+		t.Context(),
+		issue.NewInvocation("captain"),
+		planning.CreateIssueRequest{Title: "Parent", Type: "workstream", Priority: 2},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "order-mmmm", parent.Issue.Issue.ID)
+
+	repository.clock = fixedClock{now: time.Unix(1_700_000_002, 0).UTC()}
+	older, err := planner.CreateIssue(
+		t.Context(),
+		issue.NewInvocation("captain"),
+		planning.CreateIssueRequest{
+			Title: "Older child", Type: "task", Priority: 2,
+			Parent: "order-mmmm", DependsOn: []string{"order-mmmm"},
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "order-zzzz", older.Issue.Issue.ID)
+
+	repository.clock = fixedClock{now: time.Unix(1_700_000_003, 0).UTC()}
+	newer, err := planner.CreateIssue(
+		t.Context(),
+		issue.NewInvocation("captain"),
+		planning.CreateIssueRequest{
+			Title: "Newer child", Type: "task", Priority: 2,
+			Parent: "order-mmmm", DependsOn: []string{"order-mmmm"},
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, "order-aaaa", newer.Issue.Issue.ID)
+
+	view, err := repository.ReadIssue(
+		t.Context(), issue.ReadRequest{IssueID: "order-mmmm"},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"order-zzzz", "order-aaaa"}, referenceIDs(view.Detail.Blocks))
+	assert.Equal(t, []string{
+		"order-mmmm", "order-zzzz", "order-aaaa",
+	}, containmentIDs(view.Detail.Story.Containment))
+}
+
 func TestRepositoryListActorsIgnoresUnattributedIssueCreation(t *testing.T) {
 	repository := openBoardRepository(t, Config{
 		BoardID: mustBoardID(t, "board-test"), IDPrefix: "actor-", IDStrategy: "sequential",
@@ -567,6 +624,14 @@ func checkpointIDs(checkpoints []issue.CheckpointView) []string {
 	values := make([]string, len(checkpoints))
 	for index, checkpoint := range checkpoints {
 		values[index] = checkpoint.ID
+	}
+	return values
+}
+
+func referenceIDs(references []issue.Reference) []string {
+	values := make([]string, len(references))
+	for index, reference := range references {
+		values[index] = reference.ID
 	}
 	return values
 }

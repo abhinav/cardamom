@@ -47,7 +47,10 @@ func (s *Server) listApprovals(
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("no aggregate sources are available"))
 	}
 	sort.SliceStable(checkpoints, func(left, right int) bool {
-		return compareIssueSummary(checkpoints[left].GetCheckpoint(), checkpoints[right].GetCheckpoint()) < 0
+		return comparePriorityIssueSummary(
+			checkpoints[left].GetCheckpoint(),
+			checkpoints[right].GetCheckpoint(),
+		) < 0
 	})
 	return connect.NewResponse(&v1.ListActionableCheckpointsResponse{
 		Checkpoints: checkpoints, AggregateStatus: aggregateStatus(problems),

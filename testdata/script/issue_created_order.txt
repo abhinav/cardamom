@@ -1,0 +1,54 @@
+exec git init -b main
+env TZ=UTC
+at 2026-07-16T12:00:00Z
+exec card init --prefix order-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card create --priority 4 'First issue'
+exec card create 'Second issue'
+exec card create 'Third issue'
+exec card create 'Fourth issue'
+exec card create 'Fifth issue'
+exec card create 'Sixth issue'
+exec card create 'Seventh issue'
+exec card create 'Eighth issue'
+exec card create 'Ninth issue'
+
+at 2026-07-16T12:01:00Z
+exec card create --priority 0 'Tenth issue'
+
+# Unspecified list order follows creation rather than priority or lexical ID.
+exec card --json list
+cmp stdout $WORK/golden/created.jsonl
+
+# Priority-driven callers can still request priority ordering explicitly.
+exec card --json list --sort priority
+cmp stdout $WORK/golden/priority.jsonl
+
+# Issue identity is not a public presentation sort.
+! exec card list --sort id
+! stdout .
+stderr 'unsupported sort field "id"'
+
+-- golden/created.jsonl --
+{"id":"order-1","title":"First issue","type":"task","lifecycle":"open","status":"ready","priority":4,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":2,"labels":[],"blocked":false}
+{"id":"order-2","title":"Second issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":3,"labels":[],"blocked":false}
+{"id":"order-3","title":"Third issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":4,"labels":[],"blocked":false}
+{"id":"order-4","title":"Fourth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":5,"labels":[],"blocked":false}
+{"id":"order-5","title":"Fifth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":6,"labels":[],"blocked":false}
+{"id":"order-6","title":"Sixth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":7,"labels":[],"blocked":false}
+{"id":"order-7","title":"Seventh issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":8,"labels":[],"blocked":false}
+{"id":"order-8","title":"Eighth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":9,"labels":[],"blocked":false}
+{"id":"order-9","title":"Ninth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":10,"labels":[],"blocked":false}
+{"id":"order-10","title":"Tenth issue","type":"task","lifecycle":"open","status":"ready","priority":0,"active_claim":null,"created":1784203260,"updated":1784203260,"revision":11,"labels":[],"blocked":false}
+-- golden/priority.jsonl --
+{"id":"order-10","title":"Tenth issue","type":"task","lifecycle":"open","status":"ready","priority":0,"active_claim":null,"created":1784203260,"updated":1784203260,"revision":11,"labels":[],"blocked":false}
+{"id":"order-2","title":"Second issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":3,"labels":[],"blocked":false}
+{"id":"order-3","title":"Third issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":4,"labels":[],"blocked":false}
+{"id":"order-4","title":"Fourth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":5,"labels":[],"blocked":false}
+{"id":"order-5","title":"Fifth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":6,"labels":[],"blocked":false}
+{"id":"order-6","title":"Sixth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":7,"labels":[],"blocked":false}
+{"id":"order-7","title":"Seventh issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":8,"labels":[],"blocked":false}
+{"id":"order-8","title":"Eighth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":9,"labels":[],"blocked":false}
+{"id":"order-9","title":"Ninth issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":10,"labels":[],"blocked":false}
+{"id":"order-1","title":"First issue","type":"task","lifecycle":"open","status":"ready","priority":4,"active_claim":null,"created":1784203200,"updated":1784203200,"revision":2,"labels":[],"blocked":false}

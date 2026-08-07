@@ -21,7 +21,7 @@ type listCommand struct {
 	LabelsAny   []string   `name:"label-any" placeholder:"LABEL" help:"Match issues carrying at least one supplied label. Repeat for alternatives."`
 	NoAssignee  bool       `name:"no-assignee" help:"Match issues without active custody."`
 	TitleRegexp string     `name:"title-regexp" placeholder:"REGEXP" help:"Match titles using Go regular-expression syntax."`
-	Sort        string     `name:"sort" placeholder:"FIELD" help:"Sort by priority, created, updated, closed, id, title, or type."`
+	Sort        string     `name:"sort" placeholder:"FIELD" help:"Sort by priority, created, updated, closed, title, or type."`
 	Reverse     bool       `name:"reverse" help:"Reverse the selected order."`
 	Limit       int        `name:"limit" placeholder:"COUNT" help:"Maximum results. Zero returns every match."`
 }
@@ -54,7 +54,7 @@ func (c *listCommand) Run(inv *Invocation, operation ListIssuesOperation) error 
 		return UsageErrorf("unsupported issue type %q", c.Type)
 	}
 	if c.Sort != "" && !slices.Contains(
-		[]string{"priority", "created", "updated", "closed", "id", "title", "type"},
+		[]string{"priority", "created", "updated", "closed", "title", "type"},
 		c.Sort,
 	) {
 		return UsageErrorf("unsupported sort field %q", c.Sort)

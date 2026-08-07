@@ -123,7 +123,7 @@ func (r *Repository) selectClaimCandidate(
 			Summary: summary,
 		})
 	}
-	values = issue.OrderSummaries(issue.ListRequest{}, values)
+	values = issue.OrderSummaries(issue.ListRequest{Sort: "priority"}, values)
 	if len(values) == 0 {
 		return nil, nil, nil, nil
 	}

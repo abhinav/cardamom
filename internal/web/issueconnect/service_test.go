@@ -57,7 +57,7 @@ func TestServiceListIssuesAppliesOneGlobalOrderAndLimit(t *testing.T) {
 	assert.Equal(t, "issue-b", response.Msg.GetIssues()[0].GetId())
 	assert.Equal(t, "board-2", response.Msg.GetIssues()[0].GetBoardId())
 	assert.Equal(t, privatev1.IssueStatus_ISSUE_STATUS_BLOCKED, response.Msg.GetIssues()[0].GetStatus())
-	assert.Equal(t, "issue-a", response.Msg.GetIssues()[1].GetId())
+	assert.Equal(t, "issue-z", response.Msg.GetIssues()[1].GetId())
 	assert.True(t, response.Msg.GetTruncated())
 	assert.Equal(t, []*privatev1.LabelFacet{
 		{Label: "alpha", IssueCount: 1},

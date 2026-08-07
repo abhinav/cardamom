@@ -18,6 +18,7 @@ import (
 	v1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1/privatev1connect"
 	"go.abhg.dev/cardamom/internal/web"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func TestNewBuildsBootstrapAndReadOnlyHandler(t *testing.T) {
@@ -440,6 +441,55 @@ func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, []string{"Delta", "Echo"}, issueTitles(second.Msg.GetIssues()))
 	assert.False(t, second.Msg.GetTruncated())
+}
+
+func TestIssueReadsDefaultToCreationOrderAcrossSources(t *testing.T) {
+	boardA := &v1.BoardSummary{Id: "board-a", ProjectId: "project-a", Name: "A"}
+	boardB := &v1.BoardSummary{Id: "board-b", ProjectId: "project-b", Name: "B"}
+	bootstrapA := sourceBootstrap(boardA, true)
+	bootstrapA.Sources[0].Source.StoreLineageId = "lineage-a"
+	bootstrapB := sourceBootstrap(boardB, true)
+	bootstrapB.Sources[0].Source.StoreLineageId = "lineage-b"
+	serverA := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: bootstrapA,
+		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
+			return connect.NewResponse(&v1.ListIssuesResponse{
+				Issues: []*v1.IssueSummary{{
+					Id: "issue-z", BoardId: boardA.GetId(), Title: "Older",
+					Priority: 4, CreatedAt: timestamppb.New(time.Unix(1, 0)),
+				}},
+				TotalCount: 1,
+			}), nil
+		},
+	})
+	serverB := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: bootstrapB,
+		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
+			return connect.NewResponse(&v1.ListIssuesResponse{
+				Issues: []*v1.IssueSummary{{
+					Id: "issue-a", BoardId: boardB.GetId(), Title: "Newer",
+					Priority: 0, CreatedAt: timestamppb.New(time.Unix(2, 0)),
+				}},
+				TotalCount: 1,
+			}), nil
+		},
+	})
+
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{
+		{Alias: "alpha", URL: mustURL(t, serverA.URL)},
+		{Alias: "bravo", URL: mustURL(t, serverB.URL)},
+	}})
+	require.NoError(t, err)
+	response, err := newAggregateIssueClient(t, aggregate).ListIssues(
+		t.Context(),
+		connect.NewRequest(&v1.ListIssuesRequest{
+			Scope: &v1.BoardScope{Selection: &v1.BoardScope_AllSources{
+				AllSources: &v1.AllSources{},
+			}},
+		}),
+	)
+	require.NoError(t, err)
+	assert.Equal(t, []string{"Older", "Newer"}, issueTitles(response.Msg.GetIssues()))
 }
 
 func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {

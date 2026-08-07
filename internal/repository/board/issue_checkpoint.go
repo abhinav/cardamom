@@ -10,7 +10,7 @@ import (
 )
 
 // ListActionableCheckpoints reads ready checkpoints whose
-// prerequisites are closed in default order.
+// prerequisites are closed in priority order.
 func (r *Repository) ListActionableCheckpoints(ctx context.Context) (out []issue.CheckpointView, err error) {
 	view, err := r.store.View(ctx)
 	if err != nil {
@@ -22,7 +22,7 @@ func (r *Repository) ListActionableCheckpoints(ctx context.Context) (out []issue
 	if err != nil {
 		return nil, err
 	}
-	values, _ := r.filterIssueSummaries(index, issue.ListRequest{}, nil)
+	values, _ := r.filterIssueSummaries(index, issue.ListRequest{Sort: "priority"}, nil)
 
 	checkpoints := make([]issue.CheckpointView, 0)
 	for _, value := range values {

@@ -335,29 +335,43 @@ func selectSnapshot(
 func orderedBoardSnapshot(board BoardSnapshot) BoardSnapshot {
 	result := board
 	result.Issues = slices.Clone(board.Issues)
+	issuesByID := make(map[string]Issue, len(result.Issues))
 	for index := range result.Issues {
 		result.Issues[index].Labels = slices.Clone(result.Issues[index].Labels)
 		slices.Sort(result.Issues[index].Labels)
+		issuesByID[result.Issues[index].ID] = result.Issues[index]
 	}
 	result.Dependencies = slices.Clone(board.Dependencies)
 	result.Containment = slices.Clone(board.Containment)
 	result.Results = slices.Clone(board.Results)
 	result.LogEntries = slices.Clone(board.LogEntries)
-	slices.SortFunc(result.Issues, func(a, b Issue) int { return cmp.Compare(a.ID, b.ID) })
+	slices.SortFunc(result.Issues, compareIssueCreation)
+	compareID := func(left, right string) int {
+		return compareIssueCreation(issuesByID[left], issuesByID[right])
+	}
 	slices.SortFunc(result.Dependencies, func(a, b Dependency) int {
-		if order := cmp.Compare(a.ChildID, b.ChildID); order != 0 {
+		if order := compareID(a.ChildID, b.ChildID); order != 0 {
 			return order
 		}
-		return cmp.Compare(a.ParentID, b.ParentID)
+		return compareID(a.ParentID, b.ParentID)
 	})
 	slices.SortFunc(result.Containment, func(a, b Containment) int {
-		if order := cmp.Compare(a.ChildID, b.ChildID); order != 0 {
+		if order := compareID(a.ChildID, b.ChildID); order != 0 {
 			return order
 		}
-		return cmp.Compare(a.ParentID, b.ParentID)
+		return compareID(a.ParentID, b.ParentID)
 	})
-	slices.SortFunc(result.Results, func(a, b Result) int { return cmp.Compare(a.IssueID, b.IssueID) })
+	slices.SortFunc(result.Results, func(a, b Result) int {
+		return compareID(a.IssueID, b.IssueID)
+	})
 	return result
+}
+
+func compareIssueCreation(left, right Issue) int {
+	if order := cmp.Compare(left.Created, right.Created); order != 0 {
+		return order
+	}
+	return cmp.Compare(left.ID, right.ID)
 }
 
 func contains(values map[string]struct{}, value string) bool {
