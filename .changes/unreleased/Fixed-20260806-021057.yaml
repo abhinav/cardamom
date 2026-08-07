@@ -1,3 +1,0 @@
-kind: Fixed
-body: Stream board copies in bounded batches instead of loading the complete board into memory.
-time: 2026-08-06T02:10:57.395258-07:00
