@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -123,6 +124,51 @@ func TestRenderWholeBoardUsesCanonicalPathsAndREADME(t *testing.T) {
 	assert.Equal(t, []string{"board", "issue:an-t", "issue:an-w"}, renderedIdentities(rendered.Files))
 	assert.Contains(t, renderedBody(t, rendered.Files, "README.md"), "[an-w](issues/an-w.md)")
 	assert.Contains(t, renderedBody(t, rendered.Files, "issues/an-w.md"), "[Board dump](../README.md)")
+}
+
+func TestRenderOrdersIssuePresentationByCreation(t *testing.T) {
+	rendered, err := render(Snapshot{
+		BoardSnapshot: BoardSnapshot{
+			BoardID: "board-1",
+			Issues: []Issue{
+				{ID: "issue-a", Title: "Newer", Type: "task", Status: "ready", Priority: 0, Created: 3},
+				{ID: "issue-m", Title: "Parent", Type: "workstream", Status: "ready", Priority: 2, Created: 1},
+				{ID: "issue-z", Title: "Older", Type: "task", Status: "ready", Priority: 4, Created: 2},
+			},
+			Containment: []Containment{
+				{ChildID: "issue-z", ParentID: "issue-m"},
+				{ChildID: "issue-a", ParentID: "issue-m"},
+			},
+			Dependencies: []Dependency{
+				{ChildID: "issue-z", ParentID: "issue-m"},
+				{ChildID: "issue-a", ParentID: "issue-m"},
+			},
+		},
+		Provenance: testProvenance("board-1"),
+		Selection:  WholeBoard(),
+	})
+	require.NoError(t, err)
+
+	boardPage := renderedBody(t, rendered.Files, "README.md")
+	require.Contains(t, boardPage, "| [issue-m]")
+	require.Contains(t, boardPage, "| [issue-z]")
+	require.Contains(t, boardPage, "| [issue-a]")
+	assert.Less(t,
+		strings.Index(boardPage, "| [issue-m]"),
+		strings.Index(boardPage, "| [issue-z]"),
+	)
+	assert.Less(t,
+		strings.Index(boardPage, "| [issue-z]"),
+		strings.Index(boardPage, "| [issue-a]"),
+	)
+
+	parentPage := renderedBody(t, rendered.Files, "issues/issue-m.md")
+	require.Contains(t, parentPage, "[issue-z: Older]")
+	require.Contains(t, parentPage, "[issue-a: Newer]")
+	assert.Less(t,
+		strings.Index(parentPage, "[issue-z: Older]"),
+		strings.Index(parentPage, "[issue-a: Newer]"),
+	)
 }
 
 func TestRenderIssueWithDescendantsIsCollectionEntrypoint(t *testing.T) {

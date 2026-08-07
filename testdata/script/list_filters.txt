@@ -47,9 +47,9 @@ stderr 'unknown flag --summary'
 ID      PRI  STATUS       TYPE  TITLE
 list-1  0    ready        task  Ready task
 list-2  1    ready        task  Prerequisite task
+list-3  2    blocked      task  Blocked task
 list-4  1    in_progress  task  In progress task
 list-5  1    waiting      task  Waiting task
-list-3  2    blocked      task  Blocked task
 -- golden/closed.txt --
 ID      PRI  STATUS  TYPE  TITLE
 list-6  1    closed  task  Closed task

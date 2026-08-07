@@ -18,7 +18,7 @@ type BoardIssueSummary struct {
 // Order is the normalized ordering contract shared by board-local and
 // aggregate issue queries.
 type Order struct {
-	// Key is empty for the priority-then-created default order.
+	// Key is empty for the creation-time default order.
 	Key string
 
 	// Reverse applies descending direction to every selected order component.
@@ -31,7 +31,7 @@ func NormalizeOrder(request ListRequest) Order {
 	switch request.Sort {
 	case "":
 		return Order{Reverse: request.Reverse}
-	case "priority", "created", "updated", "closed", "id", "title", "type":
+	case "priority", "created", "updated", "closed", "title", "type":
 		return Order{Key: request.Sort, Reverse: request.Reverse}
 	default:
 		return Order{}
@@ -39,8 +39,8 @@ func NormalizeOrder(request ListRequest) Order {
 }
 
 // OrderSummaries applies the ListRequest ordering and global limit
-// to summaries gathered from multiple boards. Board ID and issue ID provide a
-// stable tie-breaker independent of board query order.
+// to summaries gathered from multiple boards. Creation time precedes board and
+// issue identity tie-breakers so identity does not become presentation order.
 func OrderSummaries(request ListRequest, values []BoardIssueSummary) []BoardIssueSummary {
 	ordered := slices.Clone(values)
 	issueOrder := NormalizeOrder(request)
@@ -51,6 +51,15 @@ func OrderSummaries(request ListRequest, values []BoardIssueSummary) []BoardIssu
 		}
 		if order != 0 {
 			return order
+		}
+		if issueOrder.Key != "" && issueOrder.Key != "created" {
+			order = cmp.Compare(left.Summary.Issue.Created, right.Summary.Issue.Created)
+			if issueOrder.Reverse {
+				order = -order
+			}
+			if order != 0 {
+				return order
+			}
 		}
 		if order = cmp.Compare(left.BoardID, right.BoardID); order != 0 {
 			return order
@@ -73,16 +82,11 @@ func compareIssueSummary(key string, left, right Issue) int {
 		return cmp.Compare(left.Updated, right.Updated)
 	case "closed":
 		return compareOptionalInt64(left.Closed, right.Closed)
-	case "id":
-		return cmp.Compare(left.ID, right.ID)
 	case "title":
 		return cmp.Compare(left.Title, right.Title)
 	case "type":
 		return cmp.Compare(left.Type, right.Type)
 	case "":
-		if order := cmp.Compare(left.Priority, right.Priority); order != 0 {
-			return order
-		}
 		return cmp.Compare(left.Created, right.Created)
 	default:
 		panic("board: unnormalized issue order " + key)

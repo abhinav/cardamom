@@ -59,7 +59,7 @@ func (s *Server) listExecution(
 		}
 	}
 	sort.SliceStable(values, func(left, right int) bool {
-		return compareIssueSummary(values[left], values[right]) < 0
+		return comparePriorityIssueSummary(values[left], values[right]) < 0
 	})
 	if pageSize := aggregatePageSize(limit); len(values) > pageSize {
 		values = values[:pageSize]

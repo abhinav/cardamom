@@ -141,7 +141,7 @@ func (s *Service) listPool(
 			})
 		}
 	}
-	ordered = issue.OrderSummaries(issue.ListRequest{}, ordered)
+	ordered = issue.OrderSummaries(issue.ListRequest{Sort: "priority"}, ordered)
 	if len(ordered) > limit {
 		ordered = ordered[:limit]
 	}

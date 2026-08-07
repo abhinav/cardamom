@@ -103,7 +103,7 @@ func (r *Repository) ListReadyIssues(ctx context.Context, request issue.ListRead
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	values, err := r.listIssues(ctx, view, issue.ListRequest{})
+	values, err := r.listIssues(ctx, view, issue.ListRequest{Sort: "priority"})
 	if err != nil {
 		return nil, err
 	}
@@ -130,7 +130,7 @@ func (r *Repository) ListBlockedIssues(ctx context.Context, request issue.ListBl
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	values, err := r.listIssues(ctx, view, issue.ListRequest{})
+	values, err := r.listIssues(ctx, view, issue.ListRequest{Sort: "priority"})
 	if err != nil {
 		return nil, err
 	}

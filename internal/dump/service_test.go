@@ -34,6 +34,47 @@ func TestServiceSnapshotWholeBoardIsDeterministic(t *testing.T) {
 	}, logEntryIDs(snapshot.LogEntries))
 }
 
+func TestServiceSnapshotOrdersPresentationByCreationBeforeIssueIdentity(t *testing.T) {
+	service := newTestService(t, BoardSnapshot{
+		BoardID: "board-1",
+		Issues: []Issue{
+			{ID: "issue-a", Title: "Newer", Created: 3},
+			{ID: "issue-m", Title: "Parent", Created: 1},
+			{ID: "issue-z", Title: "Older", Created: 2},
+		},
+		Containment: []Containment{
+			{ChildID: "issue-a", ParentID: "issue-m"},
+			{ChildID: "issue-z", ParentID: "issue-m"},
+		},
+		Dependencies: []Dependency{
+			{ChildID: "issue-a", ParentID: "issue-m"},
+			{ChildID: "issue-z", ParentID: "issue-m"},
+		},
+		Results: []Result{
+			{IssueID: "issue-a", Body: "newer"},
+			{IssueID: "issue-z", Body: "older"},
+			{IssueID: "issue-m", Body: "parent"},
+		},
+	})
+
+	snapshot, err := service.snapshot(t.Context(), WholeBoard())
+	require.NoError(t, err)
+	assert.Equal(t, []string{"issue-m", "issue-z", "issue-a"}, issueIDs(snapshot.Issues))
+	assert.Equal(t, []Containment{
+		{ChildID: "issue-z", ParentID: "issue-m"},
+		{ChildID: "issue-a", ParentID: "issue-m"},
+	}, snapshot.Containment)
+	assert.Equal(t, []Dependency{
+		{ChildID: "issue-z", ParentID: "issue-m"},
+		{ChildID: "issue-a", ParentID: "issue-m"},
+	}, snapshot.Dependencies)
+	assert.Equal(t, []Result{
+		{IssueID: "issue-m", Body: "parent"},
+		{IssueID: "issue-z", Body: "older"},
+		{IssueID: "issue-a", Body: "newer"},
+	}, snapshot.Results)
+}
+
 func TestServiceSnapshotSelectedIssuesIncludeDescendants(t *testing.T) {
 	service := newTestService(t, unorderedSnapshot())
 

@@ -131,7 +131,7 @@ func (s *Service) ListActionableCheckpoints(
 			})
 		}
 	}
-	ordered = issue.OrderSummaries(issue.ListRequest{}, ordered)
+	ordered = issue.OrderSummaries(issue.ListRequest{Sort: "priority"}, ordered)
 	response := &privatev1.ListActionableCheckpointsResponse{
 		Checkpoints: make([]*privatev1.ActionableCheckpoint, 0, len(ordered)),
 	}

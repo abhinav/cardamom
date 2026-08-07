@@ -125,17 +125,13 @@ func qualifySummary(target readTarget, value *v1.IssueSummary) *v1.IssueSummary 
 	return result
 }
 
-func compareIssueSummary(left, right *v1.IssueSummary) int {
-	if result := cmp.Compare(left.GetPriority(), right.GetPriority()); result != 0 {
-		return result
-	}
-	if result := compareTimestamp(left.GetUpdatedAt(), right.GetUpdatedAt()); result != 0 {
-		return result
-	}
-	if result := strings.Compare(left.GetTitle(), right.GetTitle()); result != 0 {
-		return result
-	}
-	return compareIssueSummaryTieBreakers(left, right)
+func comparePriorityIssueSummary(left, right *v1.IssueSummary) int {
+	return compareIssueSummaryFor(
+		left,
+		right,
+		v1.IssueSort_ISSUE_SORT_PRIORITY,
+		false,
+	)
 }
 
 func compareTimestamp(left, right *timestamppb.Timestamp) int {
@@ -157,6 +153,8 @@ func compareTimestamp(left, right *timestamppb.Timestamp) int {
 func compareIssueSummaryFor(left, right *v1.IssueSummary, sortValue v1.IssueSort, descending bool) int {
 	result := 0
 	switch sortValue {
+	case v1.IssueSort_ISSUE_SORT_PRIORITY:
+		result = cmp.Compare(left.GetPriority(), right.GetPriority())
 	case v1.IssueSort_ISSUE_SORT_UPDATED_AT:
 		result = compareTimestamp(left.GetUpdatedAt(), right.GetUpdatedAt())
 	case v1.IssueSort_ISSUE_SORT_CREATED_AT:
@@ -164,13 +162,23 @@ func compareIssueSummaryFor(left, right *v1.IssueSummary, sortValue v1.IssueSort
 	case v1.IssueSort_ISSUE_SORT_TITLE:
 		result = strings.Compare(left.GetTitle(), right.GetTitle())
 	default:
-		result = cmp.Compare(left.GetPriority(), right.GetPriority())
+		result = compareTimestamp(left.GetCreatedAt(), right.GetCreatedAt())
 	}
 	if descending {
 		result = -result
 	}
 	if result != 0 {
 		return result
+	}
+	if sortValue != v1.IssueSort_ISSUE_SORT_CREATED_AT &&
+		sortValue != v1.IssueSort_ISSUE_SORT_UNSPECIFIED {
+		result = compareTimestamp(left.GetCreatedAt(), right.GetCreatedAt())
+		if descending {
+			result = -result
+		}
+		if result != 0 {
+			return result
+		}
 	}
 	return compareIssueSummaryTieBreakers(left, right)
 }

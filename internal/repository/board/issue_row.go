@@ -1,10 +1,12 @@
 package board
 
 import (
+	"cmp"
 	"context"
 	"database/sql"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 	"time"
 
@@ -154,6 +156,7 @@ func (idx boardIssueIndex) references(ids []string) ([]issue.Reference, error) {
 			Priority: state.state.Priority().Int(),
 		})
 	}
+	idx.orderReferencesByCreation(values)
 	return values, nil
 }
 
@@ -176,7 +179,23 @@ func (idx boardIssueIndex) openReferences(ids []string) ([]issue.Reference, erro
 			})
 		}
 	}
+	idx.orderReferencesByCreation(values)
 	return values, nil
+}
+
+// orderReferencesByCreation applies user-visible issue order to references
+// already validated against this board snapshot.
+func (idx boardIssueIndex) orderReferencesByCreation(values []issue.Reference) {
+	slices.SortFunc(values, func(left, right issue.Reference) int {
+		return idx.compareIssueCreation(issue.ID(left.ID), issue.ID(right.ID))
+	})
+}
+
+func (idx boardIssueIndex) compareIssueCreation(left, right issue.ID) int {
+	if order := idx.states[left].state.Created().Compare(idx.states[right].state.Created()); order != 0 {
+		return order
+	}
+	return cmp.Compare(left, right)
 }
 
 func (r *Repository) readIssueState(

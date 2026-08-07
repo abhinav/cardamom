@@ -286,7 +286,7 @@ func (r *Repository) readIssueStory(
 	for id := range included {
 		ids = append(ids, id)
 	}
-	slices.Sort(ids)
+	slices.SortFunc(ids, index.compareIssueCreation)
 	containment := make([]issue.ContainmentNode, 0, len(ids))
 	for _, id := range ids {
 		var parentID *string
@@ -386,20 +386,20 @@ func (r *Repository) readIssueContext(
 	if err != nil {
 		return nil, err
 	}
+	dependencyReferences, err := index.references(dependencies)
+	if err != nil {
+		return nil, err
+	}
 	results := make([]issue.DependencyResult, 0)
-	for _, dependency := range dependencies {
-		dependencyID := issue.ID(dependency)
-		references, err := index.references([]string{dependency})
-		if err != nil {
-			return nil, err
-		}
-		result, err := r.readOptionalResult(ctx, scope, dependencyID, references[0].Title)
+	for _, reference := range dependencyReferences {
+		dependencyID := issue.ID(reference.ID)
+		result, err := r.readOptionalResult(ctx, scope, dependencyID, reference.Title)
 		if err != nil {
 			return nil, err
 		}
 		if result != nil {
 			results = append(results, issue.DependencyResult{
-				Issue: references[0], Body: result.Body,
+				Issue: reference, Body: result.Body,
 			})
 		}
 	}

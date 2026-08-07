@@ -149,7 +149,7 @@ func TestBackupReader_RecordSequenceBorrowsView(t *testing.T) {
 	seedCopySource(t, persistence, copyTestBlobDescriptor(t))
 	view, err := persistence.View(t.Context())
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, view.Done()) })
+	t.Cleanup(func() { _ = view.Done() })
 	lineageID, err := view.LineageID(t.Context())
 	require.NoError(t, err)
 
@@ -167,6 +167,7 @@ func TestBackupReader_RecordSequenceBorrowsView(t *testing.T) {
 	revision, err := view.CanonicalRevision(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), revision)
+	assert.NoError(t, view.Done())
 }
 
 func recordTypes(records []boardcopy.Record) []boardcopy.RecordType {
