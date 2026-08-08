@@ -1,172 +1,195 @@
-# Planning work
+# Plan durable work
 
-Plan the smallest durable issue graph that gives each future agent a clear
-outcome, context, ownership boundary, and acceptance decision.
-When the prompt or handoff already establishes the selected board,
-use that selection and load only this planning workflow.
-Load `boards.md` before planning only when the store or board selection is
-missing or ambiguous.
-Use targeted `card ... --help` output for command syntax that this workflow does
-not exercise.
+Plan the smallest issue graph that gives each future executor a clear outcome,
+self-contained working contract, ownership boundary, prerequisite set,
+and acceptance decision.
 
-## Frame the deliverable
-
-Create one issue when one actor can own the outcome coherently.
-
-Choose the issue role from the work being coordinated:
+## Choose the outcome boundary
 
 | Type | Use |
 | --- | --- |
-| `workstream` | Finite deliverable with persistent context, child work, or its own acceptance boundary |
-| `task` | Bounded work that benefits from separate ownership, sequencing, artifacts, or acceptance |
-| `checkpoint` | Explicit human approval or denial gate |
-| `routine` | Reusable operating contract awakened by an external scheduler or coordinator |
+| `workstream` | A finite executable deliverable that may contain any issue type |
+| `task` | A bounded executable leaf outcome with separate ownership, sequencing, evidence, or acceptance |
+| `checkpoint` | A leaf approve-or-deny decision made by external authority |
+| `routine` | A reusable, executable, nestable operating contract awakened outside Cardamom |
 
-Give every issue a compact title and a concise self-contained summary.
-Follow the record roles in `SKILL.md` for summary and details content.
-Use issue type for the issue's durable role
-and built-in lifecycle and status for execution state.
-Do not duplicate those values in labels.
+A small deliverable may be executed directly as a workstream;
+it does not need a task merely to hold implementation.
 
-Keep unstable implementation ideas out of durable records.
-When open prerequisites can change an approach,
-record the required outcome, constraints, evidence, and dependencies.
-After the prerequisites close,
-inspect their results and the resulting system before recording an execution
-plan or dispatching the work.
+Create one issue when one actor can own the outcome coherently.
+The root agent may own and execute that issue directly.
+Create a child when another outcome can finish independently
+and benefits from its own custody, evidence, artifact,
+dependency, or acceptance.
+Changing executors or ordinary execution phases does not create another
+outcome.
+
+## Write a self-contained contract
+
+A new executor should be able to begin without chat history from:
+
+- the current issue's Summary and Details;
+- inherited ancestor Summaries;
+- completed direct dependency Results; and
+- the board description and supplied execution environment.
+
+Summary states the issue's concise outcome and the constraints or acceptance
+boundary needed to recognize useful completion.
+Every ancestor Summary enters descendant context and every Summary must fit the
+configured byte limit,
+so include a conclusion in a containing Summary only when every descendant
+needs it.
+
+Details complete the current issue's stable working contract.
+Use Details for issue-local procedure, locations, interfaces, examples,
+accepted decisions, and evidence requirements that an executor needs
+but descendants should not inherit automatically.
+Do not duplicate parent Summaries or dependency Results.
+Do not put chronology or an unstable implementation diary in either record.
+
+Frame the contract before execution or delegation:
 
 ```bash
 summary=$(cat <<'MARKDOWN'
 Repair quoted-input parsing without changing command syntax.
-The work is complete when the failing input has regression coverage
-and `mise run test` passes.
+
+The work is complete when malformed escapes have regression coverage
+and required parser validation passes.
 MARKDOWN
 )
 
 details=$(cat <<'MARKDOWN'
-## Acceptance evidence
+## Working context
 
-- Preserve the literal shell example `parser inspect $TARGET`.
-- Record the regression test and validation commands in the result.
+- Preserve documented literal shell examples.
+- The scanner package owns quoted-input recognition.
+- Record regression and validation evidence in Result.
 MARKDOWN
 )
 
-card --actor coordinator --json create \
+workstream_id=$(card --actor <actor> create \
   --type workstream \
   --label area:parser \
   --summary "$summary" \
   --details "$details" \
-  "Repair parser behavior"
+  'Repair parser behavior')
 ```
 
-Fresh stores allocate issue IDs with the configured prefix,
-which defaults to `cm-`.
-Every issue ID matches `[A-Za-z0-9][A-Za-z0-9-]*`.
-Treat every returned issue ID as opaque because persisted stores may contain
-IDs allocated under another valid prefix.
+When an open prerequisite may change the approach,
+record the dependency rather than an unstable plan.
+After the prerequisite closes,
+read its Result and inspect the resulting system before execution planning.
 
-## Split bounded work
+## Assign graph meaning
 
-Create a child task when a bounded part can complete under separate ownership
-and its distinct evidence, artifact, or acceptance decision makes the outcome
-independently useful.
-Changing worker classes or claim pools does not by itself create a child
-boundary.
-Keep ordinary phase transitions on the same issue.
-For optional phase visibility or automatic action-pool transitions,
-load [phased-workflows.md](phased-workflows.md).
-Create a nested workstream when the child is itself a finite deliverable with
-multiple execution or acceptance boundaries.
-Put the reason for the split in the containing contract or chronology.
+Use each relationship for the question it answers:
 
-Create known routing, containment, and prerequisites atomically:
-
-```bash
-task_id=$(card --actor coordinator create \
-  --type task \
-  --label implementation \
-  --depends-on <prerequisite-id> \
-  --parent <workstream-id> \
-  --summary "Implement the bounded parser change and its regression test." \
-  "Implement parser fix")
-```
-
-Use each graph feature for its own decision:
-
-- `--parent` records membership and inherited context.
-- `--depends-on` records a prerequisite that controls readiness.
-- `--label` records opaque classification or claim-pool routing.
+| Need | Mechanism |
+| --- | --- |
+| Larger outcome owns the work and supplies inherited context | `--parent` |
+| Another outcome must finish first | `--depends-on` |
+| Classification or action-pool routing | `--label` |
+| External authority must approve or deny | `checkpoint` issue plus dependency |
 
 Discovery does not establish a dependency.
-Add an edge only when the dependent outcome cannot proceed or be accepted
-without the prerequisite outcome.
+Add a dependency only when the dependent outcome cannot proceed or be accepted
+without the prerequisite Result.
+Containment does not create that readiness edge.
 
-Choose the planning command by mutation scope:
-
-| Need | Command |
-| --- | --- |
-| Create one issue with its initial parent, dependencies, and labels | `card create` |
-| Change an existing issue or its relationships | `card edit` |
-| Create or reconcile several issues atomically from structured input | [`card apply`](apply.md) |
-
-## Revise an existing plan
-
-Pause dispatch while changing containment or prerequisites.
-Record the evidence for a material graph change before mutating the graph,
-then make the complete related edit atomically:
+Create one issue and its known relationships together:
 
 ```bash
-card --actor coordinator edit <issue-id> \
-  --parent <workstream-id> \
-  --depends-on <schema-id> \
-  --label +integration
+task_id=$(card --actor <actor> create \
+  --type task \
+  --parent "$workstream_id" \
+  --depends-on <prerequisite-id> \
+  --label implementation \
+  --summary 'Implement the bounded parser change and its regression test.' \
+  'Implement parser repair')
 ```
 
-Use `--depends-on -<schema-id>` or `--label -integration` for removals.
-Use `--parent=` to remove containment.
-Inspect the affected ready and blocked issues before dispatch resumes.
+## Choose the graph mutation surface
 
-## Put an approval gate in the graph
+| Change | Command |
+| --- | --- |
+| Create one issue and its initial relationships | `card create` |
+| Revise one existing issue or relationship set | `card edit` |
+| Create or reconcile several related issues and relationships atomically | `card apply` |
 
-Use a checkpoint when an external authority must approve or deny work.
-Make the work that requires the decision depend on the checkpoint;
-containment does not create a readiness edge.
+`card apply` can create a complete multi-issue graph in one transaction,
+using document-local aliases to connect new issues.
+It can also reconcile existing producer-owned issues through IDs or stable
+keys.
+Choose how the document treats an existing target from the producer's
+authority over that target:
+
+| Policy | Use when |
+| --- | --- |
+| `error` | An existing target is unexpected and may identify the wrong input, issue, or board |
+| `skip` | The existing issue is authoritative and the document should create only missing issues |
+| `update` | The document producer owns every supplied field and reruns should reconcile those fields |
+
+`update` is an ownership decision rather than a convenience for idempotence.
+Supplied set-valued fields replace the complete set,
+so use `skip` or `error` when people or another process own any supplied field.
+Installed `card apply --help` owns the complete input schema.
+Use `--dry-run` when a non-mutating preview helps evaluate a generated graph.
+
+Before a material graph revision,
+publish the evidence that changed the relationship.
+Cardamom graph mutations are concurrency-safe;
+coordinate only claims or contracts on the affected issues
+when their current executors must account for the change.
+Make each related edit atomically, then inspect affected ready and blocked work:
 
 ```bash
-checkpoint_id=$(card --actor coordinator create \
-  --type checkpoint \
-  --summary "Approve only after the policy owner accepts the queue mapping and rollback plan." \
-  "Approve support taxonomy")
+card --actor <actor> log post <issue-id> \
+  'Schema inspection established that this issue now requires %<schema-id>.'
+card --actor <actor> edit <issue-id> \
+  --depends-on <schema-id> \
+  --label +integration
+card --actor <actor> --json ready
+card --actor <actor> --json blocked
+```
 
-card --actor coordinator edit <taxonomy-migration-id> \
+Use signed values such as `--depends-on -<id>` and `--label -integration` for
+removals.
+Use `--parent=` to remove containment.
+
+## Add a phased workflow only when needed
+
+Ordinary investigation, implementation, validation, and handoff positions need
+no phase labels.
+When a non-standard workflow needs human-visible positions or distinct
+label-selected worker pools,
+use [phased-workflows.md](phased-workflows.md).
+
+## Place an approval gate
+
+Use a checkpoint when an external authority must approve or deny work.
+Make work that requires the decision depend on the checkpoint:
+
+```bash
+checkpoint_id=$(card --actor <actor> create \
+  --type checkpoint \
+  --summary 'Approve after the policy owner accepts the mapping and rollback plan.' \
+  'Approve support taxonomy')
+card --actor <actor> edit <migration-id> \
   --depends-on "$checkpoint_id"
 ```
 
-Obtain the authority decision outside `card`,
-then record the outcome and optional reason:
+Obtain the authority decision outside Cardamom, then record it:
 
 ```bash
-card --actor coordinator checkpoint approve "$checkpoint_id" \
-  --reason "The policy owner accepted the queue mapping and rollback plan."
+card --actor <actor> checkpoint approve "$checkpoint_id" \
+  --reason 'The policy owner accepted the mapping and rollback plan.'
 ```
 
-Every command still carries the stable invocation actor required by the skill.
-The checkpoint decision itself records outcome, reason, decision time,
-and revision;
-it does not designate that actor as the approver or authority.
-Before `checkpoint deny`,
-follow the transitive cancellation-impact procedure in `execution.md`.
+The command actor attributes the record;
+it does not establish who holds approval authority.
+Before denying a checkpoint,
+use the cancellation-impact procedure in [execution.md](execution.md).
 
-## Apply a multi-issue plan
-
-Load [apply.md](apply.md) when several related issues should appear atomically,
-when an external producer reconciles a graph,
-or when structured generation is clearer than several commands.
-
-## Preserve supplied artifact inputs
-
-When supplied file bytes must remain available after their current path,
-process, session, or worktree disappears,
-load [attachments.md](attachments.md),
-add the file,
-and reference it from the issue record that gives the bytes meaning.
+When supplied file bytes must remain available
+after their current path or worktree,
+apply the admission criteria in [attachments.md](attachments.md).

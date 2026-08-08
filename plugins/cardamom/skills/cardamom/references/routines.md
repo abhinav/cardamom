@@ -1,220 +1,207 @@
-# Running routines
+# Run recurring work
 
-## Create a routine
+A routine is one persistent operating contract awakened by an external
+scheduler or coordinator.
+Cardamom preserves its context and run history;
+it does not schedule the next awakening.
 
-Create one routine for one stable operating contract.
-Apply the canonical record roles to routine-specific information:
+## Create the operating contract
+
+Use one routine for one stable scope and success definition.
 
 | Record | Routine contents |
 | --- | --- |
-| Title | Identity used in lists and explicit dispatch |
-| Summary | Stable scope, success conditions, and retirement conditions inherited by child work |
-| Details | Expanded stable procedure and examples retrieved on demand |
-| State body | Cursor, current targets, active run, and partial progress |
-| Next action | Optional transition for the next awakening |
-| Log | Committed run snapshots plus standalone policy decisions and other replay-worthy material |
+| Summary | Stable scope and contract facts every child needs |
+| Details | Successful-run and retirement conditions unless every child needs them, plus procedure, evidence requirements, and stable resource requirements |
+| State | Cursor, current targets, active-run facts, and partial progress |
+| Next action | Transition for the next awakening, when established |
+| Log | Committed run snapshots and replay-worthy policy decisions |
 
 ```bash
 summary=$(cat <<'MARKDOWN'
-Keep tracked pull requests moving until each is merged, closed,
-or returned to an implementation owner with an actionable failure.
-Retire when the repository no longer uses pull-request review.
+Assess tracked releases.
 MARKDOWN
 )
-
 details=$(cat <<'MARKDOWN'
-## Inputs
+Each run succeeds when every tracked release is accepted or returned with an
+actionable failure.
+Retire when this release process ends.
 
-Read the current pull request targets and last safe cursor from the routine
-state.
-
-## Procedure
-
-For each target, inspect review state and required CI checks.
-Merge a ready pull request.
-For review feedback or CI failure,
-record the actionable state and keep the target for the next run.
-
-## Successful run
-
-Every current target is assessed.
-The state retains only unresolved targets and the last safe cursor.
-
+Inspect the targets and safe cursor in State.
+Record review and validation evidence for every assessed target.
 MARKDOWN
 )
-
-routine_id=$(card --actor coordinator create \
+routine_id=$(card --actor <actor> create \
   --type routine \
-  --label area:pull-requests \
   --summary "$summary" \
   --details "$details" \
-  "Babysit pull requests")
+  'Assess releases')
 
-card --actor coordinator state set "$routine_id" "$(cat <<'STATE'
+card --actor <actor> state set "$routine_id" "$(cat <<'STATE'
 ## Current targets
 
-- [acme/widgets#121](https://reviews.example.com/acme/widgets/pulls/121)
-- [acme/widgets#122](https://reviews.example.com/acme/widgets/pulls/122)
+- release-121
+- release-122
 
 ## Safe cursor
 
-[acme/widgets#120](https://reviews.example.com/acme/widgets/pulls/120)
+release-120
 STATE
-)" --next "Assess the current pull request targets."
+)" --next 'Assess the current release targets.'
 ```
 
-Scheduling and wake policy remain external to `card`.
-Routines do not appear in `ready`, `blocked`, or automatic claim results.
+Routines do not appear in ready or blocked claim pools.
+Dispatch a routine by its known ID.
 
-## Run one awakening
+## Begin one awakening
 
-The external scheduler or coordinator dispatches a known routine ID.
-Claim that ID for one run:
+Claim the routine for one run:
 
 ```bash
-card --actor routine-worker --json claim <routine-id> --context
+card --actor <actor> --json claim <routine-id> --context
 ```
 
-Explicit selection does not bypass dependencies.
-Cardamom status `blocked` means an open graph dependency prevents execution.
-If the routine is blocked for that reason,
-leave it unclaimed and let the external wake policy retry later.
+Explicit selection still respects dependencies.
+If an open dependency blocks the routine, leave it unclaimed
+and let the external wake policy retry.
 
-The claimed next action is consumed when the awakening begins.
-Before work,
-use `state set` to retain the durable cursor, targets, and retry facts
-while adding the active run boundary.
-Omitting `--next` from this replacement clears the consumed action:
+Beginning the run consumes the planned transition.
+Before external work, replace State with the persistent cursor and targets
+plus an active-run boundary:
 
 ```bash
-card --actor routine-worker state set <routine-id> "$(cat <<'STATE'
+card --actor <actor> state set <routine-id> "$(cat <<'STATE'
 ## Current targets
 
-- [acme/widgets#121](https://reviews.example.com/acme/widgets/pulls/121)
-- [acme/widgets#122](https://reviews.example.com/acme/widgets/pulls/122)
+- release-121
+- release-122
 
 ## Safe cursor
 
-[acme/widgets#120](https://reviews.example.com/acme/widgets/pulls/120)
+release-120
 
 ## Active run
 
-- Wake: `2026-07-16T10:00:00Z`
-- Starting cursor: `pull-request-120`
-- Scope: active pull requests after that cursor
-- Evidence: review state and CI status for every inspected pull request
+- Wake: 2026-07-16T10:00:00Z
+- Starting cursor: release-120
+- Evidence: review and validation status for every inspected release
 STATE
 )"
 ```
 
 Create a child task when part of the run needs independent ownership,
 dependencies, artifacts, or acceptance.
-The routine owner coordinates the run;
-the child owner performs that bounded work.
+The routine owns coordination;
+the child owns that bounded outcome.
 
-## Finish a run
+## Finish or pause the run
 
-After the run,
-append the outcome to the active-run State.
-Commit that coherent run outcome while replacing the State body
-and optional next action with the next-run recovery position,
-then release the routine without closing it:
+Append the run outcome to active State as it becomes known.
+Advance a cursor only through successfully assessed input.
+At the run boundary, commit the completed run while installing State
+and the next action for the following awakening:
 
 ```bash
-card --actor routine-worker state append <routine-id> "$(cat <<'STATE'
+card --actor <actor> state append <routine-id> "$(cat <<'STATE'
 ## Run outcome
 
-- Reviewed pull requests 121 through 124.
-- Pull requests 121 through 123 are resolved.
-- [acme/widgets#124](https://reviews.example.com/acme/widgets/pulls/124)
-  still has a failing CI job.
+- Releases 121 through 123 are resolved.
+- Release 124 has a failing validation job and remains active.
 STATE
 )"
 
 next_state=$(cat <<'STATE'
 ## Current targets
 
-- [acme/widgets#124](https://reviews.example.com/acme/widgets/pulls/124):
-  CI job `test` is failing
+- release-124: validation job `test` is failing
 
 ## Safe cursor
 
-[acme/widgets#124](https://reviews.example.com/acme/widgets/pulls/124)
+release-124
 STATE
 )
-card --actor routine-worker state commit <routine-id> \
+card --actor <actor> state commit <routine-id> \
   --set "$next_state" \
-  --next "Recheck pull request 124 before advancing the cursor."
-card --actor routine-worker release <routine-id>
+  --next 'Recheck release 124 before advancing the cursor.'
+card --actor <actor> release <routine-id>
 ```
 
-The explicit commit preserves the completed run boundary and outcome.
-Release then preserves the changed next-run State automatically.
-Use a standalone Log post when the run establishes a material policy choice
-whose rationale later runs may need,
-or for other replay-worthy material that does not belong in either snapshot.
+The commit preserves the completed run.
+Release preserves the installed next-run State automatically.
+A standalone Log post is useful only when the run establishes a material
+policy choice or other reasoning not represented by either State snapshot.
 
-After partial or failed work,
-advance a cursor only through successfully assessed input.
-Do not retain custody merely to wait for the next wake.
-Use ordinary release when the external scheduler may start the next run.
+## Upgrade knowledge between awakenings
 
-When no run can proceed until an external condition,
-append the partial outcome to State,
-commit it while installing the last safe State and trigger,
+Every routine claim returns the routine's Details and current State.
+Keep those records sufficient to begin the next awakening without replaying the
+routine's complete Log.
+
+When a run establishes stable procedure,
+interpretation rules, resource requirements,
+or policy that later runs need,
+incorporate the conclusion into Details before release.
+Preserve the evidence and decision trail in the committed run State or a
+standalone Log entry,
+but replace obsolete Details instead of accumulating run chronology there.
+
+Keep current targets, cursors, partial progress, and wake-specific conditions
+in State.
+Keep Summary limited to the stable routine scope
+and conclusions every child must inherit.
+Keep successful-run and retirement conditions in Details
+unless every child needs them.
+Retrieve bounded Log history only when a specific past run or decision affects
+the current awakening.
+
+## Wait for external continuation
+
+When no run can proceed until an external event,
+commit the partial run while installing the last safe cursor and trigger,
 then release into waiting:
 
 ```bash
-card --actor routine-worker state append <routine-id> "$(cat <<'STATE'
-## Partial run
-
-The run advanced through the last safe cursor.
-The signing service is unavailable,
-so no later input was assessed.
-STATE
-)"
-
 next_state=$(cat <<'STATE'
 ## Current targets
 
-- [acme/widgets#125](https://reviews.example.com/acme/widgets/pulls/125):
-  not yet assessed
+- release-125: not yet assessed
 
 ## Safe cursor
 
-[acme/widgets#124](https://reviews.example.com/acme/widgets/pulls/124)
+release-124
 
 ## External trigger
 
 The signing service must recover before assessment resumes.
 STATE
 )
-card --actor routine-worker state commit <routine-id> \
+card --actor <actor> state commit <routine-id> \
   --set "$next_state" \
-  --next "Resume assessment after the signing service is restored."
-card --actor routine-worker release <routine-id> \
-  --waiting "signing service is restored"
+  --next 'Resume after the signing service is restored.'
+card --actor <actor> release <routine-id> \
+  --waiting 'signing service is restored'
 ```
 
-An external service or event discovered during a run is waiting state,
-not dependency-derived blocked status.
-After the trigger is satisfied,
-the next explicit routine claim clears waiting status.
+An external condition is waiting state, not dependency-derived blocked status.
+The next direct claim clears waiting after the trigger is satisfied.
 
-## Retire a routine
+Acquire and release a required resource lease within each run.
+Do not carry a lease between awakenings.
+Use [leases.md](leases.md) for the acquisition and recovery boundary.
 
-Verify that no actor owns an active run,
-then reconcile direct children and record the retirement reason:
+## Retire the routine
+
+Verify that no actor owns an active run, reconcile direct children,
+record why the operating contract ended, then close or cancel the routine:
 
 ```bash
-card --actor coordinator --json show <routine-id> --context
-card --actor coordinator --json list \
+card --actor <actor> --json show <routine-id> --context
+card --actor <actor> --json list \
   --under <routine-id> \
   --status ready,blocked,in_progress,waiting,closed,cancelled --limit 0
-card --actor coordinator log post <routine-id> \
-  "Retiring this routine because its operating contract no longer applies."
-card --actor coordinator close <routine-id>
+card --actor <actor> log post <routine-id> \
+  'This routine is retired because its operating contract no longer applies.'
+card --actor <actor> close <routine-id>
 ```
 
-Use `cancel` instead when the routine is retired without completion.
-A routine result is optional.
+A routine Result is optional.

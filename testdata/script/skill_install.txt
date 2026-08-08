@@ -10,7 +10,15 @@ exists skills/cardamom/SKILL.md
 exists skills/cardamom/agents/openai.yaml
 exists skills/cardamom/assets/favicon-96x96.png
 exists skills/cardamom/assets/apple-touch-icon.png
+exists skills/cardamom/references/attachments.md
 exists skills/cardamom/references/execution.md
+exists skills/cardamom/references/leases.md
+exists skills/cardamom/references/planning.md
+exists skills/cardamom/references/phased-workflows.md
+exists skills/cardamom/references/recovery.md
+exists skills/cardamom/references/mail.md
+exists skills/cardamom/references/routines.md
+exists skills/cardamom/references/scope.md
 exists skills/cardamom/scripts/cardamom
 exec test -x skills/cardamom/scripts/cardamom
 ! exists skills/cardamom/tests

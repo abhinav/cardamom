@@ -1,137 +1,88 @@
-# Resource leases
+# Coordinate an external resource
 
-## Decide before resource use
+A claim owns one issue's execution.
+A lease owns one named external resource for a bounded interval.
+Use both when claimed work also requires exclusive infrastructure.
 
-Before using an external resource that other actors may also use,
-identify the resource at the scope where overlap could cause harm.
-Use a Cardamom lease when:
+## Decide whether Cardamom must coordinate the resource
 
-- concurrent actors could overlap on that resource;
-- the overlap could interfere with work, corrupt state,
-    or allocate the resource unsafely; and
-- no existing mechanism reliably prevents the overlap.
+Use a lease when all three conditions hold:
 
-A resource's native protection or an established coordinator is sufficient
-when it serializes access,
-rejects a competing attempt before harm,
-or assigns ownership unambiguously.
-For example,
-do not add a Cardamom lease around a complete resource mutation already
-protected by an atomic native lock,
-or around a sandbox already assigned exclusively by an external allocator.
-Concurrent read-only use also needs no lease when the resource supports it
-safely.
+- actors could overlap on the resource;
+- overlap could interfere with work, corrupt state, or allocate unsafely; and
+- no native lock, allocator, or established coordinator already prevents that
+  overlap.
 
-An issue claim owns work.
-A resource lease owns one named external resource for a bounded time.
-Use both when claimed work also needs exclusive infrastructure.
-A lease does not grant credentials, permissions,
-or authority to use the resource.
-Establish authorization separately.
+Safe concurrent reads need no lease.
+A lease records coordination ownership;
+it does not grant credentials, authorization,
+or control of the external resource.
 
-Leases are store-scoped.
-Resolve the store but do not select a board solely to operate a lease.
-Use the same name when the resource is shared across boards,
-so work in either board contends for the same lease.
-Include a host or another stable qualifier when the resource is local to one
-host rather than shared by the whole store.
-Separate stores do not coordinate lease ownership.
+Lease names are store-scoped across projects and boards.
+Name the resource at its actual exclusivity scope.
+Include a host or another qualifier when the resource is local rather than
+shared across the whole store.
 
-## Name and record the allocation
+## Publish intent before acquisition
 
-Choose a stable resource name at the actual exclusivity scope.
-When an issue or routine has a stable recurring lease requirement,
-put the resource scope and the acquire-and-release requirement in details.
-Keep the current allocation, cleanup status,
-and recovery action in state.
-Record successful acquisition and material progress or cleanup outcomes
-in log entries as those events occur.
-Do not put live lease status in details.
+When an issue has a stable recurring lease requirement,
+put the resource scope and acquire-and-release requirement in Details.
+Keep current intent, ownership, cleanup status, and recovery action in State.
 
-For claimed work,
-put lease intent in the State body
-and acquisition in the optional next action before acquiring the lease.
-After acquisition succeeds,
-add a log entry and update state with the current allocation
-and recovery action as needed.
-Keep later progress logs in execution order.
+Publish lease intent before acquisition,
+then replace State with successful ownership before resource use:
 
 ```bash
-card --actor worker-a state set <issue-id> \
-  "Migration validation requires exclusive use of staging-db." \
-  --next "Acquire staging-db for migration validation."
-card --actor worker-a lease acquire staging-db --ttl 30m
-card --actor worker-a log post <issue-id> \
-  "Acquired lease staging-db for migration validation."
-card --actor worker-a state set <issue-id> \
-  "Lease staging-db is active. Inspect it before release during recovery." \
-  --next "Run migration validation."
+card --actor <actor> state set <issue-id> \
+  'Migration validation requires exclusive use of staging-db.' \
+  --next 'Acquire staging-db for migration validation.'
+card --actor <actor> lease acquire staging-db --ttl 30m
+card --actor <actor> state set <issue-id> \
+  'Lease staging-db is active; inspect resource disposition before recovery.' \
+  --next 'Run migration validation.'
 ```
-
-## Acquire and maintain a lease
 
 Use one actor for the full lease lifecycle:
 
 ```bash
-card --actor worker-a lease acquire staging-db --ttl 30m
-card --actor worker-a lease renew staging-db --ttl 30m
-card --actor worker-a lease release staging-db
+card --actor <actor> lease renew staging-db --ttl 30m
+card --actor <actor> lease release staging-db
 ```
 
-Only the active lease owner may renew or release the resource.
-Choose a TTL long enough for the owner to renew before expiry,
-but short enough to bound stale coordination state.
-Renew during long operations and release promptly after the external resource
-is actually safe for another owner.
+Choose a TTL that permits timely renewal while bounding stale coordination.
+Acquire only for the interval that needs exclusivity,
+renew during long operations,
+and release after the resource itself is safe for another actor.
 
-Acquire a lease only for the bounded interval that needs exclusivity.
-For a long-lived service,
-lease each bounded maintenance operation rather than the service lifetime.
-For a routine,
-acquire and release the lease during each run rather than carrying ownership
-between runs.
+## Recover a lease safely
 
-## Inspect and recover
-
-Inspect lease state with the same actor identity used for the surrounding work:
+Inspect Cardamom ownership and the external resource separately:
 
 ```bash
-card --actor coordinator --json lease show staging-db
-card --actor coordinator --json lease list
+card --actor <actor> --json lease show staging-db
+card --actor <actor> --json lease list
 ```
 
-When the active owner is known to be unable to continue,
-a coordinator may revoke the lease after establishing the external resource's
-disposition:
+Lease expiry or revocation removes Cardamom ownership.
+Neither operation proves that the external process stopped or that cleanup
+succeeded.
+Before reuse, inspect the resource
+and publish its observed disposition on the owning issue.
+
+When the active owner is known to be unable to continue
+and the resource is safe,
+revoke conditionally using the observed owner:
 
 ```bash
-card --actor coordinator lease revoke staging-db \
-  --owner worker-a \
-  --reason "worker-a stopped after staging-db cleanup was verified"
+card --actor <coordinator-actor> lease revoke staging-db \
+  --owner <prior-actor> \
+  --reason 'The prior actor stopped after staging-db cleanup was verified.'
 ```
 
-Use the observed owner as `--owner`.
-The owner condition preserves an active lease if ownership changed before the
-revocation,
-and the resulting error reports the current holder.
-Use the coordinator's actor identity for attribution
-rather than operating as the unavailable owner.
-Actor identity does not establish authority;
-establish the coordinator's recovery authority separately.
+The owner condition preserves a lease that changed hands before revocation.
+Record the revocation result on the owning issue.
+Use the coordinator's actor for coordinator actions;
+actor attribution does not establish recovery authority.
 
-Revocation removes only Cardamom coordination state.
-It does not stop, reset, unlock,
-or establish the safety of the external resource.
-Record the external resource disposition before revocation,
-then record the revocation result in the owning issue when one exists.
-
-Lease expiry removes Cardamom ownership,
-but it does not prove that the external process, device, or environment was
-cleaned up.
-Before reusing an expired resource,
-inspect the resource itself and the owning issue's recovery evidence.
-Record the observed cleanup status and disposition before acquiring a new
-lease.
-
-Do not use a lease as a substitute for an issue claim,
-and do not keep material resource state only in ephemeral mail.
+For routines, acquire and release the lease during each awakening
+rather than carrying it between runs.

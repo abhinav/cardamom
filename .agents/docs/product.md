@@ -62,9 +62,16 @@ Neither labels nor actor identity changes eligibility.
 The title is the issue's one-line identity.
 The summary is the concise stable issue contract inherited by descendants.
 Details are optional expanded stable Markdown disclosed on demand.
-State is mutable recovery truth with an optional planned next action.
+State is the issue's persistent mutable active memory:
+the current operative facts, progress, choices, constraints, and blockers,
+with an optional planned next action.
+Its persistence supports handoff and recovery across claims.
 Log entries are immutable chronological records,
 including committed State snapshots and standalone posts.
+Replacing State moves the active working position forward
+without preserving the displaced version.
+Committing State snapshots its current version in Log
+while replacing or clearing the active State.
 The result is the current durable outcome.
 
 Preserve these distinctions in command, protocol, domain, repository,
