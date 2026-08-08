@@ -6,6 +6,7 @@ import (
 	"os"
 	"os/signal"
 	"os/user"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -31,14 +32,36 @@ func SystemConfig(args []string) (Config, error) {
 	if info, statErr := os.Stdin.Stat(); statErr == nil {
 		stdinIsTTY = info.Mode()&os.ModeCharDevice != 0
 	}
+	var revision string
+	var modified bool
+	if buildInfo, ok := debug.ReadBuildInfo(); ok {
+		revision, modified = parseBuildVCS(buildInfo)
+	}
 	return Config{
-		Version: cli.Version, Args: args, CWD: cwd,
+		Version: cli.Version, BuildTime: cli.BuildTime,
+		Revision: revision, Modified: modified,
+		Args: args, CWD: cwd,
 		DefaultActor: currentUser.Username,
 		Stdin:        os.Stdin, StdinIsTTY: stdinIsTTY,
 		Stdout: os.Stdout, Stderr: os.Stderr,
 		DisableGitIgnore: os.Getenv("CARDAMOM_NO_GITIGNORE") != "",
 		Clock:            clock,
 	}, nil
+}
+
+func parseBuildVCS(buildInfo *debug.BuildInfo) (revision string, modified bool) {
+	for _, setting := range buildInfo.Settings {
+		switch setting.Key {
+		case "vcs.revision":
+			revision = setting.Value
+		case "vcs.modified":
+			modified = setting.Value == "true"
+		}
+	}
+	if revision == "" {
+		modified = false
+	}
+	return revision, modified
 }
 
 // Main runs the operating-system process with interrupt and termination

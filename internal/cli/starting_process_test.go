@@ -226,6 +226,65 @@ func TestBoardCommandsDelegateNamespaceRulesAndRenderResults(t *testing.T) {
 	})
 }
 
+func TestVersionCommandRendersAvailableBuildMetadata(t *testing.T) {
+	const (
+		revision  = "946440c7b34322afb39e1693431aaf1d41f3f5af"
+		buildTime = "2026-08-07T05:06:12Z"
+	)
+	tests := []struct {
+		name          string
+		giveVersion   string
+		giveBuildTime string
+		giveRevision  string
+		giveModified  bool
+		want          string
+	}{
+		{
+			name:          "Clean",
+			giveVersion:   "0.6.0",
+			giveBuildTime: buildTime,
+			giveRevision:  revision,
+			want:          "0.6.0 (" + revision + ", built " + buildTime + ")\n",
+		},
+		{
+			name:          "Dirty",
+			giveVersion:   "dev",
+			giveBuildTime: "2026-08-08T19:42:31Z",
+			giveRevision:  revision,
+			giveModified:  true,
+			want:          "dev (" + revision + "-dirty, built 2026-08-08T19:42:31Z)\n",
+		},
+		{
+			name:        "WithoutGitMetadata",
+			giveVersion: "dev", giveBuildTime: buildTime,
+			want: "dev (built " + buildTime + ")\n",
+		},
+		{
+			name:         "WithoutBuildTime",
+			giveVersion:  "dev",
+			giveRevision: revision,
+			want:         "dev (" + revision + ")\n",
+		},
+		{name: "WithoutBuildMetadata", giveVersion: "dev", want: "dev\n"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			invocation := testInvocation(t, &stdout, &stderr)
+			command := newVersionCommand(
+				tt.giveVersion,
+				tt.giveBuildTime,
+				tt.giveRevision,
+				tt.giveModified,
+			)
+
+			require.NoError(t, command.Run(invocation))
+			assert.Equal(t, tt.want, stdout.String())
+			assert.Empty(t, stderr.String())
+		})
+	}
+}
+
 func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	operation := &fakeInfoOperation{result: InfoResult{
