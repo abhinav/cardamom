@@ -19,6 +19,10 @@ import (
 // Development builds report "dev"; release builds replace it through the linker.
 var Version = "dev"
 
+// BuildTime is the UTC RFC 3339 build timestamp reported by the version command.
+// Development builds omit it; production builds replace it through the linker.
+var BuildTime string
+
 const (
 	// ExitSuccess reports successful command completion.
 	ExitSuccess = 0
@@ -39,8 +43,18 @@ const (
 // actor before constructing the CLI so command adapters do not inspect process
 // globals independently.
 type Config struct {
-	// Version is printed by the version command.
+	// Version is the product version printed by the version command.
 	Version string // required
+
+	// BuildTime is the optional UTC RFC 3339 build timestamp printed by the
+	// version command.
+	BuildTime string
+
+	// Revision is the optional full Git revision printed by the version command.
+	Revision string
+
+	// Modified reports whether Revision was built from a dirty worktree.
+	Modified bool
 
 	// DefaultActor is used when CARDAMOM_ACTOR and --actor are absent.
 	DefaultActor string // required
@@ -70,8 +84,9 @@ type Config struct {
 // bind values or singleton providers for command Run methods; parser-owned
 // name, writers, help, and exit behavior remain fixed by Application.
 type Application struct {
-	config  Config
-	options []kong.Option
+	config         Config
+	versionCommand versionCommand
+	options        []kong.Option
 }
 
 // New constructs an Application and validates its grammar and provider
@@ -98,11 +113,17 @@ func New(config Config, options ...kong.Option) (*Application, error) {
 	)
 
 	app := &Application{
-		config:  config,
+		config: config,
+		versionCommand: newVersionCommand(
+			config.Version,
+			config.BuildTime,
+			config.Revision,
+			config.Modified,
+		),
 		options: append([]kong.Option(nil), options...),
 	}
 	if _, err := app.newParser(&commandTree{
-		Version: versionCommand{value: config.Version},
+		Version: app.versionCommand,
 	}); err != nil {
 		return nil, fmt.Errorf("build command grammar: %w", err)
 	}
@@ -204,7 +225,7 @@ func (a *Application) parse(ctx context.Context, args []string) (
 	}()
 
 	grammar := &commandTree{
-		Version: versionCommand{value: a.config.Version},
+		Version: a.versionCommand,
 	}
 	parser, err := a.newParser(grammar)
 	if err != nil {

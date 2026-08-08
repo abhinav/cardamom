@@ -17,7 +17,8 @@ func TestVersionLinkerOverride(t *testing.T) {
 		"build",
 		"-o", binary,
 		"-ldflags",
-		"-X go.abhg.dev/cardamom/internal/cli.Version=v1.2.3",
+		"-X go.abhg.dev/cardamom/internal/cli.Version=v1.2.3 "+
+			"-X go.abhg.dev/cardamom/internal/cli.BuildTime=2026-08-07T05:06:12Z",
 		".",
 	)
 	buildOutput, err := build.CombinedOutput()
@@ -25,5 +26,6 @@ func TestVersionLinkerOverride(t *testing.T) {
 
 	output, err := exec.CommandContext(t.Context(), binary, "version").CombinedOutput()
 	require.NoErrorf(t, err, "run card version:\n%s", output)
-	assert.Equal(t, "v1.2.3\n", string(output))
+	assert.Contains(t, string(output), "v1.2.3 (")
+	assert.Contains(t, string(output), "built 2026-08-07T05:06:12Z)")
 }

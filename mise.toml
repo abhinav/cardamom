@@ -129,7 +129,14 @@ run = "stitchmd -unsafe -o USER_GUIDE.md -preface doc/guide/preface.md doc/guide
 [tasks.build]
 description = "Build Cardamom with embedded production assets"
 depends = ["generate:skill", "web:build"]
-run = "go build -tags=assets -o bin/card ./cmd/card"
+run = '''
+build_time=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+go build \
+  -tags=assets \
+  -ldflags="-X go.abhg.dev/cardamom/internal/cli.BuildTime=$build_time" \
+  -o bin/card \
+  ./cmd/card
+'''
 
 [tasks.test]
 description = "Run all tests"

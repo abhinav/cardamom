@@ -24,8 +24,18 @@ type Clock interface {
 
 // Config contains process-owned inputs and dependency overrides.
 type Config struct {
-	// Version is reported by the root version flag.
+	// Version is the product version reported by the version command.
 	Version string
+
+	// BuildTime is the optional UTC RFC 3339 timestamp reported by the version
+	// command.
+	BuildTime string
+
+	// Revision is the optional full Git revision reported by the version command.
+	Revision string
+
+	// Modified reports whether Revision was built from a dirty worktree.
+	Modified bool
 
 	// Args contains command arguments without the executable name.
 	Args []string
@@ -76,6 +86,9 @@ func Execute(ctx context.Context, cfg Config) int {
 
 	app, err := cli.New(cli.Config{
 		Version:           cfg.Version,
+		BuildTime:         cfg.BuildTime,
+		Revision:          cfg.Revision,
+		Modified:          cfg.Modified,
 		DefaultActor:      cfg.DefaultActor,
 		Stdin:             cfg.Stdin,
 		StdinIsTerminal:   cfg.StdinIsTTY,

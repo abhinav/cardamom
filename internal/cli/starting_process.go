@@ -569,7 +569,31 @@ type versionCommand struct {
 	value string
 }
 
-// Run prints the process build version.
+// newVersionCommand derives the human-readable version from product and build
+// metadata.
+func newVersionCommand(
+	version string,
+	buildTime string,
+	revision string,
+	modified bool,
+) versionCommand {
+	details := make([]string, 0, 2)
+	if revision != "" {
+		if modified {
+			revision += "-dirty"
+		}
+		details = append(details, revision)
+	}
+	if buildTime != "" {
+		details = append(details, "built "+buildTime)
+	}
+	if len(details) > 0 {
+		version += " (" + strings.Join(details, ", ") + ")"
+	}
+	return versionCommand{value: version}
+}
+
+// Run prints the process product version and available build metadata.
 func (c *versionCommand) Run(invocation *Invocation) error {
 	return invocation.Output.WriteString(c.value + "\n")
 }
