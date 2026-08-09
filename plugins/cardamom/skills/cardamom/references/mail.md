@@ -1,73 +1,64 @@
-# Ephemeral mail
+# Send ephemeral coordination mail
 
-Mail is expiring communication addressed to an actor name or topic.
-Mail is not attached to an issue and must never be the only record of a
-material decision, recovery state, or outcome.
-Copy material information into the relevant issue record.
+Cardamom mail is an expiring attention channel for asynchronous coordination
+within one store.
+It does not create issue custody,
+assignment, readiness, dependency, waiting,
+or durable recovery context.
 
-Mail is store-scoped.
-Resolve the store but do not select a board solely to send or receive mail.
-Use stable actor and topic names that are unambiguous throughout the store.
-Separate stores do not exchange mail.
+Use mail when a Cardamom workflow needs to notify a known actor,
+publish an event to interested subscribers, or operate a store-wide observer
+across boards.
+The collaboration runtime may already provide dispatch and notification,
+so delegation alone does not require Cardamom mail.
 
-## Send and receive
+Mailboxes and topic subscriptions are store-scoped.
+Resolve the store but do not select a board solely for mail.
+Separate stores do not exchange messages.
+Copy every material decision, active position, and outcome into the issue record
+that owns it.
 
-Send a short message to an actor mailbox:
+## Notify one actor
 
-```bash
-card --actor coordinator mail send worker-a \
-  "Issue cm-abcd is ready for execution."
-```
-
-Receive unread mail for the current actor and mark it read:
-
-```bash
-card --actor worker-a mail recv
-```
-
-Inspect without marking messages read:
+Send a short expiring message to an actor mailbox:
 
 ```bash
-card --actor worker-a mail recv --peek
+card --actor <actor> mail send <recipient-actor> \
+  'Issue cm-abcd is ready for directed continuation.'
 ```
 
-Use a single-quoted heredoc for a Markdown-rich message:
+Receive unread messages and mark them read:
 
 ```bash
-card --actor coordinator mail send worker-a - <<'MAIL'
-Issue `cm-abcd` is ready.
-
-Read the issue context before claiming it.
-MAIL
+card --actor <recipient-actor> mail recv
 ```
 
-## Topics and long-lived receivers
+Use `mail recv --peek` to inspect without changing read state.
+For a multiline message, pass `-` as the body and use a single-quoted heredoc
+so shell metacharacters remain literal.
 
-Subscribe an actor to one topic or matching pattern without reading mail:
+## Publish and observe topics
+
+Use a topic when producers should not need to know every interested actor.
+Subscribe the receiving actor before publishing:
 
 ```bash
-card --actor release-watcher mail subscribe 'release.*' --ttl 30m
+card --actor <observer-actor> mail subscribe 'release.*' --ttl 30m
+card --actor <publisher-actor> mail publish release.ready \
+  'A release checkpoint is ready for inspection.'
+card --actor <observer-actor> mail recv
 ```
 
-Running `mail subscribe` again refreshes the subscription's TTL.
+Subscription patterns and lifetimes belong to each actor.
+Running `mail subscribe` again refreshes the subscription TTL.
+Inspect or remove subscriptions with `mail subscriptions` and
+`mail unsubscribe`.
 
-Publish to a topic:
+Use `mail recv --tail` for a continuously running receiver.
+Tailing receives deliveries but does not renew topic subscriptions.
+A receiver that outlives its subscription TTL must refresh the subscription
+from another process before expiry.
 
-```bash
-card --actor scheduler mail publish release.ready \
-  "A release checkpoint is ready."
-```
-
-Use `--tail` to watch continuously for new messages after subscribing:
-
-```bash
-card --actor release-watcher mail recv --tail
-```
-
-`mail recv --tail` does not refresh subscriptions.
-For a receiver that runs longer than the subscription TTL,
-run `mail subscribe` again from another process before the TTL expires.
-Use `card --actor release-watcher mail subscriptions` to inspect active
-subscriptions,
-and use `card --actor release-watcher mail unsubscribe 'release.*'` to remove
-one.
+Messages expire independently of issue history.
+Use mail to draw attention to durable work,
+not to carry the only copy of information another executor must recover.

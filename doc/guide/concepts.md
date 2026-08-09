@@ -57,42 +57,82 @@ The response includes:
 
 - the selected board description;
 - ancestor summaries and current states;
-- the claimed issue's summary and state; and
+- the claimed issue's summary, details, and state; and
 - results from completed direct dependencies.
 
-Details, complete logs, attachments, and terminal descendants remain available
-on demand.
+Ancestor details, complete logs, attachments, and terminal descendants remain
+available on demand.
 This progressive disclosure keeps the initial handoff small
 without making deeper evidence inaccessible.
 
 ## Durable records
 
-Each issue record serves one handoff need:
+Each issue record serves one reader task:
 
-| Record | Contents |
+| Record | Reader task |
 | --- | --- |
 | Title | Compact identity for lists and commands |
-| Summary | Concise stable contract inherited by descendants |
-| Details | Expanded stable rationale, procedure, and examples |
-| State | Current recovery truth and an optional next action |
-| Log | Committed State snapshots and additional replay-worthy material |
-| Result | Durable outcome for acceptors and direct dependents |
+| Summary | Understand the minimum stable contract inherited by descendants |
+| Details | Execute from stable working knowledge that remains useful across phases or executors |
+| State | Work from the current operative facts, progress, active choices, constraints, blockers, and optional next action |
+| Log | Reconstruct decisions, evidence, and committed State snapshots |
+| Result | Inspect the completed outcome and validation |
 
-Replace State whenever the recovery truth or planned transition changes.
-Keep the recovery facts in the State body
+Summary, Details, and Log form a progressive disclosure ladder
+for stable knowledge and history.
+Summary travels with descendants,
+Details add the issue's stable working knowledge,
+and Log adds history when a reader must reconstruct how the work reached its
+current position.
+State sits alongside that ladder as the issue's persistent mutable active
+memory.
+It is included with the current issue
+and in the inherited context supplied by ancestor issues.
+A worker updates State as the operative position changes during execution.
+Because State persists across claims,
+the same record lets another executor resume after an interruption.
+Result owns the completed outcome.
+
+Information changes records when its meaning changes.
+Current investigation, progress, and phase-specific choices belong in State
+while they govern execution.
+Replacing State moves the active working position forward
+without preserving the displaced version.
+When a phase produces a coherent outcome,
+a commit snapshots the current State into Log
+while replacing or clearing the active State for what follows.
+Replay-worthy evidence or reasoning not represented by a snapshot belongs in a
+standalone Log entry.
+When a finding becomes stable guidance that should remain useful after State
+advances,
+its conclusion belongs in Details.
+When descendants need the conclusion in inherited context,
+a concise version belongs in the Summary of the issue whose descendants need
+it.
+Summary and Details edits replace the complete selected record.
+Read its current value and retain every still-operative part when incorporating
+a conclusion.
+
+Replace State whenever the current working position or planned transition
+changes.
+Keep the operative facts in the State body
 and pass the optional planned transition with `--next`.
-At a durable checkpoint,
-commit the changed State before dependent work relies on it:
+When archive verification becomes a coherent phase outcome,
+record that outcome in State,
+then commit it while installing the active State for publication:
 
 ```bash
 card --actor worker-a state set "$issue" \
-  "The signed release archive is verified." \
+  "The signed release archive is verified."
+card --actor worker-a state commit "$issue" \
+  --set "The verified archive is ready for publication." \
   --next "Publish the release notes."
-card --actor worker-a state commit "$issue"
 ```
 
-The commit preserves a State snapshot in the Log
-while retaining the current State.
+The commit preserves the verified-archive State in Log
+and makes publication the current working position.
+When a coherent phase ends with no remaining active work,
+commit it with `--set ''` to snapshot and clear State.
 Use `log post` only for additional replay-worthy reasoning or evidence
 that the State snapshot does not represent.
 
@@ -112,10 +152,11 @@ Choose the transition that matches the next reader:
 
 | Situation | Operation |
 | --- | --- |
-| Active work reaches a durable checkpoint | Keep State current, then `state commit`. |
+| A coherent phase ends and another begins | Commit current State while installing the next State with `state commit --set`. |
+| A coherent phase ends without another active position | Commit current State and clear it with `state commit --set ''`. |
 | Work is complete under the current actor | Set a result when useful, keep final State current, then `close`. |
 | Any eligible worker may continue | Keep State and its optional next action current, then ordinary `release`. |
-| A named acceptor or external event acts next | Set a useful result or recovery position, then `release --waiting "<reason>"`. |
+| A named acceptor or external event acts next | Set a useful result or current working position, then `release --waiting "<reason>"`. |
 | Work is no longer valid | Inspect dependent cancellation impact, keep State current, then `cancel`. |
 
 Release and terminal lifecycle operations preserve changed State

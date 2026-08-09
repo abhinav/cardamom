@@ -1,7 +1,6 @@
 # Cardamom skill maintenance
 
 Use this guide when changing `plugins/cardamom/skills/cardamom`.
-Also load the `writing-and-updating-skills` skill before drafting a change.
 
 ## Purpose
 
@@ -79,7 +78,6 @@ but it should not duplicate the command's full help text.
 
 ## Maintenance loop
 
-Follow the workflow in the `writing-and-updating-skills` skill.
 Start from an observed agent failure
 or an established agent workflow requirement.
 For a new requirement,

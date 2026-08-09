@@ -1,116 +1,80 @@
-# Phased workflows
+# Coordinate phased workflows
 
-Use a phased workflow when one persistent issue moves through several
-human-visible positions or automatic worker pools.
-Built-in lifecycle and status remain authoritative for readiness, custody,
-waiting, and terminal state.
-Labels are opaque conventions;
-they do not replace issue type, relationships, lifecycle, or status.
+Use a phased workflow when one persistent issue moves through non-standard
+human-visible positions or label-selected worker pools.
+Ordinary investigation, implementation, validation, handoff,
+and acceptance do not require phase labels.
 
-A phase label such as `phase:verify` records the issue's human-visible workflow
-position and makes the issue eligible for automatic claim by verification
-workers.
-Use one current `phase:<name>` label for each phase,
-and have automatic workers select that same positive label.
-Additional labels may classify or route the issue
-when they answer an independently meaningful coordination question.
-Labels do not create dependency edges or waiting semantics.
-For a phased transition,
-repeat signed `--label` terms in one `edit` command:
-`+` adds a label and `-` removes one.
-Apply the phase-label change before releasing custody.
-When continuation is external or directed,
-release the persistent issue into waiting even if a dependency or checkpoint
-records a separate prerequisite or decision.
-A checkpoint is useful only when that decision has its own acceptance boundary;
-it does not replace the waiting handoff on the persistent issue.
+## Model a workflow position
 
-## Keep ordinary phases on one issue
+A `phase:<name>` label answers which workflow position should be visible or
+which worker pool may select the issue.
+It does not impose order, create readiness, preserve work,
+transfer custody, or determine whether the issue enters automatic pools.
 
-Keep one issue across ordinary phases when the phases contribute to one
-coherent outcome.
-The issue that owns the overall result remains the work unit;
-changing the eligible worker class transfers custody rather than creating
-another ownership boundary.
-Preserve the current recovery facts in State before changing phases.
+One phase transition coordinates separate effects:
 
-Create a child issue only when a bounded part can complete under separate
-ownership and its distinct evidence, artifact,
-or acceptance decision makes the outcome independently useful.
-Do not create one child merely to represent each phase.
-Use real dependency edges when one outcome must precede another;
-phase labels do not impose that order.
+| Effect | Owner |
+| --- | --- |
+| Completed phase outcome | Committed State snapshot |
+| Next active position and action | Current State |
+| Visible position or worker pool | Phase label |
+| Automatic or directed discovery | Ordinary or waiting release |
+| Completed overall outcome | Result after the issue contract is satisfied |
 
-## Move through automatic and directed continuations
+Keep one issue when several positions contribute to one Result.
+Create a child only when a bounded part needs independent ownership,
+evidence, artifact, dependency, or acceptance.
 
-Suppose one change moves through preparation, verification,
-external authorization, and activation.
-Coordinators need to see the current phase,
-and preparation, verification, and activation workers select work from
-automatic pools.
-Assume `<change-id>` is contained by `<workstream-id>`
-and starts with `phase:prepare`.
-Represent all four ordinary phases as label states of `<change-id>`.
+Use one current phase label when the phase itself must be visible or an
+automatic pool selects it.
+Other labels may answer independent classification questions.
+When State already communicates an ordinary active position and no pool needs
+a phase label,
+the ordinary execution workflow is sufficient.
 
-A preparation worker claims by the current phase label:
+## Transition between phases
+
+At a coherent phase boundary:
+
+1. Make the completed phase outcome current State.
+2. Commit that State while installing the next position and action.
+3. Replace the old and new phase labels in one edit.
+4. Release according to how the next continuation should be discovered.
+
+For an implementation-to-verification transition:
 
 ```bash
-card --actor preparer --json claim \
-  --under <workstream-id> \
-  --label phase:prepare \
-  --context
-```
-
-After preparation,
-the worker records recoverable State and atomically moves the phase label
-before an ordinary release:
-
-```bash
-card --actor preparer edit <change-id> \
-  --label -phase:prepare \
+card --actor <actor> state set <issue-id> \
+  'Implementation satisfies its contract and is ready for verification.' \
+  --next 'Move the issue to verification.'
+card --actor <actor> state commit <issue-id> \
+  --set 'Verification is the active position; implementation is recorded.' \
+  --next 'Run the verification contract.'
+card --actor <actor> edit <issue-id> \
+  --label -phase:implement \
   --label +phase:verify
-card --actor preparer release <change-id>
+card --actor <actor> release <issue-id>
 ```
 
-The ordinary release returns the issue to automatic claim pools.
-A verification worker can then claim `<change-id>`
-with `--label phase:verify`.
+Choose the final release from the next continuation:
 
-When verification completes,
-external authorization is the next continuation.
-Move the phase label atomically and release into waiting:
+| Continuation | Release |
+| --- | --- |
+| Any eligible actor may select the new phase from an automatic pool | Ordinary release |
+| Continuation is directed, awaits acceptance, or needs an external event | Waiting release with the reason |
 
-```bash
-card --actor verifier edit <change-id> \
-  --label -phase:verify \
-  --label +phase:authorize
-card --actor verifier release <change-id> \
-  --waiting "external authorization"
-```
+A waiting issue keeps its new phase label but remains outside automatic pools.
+When the intended continuation can proceed,
+the next actor claims the same issue directly by ID.
+The waiting reason communicates that continuation;
+it does not grant authority or reserve the issue.
 
-Waiting records that automatic workers must not continue yet;
-the labels alone would not establish that condition.
-After authorization is established,
-a directed coordinator or worker claims the same issue explicitly by ID:
+Result remains unset across intermediate phase transitions.
+Set Result only when every required position has satisfied the overall issue
+contract.
 
-```bash
-card --actor coordinator --json claim <change-id> --context
-```
-
-That actor records the authorization and activation as the next action,
-then atomically moves to the activation phase and releases normally:
-
-```bash
-card --actor coordinator state set <change-id> \
-  "External authorization is established; evidence: <reference>." \
-  --next "Activate the authorized change."
-card --actor coordinator edit <change-id> \
-  --label -phase:authorize \
-  --label +phase:activate
-card --actor coordinator release <change-id>
-```
-
-An activation worker claims with `--label phase:activate`.
-If activation instead belongs to a directed actor or another external
-condition,
-use a waiting release.
+Use a checkpoint instead when an external decision needs its own durable
+approve-or-deny outcome and downstream readiness effect.
+The dependent issue still uses State, phase labels,
+and release mode for its own continuation.
