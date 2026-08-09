@@ -57,8 +57,8 @@ read their Results and inspect the resulting system before continuing.
 
 Use the new evidence to choose the current outcome:
 
-- Incorporate stable issue-local procedure, constraints, and accepted decisions
-  into Details.
+- Incorporate a conclusion into Details only when it changes the stable
+  issue-local contract needed to start work.
 - Put the current execution position and next established transition in State.
 - Preserve a changed or rejected approach in Log when its reasoning will matter
   later.
@@ -67,7 +67,18 @@ Use the new evidence to choose the current outcome:
 
 Do not preserve a superseded draft merely because work was previously planned.
 
-## Keep active memory current
+Do not put every accepted conclusion in Details.
+If an issue begins under-specified and accepted research establishes the
+approach a new executor needs to begin,
+replace Details with the complete stable working contract.
+Keep the research evidence and alternatives in Log,
+then replace State with the active execution position and next action.
+Commit the completed research State first only when that distinct position has
+replay value beyond the existing research Log.
+If a conclusion changes only the continuation of work already in progress,
+leave Details unchanged and carry the accepted approach in State.
+
+## Keep active State current
 
 State is the complete active working position,
 not a transcript.
@@ -104,11 +115,25 @@ Before reporting current status, compare State and its next action
 with active execution and accepted delegated results.
 Update State to resolve a material contradiction before answering.
 
-## Preserve completed positions and reasoning
+## Preserve decisions and completed positions
 
-When an action or phase reaches a coherent outcome,
-make that outcome current State,
-then commit it while installing the active position for what follows:
+Use a standalone Log post for material design, strategy, policy,
+or behavior choices and for distinct reasoning, evidence, alternatives,
+or consequences needed to reconstruct the choice or path.
+
+```bash
+card --actor <actor> log post <issue-id> - <<'LOG'
+The command adapter retains the existing result type.
+Adding a second result type would move transport policy into the domain API and
+force non-rendering callers to depend on command concerns.
+LOG
+```
+
+Replace State separately only when the choice changes the active position or
+next action.
+
+Use `state commit` when the current State must remain available after the next
+active position replaces it:
 
 ```bash
 card --actor <actor> state set <issue-id> \
@@ -123,36 +148,12 @@ card --actor <actor> state commit <issue-id> \
 The commit snapshots the completed reproduction State into Log and selects the
 new active State.
 It needs no standalone Log entry containing the same reproduction.
-
-Commit boundaries preserve positions another executor could continue from or
-later work will assume are true,
-such as a completed investigation,
-a coherent implementation awaiting validation,
-or a validation outcome that changes continuation.
 Elapsed time, one long command, and incomplete mechanical edits do not create a
-boundary by themselves.
-
-Use a standalone Log post for reasoning, evidence, alternatives,
-or consequences worth replaying when no State transition naturally preserves
-them:
-
-```bash
-card --actor <actor> log post <issue-id> - <<'LOG'
-The command adapter retains the existing result type.
-Adding a second result type would move transport policy into the domain API and
-force non-rendering callers to depend on command concerns.
-LOG
-```
-
-Replace State separately only when the choice changes the active position or
-next action.
-When the choice establishes a lasting issue-local rule,
-incorporate the concise rule into Details
-while preserving distinct reasoning in Log.
+snapshot by themselves.
 
 Promote only the smallest conclusion every descendant needs into the containing
 Summary.
-Keep evidence, alternatives, and chronology in Log.
+Keep decision evidence, alternatives, and chronology in Log.
 Read Summary or Details before replacing it,
 retain every still-operative part, and replace obsolete guidance
 rather than accumulating history.
@@ -193,7 +194,10 @@ and when later work needs produced file bytes.
 
 ## Finish, hand off, or wait
 
-Result owns the completed outcome and validation:
+Result owns the completed outcome and validation.
+Do not repeat that same completion or validation in standalone Log;
+use Log at finish only for distinct reasoning or evidence that Result and
+committed State do not preserve:
 
 ```bash
 card --actor <actor> result set <issue-id> "$(cat <<'RESULT'

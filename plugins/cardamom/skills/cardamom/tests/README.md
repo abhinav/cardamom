@@ -41,11 +41,24 @@ For the publication-timing repair,
 preserve these distinctions:
 
 - State and material reasoning are published before dependent work.
-- Coherent phases are committed before another phase relies on them.
+- One transition may require both State and Log when it changes the active
+  position and produces distinct replay-worthy reasoning.
+- A final Result does not repair an earlier transition that dependent work
+  crossed without durable publication.
+- Commit State when a completed position must remain recoverable after current
+  State moves on.
 - A committed State snapshot and a standalone Log post are alternative history
   mechanisms when they would preserve the same information.
 - Routine commands and incomplete mechanical work do not create chronology by
   themselves.
+- In an execution scenario,
+  compare Cardamom writes with primary-work events rather than relying on the
+  runner's final summary.
+- When publication must precede an implementation mutation,
+  record that mutation in the same ordered event stream as Cardamom writes.
+- When evaluating a nearby valid case,
+  give it an independent Prompt without exposing expected behavior to the
+  runner.
 - Accepted evidence is reused unless current evidence makes it stale.
 - Ordinary issue recovery may replay Log when history matters;
   routine awakenings normally recover from Details and current State.

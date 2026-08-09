@@ -22,6 +22,41 @@ If it is unavailable,
 use `scripts/cardamom` from this skill directory on macOS or Linux,
 or `scripts/cardamom.ps1` on Windows.
 
+## Synchronize before dependent work
+
+For claimed work,
+State and Log are live execution memory on the primary task's critical path.
+They are not conversational status or separate tracker administration.
+Thinking, research, and execution may produce new knowledge.
+Durable publication finishes that material transition;
+the first edit, command, dispatch, or answer that consumes the knowledge comes
+afterward.
+Immediately before that consuming action,
+compare the issue records with what the action assumes:
+
+- State must contain the complete current premise and next action.
+- Log must already contain a newly selected material design, strategy, policy,
+  or behavior choice and its useful rationale.
+- If the stable contract needed to start the issue changed,
+  Details must contain the complete new contract.
+
+One transition may affect several records,
+but publish each distinct effect once.
+Materiality follows the behavior or constraint a choice establishes,
+not the size of its implementation.
+When a choice changes the active approach,
+State carries its operative conclusion while Log carries its distinct rationale;
+neither substitutes for the other.
+
+Publication is part of completing a material transition.
+A material choice is not selected until its applicable records are current,
+and a new active position is not established until State matches it.
+Work that has not changed the recoverable position may continue without an
+update.
+Delivery pressure may make the record concise;
+it does not move publication to final handoff.
+Final handoff summarizes an issue record already kept current by execution.
+
 ## Preserve actor identity
 
 Use the collaboration runtime's readable agent name as `--actor`.
@@ -87,23 +122,26 @@ a resource lease, when needed, owns one external resource.
 
 ## Model the parts of an issue
 
-Choose a record by the reader and lifetime of its information:
+Importance determines whether knowledge must be durable.
+Its future reader and lifetime determine the record:
 
-| Record | Role |
+| Record | Reader question |
 | --- | --- |
-| Title | Compact identity for lists, routing, and commands |
-| Summary | Concise stable contract inherited by every descendant |
-| Details | Stable issue-local working contract disclosed on demand |
-| State | Persistent mutable active position and optional next action |
-| Log | Immutable committed State snapshots and standalone history |
-| Result | Completed outcome and validation for acceptors and dependents |
+| Title | How is this outcome identified in lists, routing, and commands? |
+| Summary | What stable context must every descendant inherit? |
+| Details | What stable issue-local contract must an executor know to begin? |
+| State | What is true now, and what established action comes next? |
+| Log | Which earlier positions or decisions may deeper recovery need to replay? |
+| Result | What completed outcome and validation do acceptors and dependents consume? |
 
 Summary and Details establish what work means.
 Every ancestor Summary enters descendant context and each Summary has a
 configured byte limit,
 so Summary carries only the outcome, constraints, acceptance boundary,
-and conclusions every descendant needs.
-Details carry stable issue-local procedure, locations, accepted decisions,
+and conclusions that the issue contract or an actual child plan establishes
+every descendant needs.
+Details carry stable issue-local procedure, locations, accepted contract
+decisions,
 and evidence requirements without spending sibling or descendant context.
 
 State establishes where active work is now.
@@ -112,9 +150,11 @@ The current issue and each ancestor contribute State to contextual output.
 so every replacement retains the facts that remain operative.
 
 Log explains how the work reached an earlier position.
-It is expanded when chronology, evidence, or reasoning matters;
-finite-work recovery may replay the complete Log.
-Result owns the completed outcome rather than active recovery context.
+It preserves committed State snapshots and reasoning or evidence needed to
+reconstruct decisions;
+finite-work recovery may replay it completely.
+Result owns the completed outcome and validation rather than active recovery
+context or decision history.
 
 Progressively disclose context according to the executor's question:
 
@@ -162,28 +202,6 @@ appear in automatic ready or blocked pools.
 When an issue uses `phase:<name>` labels,
 load [phased-workflows.md](references/phased-workflows.md) before changing its
 State, phase label, or custody.
-
-## Publish knowledge as work advances
-
-Cardamom records are coordination state,
-not documentation reconstructed after execution.
-Publish a material change before later work relies on it,
-using the record that owns the information rather than mirroring it everywhere.
-Until a material fact is durable,
-another actor and a recovering session must behave as though it is unknown.
-
-State carries the complete active position.
-Commit a coherent completed position while installing the State for what
-follows.
-Use a standalone Log post for replay-worthy reasoning that a State transition
-does not naturally preserve.
-Promote stable issue-local conclusions into Details,
-and promote only conclusions every descendant needs into Summary.
-
-Use [execution.md](references/execution.md) whenever claiming, executing,
-handing off, accepting, closing, or cancelling ordinary issue work.
-Use [recovery.md](references/recovery.md) when continuing interrupted work or
-reassigning a stopped executor.
 
 ## Load the reference for the task
 
