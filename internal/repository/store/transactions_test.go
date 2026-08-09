@@ -1,7 +1,6 @@
 package store
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"path/filepath"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestStore_Change(t *testing.T) {
@@ -61,7 +61,9 @@ func TestStore_Change(t *testing.T) {
 
 func TestChange_DoneReportsCleanupFailure(t *testing.T) {
 	wantErr := errors.New("rollback failed")
-	change := &Change{tx: &stubChangeTransaction{rollbackErr: wantErr}}
+	transaction := NewMockChangeTransaction(gomock.NewController(t))
+	transaction.EXPECT().Rollback().Return(wantErr)
+	change := &Change{tx: transaction}
 
 	assert.ErrorIs(t, change.Done(), wantErr)
 	assert.ErrorIs(t, change.Done(), wantErr)
@@ -69,7 +71,9 @@ func TestChange_DoneReportsCleanupFailure(t *testing.T) {
 
 func TestView_DoneReportsCleanupFailure(t *testing.T) {
 	wantErr := errors.New("rollback failed")
-	view := &View{tx: &stubReadTransaction{rollbackErr: wantErr}}
+	transaction := NewMockReadTransaction(gomock.NewController(t))
+	transaction.EXPECT().Rollback().Return(wantErr)
+	view := &View{tx: transaction}
 
 	assert.ErrorIs(t, view.Done(), wantErr)
 	assert.ErrorIs(t, view.Done(), wantErr)
@@ -172,56 +176,4 @@ func readNextIssueNumber(t *testing.T, store *Store) int64 {
 	require.NoError(t, view.QueryRowContext(t.Context(), `SELECT next_issue_number FROM store_state`).Scan(&number))
 	require.NoError(t, view.Done())
 	return number
-}
-
-type stubChangeTransaction struct {
-	rollbackErr error
-}
-
-type stubReadTransaction struct {
-	rollbackErr error
-}
-
-func (*stubReadTransaction) ExecContext(context.Context, string, ...any) (sql.Result, error) {
-	panic("unexpected call")
-}
-
-func (*stubReadTransaction) PrepareContext(context.Context, string) (*sql.Stmt, error) {
-	panic("unexpected call")
-}
-
-func (*stubReadTransaction) QueryContext(context.Context, string, ...any) (*sql.Rows, error) {
-	panic("unexpected call")
-}
-
-func (*stubReadTransaction) QueryRowContext(context.Context, string, ...any) *sql.Row {
-	panic("unexpected call")
-}
-
-func (s *stubReadTransaction) Rollback() error {
-	return s.rollbackErr
-}
-
-func (*stubChangeTransaction) ExecContext(context.Context, string, ...any) (sql.Result, error) {
-	panic("unexpected call")
-}
-
-func (*stubChangeTransaction) PrepareContext(context.Context, string) (*sql.Stmt, error) {
-	panic("unexpected call")
-}
-
-func (*stubChangeTransaction) QueryContext(context.Context, string, ...any) (*sql.Rows, error) {
-	panic("unexpected call")
-}
-
-func (*stubChangeTransaction) QueryRowContext(context.Context, string, ...any) *sql.Row {
-	panic("unexpected call")
-}
-
-func (*stubChangeTransaction) Commit() error {
-	panic("unexpected call")
-}
-
-func (s *stubChangeTransaction) Rollback() error {
-	return s.rollbackErr
 }

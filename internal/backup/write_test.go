@@ -17,6 +17,7 @@ import (
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/project"
+	"go.uber.org/mock/gomock"
 )
 
 func TestOperation_WriteSelectsBoardsAndDeduplicatesBlobs(t *testing.T) {
@@ -57,10 +58,14 @@ func TestOperation_WriteSelectsBoardsAndDeduplicatesBlobs(t *testing.T) {
 				boards:   boards,
 			}
 			blobs := &writeTestBlobs{body: []byte("data")}
+			configurations := NewMockStoreConfiguration(gomock.NewController(t))
+			configurations.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(
+				configuration.Overrides{}, nil,
+			).Times(2)
 			operation := NewOperation(OperationConfig{
 				Source:        source,
 				Blobs:         blobs,
-				Configuration: writeTestConfiguration{},
+				Configuration: configurations,
 				Publisher:     &FilePublisher{},
 			})
 
@@ -100,6 +105,11 @@ func TestOperation_WriteRejectsConfigurationChange(t *testing.T) {
 	after := configuration.Overrides{}
 	after.Issue.ID.Prefix = &prefix
 	destination := filepath.Join(t.TempDir(), "portable-backup")
+	configurations := NewMockStoreConfiguration(gomock.NewController(t))
+	gomock.InOrder(
+		configurations.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(before, nil),
+		configurations.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(after, nil),
+	)
 	operation := NewOperation(OperationConfig{
 		Source: &writeTestSource{
 			projects: []project.Snapshot{testWriteProject("project-one")},
@@ -110,7 +120,7 @@ func TestOperation_WriteRejectsConfigurationChange(t *testing.T) {
 			)},
 		},
 		Blobs:         &writeTestBlobs{},
-		Configuration: &changingWriteTestConfiguration{values: []configuration.Overrides{before, after}},
+		Configuration: configurations,
 		Publisher:     &FilePublisher{},
 	})
 
@@ -127,6 +137,10 @@ func TestOperation_WriteFailurePreservesDestination(t *testing.T) {
 	descriptor := testWriteBlobDescriptor(t)
 	destination := filepath.Join(t.TempDir(), "portable-backup")
 	require.NoError(t, os.WriteFile(destination, []byte("existing"), 0o600))
+	configurations := NewMockStoreConfiguration(gomock.NewController(t))
+	configurations.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(
+		configuration.Overrides{}, nil,
+	).Times(2)
 	operation := NewOperation(OperationConfig{
 		Source: &writeTestSource{
 			projects: []project.Snapshot{testWriteProject("project-one")},
@@ -137,7 +151,7 @@ func TestOperation_WriteFailurePreservesDestination(t *testing.T) {
 			)},
 		},
 		Blobs:         &writeTestBlobs{body: []byte("bad")},
-		Configuration: writeTestConfiguration{},
+		Configuration: configurations,
 		Publisher:     &FilePublisher{},
 	})
 
@@ -352,26 +366,6 @@ func (s *writeTestBlobs) OpenCopyBlob(
 ) (io.ReadCloser, error) {
 	s.opens++
 	return io.NopCloser(bytes.NewReader(s.body)), nil
-}
-
-type writeTestConfiguration struct{}
-
-func (writeTestConfiguration) ReadStoreConfiguration(
-	context.Context,
-) (configuration.Overrides, error) {
-	return configuration.Overrides{}, nil
-}
-
-type changingWriteTestConfiguration struct {
-	values []configuration.Overrides
-}
-
-func (s *changingWriteTestConfiguration) ReadStoreConfiguration(
-	context.Context,
-) (configuration.Overrides, error) {
-	value := s.values[0]
-	s.values = s.values[1:]
-	return value, nil
 }
 
 func mustSelectBoards(t *testing.T, ids ...board.ID) Selection {

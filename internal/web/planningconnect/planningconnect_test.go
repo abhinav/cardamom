@@ -18,19 +18,64 @@ import (
 	"go.abhg.dev/cardamom/internal/project"
 	"go.abhg.dev/cardamom/internal/web/boardscope"
 	"go.abhg.dev/cardamom/internal/web/issueview"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceMapsAtomicEditAndTypedApplyReferences(t *testing.T) {
 	t.Parallel()
 
 	boardState := planningTestBoard(t)
-	planner := new(planningStub)
+	planner := NewMockBoardPlanner(gomock.NewController(t))
+	planner.EXPECT().EditIssue(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		invocation issue.Invocation,
+		request planning.EditIssueRequest,
+	) (planning.EditIssueResult, error) {
+		assert.Equal(t, "editor", invocation.Actor())
+		assert.Equal(t, "Renamed", *request.Title)
+		assert.True(t, request.ParentSet)
+		assert.Nil(t, request.Parent)
+		assert.Equal(t, []string{"an-dep"}, request.AddDependencies)
+		assert.Equal(t, []string{"replacement"}, *request.Labels)
+		return planning.EditIssueResult{
+			Issue: issue.Detail{Issue: planningTestIssue("an-1")},
+		}, nil
+	})
+	planner.EXPECT().ApplyDocument(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		invocation issue.Invocation,
+		request planning.ApplyDocumentRequest,
+	) (planning.ApplyReceipt, error) {
+		require.Len(t, request.Issues, 2)
+		require.NotNil(t, request.Issues[1].DependsOn)
+		assert.Equal(t, []planning.ApplyIssueReference{{
+			Kind: planning.ApplyReferenceAlias, Alias: "build",
+		}}, *request.Issues[1].DependsOn)
+		assert.Equal(t, planning.ApplyIssueReference{
+			Kind: planning.ApplyReferenceID, ID: "an-parent",
+		}, request.Issues[1].Parent.Reference)
+		assert.Equal(t, planning.ApplyExistingUpdate, request.OnExisting)
+		assert.Equal(t, "planner", invocation.Actor())
+		return planning.ApplyReceipt{
+			Entries: []planning.ApplyReceiptEntry{{
+				InputIndex: 0, ID: new("an-build"),
+				Action: planning.ApplyActionCreate,
+			}},
+			Counts: planning.ApplyCounts{Create: 1},
+		}, nil
+	})
+	factory := NewMockBoardPlannerFactory(gomock.NewController(t))
+	factory.EXPECT().Planner(boardState.ID()).Return(planner, nil).Times(2)
 	service := New(Config{
 		Scope: boardscope.New(
 			planningCatalog{boardState},
 			planningLocator{"an-1": boardState.ID()},
 		),
-		Planners: planningFactory{boardState.ID(): planner},
+		Planners: factory,
 		Views:    issueview.New(markdown.New()),
 	})
 
@@ -41,12 +86,6 @@ func TestServiceMapsAtomicEditAndTypedApplyReferences(t *testing.T) {
 		Labels: labels, Context: &privatev1.MutationContext{Actor: new("editor")},
 	}))
 	require.NoError(t, err)
-	assert.Equal(t, "editor", planner.invocation.Actor())
-	assert.Equal(t, "Renamed", *planner.edit.Title)
-	assert.True(t, planner.edit.ParentSet)
-	assert.Nil(t, planner.edit.Parent)
-	assert.Equal(t, []string{"an-dep"}, planner.edit.AddDependencies)
-	assert.Equal(t, []string{"replacement"}, *planner.edit.Labels)
 
 	response, err := service.ApplyDocument(t.Context(), connect.NewRequest(&privatev1.ApplyDocumentRequest{
 		BoardId: boardState.ID().String(),
@@ -75,16 +114,6 @@ func TestServiceMapsAtomicEditAndTypedApplyReferences(t *testing.T) {
 		Context: &privatev1.MutationContext{Actor: new("planner")},
 	}))
 	require.NoError(t, err)
-	require.Len(t, planner.apply.Issues, 2)
-	require.NotNil(t, planner.apply.Issues[1].DependsOn)
-	assert.Equal(t, []planning.ApplyIssueReference{{
-		Kind: planning.ApplyReferenceAlias, Alias: "build",
-	}}, *planner.apply.Issues[1].DependsOn)
-	assert.Equal(t, planning.ApplyIssueReference{
-		Kind: planning.ApplyReferenceID, ID: "an-parent",
-	}, planner.apply.Issues[1].Parent.Reference)
-	assert.Equal(t, planning.ApplyExistingUpdate, planner.apply.OnExisting)
-	assert.Equal(t, "planner", planner.invocation.Actor())
 	assert.Equal(t, "create", response.Msg.GetReceipt().GetEntries()[0].GetAction())
 }
 
@@ -92,13 +121,15 @@ func TestServiceRejectsUnsupportedApplyValues(t *testing.T) {
 	t.Parallel()
 
 	boardState := planningTestBoard(t)
-	planner := new(planningStub)
+	planner := NewMockBoardPlanner(gomock.NewController(t))
+	factory := NewMockBoardPlannerFactory(gomock.NewController(t))
+	factory.EXPECT().Planner(boardState.ID()).Return(planner, nil).Times(2)
 	service := New(Config{
 		Scope: boardscope.New(
 			planningCatalog{boardState},
 			planningLocator{},
 		),
-		Planners: planningFactory{boardState.ID(): planner},
+		Planners: factory,
 		Views:    issueview.New(markdown.New()),
 	})
 	tests := []struct {
@@ -132,8 +163,6 @@ func TestServiceRejectsUnsupportedApplyValues(t *testing.T) {
 
 			assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
 			assert.ErrorContains(t, err, test.wantError)
-			assert.Zero(t, planner.applyCalls)
-			assert.Empty(t, planner.apply.Issues)
 		})
 	}
 }
@@ -142,12 +171,17 @@ func TestServiceRejectsInvalidApplyReceiptAction(t *testing.T) {
 	t.Parallel()
 
 	boardState := planningTestBoard(t)
-	planner := &planningStub{applyResult: &planning.ApplyReceipt{
+	planner := NewMockBoardPlanner(gomock.NewController(t))
+	planner.EXPECT().ApplyDocument(
+		gomock.Any(), gomock.Any(), gomock.Any(),
+	).Return(planning.ApplyReceipt{
 		Entries: []planning.ApplyReceiptEntry{{Action: planning.ApplyActionUnknown}},
-	}}
+	}, nil)
+	factory := NewMockBoardPlannerFactory(gomock.NewController(t))
+	factory.EXPECT().Planner(boardState.ID()).Return(planner, nil)
 	service := New(Config{
 		Scope:    boardscope.New(planningCatalog{boardState}, planningLocator{}),
-		Planners: planningFactory{boardState.ID(): planner},
+		Planners: factory,
 		Views:    issueview.New(markdown.New()),
 	})
 
@@ -158,61 +192,6 @@ func TestServiceRejectsInvalidApplyReceiptAction(t *testing.T) {
 
 	assert.Nil(t, response)
 	assert.Equal(t, connect.CodeInternal, connect.CodeOf(err))
-}
-
-type planningStub struct {
-	invocation  issue.Invocation
-	edit        planning.EditIssueRequest
-	applyCalls  int
-	apply       planning.ApplyDocumentRequest
-	applyResult *planning.ApplyReceipt
-}
-
-func (*planningStub) CreateIssue(
-	context.Context,
-	issue.Invocation,
-	planning.CreateIssueRequest,
-) (planning.CreateIssueResult, error) {
-	return planning.CreateIssueResult{}, nil
-}
-
-func (s *planningStub) EditIssue(
-	_ context.Context,
-	invocation issue.Invocation,
-	request planning.EditIssueRequest,
-) (planning.EditIssueResult, error) {
-	s.invocation = invocation
-	s.edit = request
-	return planning.EditIssueResult{Issue: issue.Detail{Issue: planningTestIssue("an-1")}}, nil
-}
-
-func (s *planningStub) ApplyDocument(
-	_ context.Context,
-	invocation issue.Invocation,
-	request planning.ApplyDocumentRequest,
-) (planning.ApplyReceipt, error) {
-	s.applyCalls++
-	s.invocation = invocation
-	s.apply = request
-	if s.applyResult != nil {
-		return *s.applyResult, nil
-	}
-	return planning.ApplyReceipt{
-		Entries: []planning.ApplyReceiptEntry{{
-			InputIndex: 0, ID: new("an-build"), Action: planning.ApplyActionCreate,
-		}},
-		Counts: planning.ApplyCounts{Create: 1},
-	}, nil
-}
-
-type planningFactory map[board.ID]BoardPlanner
-
-func (f planningFactory) Planner(boardID board.ID) (BoardPlanner, error) {
-	planner, ok := f[boardID]
-	if !ok {
-		return nil, assert.AnError
-	}
-	return planner, nil
 }
 
 type planningCatalog struct{ board *board.State }

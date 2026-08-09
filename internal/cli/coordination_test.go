@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/lease"
 	"go.abhg.dev/cardamom/internal/mail"
+	"go.uber.org/mock/gomock"
 )
 
 func TestMailSendCommandAttributesAndRendersDirectDelivery(t *testing.T) {
@@ -28,7 +29,7 @@ func TestMailSendCommandAttributesAndRendersDirectDelivery(t *testing.T) {
 		t,
 		strings.NewReader(""),
 		mailOperations,
-		&recordingLeaseOperations{},
+		NewMockLeaseOperations(gomock.NewController(t)),
 		"--actor", "alice", "--json",
 		"mail", "send", "bob", "ship it", "--ttl", "2h",
 	)
@@ -54,7 +55,7 @@ func TestMailSendCommand_readsBodyFromStandardInputAndUsesDomainTTLDefault(t *te
 		t,
 		strings.NewReader("status from stdin\n"),
 		mailOperations,
-		&recordingLeaseOperations{},
+		NewMockLeaseOperations(gomock.NewController(t)),
 		"--actor", "alice", "mail", "send", "bob", "-",
 	)
 
@@ -78,7 +79,7 @@ func TestMailPublishCommandBuildsTopicPublication(t *testing.T) {
 		t,
 		strings.NewReader(""),
 		mailOperations,
-		&recordingLeaseOperations{},
+		NewMockLeaseOperations(gomock.NewController(t)),
 		"--actor", "alice", "--json",
 		"mail", "publish", topic, "deploy", "--ttl", "2h",
 	)
@@ -102,7 +103,7 @@ func TestMailRecvCommand_modesBuildDomainRequests(t *testing.T) {
 			t,
 			strings.NewReader(""),
 			mailOperations,
-			&recordingLeaseOperations{},
+			NewMockLeaseOperations(gomock.NewController(t)),
 			"--actor", "alice", "--json", "mail", "recv", "--age", "1h", "--limit", "4",
 		)
 
@@ -125,7 +126,7 @@ func TestMailRecvCommand_modesBuildDomainRequests(t *testing.T) {
 			t,
 			strings.NewReader(""),
 			mailOperations,
-			&recordingLeaseOperations{},
+			NewMockLeaseOperations(gomock.NewController(t)),
 			"--actor", "alice", "mail", "recv", "--peek", "--all",
 		)
 
@@ -144,7 +145,7 @@ func TestMailRecvCommand_modesBuildDomainRequests(t *testing.T) {
 			t,
 			strings.NewReader(""),
 			mailOperations,
-			&recordingLeaseOperations{},
+			NewMockLeaseOperations(gomock.NewController(t)),
 			"--actor", "alice", "mail", "recv", "--global",
 		)
 
@@ -165,7 +166,7 @@ func TestMailRecvCommand_modesBuildDomainRequests(t *testing.T) {
 			t,
 			strings.NewReader(""),
 			mailOperations,
-			&recordingLeaseOperations{},
+			NewMockLeaseOperations(gomock.NewController(t)),
 			"--actor", "alice", "--json", "mail", "recv", "--clear",
 		)
 
@@ -194,7 +195,7 @@ func TestMailRecvCommand_rejectsUnsafeModeCombinations(t *testing.T) {
 				t,
 				strings.NewReader(""),
 				&recordingMailOperations{},
-				&recordingLeaseOperations{},
+				NewMockLeaseOperations(gomock.NewController(t)),
 				args...,
 			)
 
@@ -217,7 +218,7 @@ func TestMailRecvCommand_tailUsesInvocationCancellation(t *testing.T) {
 		&stderr,
 		strings.NewReader(""),
 		mailOperations,
-		&recordingLeaseOperations{},
+		NewMockLeaseOperations(gomock.NewController(t)),
 	)
 	require.NoError(t, err)
 
@@ -242,7 +243,7 @@ func TestMailSubscriptionCommands(t *testing.T) {
 			t,
 			strings.NewReader(""),
 			mailOperations,
-			&recordingLeaseOperations{},
+			NewMockLeaseOperations(gomock.NewController(t)),
 			"--actor", "alice", "--json", "mail", "subscribe", "release.*",
 		)
 
@@ -267,7 +268,7 @@ func TestMailSubscriptionCommands(t *testing.T) {
 			t,
 			strings.NewReader(""),
 			mailOperations,
-			&recordingLeaseOperations{},
+			NewMockLeaseOperations(gomock.NewController(t)),
 			"--json", "mail", "subscriptions",
 		)
 
@@ -291,7 +292,7 @@ func TestMailSubscriptionCommands(t *testing.T) {
 			t,
 			strings.NewReader(""),
 			mailOperations,
-			&recordingLeaseOperations{},
+			NewMockLeaseOperations(gomock.NewController(t)),
 			"--actor", "alice", "--json", "mail", "unsubscribe", "release.*",
 		)
 
@@ -307,12 +308,15 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
 
 	t.Run("Acquire", func(t *testing.T) {
-		leaseOperations := &recordingLeaseOperations{
-			acquireResult: lease.Lease{
-				Name: "staging-db", Owner: "alice", AcquiredAt: now,
-				ExpiresAt: now.Add(30 * time.Minute),
-			},
+		request := lease.AcquireRequest{
+			Name: "staging-db", Owner: "alice", TTL: 30 * time.Minute,
 		}
+		result := lease.Lease{
+			Name: "staging-db", Owner: "alice", AcquiredAt: now,
+			ExpiresAt: now.Add(30 * time.Minute),
+		}
+		leaseOperations := NewMockLeaseOperations(gomock.NewController(t))
+		leaseOperations.EXPECT().Acquire(gomock.Any(), request).Return(result, nil)
 
 		stdout, stderr, exit := runCoordinationCommand(
 			t,
@@ -323,19 +327,17 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, exit)
-		require.Len(t, leaseOperations.acquisitions, 1)
-		assert.Equal(t, "staging-db", leaseOperations.acquisitions[0].Name)
-		assert.Equal(t, "alice", leaseOperations.acquisitions[0].Owner)
-		assert.Equal(t, 30*time.Minute, leaseOperations.acquisitions[0].TTL)
 		assert.Equal(t, "{\"name\":\"staging-db\",\"owner\":\"alice\",\"acquired_at\":\"2026-07-18T12:00:00Z\",\"expires_at\":\"2026-07-18T12:30:00Z\"}\n", stdout)
 		assert.Empty(t, stderr)
 	})
 
 	t.Run("ListUsesJSONLines", func(t *testing.T) {
-		leaseOperations := &recordingLeaseOperations{listResult: []lease.Lease{
+		result := []lease.Lease{
 			{Name: "device-a", Owner: "alice", ExpiresAt: now},
 			{Name: "staging-db", Owner: "bob", ExpiresAt: now.Add(time.Hour)},
-		}}
+		}
+		leaseOperations := NewMockLeaseOperations(gomock.NewController(t))
+		leaseOperations.EXPECT().List(gomock.Any()).Return(result, nil)
 
 		stdout, stderr, exit := runCoordinationCommand(
 			t,
@@ -355,12 +357,15 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 	})
 
 	t.Run("Renew", func(t *testing.T) {
-		leaseOperations := &recordingLeaseOperations{
-			renewResult: lease.Lease{
-				Name: "staging-db", Owner: "alice", AcquiredAt: now.Add(-time.Hour),
-				ExpiresAt: now.Add(10 * time.Minute),
-			},
+		request := lease.RenewRequest{
+			Name: "staging-db", Owner: "alice", TTL: 10 * time.Minute,
 		}
+		result := lease.Lease{
+			Name: "staging-db", Owner: "alice", AcquiredAt: now.Add(-time.Hour),
+			ExpiresAt: now.Add(10 * time.Minute),
+		}
+		leaseOperations := NewMockLeaseOperations(gomock.NewController(t))
+		leaseOperations.EXPECT().Renew(gomock.Any(), request).Return(result, nil)
 
 		_, stderr, exit := runCoordinationCommand(
 			t,
@@ -371,20 +376,17 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, exit)
-		require.Len(t, leaseOperations.renewals, 1)
-		assert.Equal(t, "staging-db", leaseOperations.renewals[0].Name)
-		assert.Equal(t, "alice", leaseOperations.renewals[0].Owner)
-		assert.Equal(t, 10*time.Minute, leaseOperations.renewals[0].TTL)
 		assert.Empty(t, stderr)
 	})
 
 	t.Run("Release", func(t *testing.T) {
-		leaseOperations := &recordingLeaseOperations{
-			releaseResult: lease.Lease{
-				Name: "staging-db", Owner: "alice", AcquiredAt: now.Add(-time.Hour),
-				ExpiresAt: now.Add(time.Minute),
-			},
+		request := lease.ReleaseRequest{Name: "staging-db", Owner: "alice"}
+		result := lease.Lease{
+			Name: "staging-db", Owner: "alice", AcquiredAt: now.Add(-time.Hour),
+			ExpiresAt: now.Add(time.Minute),
 		}
+		leaseOperations := NewMockLeaseOperations(gomock.NewController(t))
+		leaseOperations.EXPECT().Release(gomock.Any(), request).Return(result, nil)
 
 		_, stderr, exit := runCoordinationCommand(
 			t,
@@ -395,23 +397,24 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, exit)
-		require.Len(t, leaseOperations.releases, 1)
-		assert.Equal(t, "staging-db", leaseOperations.releases[0].Name)
-		assert.Equal(t, "alice", leaseOperations.releases[0].Owner)
 		assert.Empty(t, stderr)
 	})
 
 	t.Run("Revoke", func(t *testing.T) {
-		leaseOperations := &recordingLeaseOperations{
-			revokeResult: lease.Revocation{
-				Lease: lease.Lease{
-					Name: "staging-db", Owner: "worker-a",
-					AcquiredAt: now.Add(-time.Hour), ExpiresAt: now.Add(time.Minute),
-				},
-				RevokedBy: "coordinator", Reason: "owner cannot continue",
-				RevokedAt: now,
-			},
+		request := lease.RevokeRequest{
+			Name: "staging-db", Owner: "worker-a",
+			RevokedBy: "coordinator", Reason: "owner cannot continue",
 		}
+		result := lease.Revocation{
+			Lease: lease.Lease{
+				Name: "staging-db", Owner: "worker-a",
+				AcquiredAt: now.Add(-time.Hour), ExpiresAt: now.Add(time.Minute),
+			},
+			RevokedBy: "coordinator", Reason: "owner cannot continue",
+			RevokedAt: now,
+		}
+		leaseOperations := NewMockLeaseOperations(gomock.NewController(t))
+		leaseOperations.EXPECT().Revoke(gomock.Any(), request).Return(result, nil)
 
 		stdout, stderr, exit := runCoordinationCommand(
 			t,
@@ -423,11 +426,6 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, exit)
-		require.Len(t, leaseOperations.revocations, 1)
-		assert.Equal(t, lease.RevokeRequest{
-			Name: "staging-db", Owner: "worker-a",
-			RevokedBy: "coordinator", Reason: "owner cannot continue",
-		}, leaseOperations.revocations[0])
 		assert.Equal(
 			t,
 			"{\"lease\":{\"name\":\"staging-db\",\"owner\":\"worker-a\",\"acquired_at\":\"2026-07-18T11:00:00Z\",\"expires_at\":\"2026-07-18T12:01:00Z\"},\"revoked_by\":\"coordinator\",\"reason\":\"owner cannot continue\",\"revoked_at\":\"2026-07-18T12:00:00Z\"}\n",
@@ -437,16 +435,20 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 	})
 
 	t.Run("RevokePlain", func(t *testing.T) {
-		leaseOperations := &recordingLeaseOperations{
-			revokeResult: lease.Revocation{
-				Lease: lease.Lease{
-					Name: "staging-db", Owner: "worker-a",
-					AcquiredAt: now.Add(-time.Hour), ExpiresAt: now.Add(time.Minute),
-				},
-				RevokedBy: "coordinator", Reason: "owner cannot continue",
-				RevokedAt: now,
-			},
+		request := lease.RevokeRequest{
+			Name: "staging-db", Owner: "worker-a",
+			RevokedBy: "coordinator", Reason: "owner cannot continue",
 		}
+		result := lease.Revocation{
+			Lease: lease.Lease{
+				Name: "staging-db", Owner: "worker-a",
+				AcquiredAt: now.Add(-time.Hour), ExpiresAt: now.Add(time.Minute),
+			},
+			RevokedBy: "coordinator", Reason: "owner cannot continue",
+			RevokedAt: now,
+		}
+		leaseOperations := NewMockLeaseOperations(gomock.NewController(t))
+		leaseOperations.EXPECT().Revoke(gomock.Any(), request).Return(result, nil)
 
 		stdout, stderr, exit := runCoordinationCommand(
 			t,
@@ -467,12 +469,13 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 	})
 
 	t.Run("Show", func(t *testing.T) {
-		leaseOperations := &recordingLeaseOperations{
-			readResult: lease.Lease{
-				Name: "staging-db", Owner: "alice", AcquiredAt: now,
-				ExpiresAt: now.Add(time.Minute),
-			},
+		request := lease.GetRequest{Name: "staging-db"}
+		result := lease.Lease{
+			Name: "staging-db", Owner: "alice", AcquiredAt: now,
+			ExpiresAt: now.Add(time.Minute),
 		}
+		leaseOperations := NewMockLeaseOperations(gomock.NewController(t))
+		leaseOperations.EXPECT().Get(gomock.Any(), request).Return(result, nil)
 
 		stdout, stderr, exit := runCoordinationCommand(
 			t,
@@ -483,8 +486,6 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 		)
 
 		assert.Equal(t, ExitSuccess, exit)
-		require.Len(t, leaseOperations.reads, 1)
-		assert.Equal(t, "staging-db", leaseOperations.reads[0].Name)
 		assert.Equal(t, "{\"name\":\"staging-db\",\"owner\":\"alice\",\"acquired_at\":\"2026-07-18T12:00:00Z\",\"expires_at\":\"2026-07-18T12:01:00Z\"}\n", stdout)
 		assert.Empty(t, stderr)
 	})
@@ -492,14 +493,17 @@ func TestLeaseCommands_attributeRequestsAndFrameResults(t *testing.T) {
 
 func TestLeaseCommand_conflictPresentsDomainHolder(t *testing.T) {
 	now := time.Date(2026, time.July, 18, 12, 0, 0, 0, time.UTC)
-	leaseOperations := &recordingLeaseOperations{
-		acquireErr: &lease.HeldError{
-			Current: lease.Lease{
-				Name: "staging-db", Owner: "bob",
-				ExpiresAt: now.Add(10 * time.Minute),
-			},
+	request := lease.AcquireRequest{
+		Name: "staging-db", Owner: "alice", TTL: 30 * time.Minute,
+	}
+	operationError := &lease.HeldError{
+		Current: lease.Lease{
+			Name: "staging-db", Owner: "bob",
+			ExpiresAt: now.Add(10 * time.Minute),
 		},
 	}
+	leaseOperations := NewMockLeaseOperations(gomock.NewController(t))
+	leaseOperations.EXPECT().Acquire(gomock.Any(), request).Return(lease.Lease{}, operationError)
 
 	stdout, stderr, exit := runCoordinationCommand(
 		t,
@@ -598,56 +602,6 @@ func (o *recordingMailOperations) RemoveSubscription(_ context.Context, request 
 	return o.updateResult.Removals[0], o.updateErr
 }
 
-type recordingLeaseOperations struct {
-	acquisitions []lease.AcquireRequest
-	renewals     []lease.RenewRequest
-	releases     []lease.ReleaseRequest
-	revocations  []lease.RevokeRequest
-	reads        []lease.GetRequest
-
-	acquireResult lease.Lease
-	acquireErr    error
-	renewResult   lease.Lease
-	renewErr      error
-	releaseResult lease.Lease
-	releaseErr    error
-	revokeResult  lease.Revocation
-	revokeErr     error
-	readResult    lease.Lease
-	readErr       error
-	listResult    []lease.Lease
-	listErr       error
-}
-
-func (r *recordingLeaseOperations) Acquire(_ context.Context, request lease.AcquireRequest) (lease.Lease, error) {
-	r.acquisitions = append(r.acquisitions, request)
-	return r.acquireResult, r.acquireErr
-}
-
-func (r *recordingLeaseOperations) Renew(_ context.Context, request lease.RenewRequest) (lease.Lease, error) {
-	r.renewals = append(r.renewals, request)
-	return r.renewResult, r.renewErr
-}
-
-func (r *recordingLeaseOperations) Release(_ context.Context, request lease.ReleaseRequest) (lease.Lease, error) {
-	r.releases = append(r.releases, request)
-	return r.releaseResult, r.releaseErr
-}
-
-func (r *recordingLeaseOperations) Revoke(_ context.Context, request lease.RevokeRequest) (lease.Revocation, error) {
-	r.revocations = append(r.revocations, request)
-	return r.revokeResult, r.revokeErr
-}
-
-func (r *recordingLeaseOperations) Get(_ context.Context, request lease.GetRequest) (lease.Lease, error) {
-	r.reads = append(r.reads, request)
-	return r.readResult, r.readErr
-}
-
-func (r *recordingLeaseOperations) List(context.Context) ([]lease.Lease, error) {
-	return r.listResult, r.listErr
-}
-
 func runCoordinationCommand(
 	t *testing.T,
 	stdin *strings.Reader,
@@ -691,7 +645,4 @@ func newCoordinationTestApplication(
 	)
 }
 
-var (
-	_ MailOperations  = (*recordingMailOperations)(nil)
-	_ LeaseOperations = (*recordingLeaseOperations)(nil)
-)
+var _ MailOperations = (*recordingMailOperations)(nil)

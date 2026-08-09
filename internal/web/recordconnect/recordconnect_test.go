@@ -16,27 +16,48 @@ import (
 	"go.abhg.dev/cardamom/internal/markdown"
 	"go.abhg.dev/cardamom/internal/web/boardscope"
 	"go.abhg.dev/cardamom/internal/web/issueview"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceKeepsLogEntriesStatesAndResultsDistinct(t *testing.T) {
 	t.Parallel()
 
 	boardState := recordTestBoard(t)
-	records := &recordStub{
-		state: record.GetStateResult{
-			IssueID: "an-1",
-			State: &issue.RecoveryState{
-				Body: "current", NextAction: "next",
-			},
+	records := NewMockBoardRecords(gomock.NewController(t))
+	records.EXPECT().GetState(
+		gomock.Any(), record.GetStateRequest{IssueID: "an-1"},
+	).Return(record.GetStateResult{
+		IssueID: "an-1",
+		State: &issue.RecoveryState{
+			Body: "current", NextAction: "next",
 		},
-		result: issue.Result{IssueID: "an-1", Title: "Task", Body: "done"},
-	}
+	}, nil)
+	records.EXPECT().AddLogEntry(
+		gomock.Any(),
+		issue.NewInvocation("engineer"),
+		record.AddLogEntryRequest{IssueID: "an-1", Body: "diagnostic"},
+	).Return(record.AddLogEntryResult{LogEntry: issue.LogEntry{
+		ID:      "cmt_77777777777777777777777777777777",
+		IssueID: "an-1", Kind: "post",
+		Author: new("engineer"), Committer: new("engineer"),
+		Body: "diagnostic", Created: new(int64(1)),
+	}}, nil)
+	records.EXPECT().SetResult(
+		gomock.Any(),
+		issue.NewInvocation("engineer"),
+		record.SetResultRequest{IssueID: "an-1", Body: "done"},
+	).Return(record.SetResultResult{IssueID: "an-1", Body: "done"}, nil)
+	records.EXPECT().GetResult(
+		gomock.Any(), record.GetResultRequest{IssueID: "an-1"},
+	).Return(issue.Result{IssueID: "an-1", Title: "Task", Body: "done"}, nil)
+	factory := NewMockBoardRecordFactory(gomock.NewController(t))
+	factory.EXPECT().Records(boardState.ID()).Return(records, nil).Times(3)
 	service := New(Config{
 		Scope: boardscope.New(
 			recordCatalog{boardState},
 			recordLocator{"an-1": boardState.ID()},
 		),
-		Records: recordFactory{boardState.ID(): records},
+		Records: factory,
 		Views:   issueview.New(markdown.New()),
 	})
 
@@ -55,8 +76,6 @@ func TestServiceKeepsLogEntriesStatesAndResultsDistinct(t *testing.T) {
 	assert.Equal(t, "cmt_77777777777777777777777777777777", logEntry.Msg.GetLogEntry().GetId())
 	assert.Equal(t, "engineer", logEntry.Msg.GetLogEntry().GetPost().GetActor())
 	assert.Equal(t, "diagnostic", logEntry.Msg.GetLogEntry().GetPost().GetBody().GetSource())
-	assert.Equal(t, "engineer", records.invocation.Actor())
-	assert.Equal(t, "diagnostic", records.logEntry.Body)
 
 	result, err := service.SetResult(t.Context(), connect.NewRequest(&privatev1.SetResultRequest{
 		IssueId: "an-1", BodySource: "done",
@@ -64,12 +83,11 @@ func TestServiceKeepsLogEntriesStatesAndResultsDistinct(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, "done", result.Msg.GetResult().GetBody().GetSource())
-	assert.Equal(t, record.SetResultRequest{IssueID: "an-1", Body: "done"}, records.setResult)
 }
 
 func TestServiceRendersLogEntryListInRequestedOrder(t *testing.T) {
 	boardState := recordTestBoard(t)
-	records := &recordStub{logEntries: []issue.LogEntry{
+	logEntries := []issue.LogEntry{
 		{
 			ID:      "cmt_11111111111111111111111111111111",
 			IssueID: "an-1", Kind: "post",
@@ -82,15 +100,21 @@ func TestServiceRendersLogEntryListInRequestedOrder(t *testing.T) {
 			Author: new("two"), Committer: new("two"),
 			Body: "Second", Created: new(int64(2)),
 		},
-	}}
-	renderer := &recordMarkdownRenderer{}
+	}
+	records := NewMockBoardRecords(gomock.NewController(t))
+	records.EXPECT().ListLogEntries(
+		gomock.Any(),
+		issue.LogListRequest{IssueID: "an-1", Reverse: true},
+	).Return(logEntries, nil)
+	factory := NewMockBoardRecordFactory(gomock.NewController(t))
+	factory.EXPECT().Records(boardState.ID()).Return(records, nil)
 	service := New(Config{
 		Scope: boardscope.New(
 			recordCatalog{boardState},
 			recordLocator{"an-1": boardState.ID()},
 		),
-		Records: recordFactory{boardState.ID(): records},
-		Views:   issueview.New(renderer),
+		Records: factory,
+		Views:   issueview.New(markdown.New()),
 	})
 
 	response, err := service.ListLogEntries(
@@ -102,13 +126,6 @@ func TestServiceRendersLogEntryListInRequestedOrder(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	assert.Equal(t, issue.LogListRequest{
-		IssueID: "an-1",
-		Reverse: true,
-	}, records.logListRequest)
-	require.Len(t, renderer.calls, 1)
-	assert.Equal(t, boardState.ID(), renderer.calls[0].boardID)
-	assert.Equal(t, []string{"First", "Second"}, renderer.calls[0].sources)
 	require.Len(t, response.Msg.GetLogEntries(), 2)
 	assert.Equal(t, "First", response.Msg.GetLogEntries()[0].GetPost().GetBody().GetSource())
 	assert.Equal(t, "Second", response.Msg.GetLogEntries()[1].GetPost().GetBody().GetSource())
@@ -133,7 +150,7 @@ func TestServiceMapsStateCommitDispositionsAndTypedResponses(t *testing.T) {
 		Lifecycle: "open", Status: "ready", Priority: 2,
 		Created: 1, Updated: 2, Revision: 3,
 	}
-	records := &recordStub{commitResults: []record.CommitStateResult{
+	commitResults := []record.CommitStateResult{
 		{
 			Issue: issueSummary,
 			State: &issue.RecoveryState{
@@ -157,13 +174,39 @@ func TestServiceMapsStateCommitDispositionsAndTypedResponses(t *testing.T) {
 			Issue:    issueSummary,
 			LogEntry: stateSnapshot("Cleared State."),
 		},
-	}}
+	}
+	records := NewMockBoardRecords(gomock.NewController(t))
+	gomock.InOrder(
+		records.EXPECT().CommitState(
+			gomock.Any(), issue.NewInvocation("reviewer"),
+			record.CommitStateRequest{
+				IssueID: "an-1", Disposition: record.CommitStateRetain,
+			},
+		).Return(commitResults[0], nil),
+		records.EXPECT().CommitState(
+			gomock.Any(), issue.NewInvocation("reviewer"),
+			record.CommitStateRequest{
+				IssueID: "an-1", Disposition: record.CommitStateReplace,
+				Replacement: record.StateReplacement{
+					Body: "Replacement State.", NextAction: "Replacement action.",
+				},
+			},
+		).Return(commitResults[1], nil),
+		records.EXPECT().CommitState(
+			gomock.Any(), issue.NewInvocation("reviewer"),
+			record.CommitStateRequest{
+				IssueID: "an-1", Disposition: record.CommitStateClear,
+			},
+		).Return(commitResults[2], nil),
+	)
+	factory := NewMockBoardRecordFactory(gomock.NewController(t))
+	factory.EXPECT().Records(boardState.ID()).Return(records, nil).Times(3)
 	service := New(Config{
 		Scope: boardscope.New(
 			recordCatalog{boardState},
 			recordLocator{"an-1": boardState.ID()},
 		),
-		Records: recordFactory{boardState.ID(): records},
+		Records: factory,
 		Views:   issueview.New(markdown.New()),
 	})
 
@@ -254,144 +297,6 @@ func TestServiceMapsStateCommitDispositionsAndTypedResponses(t *testing.T) {
 		"Cleared State.",
 		cleared.Msg.GetLogEntry().GetStateSnapshot().GetBody().GetSource(),
 	)
-
-	assert.Equal(t, []record.CommitStateRequest{
-		{IssueID: "an-1", Disposition: record.CommitStateRetain},
-		{
-			IssueID: "an-1", Disposition: record.CommitStateReplace,
-			Replacement: record.StateReplacement{
-				Body: "Replacement State.", NextAction: "Replacement action.",
-			},
-		},
-		{IssueID: "an-1", Disposition: record.CommitStateClear},
-	}, records.commitRequests)
-	require.Len(t, records.commitInvocations, 3)
-	assert.Equal(t, "reviewer", records.commitInvocations[0].Actor())
-	assert.Equal(t, "reviewer", records.commitInvocations[1].Actor())
-	assert.Equal(t, "reviewer", records.commitInvocations[2].Actor())
-}
-
-type recordStub struct {
-	logEntries        []issue.LogEntry
-	logListRequest    issue.LogListRequest
-	state             record.GetStateResult
-	result            issue.Result
-	invocation        issue.Invocation
-	logEntry          record.AddLogEntryRequest
-	setResult         record.SetResultRequest
-	commitResults     []record.CommitStateResult
-	commitInvocations []issue.Invocation
-	commitRequests    []record.CommitStateRequest
-}
-
-func (s *recordStub) ListLogEntries(
-	_ context.Context,
-	request issue.LogListRequest,
-) ([]issue.LogEntry, error) {
-	s.logListRequest = request
-	return s.logEntries, nil
-}
-
-func (s *recordStub) AddLogEntry(
-	_ context.Context,
-	invocation issue.Invocation,
-	request record.AddLogEntryRequest,
-) (record.AddLogEntryResult, error) {
-	s.invocation = invocation
-	s.logEntry = request
-	return record.AddLogEntryResult{LogEntry: issue.LogEntry{
-		ID:      "cmt_77777777777777777777777777777777",
-		IssueID: request.IssueID, Kind: "post",
-		Author: new(invocation.Actor()), Committer: new(invocation.Actor()),
-		Body: request.Body, Created: new(int64(1)),
-	}}, nil
-}
-
-func (s *recordStub) GetState(
-	context.Context,
-	record.GetStateRequest,
-) (record.GetStateResult, error) {
-	return s.state, nil
-}
-
-func (*recordStub) SetState(
-	context.Context,
-	issue.Invocation,
-	record.SetStateRequest,
-) (record.StateResult, error) {
-	return record.StateResult{}, nil
-}
-
-func (*recordStub) AppendState(
-	context.Context,
-	issue.Invocation,
-	record.SetStateRequest,
-) (record.StateResult, error) {
-	return record.StateResult{}, nil
-}
-
-func (*recordStub) ClearState(
-	context.Context,
-	issue.Invocation,
-	record.ClearStateRequest,
-) (record.StateResult, error) {
-	return record.StateResult{}, nil
-}
-
-func (s *recordStub) CommitState(
-	_ context.Context,
-	invocation issue.Invocation,
-	request record.CommitStateRequest,
-) (record.CommitStateResult, error) {
-	s.commitInvocations = append(s.commitInvocations, invocation)
-	s.commitRequests = append(s.commitRequests, request)
-	return s.commitResults[len(s.commitRequests)-1], nil
-}
-
-func (s *recordStub) GetResult(
-	context.Context,
-	record.GetResultRequest,
-) (issue.Result, error) {
-	return s.result, nil
-}
-
-func (s *recordStub) SetResult(
-	_ context.Context,
-	invocation issue.Invocation,
-	request record.SetResultRequest,
-) (record.SetResultResult, error) {
-	s.invocation = invocation
-	s.setResult = request
-	return record.SetResultResult(request), nil
-}
-
-type recordFactory map[board.ID]BoardRecords
-
-type recordMarkdownRenderer struct{ calls []recordMarkdownCall }
-
-type recordMarkdownCall struct {
-	boardID board.ID
-	sources []string
-}
-
-func (r *recordMarkdownRenderer) RenderBoard(
-	_ context.Context,
-	boardID board.ID,
-	_ string,
-	sources []string,
-) ([]string, error) {
-	r.calls = append(r.calls, recordMarkdownCall{
-		boardID: boardID, sources: append([]string(nil), sources...),
-	})
-	return append([]string(nil), sources...), nil
-}
-
-func (f recordFactory) Records(boardID board.ID) (BoardRecords, error) {
-	records, ok := f[boardID]
-	if !ok {
-		return nil, assert.AnError
-	}
-	return records, nil
 }
 
 type recordCatalog struct{ board *board.State }

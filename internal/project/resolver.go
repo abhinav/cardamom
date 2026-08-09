@@ -7,6 +7,8 @@ import (
 	"go.abhg.dev/cardamom/internal/must"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package project -typed -write_package_comment=false . Projects
+
 // Projects provides the project states required by Resolver.
 type Projects interface {
 	// ListProjects returns every project in deterministic order.

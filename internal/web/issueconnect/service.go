@@ -14,6 +14,8 @@ import (
 	"go.abhg.dev/cardamom/internal/web/issueview"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package issueconnect -typed -write_package_comment=false . BoardReaderFactory
+
 // BoardReader supplies the issue reads exposed by IssueService.
 type BoardReader interface {
 	// ReadIssue returns one issue detail and its requested inherited context.

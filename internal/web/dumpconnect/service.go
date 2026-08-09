@@ -21,6 +21,8 @@ import (
 
 const dumpFileChunkSize = 64 * 1024
 
+//go:generate go tool mockgen -destination mocks_test.go -package dumpconnect -typed -write_package_comment=false . Renderer,RendererFactory
+
 // Renderer produces one complete deterministic dump artifact.
 type Renderer interface {
 	// Render selects and renders one coherent artifact.

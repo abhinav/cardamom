@@ -120,6 +120,8 @@ type BlobSource interface {
 	) (io.ReadCloser, error)
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package backup -typed -write_package_comment=false . StoreConfiguration
+
 // StoreConfiguration reads the physical source store configuration layer.
 type StoreConfiguration interface {
 	// ReadStoreConfiguration returns the current typed physical overrides.

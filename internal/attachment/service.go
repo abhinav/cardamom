@@ -93,6 +93,8 @@ type MaintenanceRepository interface {
 	CollectAttachments(context.Context, CollectRequest) (CollectionResult, error)
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package attachment -typed -write_package_comment=false . Repository,IssueViewReader
+
 // Repository provides every finite persistence operation consumed by Service.
 type Repository interface {
 	UploadRepository

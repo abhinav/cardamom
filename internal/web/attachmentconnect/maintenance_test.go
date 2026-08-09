@@ -10,6 +10,7 @@ import (
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceMapsVerificationAndCollectionSummaries(t *testing.T) {
@@ -17,25 +18,30 @@ func TestServiceMapsVerificationAndCollectionSummaries(t *testing.T) {
 	require.NoError(t, err)
 	descriptor := attachment.BlobDescriptor{Digest: digest, SizeBytes: 12}
 	now := time.Date(2026, time.July, 20, 12, 0, 0, 0, time.UTC)
-	repository := &recordingRepository{
-		verify: attachment.Verification{
+	verification := attachment.Verification{
+		AttachmentID: attachment.ID("att_aaaaaaaaaaaaaaaaaaaaaaaaaa"),
+		Blob:         descriptor,
+		Availability: attachment.BlobAvailabilityDigestMismatch,
+		ObservedAt:   now,
+	}
+	collection := attachment.CollectionResult{
+		DryRun:         true,
+		ExpiredStaging: attachment.CollectionSummary{Count: 2, Bytes: 30},
+		OrphanBlobs:    attachment.CollectionSummary{Count: 3, Bytes: 45},
+		IntegrityProblems: []attachment.IntegrityProblem{{
+			BoardID:      board.ID("board-one"),
 			AttachmentID: attachment.ID("att_aaaaaaaaaaaaaaaaaaaaaaaaaa"),
 			Blob:         descriptor,
-			Availability: attachment.BlobAvailabilityDigestMismatch,
-			ObservedAt:   now,
-		},
-		collection: attachment.CollectionResult{
-			DryRun:         true,
-			ExpiredStaging: attachment.CollectionSummary{Count: 2, Bytes: 30},
-			OrphanBlobs:    attachment.CollectionSummary{Count: 3, Bytes: 45},
-			IntegrityProblems: []attachment.IntegrityProblem{{
-				BoardID:      board.ID("board-one"),
-				AttachmentID: attachment.ID("att_aaaaaaaaaaaaaaaaaaaaaaaaaa"),
-				Blob:         descriptor,
-				Availability: attachment.BlobAvailabilityMissing,
-			}},
-		},
+			Availability: attachment.BlobAvailabilityMissing,
+		}},
 	}
+	repository := NewMockRepository(gomock.NewController(t))
+	repository.EXPECT().VerifyAttachment(gomock.Any(), attachment.VerifyRequest{
+		BoardID: "board-one", AttachmentID: verification.AttachmentID,
+	}).Return(verification, nil)
+	repository.EXPECT().CollectAttachments(
+		gomock.Any(), attachment.CollectRequest{DryRun: true},
+	).Return(collection, nil)
 	client := newDomainTestClient(t, repository)
 
 	verified, err := client.VerifyAttachment(t.Context(), connect.NewRequest(
@@ -51,8 +57,6 @@ func TestServiceMapsVerificationAndCollectionSummaries(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, privatev1.BlobAvailability_BLOB_AVAILABILITY_DIGEST_MISMATCH, verified.Msg.GetVerification().GetAvailability())
 	assert.Equal(t, now, verified.Msg.GetVerification().GetObservedAt().AsTime())
-	assert.Equal(t, board.ID("board-one"), repository.verifyRequest.BoardID)
-	assert.True(t, repository.collectRequest.DryRun)
 	result := collected.Msg.GetResult()
 	assert.True(t, result.GetDryRun())
 	assert.Equal(t, uint64(2), result.GetExpiredStaging().GetCount())

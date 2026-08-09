@@ -22,6 +22,8 @@ type CommittedRevision struct {
 	Revision board.Revision
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package record -typed -write_package_comment=false . Changes,Reader
+
 // Changes persists finite issue record changes. Each method owns its complete
 // atomic projection boundary.
 type Changes interface {

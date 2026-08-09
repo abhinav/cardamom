@@ -1,6 +1,7 @@
 package attachmentconnect
 
 import (
+	"context"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceMapsUploadLifecycleAndReplay(t *testing.T) {
@@ -40,21 +42,67 @@ func TestServiceMapsUploadLifecycleAndReplay(t *testing.T) {
 			Actor: "uploader", At: now, Revision: board.Revision(7),
 		},
 	}
-	repository := &recordingRepository{
-		upload: attachment.Upload{
-			ID:                attachment.UploadID("upload-one"),
-			Association:       association,
-			Filename:          filename,
-			ExpectedSizeBytes: &expectedSize,
-			ExpectedDigest:    &digest,
-			Actor:             "uploader",
-			State:             attachment.UploadStateActive,
-			AcceptedOffset:    6,
-			MaximumSizeBytes:  configuration.ByteLimit(configuration.DefaultAttachmentMaxBytes),
-			ExpiresAt:         now.Add(time.Hour),
-		},
-		attachment: committedAttachment,
+	upload := attachment.Upload{
+		ID:                attachment.UploadID("upload-one"),
+		Association:       association,
+		Filename:          filename,
+		ExpectedSizeBytes: &expectedSize,
+		ExpectedDigest:    &digest,
+		Actor:             "uploader",
+		State:             attachment.UploadStateActive,
+		AcceptedOffset:    6,
+		MaximumSizeBytes:  configuration.ByteLimit(configuration.DefaultAttachmentMaxBytes),
+		ExpiresAt:         now.Add(time.Hour),
 	}
+	repository := NewMockRepository(gomock.NewController(t))
+	repository.EXPECT().BeginUpload(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		admission attachment.BeginUploadAdmission,
+	) (attachment.Upload, error) {
+		assert.Equal(t, "uploader", admission.Request.Invocation.Actor())
+		assert.Equal(t, board.ID("board-one"), admission.Request.Association.BoardID())
+		assert.Equal(t, filename, admission.Request.Filename)
+		assert.Equal(t, upload.MaximumSizeBytes, admission.MaximumSizeBytes)
+		return upload, nil
+	})
+	repository.EXPECT().WriteChunk(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		request attachment.WriteChunkRequest,
+	) (attachment.Upload, error) {
+		assert.Equal(t, "uploader", request.Invocation.Actor())
+		assert.Equal(t, attachment.UploadID("upload-one"), request.UploadID)
+		assert.Equal(t, []byte("repeat"), request.Content)
+		return upload, nil
+	}).Times(2)
+	repository.EXPECT().GetUpload(
+		gomock.Any(), attachment.GetUploadRequest{UploadID: "upload-one"},
+	).Return(upload, nil)
+	repository.EXPECT().CommitUpload(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		request attachment.CommitUploadRequest,
+	) (attachment.Attachment, error) {
+		assert.Equal(t, "uploader", request.Invocation.Actor())
+		assert.Equal(t, attachment.UploadID("upload-one"), request.UploadID)
+		return committedAttachment, nil
+	}).Times(2)
+	abortedUpload := upload
+	abortedUpload.State = attachment.UploadStateAborted
+	repository.EXPECT().AbortUpload(
+		gomock.Any(), gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		request attachment.AbortUploadRequest,
+	) (attachment.Upload, error) {
+		assert.Equal(t, "uploader", request.Invocation.Actor())
+		assert.Equal(t, attachment.UploadID("upload-one"), request.UploadID)
+		return abortedUpload, nil
+	})
 	client := newDomainTestClient(t, repository)
 	mutation := &privatev1.MutationContext{Actor: new(" uploader ")}
 
@@ -85,9 +133,8 @@ func TestServiceMapsUploadLifecycleAndReplay(t *testing.T) {
 			&privatev1.CommitAttachmentUploadRequest{UploadId: "upload-one", Mutation: mutation},
 		))
 		require.NoError(t, commitErr)
-		assert.Equal(t, repository.attachment.ID.String(), committed.Msg.GetAttachment().GetId())
+		assert.Equal(t, committedAttachment.ID.String(), committed.Msg.GetAttachment().GetId())
 	}
-	repository.upload.State = attachment.UploadStateAborted
 	aborted, err := client.AbortAttachmentUpload(t.Context(), connect.NewRequest(
 		&privatev1.AbortAttachmentUploadRequest{UploadId: "upload-one", Mutation: mutation},
 	))
@@ -98,14 +145,4 @@ func TestServiceMapsUploadLifecycleAndReplay(t *testing.T) {
 	assert.Equal(t, attachment.MaxAttachmentSizeBytes, begun.Msg.GetMaxAttachmentSizeBytes())
 	assert.Equal(t, privatev1.AttachmentUploadState_ATTACHMENT_UPLOAD_STATE_ACTIVE, status.Msg.GetUpload().GetState())
 	assert.Equal(t, privatev1.AttachmentUploadState_ATTACHMENT_UPLOAD_STATE_ABORTED, aborted.Msg.GetUpload().GetState())
-	assert.Equal(t, "uploader", repository.beginRequest.Invocation.Actor())
-	assert.Equal(t, board.ID("board-one"), repository.beginRequest.Association.BoardID())
-	assert.Equal(t, filename, repository.beginRequest.Filename)
-	require.Len(t, repository.writeRequests, 2)
-	assert.Equal(t, "uploader", repository.writeRequests[0].Invocation.Actor())
-	assert.Equal(t, []byte("repeat"), repository.writeRequests[0].Content)
-	assert.Equal(t, attachment.UploadID("upload-one"), repository.getRequest.UploadID)
-	require.Len(t, repository.commitRequests, 2)
-	assert.Equal(t, "uploader", repository.commitRequests[0].Invocation.Actor())
-	assert.Equal(t, "uploader", repository.abortRequest.Invocation.Actor())
 }

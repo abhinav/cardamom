@@ -15,6 +15,8 @@ import (
 	"go.abhg.dev/cardamom/internal/web"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package configurationconnect -typed -write_package_comment=false . Configurations
+
 // Configurations supplies configuration reads and mutations.
 type Configurations interface {
 	// Resolve rereads every layer and resolves one board's configuration.

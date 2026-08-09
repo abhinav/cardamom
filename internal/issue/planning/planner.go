@@ -23,6 +23,8 @@ type CommittedRevision struct {
 	Revision board.Revision
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package planning -typed -write_package_comment=false . Changes,IssueReader
+
 // Changes executes finite planning operations against one board. Mutations own
 // their complete atomic projection boundaries.
 type Changes interface {

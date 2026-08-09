@@ -21,6 +21,8 @@ type CommittedRevision struct {
 	Revision board.Revision
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package execution -typed -write_package_comment=false . Changes,IssueReader
+
 // Changes executes finite issue execution operations against one board. Each
 // method owns its complete atomic projection boundary.
 type Changes interface {

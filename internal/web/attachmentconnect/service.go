@@ -45,6 +45,8 @@ type Operations interface {
 	CollectAttachments(context.Context, attachment.CollectRequest) (attachment.CollectionResult, error)
 }
 
+//go:generate go tool mockgen -destination mock_repository_test.go -package attachmentconnect -typed -write_package_comment=false go.abhg.dev/cardamom/internal/attachment Repository
+
 var _ Operations = (*attachment.Service)(nil)
 
 // Service adapts attachment operations to generated AttachmentService RPCs.

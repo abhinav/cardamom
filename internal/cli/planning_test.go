@@ -12,14 +12,28 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/planning"
+	"go.uber.org/mock/gomock"
 )
 
 func TestCreateCommandBuildsAtomicRequestAndPrintsID(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &planningOperation{
-		createResult: planning.CreateIssueResult{Issue: testIssueDetail("an-created", "Build adapter")},
+	request := planning.CreateIssueRequest{
+		Title: " Build adapter ", Type: "workstream", Priority: 1,
+		Labels: []string{"area:cli", "phase:one", "delivery"}, DependsOn: []string{"an-dep"},
+		Parent: "an-parent", Summary: "Durable scope", Key: new("source:adapter"),
 	}
-	app := newPlanningApplication(t, testConfig(&stdout, &stderr), operation)
+	result := planning.CreateIssueResult{Issue: testIssueDetail("an-created", "Build adapter")}
+	operation := NewMockCreateIssueOperation(gomock.NewController(t))
+	operation.EXPECT().CreateIssue(
+		gomock.Any(),
+		issue.NewInvocation("planner"),
+		request,
+	).Return(result, nil)
+	app := newPlanningApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*CreateIssueOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{
 		"--actor", "planner",
@@ -31,55 +45,69 @@ func TestCreateCommandBuildsAtomicRequestAndPrintsID(t *testing.T) {
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, "planner", operation.createInvocation.Actor())
-	assert.Equal(t, planning.CreateIssueRequest{
-		Title: " Build adapter ", Type: "workstream", Priority: 1,
-		Labels: []string{"area:cli", "phase:one", "delivery"}, DependsOn: []string{"an-dep"},
-		Parent: "an-parent", Summary: "Durable scope", Key: new("source:adapter"),
-	}, operation.createRequest)
 	assert.Equal(t, "an-created\n", stdout.String())
 	assert.Empty(t, stderr.String())
 }
 
 func TestCreateCommandRejectsLongFlagAsLabelValue(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := new(planningOperation)
-	app := newPlanningApplication(t, testConfig(&stdout, &stderr), operation)
+	operation := NewMockCreateIssueOperation(gomock.NewController(t))
+	app := newPlanningApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*CreateIssueOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{
 		"create", "Build adapter", "--label", "--priority",
 	})
 
 	assert.Equal(t, ExitUsage, exitCode)
-	assert.Empty(t, operation.createRequest.Labels)
 	assert.Empty(t, stdout.String())
 	assert.Contains(t, stderr.String(), `expected label value but got "--priority"`)
 }
 
 func TestCreateCommandRejectsNegativeLabelTerm(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := new(planningOperation)
-	app := newPlanningApplication(t, testConfig(&stdout, &stderr), operation)
+	operation := NewMockCreateIssueOperation(gomock.NewController(t))
+	app := newPlanningApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*CreateIssueOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{
 		"create", "Build adapter", "--label", "-phase:build",
 	})
 
 	assert.Equal(t, ExitUsage, exitCode)
-	assert.Empty(t, operation.createRequest.Labels)
 	assert.Empty(t, stdout.String())
 	assert.Equal(t, "error: create --label does not accept removal terms\n", stderr.String())
 }
 
 func TestApplyCommandDecodesStrictProtoJSONAndRendersReceipt(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &planningOperation{applyResult: planning.ApplyReceipt{
+	result := planning.ApplyReceipt{
 		Entries: []planning.ApplyReceiptEntry{{
 			InputIndex: 0, Alias: new("gate"), ID: new("an-existing"),
 			Key: new("source:gate"), Action: planning.ApplyActionUpdate,
 		}},
 		Counts: planning.ApplyCounts{Update: 1}, DryRun: true,
-	}}
+	}
+	var request planning.ApplyDocumentRequest
+	operation := NewMockApplyDocumentOperation(gomock.NewController(t))
+	operation.EXPECT().ApplyDocument(
+		gomock.Any(),
+		issue.NewInvocation("planner"),
+		gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		_ issue.Invocation,
+		got planning.ApplyDocumentRequest,
+	) (planning.ApplyReceipt, error) {
+		request = got
+		return result, nil
+	})
 	config := testConfig(&stdout, &stderr)
 	config.Stdin = strings.NewReader(`{
 		"version":1,
@@ -93,7 +121,11 @@ func TestApplyCommandDecodesStrictProtoJSONAndRendersReceipt(t *testing.T) {
 		}]
 	}`)
 	config.StdinIsTerminal = false
-	app := newPlanningApplication(t, config, operation)
+	app := newPlanningApplication(
+		t,
+		config,
+		kong.BindTo(operation, (*ApplyDocumentOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{
 		"--json", "--actor", "planner", "apply", "--dry-run",
@@ -101,11 +133,10 @@ func TestApplyCommandDecodesStrictProtoJSONAndRendersReceipt(t *testing.T) {
 
 	assert.Equal(t, ExitSuccess, exitCode)
 	assert.Empty(t, stderr.String())
-	assert.Equal(t, "planner", operation.applyInvocation.Actor())
-	assert.Equal(t, planning.ApplyModeDryRun, operation.applyRequest.Mode)
-	assert.Equal(t, planning.ApplyExistingUpdate, operation.applyRequest.OnExisting)
-	require.Len(t, operation.applyRequest.Issues, 1)
-	input := operation.applyRequest.Issues[0]
+	assert.Equal(t, planning.ApplyModeDryRun, request.Mode)
+	assert.Equal(t, planning.ApplyExistingUpdate, request.OnExisting)
+	require.Len(t, request.Issues, 1)
+	input := request.Issues[0]
 	assert.Equal(t, new("gate"), input.Alias)
 	assert.Equal(t, new("an-existing"), input.ID)
 	assert.Equal(t, new("source:gate"), input.Key)
@@ -134,13 +165,27 @@ func TestApplyCommandDecodesStrictProtoJSONAndRendersReceipt(t *testing.T) {
 
 func TestApplyCommandReadsDocumentFromFileAndRendersHumanReceipt(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &planningOperation{applyResult: planning.ApplyReceipt{
+	result := planning.ApplyReceipt{
 		Entries: []planning.ApplyReceiptEntry{
 			{InputIndex: 0, Alias: new("first"), ID: new("an-1"), Action: planning.ApplyActionCreate},
 			{InputIndex: 1, ID: new("an-2"), Action: planning.ApplyActionCreate},
 		},
 		Counts: planning.ApplyCounts{Create: 2},
-	}}
+	}
+	var request planning.ApplyDocumentRequest
+	operation := NewMockApplyDocumentOperation(gomock.NewController(t))
+	operation.EXPECT().ApplyDocument(
+		gomock.Any(),
+		issue.NewInvocation("tester"),
+		gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		_ issue.Invocation,
+		got planning.ApplyDocumentRequest,
+	) (planning.ApplyReceipt, error) {
+		request = got
+		return result, nil
+	})
 	path := t.TempDir() + "/document.json"
 	require.NoError(t, os.WriteFile(path, []byte(`{
 		"version":1,
@@ -149,34 +194,41 @@ func TestApplyCommandReadsDocumentFromFileAndRendersHumanReceipt(t *testing.T) {
 			{"title":"Second","type":"task","depends_on":{"values":[{"alias":"first"}]}}
 		]
 	}`), 0o600))
-	app := newPlanningApplication(t, testConfig(&stdout, &stderr), operation)
+	app := newPlanningApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*ApplyDocumentOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{"apply", path})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, planning.ApplyExistingError, operation.applyRequest.OnExisting)
-	assert.Equal(t, planning.ApplyModeCommit, operation.applyRequest.Mode)
-	require.Len(t, operation.applyRequest.Issues, 2)
-	assert.Equal(t, new("first"), operation.applyRequest.Issues[0].Alias)
+	assert.Equal(t, planning.ApplyExistingError, request.OnExisting)
+	assert.Equal(t, planning.ApplyModeCommit, request.Mode)
+	require.Len(t, request.Issues, 2)
+	assert.Equal(t, new("first"), request.Issues[0].Alias)
 	assert.Equal(t, "applied document: 2 create, 0 update, 0 skip, 0 no change\n0\tcreate\tan-1\n1\tcreate\tan-2\n", stdout.String())
 	assert.Empty(t, stderr.String())
 }
 
 func TestApplyCommandRejectsUnknownProtoJSONFields(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := new(planningOperation)
+	operation := NewMockApplyDocumentOperation(gomock.NewController(t))
 	config := testConfig(&stdout, &stderr)
 	config.Stdin = strings.NewReader(`{
 		"version":1,
 		"issues":[{"title":"Gate","type":"checkpoint","group":"old"}]
 	}`)
 	config.StdinIsTerminal = false
-	app := newPlanningApplication(t, config, operation)
+	app := newPlanningApplication(
+		t,
+		config,
+		kong.BindTo(operation, (*ApplyDocumentOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{"apply"})
 
 	assert.Equal(t, ExitUsage, exitCode)
-	assert.Empty(t, operation.applyRequest.Issues)
 	assert.Empty(t, stdout.String())
 	assert.Contains(t, stderr.String(), `unknown field "group"`)
 }
@@ -208,17 +260,19 @@ func TestApplyCommandRejectsUnsupportedApplyValues(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			operation := new(planningOperation)
+			operation := NewMockApplyDocumentOperation(gomock.NewController(t))
 			config := testConfig(&stdout, &stderr)
 			config.Stdin = strings.NewReader(test.document)
 			config.StdinIsTerminal = false
-			app := newPlanningApplication(t, config, operation)
+			app := newPlanningApplication(
+				t,
+				config,
+				kong.BindTo(operation, (*ApplyDocumentOperation)(nil)),
+			)
 
 			exitCode := app.Run(t.Context(), []string{"apply"})
 
 			assert.Equal(t, ExitUsage, exitCode)
-			assert.Zero(t, operation.applyCalls)
-			assert.Empty(t, operation.applyRequest.Issues)
 			assert.Empty(t, stdout.String())
 			assert.Contains(t, stderr.String(), test.wantError)
 		})
@@ -227,13 +281,26 @@ func TestApplyCommandRejectsUnsupportedApplyValues(t *testing.T) {
 
 func TestApplyCommandRejectsInvalidReceiptAction(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &planningOperation{applyResult: planning.ApplyReceipt{
+	result := planning.ApplyReceipt{
 		Entries: []planning.ApplyReceiptEntry{{Action: planning.ApplyActionUnknown}},
-	}}
+	}
+	operation := NewMockApplyDocumentOperation(gomock.NewController(t))
+	operation.EXPECT().ApplyDocument(
+		gomock.Any(),
+		issue.NewInvocation("tester"),
+		planning.ApplyDocumentRequest{
+			Version: 1, Issues: []planning.ApplyIssue{},
+			OnExisting: planning.ApplyExistingError, Mode: planning.ApplyModeCommit,
+		},
+	).Return(result, nil)
 	config := testConfig(&stdout, &stderr)
 	config.Stdin = strings.NewReader(`{"version":1,"issues":[]}`)
 	config.StdinIsTerminal = false
-	app := newPlanningApplication(t, config, operation)
+	app := newPlanningApplication(
+		t,
+		config,
+		kong.BindTo(operation, (*ApplyDocumentOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{"--json", "apply"})
 
@@ -244,12 +311,26 @@ func TestApplyCommandRejectsInvalidReceiptAction(t *testing.T) {
 
 func TestApplyCommandPreservesOmittedRelationshipFields(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &planningOperation{applyResult: planning.ApplyReceipt{
+	result := planning.ApplyReceipt{
 		Entries: []planning.ApplyReceiptEntry{{
 			InputIndex: 0, ID: new("an-existing"), Action: planning.ApplyActionUpdate,
 		}},
 		Counts: planning.ApplyCounts{Update: 1},
-	}}
+	}
+	var request planning.ApplyDocumentRequest
+	operation := NewMockApplyDocumentOperation(gomock.NewController(t))
+	operation.EXPECT().ApplyDocument(
+		gomock.Any(),
+		issue.NewInvocation("tester"),
+		gomock.Any(),
+	).DoAndReturn(func(
+		_ context.Context,
+		_ issue.Invocation,
+		got planning.ApplyDocumentRequest,
+	) (planning.ApplyReceipt, error) {
+		request = got
+		return result, nil
+	})
 	config := testConfig(&stdout, &stderr)
 	config.Stdin = strings.NewReader(`{
 		"version":1,
@@ -260,13 +341,17 @@ func TestApplyCommandPreservesOmittedRelationshipFields(t *testing.T) {
 		}]
 	}`)
 	config.StdinIsTerminal = false
-	app := newPlanningApplication(t, config, operation)
+	app := newPlanningApplication(
+		t,
+		config,
+		kong.BindTo(operation, (*ApplyDocumentOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{"apply"})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	require.Len(t, operation.applyRequest.Issues, 1)
-	input := operation.applyRequest.Issues[0]
+	require.Len(t, request.Issues, 1)
+	input := request.Issues[0]
 	assert.Nil(t, input.Labels)
 	assert.Nil(t, input.DependsOn)
 	assert.Equal(t, planning.ParentUnchanged, input.Parent.Kind)
@@ -275,10 +360,25 @@ func TestApplyCommandPreservesOmittedRelationshipFields(t *testing.T) {
 
 func TestEditCommandPreservesRequestedEditDimensions(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &planningOperation{
-		editResult: planning.EditIssueResult{Issue: testIssueDetail("an-edit", "Changed")},
+	request := planning.EditIssueRequest{
+		ID: "an-edit", Title: new("Changed"), Type: new("workstream"),
+		Priority: new(0), Summary: new(""), SummarySet: true,
+		ParentSet: true, Key: new("source:edit"),
+		AddDependencies: []string{"an-add", "an-other"}, RemoveDependencies: []string{"an-remove"},
+		AddLabels: []string{"new"}, RemoveLabels: []string{"old"},
 	}
-	app := newPlanningApplication(t, testConfig(&stdout, &stderr), operation)
+	result := planning.EditIssueResult{Issue: testIssueDetail("an-edit", "Changed")}
+	operation := NewMockEditIssueOperation(gomock.NewController(t))
+	operation.EXPECT().EditIssue(
+		gomock.Any(),
+		issue.NewInvocation("tester"),
+		request,
+	).Return(result, nil)
+	app := newPlanningApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*EditIssueOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{
 		"edit", "an-edit", "--title", "Changed",
@@ -290,23 +390,28 @@ func TestEditCommandPreservesRequestedEditDimensions(t *testing.T) {
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, planning.EditIssueRequest{
-		ID: "an-edit", Title: new("Changed"), Type: new("workstream"),
-		Priority: new(0), Summary: new(""), SummarySet: true,
-		ParentSet: true, Key: new("source:edit"),
-		AddDependencies: []string{"an-add", "an-other"}, RemoveDependencies: []string{"an-remove"},
-		AddLabels: []string{"new"}, RemoveLabels: []string{"old"},
-	}, operation.editRequest)
 	assert.Equal(t, "edited an-edit\n", stdout.String())
 	assert.Empty(t, stderr.String())
 }
 
 func TestEditCommandParsesSignedLabelTerms(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &planningOperation{
-		editResult: planning.EditIssueResult{Issue: testIssueDetail("an-edit", "Changed")},
+	request := planning.EditIssueRequest{
+		ID:        "an-edit",
+		AddLabels: []string{"new", "plain"}, RemoveLabels: []string{"old"},
 	}
-	app := newPlanningApplication(t, testConfig(&stdout, &stderr), operation)
+	result := planning.EditIssueResult{Issue: testIssueDetail("an-edit", "Changed")}
+	operation := NewMockEditIssueOperation(gomock.NewController(t))
+	operation.EXPECT().EditIssue(
+		gomock.Any(),
+		issue.NewInvocation("tester"),
+		request,
+	).Return(result, nil)
+	app := newPlanningApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*EditIssueOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{
 		"edit", "an-edit",
@@ -314,65 +419,15 @@ func TestEditCommandParsesSignedLabelTerms(t *testing.T) {
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, []string{"new", "plain"}, operation.editRequest.AddLabels)
-	assert.Equal(t, []string{"old"}, operation.editRequest.RemoveLabels)
 	assert.Equal(t, "edited an-edit\n", stdout.String())
 	assert.Empty(t, stderr.String())
 }
 
-func newPlanningApplication(t *testing.T, config Config, operation *planningOperation) *Application {
+func newPlanningApplication(t *testing.T, config Config, options ...kong.Option) *Application {
 	t.Helper()
-	app, err := New(config,
-		kong.BindTo(operation, (*CreateIssueOperation)(nil)),
-		kong.BindTo(operation, (*ApplyDocumentOperation)(nil)),
-		kong.BindTo(operation, (*EditIssueOperation)(nil)),
-	)
+	app, err := New(config, options...)
 	require.NoError(t, err)
 	return app
-}
-
-type planningOperation struct {
-	createInvocation issue.Invocation
-	createRequest    planning.CreateIssueRequest
-	createResult     planning.CreateIssueResult
-	applyInvocation  issue.Invocation
-	applyCalls       int
-	applyRequest     planning.ApplyDocumentRequest
-	applyResult      planning.ApplyReceipt
-	editInvocation   issue.Invocation
-	editRequest      planning.EditIssueRequest
-	editResult       planning.EditIssueResult
-}
-
-func (o *planningOperation) CreateIssue(
-	_ context.Context,
-	inv issue.Invocation,
-	request planning.CreateIssueRequest,
-) (planning.CreateIssueResult, error) {
-	o.createInvocation = inv
-	o.createRequest = request
-	return o.createResult, nil
-}
-
-func (o *planningOperation) ApplyDocument(
-	_ context.Context,
-	inv issue.Invocation,
-	request planning.ApplyDocumentRequest,
-) (planning.ApplyReceipt, error) {
-	o.applyCalls++
-	o.applyInvocation = inv
-	o.applyRequest = request
-	return o.applyResult, nil
-}
-
-func (o *planningOperation) EditIssue(
-	_ context.Context,
-	inv issue.Invocation,
-	request planning.EditIssueRequest,
-) (planning.EditIssueResult, error) {
-	o.editInvocation = inv
-	o.editRequest = request
-	return o.editResult, nil
 }
 
 func testIssueDetail(id, title string) issue.Detail {

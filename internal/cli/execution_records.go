@@ -11,6 +11,11 @@ import (
 	"go.abhg.dev/cardamom/internal/issue/record"
 )
 
+// Generate typed mocks for command operation contracts whose tests only
+// configure calls and results.
+//
+//go:generate go tool mockgen -destination mocks_test.go -package cli -typed -write_package_comment=false . BackupOperation,RestoreOperation,DumpOperation,LeaseOperations,InitOperation,InfoOperation,WebOperation,ListIssuesOperation,ListReadyIssuesOperation,ListBlockedIssuesOperation,ReadIssueOperation,CreateIssueOperation,ApplyDocumentOperation,EditIssueOperation,ClaimOperations,ReleaseOperations,CloseOperations,CancelOperations,ReopenOperations,CheckpointOperations,LogEntryWriteOperations,LogEntryReadOperations,StateWriteOperations,StateReadOperations,StateCommitOperations,ResultWriteOperations,ResultReadOperations
+
 // ClaimOperations supplies the two domain-owned claim modes.
 type ClaimOperations interface {
 	ClaimIssue(context.Context, issue.Invocation, execution.ClaimIssueRequest) (execution.ClaimIssueResult, error)

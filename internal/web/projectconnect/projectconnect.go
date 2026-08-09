@@ -20,6 +20,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package projectconnect -typed -write_package_comment=false . ProjectCreator,MarkdownRenderer
+
 // Projects supplies project catalog reads exposed by ProjectService.
 type Projects interface {
 	// List returns every current project in catalog order.

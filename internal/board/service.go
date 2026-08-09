@@ -43,6 +43,8 @@ type EditRequest struct {
 	Settings SettingsEdit
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package board -typed -write_package_comment=false . Catalog,Changes
+
 // Catalog reads boards in deterministic catalog order and by stable identity.
 type Catalog interface {
 	// ListAllBoards returns every board in deterministic order.

@@ -18,6 +18,7 @@ import (
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 const (
@@ -325,7 +326,7 @@ func TestServiceRenderTurnsRemovedReferenceLinksIntoStableText(t *testing.T) {
 func TestPublicationServiceRejectsUnknownReferenceBeforePublication(t *testing.T) {
 	description := fmt.Sprintf("[missing](attachment:%s)", testAttachmentA)
 	source := &attachmentSource{}
-	publisher := &recordingPublisher{}
+	publisher := NewMockPublisher(gomock.NewController(t))
 	renderer := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{{
@@ -338,7 +339,6 @@ func TestPublicationServiceRejectsUnknownReferenceBeforePublication(t *testing.T
 	_, err = service.Execute(t.Context(), Request{Selection: NamedIssuesOnly("an-a")})
 	assert.EqualError(t, err,
 		`resolve attachment "att_aaaaaaaaaaaaaaaaaaaaaaaaaa" referenced by issue "an-a" summary: attachment is unknown in board "board-1"`)
-	assert.Empty(t, publisher.publications)
 }
 
 func TestPublicationServiceAttachmentCorruptionLeavesExistingDumpUntouched(t *testing.T) {
@@ -604,8 +604,10 @@ func newAttachmentTestService(
 	attachments AttachmentReader,
 ) *Service {
 	t.Helper()
+	reader := NewMockSnapshotReader(gomock.NewController(t))
+	reader.EXPECT().ReadDumpSnapshot(gomock.Any()).Return(snapshot, nil).AnyTimes()
 	service, err := NewService(ServiceConfig{
-		Reader:      staticSnapshotReader{snapshot: snapshot},
+		Reader:      reader,
 		Attachments: attachments,
 		Provenance:  testProvenance(snapshot.BoardID),
 	})

@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
+	"go.uber.org/mock/gomock"
 )
 
 const (
@@ -24,7 +25,11 @@ const (
 
 func TestHandlerServesRangesConditionalsAndHead(t *testing.T) {
 	opener := &testContentOpener{content: []byte("0123456789")}
-	handler := testContentHandler(opener, testContentAuthorizer{})
+	authorizer := NewMockAuthorizer(gomock.NewController(t))
+	authorizer.EXPECT().AuthorizeAttachmentContent(
+		gomock.Any(), board.ID("board-1"), testContentID,
+	).Return(nil).Times(5)
+	handler := testContentHandler(opener, authorizer)
 
 	response := serveContentRequest(t, handler, http.MethodGet, contentURL(""), map[string]string{
 		"Range": "bytes=2-5",
@@ -89,9 +94,13 @@ func TestHandlerUsesSafeContentDisposition(t *testing.T) {
 			opener := &testContentOpener{
 				content: []byte("content"), filename: tt.filename, mediaType: tt.mediaType,
 			}
+			authorizer := NewMockAuthorizer(gomock.NewController(t))
+			authorizer.EXPECT().AuthorizeAttachmentContent(
+				gomock.Any(), board.ID("board-2"), testContentID,
+			).Return(nil)
 			response := serveContentRequest(
 				t,
-				testContentHandler(opener, testContentAuthorizer{}),
+				testContentHandler(opener, authorizer),
 				http.MethodGet,
 				contentURL("board-2"),
 				nil,
@@ -128,9 +137,13 @@ func TestHandlerMapsUnavailableContent(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			authorizer := NewMockAuthorizer(gomock.NewController(t))
+			authorizer.EXPECT().AuthorizeAttachmentContent(
+				gomock.Any(), board.ID("board-1"), testContentID,
+			).Return(nil)
 			response := serveContentRequest(
 				t,
-				testContentHandler(&testContentOpener{err: tt.err}, testContentAuthorizer{}),
+				testContentHandler(&testContentOpener{err: tt.err}, authorizer),
 				http.MethodGet,
 				contentURL(""),
 				nil,
@@ -142,7 +155,10 @@ func TestHandlerMapsUnavailableContent(t *testing.T) {
 
 func TestHandlerAuthorizesIdentityBeforeOpeningContent(t *testing.T) {
 	authorizationErr := errors.New("access denied")
-	authorizer := testContentAuthorizer{err: authorizationErr}
+	authorizer := NewMockAuthorizer(gomock.NewController(t))
+	authorizer.EXPECT().AuthorizeAttachmentContent(
+		gomock.Any(), board.ID("board-2"), testContentID,
+	).Return(authorizationErr)
 	opener := &testContentOpener{content: []byte("secret")}
 
 	response := serveContentRequest(
@@ -159,7 +175,14 @@ func TestHandlerAuthorizesIdentityBeforeOpeningContent(t *testing.T) {
 
 func TestHandlerUsesCanonicalRouteBoardScope(t *testing.T) {
 	opener := &testContentOpener{content: []byte("content")}
-	handler := testContentHandler(opener, testContentAuthorizer{})
+	authorizer := NewMockAuthorizer(gomock.NewController(t))
+	authorizer.EXPECT().AuthorizeAttachmentContent(
+		gomock.Any(), board.ID("board-2"), testContentID,
+	).Return(nil)
+	authorizer.EXPECT().AuthorizeAttachmentContent(
+		gomock.Any(), board.ID("board/three"), testContentID,
+	).Return(nil)
+	handler := testContentHandler(opener, authorizer)
 
 	response := serveContentRequest(
 		t,
@@ -185,7 +208,7 @@ func TestHandlerUsesCanonicalRouteBoardScope(t *testing.T) {
 
 func TestHandlerRejectsPathsAndMethodsOutsideRawRoute(t *testing.T) {
 	opener := &testContentOpener{content: []byte("secret")}
-	handler := testContentHandler(opener, testContentAuthorizer{})
+	handler := testContentHandler(opener, NewMockAuthorizer(gomock.NewController(t)))
 	tests := []struct {
 		name       string
 		method     string
@@ -208,7 +231,11 @@ func TestHandlerRejectsPathsAndMethodsOutsideRawRoute(t *testing.T) {
 
 func TestHandlerIgnoresLegacyQueryBoardScope(t *testing.T) {
 	opener := &testContentOpener{content: []byte("content")}
-	handler := testContentHandler(opener, testContentAuthorizer{})
+	authorizer := NewMockAuthorizer(gomock.NewController(t))
+	authorizer.EXPECT().AuthorizeAttachmentContent(
+		gomock.Any(), board.ID("board-1"), testContentID,
+	).Return(nil)
+	handler := testContentHandler(opener, authorizer)
 
 	response := serveContentRequest(
 		t,
@@ -222,7 +249,7 @@ func TestHandlerIgnoresLegacyQueryBoardScope(t *testing.T) {
 	assert.Equal(t, 1, opener.opens)
 }
 
-func testContentHandler(opener *testContentOpener, authorizer testContentAuthorizer) http.Handler {
+func testContentHandler(opener Attachments, authorizer Authorizer) http.Handler {
 	mux := http.NewServeMux()
 	mux.Handle(PathPattern, New(Config{
 		Attachments: opener,
@@ -317,13 +344,3 @@ func (h *testContentHandle) Close() error {
 }
 
 var _ io.ReadSeeker = (*testContentHandle)(nil)
-
-type testContentAuthorizer struct{ err error }
-
-func (a testContentAuthorizer) AuthorizeAttachmentContent(
-	context.Context,
-	board.ID,
-	attachment.ID,
-) error {
-	return a.err
-}

@@ -135,6 +135,8 @@ type DatabaseLayers struct {
 	Board Overrides
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package configuration -typed -write_package_comment=false . Store,Repository
+
 // Store persists the optional local physical-store layer.
 type Store interface {
 	// ReadStoreConfiguration rereads the current store overrides.

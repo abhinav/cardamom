@@ -1,3 +1,6 @@
 /internal/gen/** linguist-generated=true -diff
 /internal/repository/internal/query/** linguist-generated=true -diff
 /web/src/gen/** linguist-generated=true -diff
+mock_*_test.go linguist-generated=true -diff
+mocks_test.go linguist-generated=true -diff
+mocks.go linguist-generated=true -diff

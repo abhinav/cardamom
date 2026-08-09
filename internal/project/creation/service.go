@@ -44,6 +44,8 @@ type Creation struct {
 	Prefix *configuration.Prefix
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package creation -typed -write_package_comment=false . Configuration,Projects
+
 // Configuration supplies validated physical-store configuration.
 type Configuration interface {
 	// ReadStoreConfiguration returns the active store-level overrides.

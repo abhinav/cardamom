@@ -1,8 +1,6 @@
 package issueview
 
 import (
-	"context"
-	"fmt"
 	"testing"
 
 	"buf.build/go/protovalidate"
@@ -11,12 +9,17 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 func TestEncoderSummaryAndMarkdown(t *testing.T) {
 	t.Parallel()
 
-	encoder := New(&testMarkdownRenderer{})
+	renderer := NewMockMarkdownRenderer(gomock.NewController(t))
+	renderer.EXPECT().RenderBoard(
+		gomock.Any(), board.ID("board-test"), "", []string{"**diagnostic**"},
+	).Return([]string{"<p>**diagnostic**</p>"}, nil)
+	encoder := New(renderer)
 	started := int64(1784376060)
 	summary, err := encoder.Summary("board-test", issue.Summary{
 		Issue: issue.Issue{
@@ -42,7 +45,7 @@ func TestEncoderSummaryAndMarkdown(t *testing.T) {
 func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 	t.Parallel()
 
-	renderer := &testMarkdownRenderer{}
+	renderer := NewMockMarkdownRenderer(gomock.NewController(t))
 	encoder := New(renderer)
 	summary := "Repair the relay."
 	details := "Relay specifications."
@@ -55,6 +58,13 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 	ancestorNextAction := "Review repair reports."
 	rootID := "an-root"
 	latestLogID := issue.LogID("cmt_12121212121212121212121212121212")
+	markdownSources := []string{
+		summary, details, state, nextAction, result, boardDescription,
+		ancestorSummary, ancestorState, ancestorNextAction, "Ready.",
+	}
+	renderer.EXPECT().RenderBoard(
+		gomock.Any(), board.ID("board-test"), "", markdownSources,
+	).Return(markdownSources, nil)
 	view, err := encoder.Detail(t.Context(), "board-test", issue.View{
 		Detail: issue.Detail{
 			Issue: issue.Issue{
@@ -86,12 +96,6 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 		},
 	})
 	require.NoError(t, err)
-	require.Len(t, renderer.calls, 1)
-	assert.Equal(t, board.ID("board-test"), renderer.calls[0].boardID)
-	assert.Equal(t, []string{
-		summary, details, state, nextAction, result, boardDescription,
-		ancestorSummary, ancestorState, ancestorNextAction, "Ready.",
-	}, renderer.calls[0].sources)
 	assert.Equal(t, "Repair the relay.", view.GetSummary().GetSource())
 	assert.Equal(t, "Relay specifications.", view.GetDetails().GetSource())
 	assert.Equal(t, state, view.GetState().GetSource())
@@ -114,7 +118,11 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 }
 
 func TestEncoderLogEntriesRenderInOneBoardBatch(t *testing.T) {
-	renderer := &testMarkdownRenderer{}
+	renderer := NewMockMarkdownRenderer(gomock.NewController(t))
+	renderer.EXPECT().RenderBoard(
+		gomock.Any(), board.ID("board-test"), "",
+		[]string{"First", "Second", "Continue", "Imported"},
+	).Return([]string{"First", "Second", "Continue", "Imported"}, nil)
 	encoder := New(renderer)
 
 	logEntries, err := encoder.LogEntries(t.Context(), "board-test", []issue.LogEntry{
@@ -139,12 +147,6 @@ func TestEncoderLogEntriesRenderInOneBoardBatch(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	require.Len(t, renderer.calls, 1)
-	assert.Equal(
-		t,
-		[]string{"First", "Second", "Continue", "Imported"},
-		renderer.calls[0].sources,
-	)
 	require.Len(t, logEntries, 3)
 	require.NoError(t, protovalidate.Validate(logEntries[0]))
 	assert.IsType(t, &privatev1.LogEntry_Post{}, logEntries[0].GetPayload())
@@ -178,7 +180,7 @@ func TestEncoderLogEntriesRenderInOneBoardBatch(t *testing.T) {
 func TestEncoderRejectsInvalidPersistedValues(t *testing.T) {
 	t.Parallel()
 
-	encoder := New(&testMarkdownRenderer{})
+	encoder := New(NewMockMarkdownRenderer(gomock.NewController(t)))
 	_, err := encoder.Summary("board-test", issue.Summary{Issue: issue.Issue{
 		ID: "an-1", Type: "unknown", Lifecycle: "open", Status: "ready",
 	}})
@@ -200,33 +202,8 @@ func TestEncoderRejectsInvalidPersistedValues(t *testing.T) {
 	assert.ErrorContains(t, err, "containment cycle")
 }
 
-type testMarkdownRenderer struct{ calls []testMarkdownCall }
-
-type testMarkdownCall struct {
-	boardID board.ID
-	sources []string
-}
-
-func (r *testMarkdownRenderer) RenderBoard(
-	_ context.Context,
-	boardID board.ID,
-	_ string,
-	sources []string,
-) ([]string, error) {
-	r.calls = append(r.calls, testMarkdownCall{
-		boardID: boardID, sources: append([]string(nil), sources...),
-	})
-	rendered := make([]string, len(sources))
-	for index, source := range sources {
-		rendered[index] = fmt.Sprintf("<p>%s</p>", source)
-	}
-	return rendered, nil
-}
-
 func testReference(id string) issue.Reference {
 	return issue.Reference{
 		ID: id, Title: id, Type: "task", Status: "ready", Priority: 1,
 	}
 }
-
-var _ = board.ID("")

@@ -1,7 +1,6 @@
 package creation
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -10,15 +9,19 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/project"
+	"go.uber.org/mock/gomock"
 )
 
 func TestService_CreateProject_infersPrefix(t *testing.T) {
 	created := testProject(t, "project-one", "Mission Control")
-	projects := &recordingProjects{created: created}
-	service := NewService(
-		&staticConfiguration{},
-		projects,
-	)
+	configurations := NewMockConfiguration(gomock.NewController(t))
+	configurations.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(configuration.Overrides{}, nil)
+	projects := NewMockProjects(gomock.NewController(t))
+	inferred := testPrefix(t, "mission-control-")
+	projects.EXPECT().CreateProject(gomock.Any(), Creation{
+		Name: "Mission Control", Prefix: &inferred,
+	}).Return(created, nil)
+	service := NewService(configurations, projects)
 
 	result, err := service.CreateProject(
 		t.Context(),
@@ -28,22 +31,22 @@ func TestService_CreateProject_infersPrefix(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Same(t, created, result)
-	require.NotNil(t, projects.request.Prefix)
-	assert.Equal(t, "mission-control-", projects.request.Prefix.String())
 }
 
 func TestService_CreateProject_explicitPrefixOverridesStore(t *testing.T) {
 	created := testProject(t, "project-one", "Mission Control")
-	projects := &recordingProjects{created: created}
 	storePrefix := testPrefix(t, "store-")
-	service := NewService(
-		&staticConfiguration{overrides: configuration.Overrides{
-			Issue: configuration.IssueOverrides{
-				ID: configuration.IssueIDOverrides{Prefix: &storePrefix},
-			},
-		}},
-		projects,
-	)
+	overrides := configuration.Overrides{Issue: configuration.IssueOverrides{
+		ID: configuration.IssueIDOverrides{Prefix: &storePrefix},
+	}}
+	configurations := NewMockConfiguration(gomock.NewController(t))
+	configurations.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(overrides, nil)
+	projects := NewMockProjects(gomock.NewController(t))
+	explicitPrefix := testPrefix(t, "explicit-")
+	projects.EXPECT().CreateProject(gomock.Any(), Creation{
+		Name: "Mission Control", Prefix: &explicitPrefix,
+	}).Return(created, nil)
+	service := NewService(configurations, projects)
 	explicit := "explicit-"
 
 	_, err := service.CreateProject(
@@ -52,23 +55,21 @@ func TestService_CreateProject_explicitPrefixOverridesStore(t *testing.T) {
 		Request{Name: "Mission Control", Prefix: &explicit},
 	)
 	require.NoError(t, err)
-
-	require.NotNil(t, projects.request.Prefix)
-	assert.Equal(t, "explicit-", projects.request.Prefix.String())
 }
 
 func TestService_CreateProject_inheritsStorePrefix(t *testing.T) {
 	created := testProject(t, "project-one", "Mission Control")
-	projects := &recordingProjects{created: created}
 	storePrefix := testPrefix(t, "store-")
-	service := NewService(
-		&staticConfiguration{overrides: configuration.Overrides{
-			Issue: configuration.IssueOverrides{
-				ID: configuration.IssueIDOverrides{Prefix: &storePrefix},
-			},
-		}},
-		projects,
-	)
+	overrides := configuration.Overrides{Issue: configuration.IssueOverrides{
+		ID: configuration.IssueIDOverrides{Prefix: &storePrefix},
+	}}
+	configurations := NewMockConfiguration(gomock.NewController(t))
+	configurations.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(overrides, nil)
+	projects := NewMockProjects(gomock.NewController(t))
+	projects.EXPECT().CreateProject(gomock.Any(), Creation{
+		Name: "Mission Control",
+	}).Return(created, nil)
+	service := NewService(configurations, projects)
 
 	_, err := service.CreateProject(
 		t.Context(),
@@ -76,13 +77,13 @@ func TestService_CreateProject_inheritsStorePrefix(t *testing.T) {
 		Request{Name: "Mission Control"},
 	)
 	require.NoError(t, err)
-
-	assert.Nil(t, projects.request.Prefix)
 }
 
 func TestService_CreateProject_rejectsInvalidExplicitPrefix(t *testing.T) {
-	projects := &recordingProjects{}
-	service := NewService(&staticConfiguration{}, projects)
+	configurations := NewMockConfiguration(gomock.NewController(t))
+	configurations.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(configuration.Overrides{}, nil)
+	projects := NewMockProjects(gomock.NewController(t))
+	service := NewService(configurations, projects)
 	invalid := "INVALID"
 
 	_, err := service.CreateProject(
@@ -92,32 +93,6 @@ func TestService_CreateProject_rejectsInvalidExplicitPrefix(t *testing.T) {
 	)
 
 	assert.Equal(t, errkind.InvalidInput, errkind.Of(err))
-	assert.False(t, projects.called)
-}
-
-type staticConfiguration struct {
-	overrides configuration.Overrides
-}
-
-func (c *staticConfiguration) ReadStoreConfiguration(
-	context.Context,
-) (configuration.Overrides, error) {
-	return c.overrides, nil
-}
-
-type recordingProjects struct {
-	request Creation
-	created *project.State
-	called  bool
-}
-
-func (p *recordingProjects) CreateProject(
-	_ context.Context,
-	request Creation,
-) (*project.State, error) {
-	p.called = true
-	p.request = request
-	return p.created, nil
 }
 
 func testProject(t *testing.T, id, name string) *project.State {

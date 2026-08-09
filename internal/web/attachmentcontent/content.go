@@ -17,6 +17,8 @@ import (
 // application fallbacks.
 const PathPattern = "/board/{boardID}/attachment/{attachmentID}"
 
+//go:generate go tool mockgen -destination mocks_test.go -package attachmentcontent -typed -write_package_comment=false . Authorizer
+
 // Attachments opens verified immutable attachment content.
 type Attachments interface {
 	// OpenAttachmentContent returns active metadata and a caller-owned handle.

@@ -2,7 +2,6 @@ package checkpointconnect
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -22,46 +21,49 @@ import (
 	"go.abhg.dev/cardamom/internal/project"
 	"go.abhg.dev/cardamom/internal/web/boardscope"
 	"go.abhg.dev/cardamom/internal/web/issueview"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceListActionableCheckpointsUsesGlobalDomainOrder(t *testing.T) {
 	projectOne := testProject(t, "project-1", "Project One")
 	boardOne := testBoard(t, "board-1", projectOne.ID(), "Board One")
 	boardTwo := testBoard(t, "board-2", projectOne.ID(), "Board Two")
-	readerOne := &testBoardReader{
-		checkpoints: []issue.CheckpointView{{
+	readerOne := NewMockBoardReader(gomock.NewController(t))
+	readerOne.EXPECT().ListActionableCheckpoints(gomock.Any()).Return(
+		[]issue.CheckpointView{{
 			Issue: testIssue("checkpoint-1", "Gate one", "checkpoint", "open", "ready", 1, 20),
 			Blocks: []issue.Reference{
 				testIssueReference("blocked-1", "Blocked one", "task", "blocked", 2),
 			},
 			Labels: []string{"release"},
-		}},
-		views: map[string]issue.View{
-			"checkpoint-1": {Detail: issue.Detail{Issue: issue.Issue{
-				ID: "checkpoint-1", Title: "Gate one", Type: "checkpoint",
-				Lifecycle: "open", Status: "ready", Priority: 1,
-				Created: 20, Updated: 20, Summary: new("Gate **one**"),
-			}}},
-		},
-	}
-	readerTwo := &testBoardReader{
-		checkpoints: []issue.CheckpointView{{
+		}}, nil,
+	)
+	readerOne.EXPECT().ReadIssue(
+		gomock.Any(), issue.ReadRequest{IssueID: "checkpoint-1", ContextDepth: new(0)},
+	).Return(issue.View{Detail: issue.Detail{Issue: issue.Issue{
+		ID: "checkpoint-1", Title: "Gate one", Type: "checkpoint",
+		Lifecycle: "open", Status: "ready", Priority: 1,
+		Created: 20, Updated: 20, Summary: new("Gate **one**"),
+	}}}, nil)
+	readerTwo := NewMockBoardReader(gomock.NewController(t))
+	readerTwo.EXPECT().ListActionableCheckpoints(gomock.Any()).Return(
+		[]issue.CheckpointView{{
 			Issue: testIssue("checkpoint-2", "Gate two", "checkpoint", "open", "ready", 0, 30),
-		}},
-		views: map[string]issue.View{
-			"checkpoint-2": {Detail: issue.Detail{
-				Issue: testIssue("checkpoint-2", "Gate two", "checkpoint", "open", "ready", 0, 30),
-			}},
-		},
-	}
+		}}, nil,
+	)
+	readerTwo.EXPECT().ReadIssue(
+		gomock.Any(), issue.ReadRequest{IssueID: "checkpoint-2", ContextDepth: new(0)},
+	).Return(issue.View{Detail: issue.Detail{
+		Issue: testIssue("checkpoint-2", "Gate two", "checkpoint", "open", "ready", 0, 30),
+	}}, nil)
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(readerOne, nil)
+	readers.EXPECT().Reader(boardTwo.ID()).Return(readerTwo, nil)
 	client := newTestClient(t, testConfig{
-		catalog: &testCatalog{boards: []*board.State{boardOne, boardTwo}},
-		locator: &testIssueLocator{},
-		readers: &testBoardReaders{values: map[board.ID]*testBoardReader{
-			boardOne.ID(): readerOne,
-			boardTwo.ID(): readerTwo,
-		}},
-		commands: &testBoardCommandFactory{values: map[board.ID]*testBoardCommands{}},
+		catalog:  &testCatalog{boards: []*board.State{boardOne, boardTwo}},
+		locator:  &testIssueLocator{},
+		readers:  readers,
+		commands: NewMockBoardCommandFactory(gomock.NewController(t)),
 	})
 
 	response, err := client.ListActionableCheckpoints(
@@ -80,59 +82,66 @@ func TestServiceListActionableCheckpointsUsesGlobalDomainOrder(t *testing.T) {
 	assert.Contains(t, response.Msg.GetCheckpoints()[1].GetSummary().GetRenderedHtml(), "<strong>one</strong>")
 	require.Len(t, response.Msg.GetCheckpoints()[1].GetBlockedIssues(), 1)
 	assert.Equal(t, "blocked-1", response.Msg.GetCheckpoints()[1].GetBlockedIssues()[0].GetId())
-	assert.Equal(t, []string{"checkpoint-1"}, readerOne.readIssueIDs)
 }
 
 func TestServiceResolveCheckpointReturnsCommittedDecisionSet(t *testing.T) {
 	projectOne := testProject(t, "project-1", "Project One")
 	boardOne := testBoard(t, "board-1", projectOne.ID(), "Board One")
-	reader := &testBoardReader{views: map[string]issue.View{
-		"checkpoint": {Detail: issue.Detail{
-			Issue:  testIssue("checkpoint", "Gate", "checkpoint", "closed", "closed", 0, 10),
-			Labels: []string{"approval"},
-		}},
-		"cancelled": {Detail: issue.Detail{
-			Issue: testIssue("cancelled", "Cancelled", "task", "cancelled", "cancelled", 1, 11),
-		}},
-	}}
-	commands := &testBoardCommands{
-		approve: func(_ context.Context, invocation issue.Invocation, request execution.CheckpointRequest) (execution.ResolveCheckpointResult, error) {
-			assert.Equal(t, "approver", invocation.Actor())
-			assert.Equal(t, "approved", request.Reason)
-			checkpoint := testIssue("checkpoint", "Gate", "checkpoint", "closed", "closed", 0, 10)
-			decision := issue.CheckpointDecisionView{
-				Outcome: "approved", Reason: "approved", DecidedAt: 12, Revision: 3,
-			}
-			reader.views["checkpoint"] = issue.View{Detail: issue.Detail{
-				Issue: checkpoint, Labels: []string{"approval"}, CheckpointDecision: &decision,
-			}}
-			return execution.ResolveCheckpointResult{Decision: decision, Issue: &checkpoint}, nil
-		},
-		deny: func(_ context.Context, _ issue.Invocation, request execution.CheckpointRequest) (execution.ResolveCheckpointResult, error) {
-			assert.Equal(t, "denied", request.Reason)
-			decision := issue.CheckpointDecisionView{
-				Outcome: "denied", Reason: "denied", DecidedAt: 13, Revision: 4,
-			}
-			checkpoint := testIssue("checkpoint", "Gate", "checkpoint", "cancelled", "cancelled", 0, 10)
-			reader.views["checkpoint"] = issue.View{Detail: issue.Detail{
-				Issue: checkpoint, Labels: []string{"approval"}, CheckpointDecision: &decision,
-			}}
-			return execution.ResolveCheckpointResult{
-				Decision: decision,
-				Cancelled: []issue.Issue{
-					checkpoint,
-					testIssue("cancelled", "Cancelled", "task", "cancelled", "cancelled", 1, 11),
-				},
-			}, nil
-		},
+	reader := NewMockBoardReader(gomock.NewController(t))
+	approvedDecision := issue.CheckpointDecisionView{
+		Outcome: "approved", Reason: "approved", DecidedAt: 12, Revision: 3,
 	}
+	deniedDecision := issue.CheckpointDecisionView{
+		Outcome: "denied", Reason: "denied", DecidedAt: 13, Revision: 4,
+	}
+	reader.EXPECT().ReadIssue(
+		gomock.Any(), issue.ReadRequest{IssueID: "checkpoint"},
+	).Return(issue.View{Detail: issue.Detail{
+		Issue:  testIssue("checkpoint", "Gate", "checkpoint", "closed", "closed", 0, 10),
+		Labels: []string{"approval"}, CheckpointDecision: &approvedDecision,
+	}}, nil)
+	reader.EXPECT().ReadIssue(
+		gomock.Any(), issue.ReadRequest{IssueID: "checkpoint"},
+	).Return(issue.View{Detail: issue.Detail{
+		Issue:  testIssue("checkpoint", "Gate", "checkpoint", "cancelled", "cancelled", 0, 10),
+		Labels: []string{"approval"}, CheckpointDecision: &deniedDecision,
+	}}, nil)
+	reader.EXPECT().ReadIssue(
+		gomock.Any(), issue.ReadRequest{IssueID: "cancelled"},
+	).Return(issue.View{Detail: issue.Detail{
+		Issue: testIssue("cancelled", "Cancelled", "task", "cancelled", "cancelled", 1, 11),
+	}}, nil)
+	commands := NewMockBoardCommands(gomock.NewController(t))
+	commands.EXPECT().ApproveCheckpoint(
+		gomock.Any(), gomock.Any(), execution.CheckpointRequest{IssueID: "checkpoint", Reason: "approved"},
+	).DoAndReturn(func(_ context.Context, invocation issue.Invocation, request execution.CheckpointRequest) (execution.ResolveCheckpointResult, error) {
+		assert.Equal(t, "approver", invocation.Actor())
+		assert.Equal(t, "approved", request.Reason)
+		checkpoint := testIssue("checkpoint", "Gate", "checkpoint", "closed", "closed", 0, 10)
+		return execution.ResolveCheckpointResult{Decision: approvedDecision, Issue: &checkpoint}, nil
+	})
+	commands.EXPECT().DenyCheckpoint(
+		gomock.Any(), gomock.Any(), execution.CheckpointRequest{IssueID: "checkpoint", Reason: "denied"},
+	).DoAndReturn(func(_ context.Context, _ issue.Invocation, request execution.CheckpointRequest) (execution.ResolveCheckpointResult, error) {
+		assert.Equal(t, "denied", request.Reason)
+		checkpoint := testIssue("checkpoint", "Gate", "checkpoint", "cancelled", "cancelled", 0, 10)
+		return execution.ResolveCheckpointResult{
+			Decision: deniedDecision,
+			Cancelled: []issue.Issue{
+				checkpoint,
+				testIssue("cancelled", "Cancelled", "task", "cancelled", "cancelled", 1, 11),
+			},
+		}, nil
+	})
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(reader, nil).Times(3)
+	commandFactory := NewMockBoardCommandFactory(gomock.NewController(t))
+	commandFactory.EXPECT().Commands(boardOne.ID()).Return(commands, nil).Times(3)
 	client := newTestClient(t, testConfig{
-		catalog: &testCatalog{boards: []*board.State{boardOne}},
-		locator: &testIssueLocator{values: map[string]board.ID{"checkpoint": boardOne.ID()}},
-		readers: &testBoardReaders{values: map[board.ID]*testBoardReader{boardOne.ID(): reader}},
-		commands: &testBoardCommandFactory{values: map[board.ID]*testBoardCommands{
-			boardOne.ID(): commands,
-		}},
+		catalog:  &testCatalog{boards: []*board.State{boardOne}},
+		locator:  &testIssueLocator{values: map[string]board.ID{"checkpoint": boardOne.ID()}},
+		readers:  readers,
+		commands: commandFactory,
 	})
 
 	approved, err := client.ResolveCheckpoint(t.Context(), connect.NewRequest(&privatev1.ResolveCheckpointRequest{
@@ -164,8 +173,8 @@ func TestServiceResolveCheckpointReturnsCommittedDecisionSet(t *testing.T) {
 type testConfig struct {
 	catalog  *testCatalog
 	locator  *testIssueLocator
-	readers  *testBoardReaders
-	commands *testBoardCommandFactory
+	readers  BoardReaderFactory
+	commands BoardCommandFactory
 }
 
 func newTestClient(t *testing.T, cfg testConfig) privatev1connect.CheckpointServiceClient {
@@ -225,73 +234,6 @@ func (l *testIssueLocator) BoardForIssue(_ context.Context, issueID string) (boa
 		return "", errkind.Errorf(errkind.NotFound, "issue not found")
 	}
 	return boardID, nil
-}
-
-type testBoardReaders struct {
-	values map[board.ID]*testBoardReader
-}
-
-func (f *testBoardReaders) Reader(boardID board.ID) (BoardReader, error) {
-	reader, ok := f.values[boardID]
-	if !ok || reader == nil {
-		return nil, errors.New("test board reader not configured")
-	}
-	return reader, nil
-}
-
-type testBoardReader struct {
-	views        map[string]issue.View
-	checkpoints  []issue.CheckpointView
-	readIssueIDs []string
-}
-
-func (r *testBoardReader) ReadIssue(
-	_ context.Context,
-	request issue.ReadRequest,
-) (issue.View, error) {
-	r.readIssueIDs = append(r.readIssueIDs, request.IssueID)
-	view, ok := r.views[request.IssueID]
-	if !ok {
-		return issue.View{}, errkind.Errorf(errkind.NotFound, "issue not found")
-	}
-	return view, nil
-}
-
-func (r *testBoardReader) ListActionableCheckpoints(context.Context) ([]issue.CheckpointView, error) {
-	return r.checkpoints, nil
-}
-
-type testBoardCommandFactory struct {
-	values map[board.ID]*testBoardCommands
-}
-
-func (f *testBoardCommandFactory) Commands(boardID board.ID) (BoardCommands, error) {
-	commands, ok := f.values[boardID]
-	if !ok || commands == nil {
-		return nil, errors.New("test board commands not configured")
-	}
-	return commands, nil
-}
-
-type testBoardCommands struct {
-	approve func(context.Context, issue.Invocation, execution.CheckpointRequest) (execution.ResolveCheckpointResult, error)
-	deny    func(context.Context, issue.Invocation, execution.CheckpointRequest) (execution.ResolveCheckpointResult, error)
-}
-
-func (c *testBoardCommands) ApproveCheckpoint(
-	ctx context.Context,
-	invocation issue.Invocation,
-	request execution.CheckpointRequest,
-) (execution.ResolveCheckpointResult, error) {
-	return c.approve(ctx, invocation, request)
-}
-
-func (c *testBoardCommands) DenyCheckpoint(
-	ctx context.Context,
-	invocation issue.Invocation,
-	request execution.CheckpointRequest,
-) (execution.ResolveCheckpointResult, error) {
-	return c.deny(ctx, invocation, request)
 }
 
 func testProject(t *testing.T, id, name string) *project.State {

@@ -1,7 +1,6 @@
 package information
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -10,6 +9,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/project"
+	"go.uber.org/mock/gomock"
 )
 
 func TestService_ReadReturnsTypedStoreInformation(t *testing.T) {
@@ -32,16 +32,24 @@ func TestService_ReadReturnsTypedStoreInformation(t *testing.T) {
 		Revision: Revision{Current: 42},
 		Issues:   IssueInventory{Total: 3},
 	}
-	reader := &fakeReader{snapshot: snapshot}
-	readers := &fakeReaders{reader: reader}
+	reader := NewMockReader(gomock.NewController(t))
+	reader.EXPECT().Read(gomock.Any()).Return(snapshot, nil)
+	readers := NewMockReaders(gomock.NewController(t))
+	readers.EXPECT().Reader(boardID, effective).Return(reader, nil)
+	projects := NewMockProjects(gomock.NewController(t))
+	projects.EXPECT().Resolve(gomock.Any(), gomock.Any()).Return(selectedProject, nil)
+	boards := NewMockBoards(gomock.NewController(t))
+	boards.EXPECT().Get(gomock.Any(), boardID).Return(selectedBoard, nil)
+	configurations := NewMockConfigurations(gomock.NewController(t))
+	configurations.EXPECT().ResolveConfiguration(gomock.Any(), boardID).Return(effective, nil)
 	service := NewService(ServiceConfig{
 		Store: Store{
 			Directory:    "/stores/mission",
 			DatabasePath: "/stores/mission/board.sqlite3",
 		},
-		Projects:       &fakeProjects{state: selectedProject},
-		Boards:         &fakeBoards{state: selectedBoard},
-		Configurations: &fakeConfigurations{effective: effective},
+		Projects:       projects,
+		Boards:         boards,
+		Configurations: configurations,
 		Readers:        readers,
 	})
 
@@ -58,53 +66,4 @@ func TestService_ReadReturnsTypedStoreInformation(t *testing.T) {
 	assert.Equal(t, snapshot.Schema, report.Schema)
 	assert.Equal(t, snapshot.Revision, report.Revision)
 	assert.Equal(t, snapshot.Issues, report.Issues)
-	assert.Equal(t, boardID, readers.boardID)
-	assert.Equal(t, effective, readers.configuration)
-}
-
-type fakeProjects struct{ state *project.State }
-
-func (f *fakeProjects) Resolve(
-	context.Context,
-	*project.Selector,
-) (*project.State, error) {
-	return f.state, nil
-}
-
-type fakeBoards struct{ state *board.State }
-
-func (f *fakeBoards) Get(context.Context, board.ID) (*board.State, error) {
-	return f.state, nil
-}
-
-type fakeConfigurations struct {
-	effective configuration.Configuration
-}
-
-func (f *fakeConfigurations) ResolveConfiguration(
-	context.Context,
-	board.ID,
-) (configuration.Configuration, error) {
-	return f.effective, nil
-}
-
-type fakeReaders struct {
-	reader        Reader
-	boardID       board.ID
-	configuration configuration.Configuration
-}
-
-func (f *fakeReaders) Reader(
-	boardID board.ID,
-	effective configuration.Configuration,
-) (Reader, error) {
-	f.boardID = boardID
-	f.configuration = effective
-	return f.reader, nil
-}
-
-type fakeReader struct{ snapshot Snapshot }
-
-func (f *fakeReader) Read(context.Context) (Snapshot, error) {
-	return f.snapshot, nil
 }

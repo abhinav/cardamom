@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceSnapshotWholeBoardIsDeterministic(t *testing.T) {
@@ -161,18 +162,19 @@ func TestServiceSnapshotRejectsUnspecifiedSelectionMode(t *testing.T) {
 }
 
 func TestPublicationService_ExecuteRejectsUnknownIDsBeforePublication(t *testing.T) {
-	publisher := &recordingPublisher{}
+	publisher := NewMockPublisher(gomock.NewController(t))
 	service := newTestPublicationService(t, unorderedSnapshot(), publisher)
 
 	_, err := service.Execute(t.Context(), Request{Selection: SelectedIssues("an-missing")})
 	assert.EqualError(t, err, `unknown issue ID "an-missing"`)
-	assert.Empty(t, publisher.publications)
 }
 
 func TestPublicationService_ExecuteRejectsSnapshotFromDifferentBoardBeforePublication(t *testing.T) {
-	publisher := &recordingPublisher{}
+	publisher := NewMockPublisher(gomock.NewController(t))
+	reader := NewMockSnapshotReader(gomock.NewController(t))
+	reader.EXPECT().ReadDumpSnapshot(gomock.Any()).Return(BoardSnapshot{BoardID: "board-other"}, nil)
 	renderer, err := NewService(ServiceConfig{
-		Reader:      staticSnapshotReader{snapshot: BoardSnapshot{BoardID: "board-other"}},
+		Reader:      reader,
 		Attachments: &attachmentSource{},
 		Provenance:  testProvenance("board-1"),
 	})
@@ -182,7 +184,6 @@ func TestPublicationService_ExecuteRejectsSnapshotFromDifferentBoardBeforePublic
 
 	_, err = service.Execute(t.Context(), Request{Selection: WholeBoard()})
 	assert.EqualError(t, err, `dump snapshot board "board-other" does not match selected board "board-1"`)
-	assert.Empty(t, publisher.publications)
 }
 
 func TestServiceSnapshotAllowsEmptyWholeBoard(t *testing.T) {
@@ -195,7 +196,7 @@ func TestServiceSnapshotAllowsEmptyWholeBoard(t *testing.T) {
 }
 
 func TestServiceRenderOwnsSnapshotSelectionAndRendering(t *testing.T) {
-	service, err := NewService(testServiceConfig(unorderedSnapshot()))
+	service, err := NewService(testServiceConfig(t, unorderedSnapshot()))
 	require.NoError(t, err)
 
 	result, err := service.Render(t.Context(), RenderRequest{
@@ -329,9 +330,17 @@ func TestServiceRenderReferencesDoNotExpandSelection(t *testing.T) {
 }
 
 func TestPublicationService_ExecuteOwnsRenderingAndPublication(t *testing.T) {
-	publisher := &recordingPublisher{result: PublicationResult{
+	publisher := NewMockPublisher(gomock.NewController(t))
+	publicationResult := PublicationResult{
 		Written: 2, Unchanged: 1, Removed: 1,
-	}}
+	}
+	var publication Publication
+	publisher.EXPECT().Publish(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, got Publication) (PublicationResult, error) {
+			publication = got
+			return publicationResult, nil
+		},
+	)
 	service := newTestPublicationService(t, unorderedSnapshot(), publisher)
 
 	result, err := service.Execute(t.Context(), Request{
@@ -350,8 +359,6 @@ func TestPublicationService_ExecuteOwnsRenderingAndPublication(t *testing.T) {
 		Unchanged:   1,
 		Removed:     1,
 	}, result)
-	require.Len(t, publisher.publications, 1)
-	publication := publisher.publications[0]
 	assert.Equal(t, "dumps/cardamom", publication.Destination)
 	assert.Equal(t, ForceGenerated, publication.Force)
 	assert.Equal(t, NamedIssuesOnly("an-a", "an-c"), publication.Rendered.Selection)
@@ -362,10 +369,12 @@ func TestPublicationService_ExecuteOwnsRenderingAndPublication(t *testing.T) {
 }
 
 func TestPublicationService_ExecuteStopsAtSnapshotFailure(t *testing.T) {
-	publisher := &recordingPublisher{}
+	publisher := NewMockPublisher(gomock.NewController(t))
 	readErr := errors.New("read failed")
+	reader := NewMockSnapshotReader(gomock.NewController(t))
+	reader.EXPECT().ReadDumpSnapshot(gomock.Any()).Return(BoardSnapshot{}, readErr)
 	renderer, err := NewService(ServiceConfig{
-		Reader:      errorSnapshotReader{err: readErr},
+		Reader:      reader,
 		Attachments: &attachmentSource{},
 		Provenance:  testProvenance("board-1"),
 	})
@@ -376,11 +385,10 @@ func TestPublicationService_ExecuteStopsAtSnapshotFailure(t *testing.T) {
 	_, err = service.Execute(t.Context(), Request{Selection: WholeBoard()})
 	assert.EqualError(t, err, "read dump snapshot: read failed")
 	assert.ErrorIs(t, err, readErr)
-	assert.Empty(t, publisher.publications)
 }
 
 func TestPublicationService_ExecuteStopsAtRenderFailure(t *testing.T) {
-	publisher := &recordingPublisher{}
+	publisher := NewMockPublisher(gomock.NewController(t))
 	snapshot := BoardSnapshot{
 		BoardID: "board-1", Issues: []Issue{{ID: "../escape", Title: "Escape"}},
 	}
@@ -388,48 +396,22 @@ func TestPublicationService_ExecuteStopsAtRenderFailure(t *testing.T) {
 
 	_, err := service.Execute(t.Context(), Request{Selection: WholeBoard()})
 	assert.EqualError(t, err, `render dump: render issue "../escape": issue ID is not safe for a dump path`)
-	assert.Empty(t, publisher.publications)
 }
 
 func TestPublicationService_ExecutePropagatesPublicationFailure(t *testing.T) {
 	publishErr := errors.New("disk failed")
-	publisher := &recordingPublisher{err: publishErr}
+	publisher := NewMockPublisher(gomock.NewController(t))
+	publisher.EXPECT().Publish(gomock.Any(), gomock.Any()).Return(PublicationResult{}, publishErr)
 	service := newTestPublicationService(t, unorderedSnapshot(), publisher)
 
 	_, err := service.Execute(t.Context(), Request{Selection: WholeBoard()})
 	assert.EqualError(t, err, "publish dump: disk failed")
 	assert.ErrorIs(t, err, publishErr)
-	assert.Len(t, publisher.publications, 1)
-}
-
-type staticSnapshotReader struct {
-	snapshot BoardSnapshot
-}
-
-type errorSnapshotReader struct{ err error }
-
-func (r errorSnapshotReader) ReadDumpSnapshot(context.Context) (BoardSnapshot, error) {
-	return BoardSnapshot{}, r.err
-}
-
-type recordingPublisher struct {
-	publications []Publication
-	result       PublicationResult
-	err          error
-}
-
-func (p *recordingPublisher) Publish(_ context.Context, publication Publication) (PublicationResult, error) {
-	p.publications = append(p.publications, publication)
-	return p.result, p.err
-}
-
-func (r staticSnapshotReader) ReadDumpSnapshot(context.Context) (BoardSnapshot, error) {
-	return r.snapshot, nil
 }
 
 func newTestService(t *testing.T, snapshot BoardSnapshot) *Service {
 	t.Helper()
-	service, err := NewService(testServiceConfig(snapshot))
+	service, err := NewService(testServiceConfig(t, snapshot))
 	require.NoError(t, err)
 	return service
 }
@@ -445,9 +427,12 @@ func newTestPublicationService(
 	return service
 }
 
-func testServiceConfig(snapshot BoardSnapshot) ServiceConfig {
+func testServiceConfig(t *testing.T, snapshot BoardSnapshot) ServiceConfig {
+	t.Helper()
+	reader := NewMockSnapshotReader(gomock.NewController(t))
+	reader.EXPECT().ReadDumpSnapshot(gomock.Any()).Return(snapshot, nil)
 	return ServiceConfig{
-		Reader:      staticSnapshotReader{snapshot: snapshot},
+		Reader:      reader,
 		Attachments: &attachmentSource{},
 		Provenance:  testProvenance(snapshot.BoardID),
 	}

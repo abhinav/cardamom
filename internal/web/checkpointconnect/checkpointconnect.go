@@ -19,6 +19,8 @@ import (
 	"go.abhg.dev/cardamom/internal/web/issueview"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package checkpointconnect -typed -write_package_comment=false . BoardReader,BoardReaderFactory,BoardCommands,BoardCommandFactory
+
 // BoardReader supplies the checkpoint reads exposed by CheckpointService.
 type BoardReader interface {
 	// ReadIssue returns one checkpoint detail and its requested inherited context.

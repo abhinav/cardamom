@@ -2,12 +2,12 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"testing"
 
 	"github.com/alecthomas/kong"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestBackupCommand_rejectsConflictingSelections(t *testing.T) {
@@ -44,7 +44,7 @@ func TestBackupCommand_rejectsConflictingSelections(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			operation := new(recordingBackupOperation)
+			operation := NewMockBackupOperation(gomock.NewController(t))
 			app, err := New(
 				testConfig(&stdout, &stderr),
 				kong.BindTo(operation, (*BackupOperation)(nil)),
@@ -54,7 +54,6 @@ func TestBackupCommand_rejectsConflictingSelections(t *testing.T) {
 			assert.Equal(t, ExitUsage, app.Run(t.Context(), tt.args))
 			assert.Empty(t, stdout.String())
 			assert.Equal(t, tt.wantStderr, stderr.String())
-			assert.Zero(t, operation.calls)
 		})
 	}
 }
@@ -63,10 +62,16 @@ func TestBackupCommand_ambientBoardDoesNotConflictWithAggregateSelection(t *test
 	t.Setenv("CARDAMOM_STORE", "")
 	t.Setenv("CARDAMOM_BOARD", "Bridge")
 	var stdout, stderr bytes.Buffer
-	operation := &recordingBackupOperation{result: BackupResult{
+	result := BackupResult{
 		Source: "/source/.cardamom", Destination: "archive.cardamom",
 		Projects: 1, Boards: 2, Blobs: 0,
-	}}
+	}
+	request := BackupRequest{
+		Destination:   "archive.cardamom",
+		IncludeBoards: []string{"Engineering"},
+	}
+	operation := NewMockBackupOperation(gomock.NewController(t))
+	operation.EXPECT().Backup(gomock.Any(), request).Return(result, nil)
 	app, err := New(
 		testConfig(&stdout, &stderr),
 		kong.BindTo(operation, (*BackupOperation)(nil)),
@@ -78,10 +83,6 @@ func TestBackupCommand_ambientBoardDoesNotConflictWithAggregateSelection(t *test
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, BackupRequest{
-		Destination:   "archive.cardamom",
-		IncludeBoards: []string{"Engineering"},
-	}, operation.request)
 	assert.Equal(
 		t,
 		"backed up 1 project, 2 boards, and 0 blobs from /source/.cardamom to archive.cardamom\n",
@@ -94,10 +95,13 @@ func TestBackupCommand_rendersOneJSONSummary(t *testing.T) {
 	t.Setenv("CARDAMOM_STORE", "")
 	t.Setenv("CARDAMOM_BOARD", "")
 	var stdout, stderr bytes.Buffer
-	operation := &recordingBackupOperation{result: BackupResult{
+	result := BackupResult{
 		Source: "/source/.cardamom", Destination: "/tmp/archive.cardamom",
 		Projects: 2, Boards: 3, Blobs: 4,
-	}}
+	}
+	request := BackupRequest{Destination: "/tmp/archive.cardamom", All: true}
+	operation := NewMockBackupOperation(gomock.NewController(t))
+	operation.EXPECT().Backup(gomock.Any(), request).Return(result, nil)
 	app, err := New(
 		testConfig(&stdout, &stderr),
 		kong.BindTo(operation, (*BackupOperation)(nil)),
@@ -109,9 +113,6 @@ func TestBackupCommand_rendersOneJSONSummary(t *testing.T) {
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, BackupRequest{
-		Destination: "/tmp/archive.cardamom", All: true,
-	}, operation.request)
 	assert.JSONEq(t, `{
 		"source":"/source/.cardamom",
 		"destination":"/tmp/archive.cardamom",
@@ -128,10 +129,16 @@ func TestRestoreCommand_passesDestinationAndRendersSummaries(t *testing.T) {
 	t.Setenv("CARDAMOM_BOARD", "")
 	t.Run("Human", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
-		operation := &recordingRestoreOperation{result: RestoreResult{
+		result := RestoreResult{
 			Source: "archive.cardamom", Destination: "/restore/.cardamom",
 			Projects: 1, Boards: 2, Blobs: 3, AlreadyCompletedBoards: 1,
-		}}
+		}
+		request := RestoreRequest{
+			Source: "archive.cardamom", DestinationStore: "/restore/.cardamom",
+			DestinationStoreExplicit: true,
+		}
+		operation := NewMockRestoreOperation(gomock.NewController(t))
+		operation.EXPECT().Restore(gomock.Any(), request).Return(result, nil)
 		app, err := New(
 			testConfig(&stdout, &stderr),
 			kong.BindTo(operation, (*RestoreOperation)(nil)),
@@ -143,10 +150,6 @@ func TestRestoreCommand_passesDestinationAndRendersSummaries(t *testing.T) {
 		})
 
 		assert.Equal(t, ExitSuccess, exitCode)
-		assert.Equal(t, RestoreRequest{
-			Source: "archive.cardamom", DestinationStore: "/restore/.cardamom",
-			DestinationStoreExplicit: true,
-		}, operation.request)
 		assert.Equal(
 			t,
 			"restored 1 project, 2 boards, and 3 blobs from archive.cardamom to /restore/.cardamom (1 already completed)\n",
@@ -157,10 +160,16 @@ func TestRestoreCommand_passesDestinationAndRendersSummaries(t *testing.T) {
 
 	t.Run("JSON", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
-		operation := &recordingRestoreOperation{result: RestoreResult{
+		result := RestoreResult{
 			Source: "archive.cardamom", Destination: "/restore/.cardamom",
 			Projects: 1, Boards: 2, Blobs: 3, AlreadyCompletedBoards: 1,
-		}}
+		}
+		request := RestoreRequest{
+			Source: "archive.cardamom", DestinationStore: "/restore/.cardamom",
+			DestinationStoreExplicit: true,
+		}
+		operation := NewMockRestoreOperation(gomock.NewController(t))
+		operation.EXPECT().Restore(gomock.Any(), request).Return(result, nil)
 		app, err := New(
 			testConfig(&stdout, &stderr),
 			kong.BindTo(operation, (*RestoreOperation)(nil)),
@@ -183,32 +192,4 @@ func TestRestoreCommand_passesDestinationAndRendersSummaries(t *testing.T) {
 		assert.Equal(t, 1, bytes.Count(stdout.Bytes(), []byte("\n")))
 		assert.Empty(t, stderr.String())
 	})
-}
-
-type recordingBackupOperation struct {
-	calls   int
-	request BackupRequest
-	result  BackupResult
-}
-
-func (o *recordingBackupOperation) Backup(
-	_ context.Context,
-	request BackupRequest,
-) (BackupResult, error) {
-	o.calls++
-	o.request = request
-	return o.result, nil
-}
-
-type recordingRestoreOperation struct {
-	request RestoreRequest
-	result  RestoreResult
-}
-
-func (o *recordingRestoreOperation) Restore(
-	_ context.Context,
-	request RestoreRequest,
-) (RestoreResult, error) {
-	o.request = request
-	return o.result, nil
 }

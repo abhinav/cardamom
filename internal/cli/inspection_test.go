@@ -2,7 +2,6 @@ package cli
 
 import (
 	"bytes"
-	"context"
 	"regexp"
 	"testing"
 
@@ -11,11 +10,12 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &inspectionOperation{listResult: []issue.Summary{
+	result := []issue.Summary{
 		{
 			Issue: issue.Issue{
 				ID: "an-1", Title: "First", Type: "task", Lifecycle: "open",
@@ -30,8 +30,22 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 			},
 			Blocked: true,
 		},
-	}}
-	app := newInspectionApplication(t, testConfig(&stdout, &stderr), operation)
+	}
+	request := issue.ListRequest{
+		UnderID: "an-root", Statuses: []string{"ready", "closed", "waiting"},
+		Assignee: new("worker"), Type: "task",
+		LabelsAll: []string{"area:cli"}, LabelsAny: []string{"phase:a", "phase:b"},
+		LabelsNone: []string{"archived"},
+		NoAssignee: true, TitleRegexp: regexp.MustCompile("(?i)adapter"),
+		Sort: "updated", Reverse: true, Limit: 9,
+	}
+	operation := NewMockListIssuesOperation(gomock.NewController(t))
+	operation.EXPECT().ListIssues(gomock.Any(), request).Return(result, nil)
+	app := newInspectionApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*ListIssuesOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{
 		"--json", "list", "--under", "an-root",
@@ -44,14 +58,6 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, issue.ListRequest{
-		UnderID: "an-root", Statuses: []string{"ready", "closed", "waiting"},
-		Assignee: new("worker"), Type: "task",
-		LabelsAll: []string{"area:cli"}, LabelsAny: []string{"phase:a", "phase:b"},
-		LabelsNone: []string{"archived"},
-		NoAssignee: true, TitleRegexp: regexp.MustCompile("(?i)adapter"),
-		Sort: "updated", Reverse: true, Limit: 9,
-	}, operation.listRequest)
 	assert.Equal(
 		t,
 		"{\"id\":\"an-1\",\"title\":\"First\",\"type\":\"task\",\"lifecycle\":\"open\",\"status\":\"ready\",\"priority\":1,\"active_claim\":null,\"created\":10,\"updated\":11,\"revision\":4,\"labels\":[\"area:cli\"],\"blocked\":false}\n"+
@@ -63,46 +69,68 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 
 func TestListCommandDefaultsToNonTerminalStatuses(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := new(inspectionOperation)
-	app := newInspectionApplication(t, testConfig(&stdout, &stderr), operation)
+	request := issue.ListRequest{
+		Statuses: []string{"ready", "blocked", "in_progress", "waiting"},
+	}
+	operation := NewMockListIssuesOperation(gomock.NewController(t))
+	operation.EXPECT().ListIssues(gomock.Any(), request).Return(nil, nil)
+	app := newInspectionApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*ListIssuesOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{"list"})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, []string{
-		"ready", "blocked", "in_progress", "waiting",
-	}, operation.listRequest.Statuses)
-	assert.Equal(t, 1, operation.listCalls)
 	assert.Empty(t, stderr.String())
 }
 
 func TestListCommandRejectsInvalidTitleRegexp(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := new(inspectionOperation)
-	app := newInspectionApplication(t, testConfig(&stdout, &stderr), operation)
+	operation := NewMockListIssuesOperation(gomock.NewController(t))
+	app := newInspectionApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*ListIssuesOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{"list", "--title-regexp", "["})
 
 	assert.Equal(t, ExitUsage, exitCode)
-	assert.Zero(t, operation.listCalls)
 	assert.Empty(t, stdout.String())
 	assert.Contains(t, stderr.String(), `invalid --title-regexp "["`)
 }
 
 func TestReadyAndBlockedCommandsPassDomainLimits(t *testing.T) {
 	var readyOut, readyErr bytes.Buffer
-	operation := new(inspectionOperation)
-	app := newInspectionApplication(t, testConfig(&readyOut, &readyErr), operation)
+	readyOperation := NewMockListReadyIssuesOperation(gomock.NewController(t))
+	readyOperation.EXPECT().ListReadyIssues(
+		gomock.Any(),
+		issue.ListReadyRequest{Limit: 7},
+	).Return(nil, nil)
+	app := newInspectionApplication(
+		t,
+		testConfig(&readyOut, &readyErr),
+		kong.BindTo(readyOperation, (*ListReadyIssuesOperation)(nil)),
+	)
 
 	assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"ready", "--limit", "7"}))
-	assert.Equal(t, issue.ListReadyRequest{Limit: 7}, operation.readyRequest)
 	assert.Equal(t, "ID  PRI  STATUS  TYPE  TITLE\n", readyOut.String())
 	assert.Empty(t, readyErr.String())
 
 	var blockedOut, blockedErr bytes.Buffer
-	app = newInspectionApplication(t, testConfig(&blockedOut, &blockedErr), operation)
+	blockedOperation := NewMockListBlockedIssuesOperation(gomock.NewController(t))
+	blockedOperation.EXPECT().ListBlockedIssues(
+		gomock.Any(),
+		issue.ListBlockedRequest{Limit: 8},
+	).Return(nil, nil)
+	app = newInspectionApplication(
+		t,
+		testConfig(&blockedOut, &blockedErr),
+		kong.BindTo(blockedOperation, (*ListBlockedIssuesOperation)(nil)),
+	)
 	assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"blocked", "--limit", "8"}))
-	assert.Equal(t, issue.ListBlockedRequest{Limit: 8}, operation.blockedRequest)
 	assert.Equal(t, "ID  PRI  STATUS  TYPE  TITLE\n", blockedOut.String())
 	assert.Empty(t, blockedErr.String())
 }
@@ -112,7 +140,7 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 	boardDescription := "Shared board context"
 	latestLogID := issue.LogID("cmt_77777777777777777777777777777777")
 	summary := "Current summary"
-	operation := &inspectionOperation{readResult: issue.View{
+	result := issue.View{
 		Detail: issue.Detail{
 			Issue: issue.Issue{
 				ID: "an-current", Title: "Current", Type: "task", Lifecycle: "open",
@@ -138,17 +166,23 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 				Issue: issue.Reference{ID: "an-dep", Title: "Dependency"}, Body: "Completed",
 			}},
 		},
-	}}
-	app := newInspectionApplication(t, testConfig(&stdout, &stderr), operation)
+	}
+	request := issue.ReadRequest{IssueID: "an-current", ContextDepth: new(2)}
+	operation := NewMockReadIssueOperation(gomock.NewController(t))
+	operation.EXPECT().ReadIssue(gomock.Any(), request).Return(attachment.IssueView{
+		Issue: result, Attachments: []attachment.Attachment{},
+	}, nil)
+	app := newInspectionApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*ReadIssueOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{
 		"--json", "show", "an-current", "--context", "--context-depth", "2",
 	})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, issue.ReadRequest{
-		IssueID: "an-current", ContextDepth: new(2),
-	}, operation.readRequest)
 	assert.JSONEq(t, `{
 		"board":{"description":"Shared board context"},
 		"context":[{
@@ -176,7 +210,7 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 
 func TestShowCommandTreatsPositionalArgumentAsKey(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &inspectionOperation{readResult: issue.View{
+	result := issue.View{
 		Detail: issue.Detail{
 			Issue: issue.Issue{
 				ID: "an-current", Title: "Current", Type: "task", Lifecycle: "open",
@@ -184,78 +218,29 @@ func TestShowCommandTreatsPositionalArgumentAsKey(t *testing.T) {
 			},
 			Keys: []string{"source:current"},
 		},
-	}}
-	app := newInspectionApplication(t, testConfig(&stdout, &stderr), operation)
+	}
+	request := issue.ReadRequest{Key: "source:current"}
+	operation := NewMockReadIssueOperation(gomock.NewController(t))
+	operation.EXPECT().ReadIssue(gomock.Any(), request).Return(attachment.IssueView{
+		Issue: result, Attachments: []attachment.Attachment{},
+	}, nil)
+	app := newInspectionApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*ReadIssueOperation)(nil)),
+	)
 
 	exitCode := app.Run(t.Context(), []string{"show", "--key", "source:current"})
 
 	assert.Equal(t, ExitSuccess, exitCode)
-	assert.Equal(t, issue.ReadRequest{Key: "source:current"}, operation.readRequest)
 	assert.Empty(t, (&showCommand{ID: "source:current", Key: true}).referencedIssueIDs())
 	assert.Contains(t, stdout.String(), "Keys: source:current\n")
 	assert.Empty(t, stderr.String())
 }
 
-func newInspectionApplication(t *testing.T, config Config, operation *inspectionOperation) *Application {
+func newInspectionApplication(t *testing.T, config Config, options ...kong.Option) *Application {
 	t.Helper()
-	app, err := New(
-		config,
-		kong.BindTo(operation, (*ListIssuesOperation)(nil)),
-		kong.BindTo(operation, (*ListReadyIssuesOperation)(nil)),
-		kong.BindTo(operation, (*ListBlockedIssuesOperation)(nil)),
-		kong.BindTo(operation, (*ReadIssueOperation)(nil)),
-	)
+	app, err := New(config, options...)
 	require.NoError(t, err)
 	return app
-}
-
-type inspectionOperation struct {
-	listRequest    issue.ListRequest
-	listResult     []issue.Summary
-	listCalls      int
-	readyRequest   issue.ListReadyRequest
-	readyResult    []issue.Summary
-	readyCalls     int
-	blockedRequest issue.ListBlockedRequest
-	blockedResult  []issue.Summary
-	blockedCalls   int
-	readRequest    issue.ReadRequest
-	readResult     issue.View
-}
-
-func (o *inspectionOperation) ListIssues(
-	_ context.Context,
-	request issue.ListRequest,
-) ([]issue.Summary, error) {
-	o.listCalls++
-	o.listRequest = request
-	return o.listResult, nil
-}
-
-func (o *inspectionOperation) ListReadyIssues(
-	_ context.Context,
-	request issue.ListReadyRequest,
-) ([]issue.Summary, error) {
-	o.readyCalls++
-	o.readyRequest = request
-	return o.readyResult, nil
-}
-
-func (o *inspectionOperation) ListBlockedIssues(
-	_ context.Context,
-	request issue.ListBlockedRequest,
-) ([]issue.Summary, error) {
-	o.blockedCalls++
-	o.blockedRequest = request
-	return o.blockedResult, nil
-}
-
-func (o *inspectionOperation) ReadIssue(
-	_ context.Context,
-	request issue.ReadRequest,
-) (attachment.IssueView, error) {
-	o.readRequest = request
-	return attachment.IssueView{
-		Issue: o.readResult, Attachments: []attachment.Attachment{},
-	}, nil
 }
