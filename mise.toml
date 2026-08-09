@@ -28,6 +28,10 @@ run = [
   "buf generate",
 ]
 
+[tasks."generate:mocks"]
+description = "Generate Go test mocks"
+run = "go generate ./..."
+
 [tasks."generate:sqlc"]
 description = "Generate repository code"
 run = "sqlc generate"

@@ -16,21 +16,37 @@ import (
 	"go.abhg.dev/cardamom/internal/markdown"
 	"go.abhg.dev/cardamom/internal/web/boardscope"
 	"go.abhg.dev/cardamom/internal/web/issueview"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceMapsEligibilityAndClaimNext(t *testing.T) {
 	t.Parallel()
 
 	boardState := executionTestBoard(t)
-	executor := &executionStub{
-		ready: []issue.Summary{{Issue: executionTestIssue("an-ready")}},
-	}
+	executor := NewMockBoardExecutor(gomock.NewController(t))
+	executor.EXPECT().ListReadyIssues(
+		gomock.Any(), issue.ListReadyRequest{Limit: 3},
+	).Return([]issue.Summary{{Issue: executionTestIssue("an-ready")}}, nil)
+	executor.EXPECT().ClaimNext(
+		gomock.Any(),
+		issue.NewInvocation("worker"),
+		execution.ClaimNextRequest{
+			UnderID: "an-parent", Assignee: "worker",
+			LabelsAll:  []string{"area:protocol"},
+			LabelsAny:  []string{"phase:a", "phase:b"},
+			LabelsNone: []string{"paused"}, Watch: true, ContextDepth: new(0),
+		},
+	).Return(execution.ClaimIssueResult{Issue: issue.View{
+		Detail: issue.Detail{Issue: executionTestIssue("an-ready")},
+	}}, nil)
+	factory := NewMockBoardExecutorFactory(gomock.NewController(t))
+	factory.EXPECT().Executor(boardState.ID()).Return(executor, nil).Times(2)
 	service := New(Config{
 		Scope: boardscope.New(
 			executionCatalog{boardState},
 			executionLocator{"an-ready": boardState.ID()},
 		),
-		Executors: executionFactory{boardState.ID(): executor},
+		Executors: factory,
 		Views:     issueview.New(markdown.New()),
 	})
 
@@ -43,7 +59,6 @@ func TestServiceMapsEligibilityAndClaimNext(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, ready.Msg.GetIssues(), 1)
 	assert.Equal(t, "an-ready", ready.Msg.GetIssues()[0].GetId())
-	assert.Equal(t, 3, executor.readyRequest.Limit)
 
 	depth := uint32(0)
 	claimed, err := service.ClaimNextIssue(t.Context(), connect.NewRequest(&privatev1.ClaimNextIssueRequest{
@@ -56,25 +71,21 @@ func TestServiceMapsEligibilityAndClaimNext(t *testing.T) {
 	}))
 	require.NoError(t, err)
 	assert.Equal(t, "an-ready", claimed.Msg.GetIssue().GetIssue().GetId())
-	assert.Equal(t, "worker", executor.invocation.Actor())
-	assert.Equal(t, execution.ClaimNextRequest{
-		UnderID: "an-parent", Assignee: "worker",
-		LabelsAll: []string{"area:protocol"}, LabelsAny: []string{"phase:a", "phase:b"},
-		LabelsNone: []string{"paused"}, Watch: true, ContextDepth: new(0),
-	}, executor.claimNext)
 }
 
 func TestServiceRejectsInvalidClaimNextLabels(t *testing.T) {
 	t.Parallel()
 
 	boardState := executionTestBoard(t)
-	executor := new(executionStub)
+	executor := NewMockBoardExecutor(gomock.NewController(t))
+	factory := NewMockBoardExecutorFactory(gomock.NewController(t))
+	factory.EXPECT().Executor(boardState.ID()).Return(executor, nil)
 	service := New(Config{
 		Scope: boardscope.New(
 			executionCatalog{boardState},
 			executionLocator{},
 		),
-		Executors: executionFactory{boardState.ID(): executor},
+		Executors: factory,
 		Views:     issueview.New(markdown.New()),
 	})
 
@@ -85,91 +96,6 @@ func TestServiceRejectsInvalidClaimNextLabels(t *testing.T) {
 	}))
 	require.Error(t, err)
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-	assert.Empty(t, executor.claimNext.Assignee)
-}
-
-type executionStub struct {
-	ready        []issue.Summary
-	readyRequest issue.ListReadyRequest
-	invocation   issue.Invocation
-	claimNext    execution.ClaimNextRequest
-}
-
-func (s *executionStub) ListReadyIssues(
-	_ context.Context,
-	request issue.ListReadyRequest,
-) ([]issue.Summary, error) {
-	s.readyRequest = request
-	return s.ready, nil
-}
-
-func (*executionStub) ListBlockedIssues(
-	context.Context,
-	issue.ListBlockedRequest,
-) ([]issue.Summary, error) {
-	return nil, nil
-}
-
-func (*executionStub) ClaimIssue(
-	context.Context,
-	issue.Invocation,
-	execution.ClaimIssueRequest,
-) (execution.ClaimIssueResult, error) {
-	return execution.ClaimIssueResult{}, nil
-}
-
-func (s *executionStub) ClaimNext(
-	_ context.Context,
-	invocation issue.Invocation,
-	request execution.ClaimNextRequest,
-) (execution.ClaimIssueResult, error) {
-	s.invocation = invocation
-	s.claimNext = request
-	return execution.ClaimIssueResult{Issue: issue.View{
-		Detail: issue.Detail{Issue: executionTestIssue("an-ready")},
-	}}, nil
-}
-
-func (*executionStub) ReleaseIssue(
-	context.Context,
-	issue.Invocation,
-	execution.ReleaseIssueRequest,
-) (execution.ReleaseIssueResult, error) {
-	return execution.ReleaseIssueResult{}, nil
-}
-
-func (*executionStub) CloseIssues(
-	context.Context,
-	issue.Invocation,
-	execution.CloseIssuesRequest,
-) (execution.CloseIssuesResult, error) {
-	return execution.CloseIssuesResult{}, nil
-}
-
-func (*executionStub) CancelIssues(
-	context.Context,
-	issue.Invocation,
-	execution.CancelIssuesRequest,
-) (execution.CancelIssuesResult, error) {
-	return execution.CancelIssuesResult{}, nil
-}
-
-func (*executionStub) ReopenIssues(
-	context.Context,
-	issue.Invocation,
-	execution.ReopenIssuesRequest,
-) (execution.ReopenIssuesResult, error) {
-	return execution.ReopenIssuesResult{}, nil
-}
-
-type executionFactory map[board.ID]BoardExecutor
-
-func (f executionFactory) Executor(boardID board.ID) (BoardExecutor, error) {
-	executor, ok := f[boardID]
-	if !ok {
-		return nil, assert.AnError
-	}
-	return executor, nil
 }
 
 type executionCatalog struct{ board *board.State }

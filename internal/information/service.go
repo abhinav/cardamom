@@ -9,6 +9,8 @@ import (
 	"go.abhg.dev/cardamom/internal/project"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package information -typed -write_package_comment=false . Projects,Boards,Configurations,Readers,Reader
+
 // Projects resolves the project containing a selected board.
 type Projects interface {
 	// Resolve selects an explicit project or the store's sole project.

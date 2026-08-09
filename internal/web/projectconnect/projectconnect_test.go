@@ -18,6 +18,7 @@ import (
 	"go.abhg.dev/cardamom/internal/markdown"
 	"go.abhg.dev/cardamom/internal/project"
 	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceBootstrapAndBoard(t *testing.T) {
@@ -33,7 +34,7 @@ func TestServiceBootstrapAndBoard(t *testing.T) {
 	}
 	client := newTestClient(t, Config{
 		Projects:       project.NewService(catalog),
-		ProjectCreator: &testProjectCreator{},
+		ProjectCreator: NewMockProjectCreator(gomock.NewController(t)),
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       markdown.New(), ServerDefaultBoardID: &defaultBoard,
 		SchemaVersion: 20260718164341,
@@ -96,10 +97,13 @@ func TestServiceRendersBoardDescriptionInBoardScope(t *testing.T) {
 	catalog := &testCatalog{
 		projects: []*project.State{projectState}, boards: []*board.State{boardState},
 	}
-	renderer := &projectMarkdownRenderer{}
+	renderer := NewMockMarkdownRenderer(gomock.NewController(t))
+	renderer.EXPECT().RenderBoard(
+		gomock.Any(), board.ID("board-1"), "", []string{description},
+	).Return([]string{description}, nil)
 	client := newTestClient(t, Config{
 		Projects:       project.NewService(catalog),
-		ProjectCreator: &testProjectCreator{},
+		ProjectCreator: NewMockProjectCreator(gomock.NewController(t)),
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       renderer,
 	})
@@ -110,9 +114,6 @@ func TestServiceRendersBoardDescriptionInBoardScope(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	require.Len(t, renderer.calls, 1)
-	assert.Equal(t, board.ID("board-1"), renderer.calls[0].boardID)
-	assert.Equal(t, []string{description}, renderer.calls[0].sources)
 	assert.Equal(t, description, response.Msg.GetBoard().GetDescription().GetSource())
 }
 
@@ -126,7 +127,7 @@ func TestServiceBoardMutations(t *testing.T) {
 	}
 	client := newTestClient(t, Config{
 		Projects:       project.NewService(catalog),
-		ProjectCreator: &testProjectCreator{},
+		ProjectCreator: NewMockProjectCreator(gomock.NewController(t)),
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       markdown.New(),
 	})
@@ -159,16 +160,20 @@ func TestServiceBoardMutations(t *testing.T) {
 
 func TestService_CreateProject(t *testing.T) {
 	created := testProject(t, "project-created", "Mission Control")
-	projectCreator := &testProjectCreator{created: created}
+	projectCreator := NewMockProjectCreator(gomock.NewController(t))
 	catalog := &testCatalog{}
+	prefix := "mission-"
+	projectCreator.EXPECT().CreateProject(
+		gomock.Any(),
+		projectcreation.NewInvocation("captain"),
+		projectcreation.Request{Name: "Mission Control", Prefix: &prefix},
+	).Return(created, nil)
 	client := newTestClient(t, Config{
 		Projects:       project.NewService(catalog),
 		ProjectCreator: projectCreator,
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       markdown.New(),
 	})
-	prefix := "mission-"
-
 	response, err := client.CreateProject(
 		t.Context(),
 		connect.NewRequest(&privatev1.CreateProjectRequest{
@@ -181,9 +186,6 @@ func TestService_CreateProject(t *testing.T) {
 
 	assert.Equal(t, "project-created", response.Msg.GetProject().GetId())
 	assert.Equal(t, "Mission Control", response.Msg.GetProject().GetName())
-	assert.Equal(t, "captain", projectCreator.invocation.Actor())
-	require.NotNil(t, projectCreator.request.Prefix)
-	assert.Equal(t, "mission-", *projectCreator.request.Prefix)
 }
 
 func newTestClient(t *testing.T, cfg Config) privatev1connect.ProjectServiceClient {
@@ -195,41 +197,6 @@ func newTestClient(t *testing.T, cfg Config) privatev1connect.ProjectServiceClie
 
 type testHandlerTransport struct {
 	handler http.Handler
-}
-
-type projectMarkdownRenderer struct{ calls []projectMarkdownCall }
-
-type projectMarkdownCall struct {
-	boardID board.ID
-	sources []string
-}
-
-type testProjectCreator struct {
-	invocation projectcreation.Invocation
-	request    projectcreation.Request
-	created    *project.State
-}
-
-func (c *testProjectCreator) CreateProject(
-	_ context.Context,
-	invocation projectcreation.Invocation,
-	request projectcreation.Request,
-) (*project.State, error) {
-	c.invocation = invocation
-	c.request = request
-	return c.created, nil
-}
-
-func (r *projectMarkdownRenderer) RenderBoard(
-	_ context.Context,
-	boardID board.ID,
-	_ string,
-	sources []string,
-) ([]string, error) {
-	r.calls = append(r.calls, projectMarkdownCall{
-		boardID: boardID, sources: append([]string(nil), sources...),
-	})
-	return append([]string(nil), sources...), nil
 }
 
 func (t *testHandlerTransport) RoundTrip(request *http.Request) (*http.Response, error) {

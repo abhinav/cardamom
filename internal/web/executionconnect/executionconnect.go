@@ -21,6 +21,8 @@ import (
 
 const defaultPoolLimit = 20
 
+//go:generate go tool mockgen -destination mocks_test.go -package executionconnect -typed -write_package_comment=false . BoardExecutor,BoardExecutorFactory
+
 // BoardExecutor supplies the domain operations exposed by ExecutionService.
 type BoardExecutor interface {
 	// ListReadyIssues returns claimable executable work in domain order.

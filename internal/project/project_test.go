@@ -1,7 +1,6 @@
 package project
 
 import (
-	"context"
 	"encoding/json"
 	"testing"
 	"time"
@@ -9,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/errkind"
+	"go.uber.org/mock/gomock"
 )
 
 func TestLoadProjectRejectsBlankName(t *testing.T) {
@@ -51,19 +51,21 @@ func TestServiceListsAndSelectsExplicitOrSoleProject(t *testing.T) {
 		Name:    "Secondary",
 		Created: time.Unix(10, 0).UTC(),
 	})
-	projects := &fakeProjects{states: []*State{primary, secondary}}
+	projects := NewMockProjects(gomock.NewController(t))
 	service := NewService(projects)
 	selector := testProjectSelector(t, "Secondary")
 
+	projects.EXPECT().ListProjects(gomock.Any()).Return([]*State{primary, secondary}, nil)
 	listed, err := service.List(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, []*State{primary, secondary}, listed)
 
+	projects.EXPECT().ListProjects(gomock.Any()).Return([]*State{primary, secondary}, nil)
 	selected, err := service.Resolve(t.Context(), &selector)
 	require.NoError(t, err)
 	assert.Same(t, secondary, selected)
 
-	projects.states = []*State{primary}
+	projects.EXPECT().ListProjects(gomock.Any()).Return([]*State{primary}, nil)
 	selected, err = service.Resolve(t.Context(), nil)
 	require.NoError(t, err)
 	assert.Same(t, primary, selected)
@@ -71,10 +73,12 @@ func TestServiceListsAndSelectsExplicitOrSoleProject(t *testing.T) {
 
 func TestServiceRejectsAmbiguousProject(t *testing.T) {
 	created := time.Unix(10, 0).UTC()
-	service := NewService(&fakeProjects{states: []*State{
+	projects := NewMockProjects(gomock.NewController(t))
+	projects.EXPECT().ListProjects(gomock.Any()).Return([]*State{
 		testProjectState(t, Snapshot{ID: testProjectID(t, "one"), Name: "Shared", Created: created}),
 		testProjectState(t, Snapshot{ID: testProjectID(t, "two"), Name: "Shared", Created: created}),
-	}})
+	}, nil)
+	service := NewService(projects)
 	selector := testProjectSelector(t, "Shared")
 
 	_, err := service.Resolve(t.Context(), &selector)
@@ -110,12 +114,4 @@ func testProjectState(t *testing.T, snapshot Snapshot) *State {
 	state, err := Load(snapshot)
 	require.NoError(t, err)
 	return state
-}
-
-type fakeProjects struct {
-	states []*State
-}
-
-func (f *fakeProjects) ListProjects(context.Context) ([]*State, error) {
-	return f.states, nil
 }

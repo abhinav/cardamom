@@ -9,6 +9,8 @@ import (
 	"go.abhg.dev/cardamom/internal/must"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package mail -typed -write_package_comment=false . Repository
+
 // Repository supplies the atomic persistence operations required by Service.
 type Repository interface {
 	// SendMail atomically persists one direct actor delivery.

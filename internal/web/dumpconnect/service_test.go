@@ -2,7 +2,6 @@ package dumpconnect
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -16,13 +15,14 @@ import (
 	"go.abhg.dev/cardamom/internal/dump"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1/privatev1connect"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceRenderDumpStreamsManifestThenCanonicalFiles(t *testing.T) {
 	firstBody := bytes.Repeat([]byte("a"), 64*1024+1)
 	first, firstReader := testGeneratedFile(t, "issues/an-a.md", "issue:an-a", firstBody)
 	second, secondReader := testGeneratedFile(t, "issues/an-c.md", "issue:an-c", []byte("second\n"))
-	renderer := &recordingRenderer{result: dump.RenderedDump{
+	result := dump.RenderedDump{
 		Provenance: dump.Provenance{
 			ProjectID: "project-1", ProjectName: "Project one",
 			BoardID: "board-1", BoardName: "Board one",
@@ -31,8 +31,15 @@ func TestServiceRenderDumpStreamsManifestThenCanonicalFiles(t *testing.T) {
 		Selection:  dump.NamedIssuesOnly("an-a", "an-c"),
 		IssueCount: 2,
 		Files:      []*dump.GeneratedFile{first, second},
-	}}
-	factory := &recordingRendererFactory{renderer: renderer}
+	}
+	renderer := NewMockRenderer(gomock.NewController(t))
+	renderer.EXPECT().Render(gomock.Any(), dump.RenderRequest{
+		Selection: dump.NamedIssuesOnly("an-c", "an-a", "an-c"),
+	}).Return(result, nil)
+	factory := NewMockRendererFactory(gomock.NewController(t))
+	factory.EXPECT().Renderer(
+		gomock.Any(), board.ID("board-1"),
+	).Return(renderer, nil)
 	client := newTestClient(t, New(Config{Renderers: factory}))
 
 	stream, err := client.RenderDump(t.Context(), connect.NewRequest(&privatev1.RenderDumpRequest{
@@ -78,15 +85,10 @@ func TestServiceRenderDumpStreamsManifestThenCanonicalFiles(t *testing.T) {
 	assert.True(t, firstReader.closed)
 	assert.True(t, secondReader.closed)
 	assert.Greater(t, firstReader.readCalls, 1)
-
-	assert.Equal(t, board.ID("board-1"), factory.boardID)
-	assert.Equal(t, dump.RenderRequest{
-		Selection: dump.NamedIssuesOnly("an-c", "an-a", "an-c"),
-	}, renderer.request)
 }
 
 func TestServiceRenderDumpRejectsMissingSelectionBeforeOpeningRenderer(t *testing.T) {
-	factory := &recordingRendererFactory{renderer: &recordingRenderer{}}
+	factory := NewMockRendererFactory(gomock.NewController(t))
 	client := newTestClient(t, New(Config{Renderers: factory}))
 
 	stream, err := client.RenderDump(t.Context(), connect.NewRequest(&privatev1.RenderDumpRequest{
@@ -95,7 +97,6 @@ func TestServiceRenderDumpRejectsMissingSelectionBeforeOpeningRenderer(t *testin
 	require.NoError(t, err)
 	assert.False(t, stream.Receive())
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(stream.Err()))
-	assert.Empty(t, factory.boardID)
 }
 
 func TestManifestFromRenderedRejectsNilGeneratedFile(t *testing.T) {
@@ -105,24 +106,6 @@ func TestManifestFromRenderedRejectsNilGeneratedFile(t *testing.T) {
 	})
 
 	assert.EqualError(t, err, "dump generated file is required")
-}
-
-type recordingRendererFactory struct {
-	boardID  board.ID
-	renderer Renderer
-}
-
-func (f *recordingRendererFactory) Renderer(
-	_ context.Context,
-	boardID board.ID,
-) (Renderer, error) {
-	f.boardID = boardID
-	return f.renderer, nil
-}
-
-type recordingRenderer struct {
-	request dump.RenderRequest
-	result  dump.RenderedDump
 }
 
 type recordingReadCloser struct {
@@ -162,14 +145,6 @@ func testGeneratedFile(
 	})
 	require.NoError(t, err)
 	return file, reader
-}
-
-func (r *recordingRenderer) Render(
-	_ context.Context,
-	request dump.RenderRequest,
-) (dump.RenderedDump, error) {
-	r.request = request
-	return r.result, nil
 }
 
 func newTestClient(t *testing.T, service *Service) privatev1connect.DumpServiceClient {

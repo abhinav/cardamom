@@ -8,6 +8,8 @@ import (
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package issueview -typed -write_package_comment=false . MarkdownRenderer
+
 // MarkdownRenderer converts stored Markdown source to trusted presentation
 // HTML under the application's shared safety policy.
 type MarkdownRenderer interface {

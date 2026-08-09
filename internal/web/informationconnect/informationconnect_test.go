@@ -1,7 +1,6 @@
 package informationconnect
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -17,6 +16,7 @@ import (
 	"go.abhg.dev/cardamom/internal/information"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/project"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceReturnsStoreInformation(t *testing.T) {
@@ -33,7 +33,7 @@ func TestServiceReturnsStoreInformation(t *testing.T) {
 		Created: time.Unix(20, 0).UTC(),
 	})
 	require.NoError(t, err)
-	reader := &fakeReader{report: information.Report{
+	report := information.Report{
 		Store: information.Store{
 			Directory:    "/stores/mission",
 			DatabasePath: "/stores/mission/board.sqlite3",
@@ -50,7 +50,12 @@ func TestServiceReturnsStoreInformation(t *testing.T) {
 				{Status: issue.StatusClosed, Count: 1},
 			},
 		},
-	}}
+	}
+	reader := NewMockReader(gomock.NewController(t))
+	reader.EXPECT().Read(
+		gomock.Any(),
+		information.Request{BoardID: boardID},
+	).Return(report, nil)
 	client := newTestClient(t, reader)
 
 	response, err := client.GetInformation(
@@ -61,7 +66,6 @@ func TestServiceReturnsStoreInformation(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	assert.Equal(t, information.Request{BoardID: boardID}, reader.request)
 	assert.Equal(t, "/stores/mission", response.Msg.GetStore().GetDirectory())
 	assert.Equal(t, "project-one", response.Msg.GetProject().GetId())
 	assert.Equal(t, "board-one", response.Msg.GetBoard().GetId())
@@ -74,7 +78,7 @@ func TestServiceReturnsStoreInformation(t *testing.T) {
 }
 
 func TestServiceRejectsMissingBoard(t *testing.T) {
-	client := newTestClient(t, new(fakeReader))
+	client := newTestClient(t, NewMockReader(gomock.NewController(t)))
 
 	_, err := client.GetInformation(
 		t.Context(),
@@ -96,19 +100,6 @@ func newTestClient(
 		&http.Client{Transport: transport},
 		"http://cardamom.test",
 	)
-}
-
-type fakeReader struct {
-	report  information.Report
-	request information.Request
-}
-
-func (f *fakeReader) Read(
-	_ context.Context,
-	request information.Request,
-) (information.Report, error) {
-	f.request = request
-	return f.report, nil
 }
 
 // localRoundTripper serves Connect requests without opening a listener.

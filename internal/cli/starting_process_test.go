@@ -16,31 +16,34 @@ import (
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/project"
 	"go.abhg.dev/komplete"
+	"go.uber.org/mock/gomock"
 )
 
 func TestInitCommandForwardsSelectionAndRendersJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	boardName := "Mission board"
-	operation := &fakeInitOperation{result: InitResult{
+	result := InitResult{
 		Dir: ".cardamom", IDPrefix: "mission-", IDStrategy: "random",
 		SchemaVersion: 12, ConfigWritten: true, DatabaseWritten: true,
 		ProjectCreated: true, ProjectID: new("project-one"), ProjectName: new("mission"),
 		BoardCreated: true, BoardID: new("board-one"),
 		BoardName: new(boardName), IgnoreOutcome: InitIgnoreStoragePatternsAdded,
-	}}
+	}
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Store = "/stores/mission"
 	invocation.Output = newOutput(&stdout, &stderr, true, false)
+	request := InitRequest{
+		Store: "/stores/mission", ProjectPath: "project", IDPrefix: new("mission-"),
+		BoardName: &boardName, ConfigMode: InitConfigSkipMissing,
+	}
+	operation := NewMockInitOperation(gomock.NewController(t))
+	operation.EXPECT().Initialize(invocation.Context, request).Return(result, nil)
 
 	err := (&initCommand{
 		Path: "project", Prefix: new("mission-"), BoardName: &boardName, NoConfig: true,
 	}).Run(invocation, operation)
 	require.NoError(t, err)
 
-	assert.Equal(t, InitRequest{
-		Store: "/stores/mission", ProjectPath: "project", IDPrefix: new("mission-"),
-		BoardName: &boardName, ConfigMode: InitConfigSkipMissing,
-	}, operation.request)
 	assert.JSONEq(t, `{
 		"dir":".cardamom","id_prefix":"mission-","id_strategy":"random",
 		"schema_version":12,"config_written":true,"db_written":true,
@@ -53,15 +56,24 @@ func TestInitCommandForwardsSelectionAndRendersJSON(t *testing.T) {
 
 func TestInitCommandPreservesOmittedPrefix(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &fakeInitOperation{result: InitResult{
+	result := InitResult{
 		Dir: ".cardamom", BoardCreated: true,
-	}}
+	}
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Output = newOutput(&stdout, &stderr, false, true)
+	var request InitRequest
+	operation := NewMockInitOperation(gomock.NewController(t))
+	operation.EXPECT().Initialize(invocation.Context, gomock.Any()).DoAndReturn(func(
+		_ context.Context,
+		got InitRequest,
+	) (InitResult, error) {
+		request = got
+		return result, nil
+	})
 
 	require.NoError(t, (&initCommand{}).Run(invocation, operation))
 
-	assert.Nil(t, operation.request.IDPrefix)
+	assert.Nil(t, request.IDPrefix)
 }
 
 func TestWriteInitResultReportsAttachmentBlobExclusions(t *testing.T) {
@@ -287,7 +299,7 @@ func TestVersionCommandRendersAvailableBuildMetadata(t *testing.T) {
 
 func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := &fakeInfoOperation{result: InfoResult{
+	result := InfoResult{
 		Store: InfoStore{
 			Directory:    "/repo/.cardamom",
 			DatabasePath: "/repo/.cardamom/board.sqlite3",
@@ -314,16 +326,18 @@ func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 				{Status: "closed", Count: 1},
 			},
 		},
-	}}
+	}
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Store = "/repo/.cardamom"
 	invocation.StoreExplicit = true
 	invocation.Board = "Mission"
 	invocation.Output = newOutput(&stdout, &stderr, true, false)
+	request := InfoRequest{Store: "/repo/.cardamom", Board: "Mission"}
+	operation := NewMockInfoOperation(gomock.NewController(t))
+	operation.EXPECT().Read(invocation.Context, request).Return(result, nil)
 
 	require.NoError(t, (&infoCommand{}).Run(invocation, operation))
 
-	assert.Equal(t, InfoRequest{Store: "/repo/.cardamom", Board: "Mission"}, operation.request)
 	assert.JSONEq(t, `{
 		"store":{"directory":"/repo/.cardamom","database_path":"/repo/.cardamom/board.sqlite3"},
 		"project":{"id":"project-one","name":"Cardamom"},
@@ -338,29 +352,27 @@ func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 
 func TestWebCommandDelegatesLongRunningInvocation(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := new(fakeWebOperation)
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Store = "/repo/.cardamom"
 	invocation.Board = "Mission"
 	command := &webCommand{
 		Bind: "0.0.0.0", Port: 9000, NoBrowser: true, ReadOnly: true,
 	}
-
-	err := command.Run(invocation, operation)
-	require.NoError(t, err)
-
-	assert.True(t, operation.called)
-	assert.Equal(t, WebRequest{
+	request := WebRequest{
 		Store: "/repo/.cardamom", Board: "Mission",
 		Bind: "0.0.0.0", Port: 9000, NoBrowser: true, ReadOnly: true,
 		Notice: &stdout, Diagnostic: &stderr,
-	}, operation.request)
-	assert.Same(t, invocation.Context, operation.ctx)
+	}
+	operation := NewMockWebOperation(gomock.NewController(t))
+	operation.EXPECT().Run(invocation.Context, request).Return(nil)
+
+	err := command.Run(invocation, operation)
+	require.NoError(t, err)
 }
 
 func TestWebCommandRejectsAggregateWithLocalSelectors(t *testing.T) {
 	var stdout, stderr bytes.Buffer
-	operation := new(fakeWebOperation)
+	operation := NewMockWebOperation(gomock.NewController(t))
 	invocation := testInvocation(t, &stdout, &stderr)
 	invocation.Store = "/repo/.cardamom"
 	invocation.StoreExplicit = true
@@ -373,14 +385,26 @@ func TestWebCommandRejectsAggregateWithLocalSelectors(t *testing.T) {
 	err = command.Run(invocation, operation)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "cannot be combined with --store or --board")
-	assert.False(t, operation.called)
 }
 
 func TestWebCommandParsesAndValidatesSources(t *testing.T) {
 	t.Run("RepeatedSources", func(t *testing.T) {
 		t.Setenv("CARDAMOM_STORE", "")
 		var stdout, stderr bytes.Buffer
-		operation := new(fakeWebOperation)
+		primaryURL, err := url.Parse("https://primary.example")
+		require.NoError(t, err)
+		backupURL, err := url.Parse("http://127.0.0.1:5758/card")
+		require.NoError(t, err)
+		request := WebRequest{
+			Bind: "127.0.0.1", Port: 5757, NoBrowser: true,
+			Sources: []WebSource{
+				{Alias: "primary", URL: primaryURL},
+				{Alias: "backup", URL: backupURL},
+			},
+			Notice: &stdout, Diagnostic: &stderr,
+		}
+		operation := NewMockWebOperation(gomock.NewController(t))
+		operation.EXPECT().Run(gomock.Any(), request).Return(nil)
 		app, err := New(
 			testConfig(&stdout, &stderr),
 			kong.BindTo(operation, (*WebOperation)(nil)),
@@ -393,20 +417,7 @@ func TestWebCommandParsesAndValidatesSources(t *testing.T) {
 			"--source", "backup=http://127.0.0.1:5758/card",
 		})
 
-		primaryURL, err := url.Parse("https://primary.example")
-		require.NoError(t, err)
-		backupURL, err := url.Parse("http://127.0.0.1:5758/card")
-		require.NoError(t, err)
 		assert.Equal(t, ExitSuccess, exitCode)
-		assert.Equal(t, "127.0.0.1", operation.request.Bind)
-		assert.Equal(t, 5757, operation.request.Port)
-		assert.True(t, operation.request.NoBrowser)
-		assert.Equal(t, []WebSource{
-			{Alias: "primary", URL: primaryURL},
-			{Alias: "backup", URL: backupURL},
-		}, operation.request.Sources)
-		assert.Same(t, &stdout, operation.request.Notice)
-		assert.Same(t, &stderr, operation.request.Diagnostic)
 	})
 
 	for _, test := range []struct {
@@ -420,7 +431,7 @@ func TestWebCommandParsesAndValidatesSources(t *testing.T) {
 	} {
 		t.Run(test.name, func(t *testing.T) {
 			var stdout, stderr bytes.Buffer
-			operation := new(fakeWebOperation)
+			operation := NewMockWebOperation(gomock.NewController(t))
 			app, err := New(
 				testConfig(&stdout, &stderr),
 				kong.BindTo(operation, (*WebOperation)(nil)),
@@ -432,7 +443,6 @@ func TestWebCommandParsesAndValidatesSources(t *testing.T) {
 			})
 
 			assert.Equal(t, ExitUsage, exitCode)
-			assert.False(t, operation.called)
 			assert.Empty(t, stdout.String())
 			assert.Contains(t, stderr.String(), "source")
 		})
@@ -440,8 +450,14 @@ func TestWebCommandParsesAndValidatesSources(t *testing.T) {
 }
 
 func TestWebCommandDefaultsToPort5757(t *testing.T) {
+	t.Setenv("CARDAMOM_STORE", "")
 	var stdout, stderr bytes.Buffer
-	operation := new(fakeWebOperation)
+	request := WebRequest{
+		Bind: "127.0.0.1", Port: 5757, NoBrowser: true,
+		Notice: &stdout, Diagnostic: &stderr,
+	}
+	operation := NewMockWebOperation(gomock.NewController(t))
+	operation.EXPECT().Run(gomock.Any(), request).Return(nil)
 	app, err := New(
 		testConfig(&stdout, &stderr),
 		kong.BindTo(operation, (*WebOperation)(nil)),
@@ -449,21 +465,24 @@ func TestWebCommandDefaultsToPort5757(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"web", "--no-browser"}))
-	assert.Equal(t, 5757, operation.request.Port)
 }
 
 func TestStatusCommandsHonorQuietWithoutSkippingOperations(t *testing.T) {
 	t.Run("Init", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
-		operation := &fakeInitOperation{result: InitResult{
+		result := InitResult{
 			Dir: ".cardamom", BoardCreated: true,
 			IgnoreOutcome: InitIgnoreStoragePatternsAdded,
-		}}
+		}
 		invocation := testInvocation(t, &stdout, &stderr)
 		invocation.Output = newOutput(&stdout, &stderr, false, true)
+		operation := NewMockInitOperation(gomock.NewController(t))
+		operation.EXPECT().Initialize(
+			invocation.Context,
+			gomock.Any(),
+		).Return(result, nil)
 
 		require.NoError(t, (&initCommand{}).Run(invocation, operation))
-		assert.True(t, operation.called)
 		assert.Empty(t, stdout.String())
 	})
 
@@ -565,19 +584,6 @@ func TestApplicationRunCompletesLeaseRevocationOwner(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
-type fakeInitOperation struct {
-	called  bool
-	request InitRequest
-	result  InitResult
-	err     error
-}
-
-func (f *fakeInitOperation) Initialize(_ context.Context, request InitRequest) (InitResult, error) {
-	f.called = true
-	f.request = request
-	return f.result, f.err
-}
-
 type fakeProjectCatalog struct {
 	projects []*project.State
 	boards   []*board.State
@@ -658,29 +664,6 @@ func (f fakeIssueBoardLocator) BoardForIssue(
 	return boardID, nil
 }
 
-type fakeInfoOperation struct {
-	request InfoRequest
-	result  InfoResult
-}
-
-func (f *fakeInfoOperation) Read(_ context.Context, request InfoRequest) (InfoResult, error) {
-	f.request = request
-	return f.result, nil
-}
-
-type fakeWebOperation struct {
-	called  bool
-	ctx     context.Context
-	request WebRequest
-}
-
-func (f *fakeWebOperation) Run(ctx context.Context, request WebRequest) error {
-	f.called = true
-	f.ctx = ctx
-	f.request = request
-	return nil
-}
-
 func testInvocation(t *testing.T, stdout, stderr *bytes.Buffer) *Invocation {
 	t.Helper()
 	ctx := t.Context()
@@ -727,7 +710,6 @@ func testBoard(
 }
 
 var (
-	_ InitOperation          = (*fakeInitOperation)(nil)
 	_ BoardCatalog           = (*board.Service)(nil)
 	_ board.Catalog          = (*fakeProjectCatalog)(nil)
 	_ board.Changes          = (*fakeProjectCatalog)(nil)
@@ -735,6 +717,4 @@ var (
 	_ selection.Catalog      = (*board.Service)(nil)
 	_ selection.Binding      = (*fakeBoardBinding)(nil)
 	_ selection.IssueLocator = fakeIssueBoardLocator{}
-	_ InfoOperation          = (*fakeInfoOperation)(nil)
-	_ WebOperation           = (*fakeWebOperation)(nil)
 )

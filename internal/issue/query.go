@@ -8,6 +8,8 @@ import (
 	"go.abhg.dev/cardamom/internal/must"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package issue -typed -write_package_comment=false . QueryReader
+
 // QueryReader supplies the coherent board snapshots used by issue queries.
 type QueryReader interface {
 	// ListIssues reads issue summaries from one coherent board snapshot.

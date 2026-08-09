@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
+	"go.uber.org/mock/gomock"
 )
 
 func TestService_BeginUpload_resolvesLiveAdmissionLimit(t *testing.T) {
@@ -27,7 +28,20 @@ func TestService_BeginUpload_resolvesLiveAdmissionLimit(t *testing.T) {
 	configurations := &attachmentConfigurations{
 		values: []configuration.Configuration{first, second},
 	}
-	repository := new(admissionRepository)
+	repository := NewMockRepository(gomock.NewController(t))
+	repository.EXPECT().BeginUpload(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, admission BeginUploadAdmission) (Upload, error) {
+			assert.Equal(t, uint64(4), admission.MaximumSizeBytes.Uint64())
+			uploadID, uploadErr := NewUploadID("upload-test")
+			return Upload{
+				ID: uploadID, Association: admission.Request.Association,
+				Filename: admission.Request.Filename,
+				Actor:    admission.Request.Invocation.Actor(), State: UploadStateActive,
+				MaximumSizeBytes: admission.MaximumSizeBytes,
+				ExpiresAt:        time.Unix(1, 0).UTC(),
+			}, uploadErr
+		},
+	)
 	service := NewService(ServiceConfig{
 		Repository: repository, Configuration: configurations,
 	})
@@ -38,7 +52,6 @@ func TestService_BeginUpload_resolvesLiveAdmissionLimit(t *testing.T) {
 		Filename: filename, ExpectedSizeBytes: &expectedSize,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, uint64(4), repository.admission.MaximumSizeBytes.Uint64())
 
 	expectedSize = 3
 	_, err = service.BeginUpload(t.Context(), BeginUploadRequest{
@@ -47,7 +60,6 @@ func TestService_BeginUpload_resolvesLiveAdmissionLimit(t *testing.T) {
 	})
 	assert.ErrorContains(t, err, "attachment expected size 3 exceeds 2 bytes")
 	assert.Equal(t, 2, configurations.calls)
-	assert.Equal(t, 1, repository.calls)
 }
 
 type attachmentConfigurations struct {
@@ -62,32 +74,4 @@ func (c *attachmentConfigurations) ResolveConfiguration(
 	value := c.values[c.calls]
 	c.calls++
 	return value, nil
-}
-
-type admissionRepository struct {
-	Repository
-	admission BeginUploadAdmission
-	calls     int
-}
-
-func (r *admissionRepository) BeginUpload(
-	_ context.Context,
-	admission BeginUploadAdmission,
-) (Upload, error) {
-	r.calls++
-	r.admission = admission
-	uploadID, err := NewUploadID("upload-test")
-	if err != nil {
-		return Upload{}, err
-	}
-	return Upload{
-		ID:               uploadID,
-		Association:      admission.Request.Association,
-		Filename:         admission.Request.Filename,
-		Actor:            admission.Request.Invocation.Actor(),
-		State:            UploadStateActive,
-		AcceptedOffset:   0,
-		MaximumSizeBytes: admission.MaximumSizeBytes,
-		ExpiresAt:        time.Unix(1, 0).UTC(),
-	}, nil
 }

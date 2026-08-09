@@ -48,6 +48,8 @@ type scopeCompletion struct {
 	cleanupErr error
 }
 
+//go:generate go tool mockgen -destination mocks_test.go -package store -typed -write_package_comment=false -mock_names readTransaction=MockReadTransaction,changeTransaction=MockChangeTransaction . readTransaction,changeTransaction
+
 // readTransaction is the database behavior required by a View.
 type readTransaction interface {
 	ExecContext(context.Context, string, ...any) (sql.Result, error)

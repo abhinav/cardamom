@@ -1,7 +1,6 @@
 package leaseconnect
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -17,18 +16,37 @@ import (
 	"go.abhg.dev/cardamom/internal/lease"
 	repositorylease "go.abhg.dev/cardamom/internal/repository/lease"
 	"go.abhg.dev/cardamom/internal/repository/store"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func TestServiceLeaseOperations(t *testing.T) {
 	now := time.Date(2026, time.July, 20, 12, 0, 0, 0, time.UTC)
-	operations := &recordingOperations{
-		value: lease.Lease{
-			Name: "staging-db", Owner: "alice", AcquiredAt: now,
-			ExpiresAt: now.Add(time.Hour),
-		},
-		values: []lease.Lease{{Name: "device-a"}, {Name: "staging-db"}},
+	value := lease.Lease{
+		Name: "staging-db", Owner: "alice", AcquiredAt: now,
+		ExpiresAt: now.Add(time.Hour),
 	}
+	operations := NewMockOperations(gomock.NewController(t))
+	operations.EXPECT().Acquire(gomock.Any(), lease.AcquireRequest{
+		Name: "staging-db", Owner: "alice", TTL: time.Hour,
+	}).Return(value, nil)
+	operations.EXPECT().Renew(gomock.Any(), lease.RenewRequest{
+		Name: "staging-db", Owner: "alice", TTL: 2 * time.Hour,
+	}).Return(value, nil)
+	operations.EXPECT().Release(gomock.Any(), lease.ReleaseRequest{
+		Name: "staging-db", Owner: "alice",
+	}).Return(value, nil)
+	operations.EXPECT().Revoke(gomock.Any(), lease.RevokeRequest{
+		Name: "staging-db", Owner: "alice",
+		RevokedBy: "coordinator", Reason: "owner cannot continue",
+	}).Return(lease.Revocation{
+		Lease: value, RevokedBy: "coordinator",
+		Reason: "owner cannot continue", RevokedAt: now,
+	}, nil)
+	operations.EXPECT().Get(gomock.Any(), lease.GetRequest{Name: "staging-db"}).Return(value, nil)
+	operations.EXPECT().List(gomock.Any()).Return(
+		[]lease.Lease{{Name: "device-a"}, {Name: "staging-db"}}, nil,
+	)
 	client := newTestClient(t, operations)
 
 	acquired, err := client.AcquireLease(t.Context(), connect.NewRequest(&privatev1.AcquireLeaseRequest{
@@ -53,16 +71,6 @@ func TestServiceLeaseOperations(t *testing.T) {
 	listed, err := client.ListLeases(t.Context(), connect.NewRequest(&privatev1.ListLeasesRequest{}))
 
 	require.NoError(t, err)
-	assert.Equal(t, lease.AcquireRequest{
-		Name: "staging-db", Owner: "alice", TTL: time.Hour,
-	}, operations.acquisitions[0])
-	assert.Equal(t, 2*time.Hour, operations.renewals[0].TTL)
-	assert.Equal(t, "alice", operations.releases[0].Owner)
-	assert.Equal(t, lease.RevokeRequest{
-		Name: "staging-db", Owner: "alice",
-		RevokedBy: "coordinator", Reason: "owner cannot continue",
-	}, operations.revocations[0])
-	assert.Equal(t, "staging-db", operations.reads[0].Name)
 	assert.Equal(t, "staging-db", acquired.Msg.GetLease().GetName())
 	assert.Equal(t, "staging-db", renewed.Msg.GetLease().GetName())
 	assert.Equal(t, "staging-db", released.Msg.GetLease().GetName())
@@ -74,14 +82,15 @@ func TestServiceLeaseOperations(t *testing.T) {
 }
 
 func TestServiceLeaseOperations_translateDomainErrors(t *testing.T) {
-	operations := &recordingOperations{
-		err: errkind.Wrap(errkind.Conflict, &lease.HeldError{
-			Current: lease.Lease{
-				Name: "staging-db", Owner: "bob",
-				ExpiresAt: time.Date(2026, time.July, 20, 13, 0, 0, 0, time.UTC),
-			},
-		}),
-	}
+	operations := NewMockOperations(gomock.NewController(t))
+	operations.EXPECT().Acquire(gomock.Any(), lease.AcquireRequest{
+		Name: "staging-db", Owner: "alice", TTL: time.Hour,
+	}).Return(lease.Lease{}, errkind.Wrap(errkind.Conflict, &lease.HeldError{
+		Current: lease.Lease{
+			Name: "staging-db", Owner: "bob",
+			ExpiresAt: time.Date(2026, time.July, 20, 13, 0, 0, 0, time.UTC),
+		},
+	}))
 	client := newTestClient(t, operations)
 
 	_, err := client.AcquireLease(t.Context(), connect.NewRequest(&privatev1.AcquireLeaseRequest{
@@ -114,50 +123,6 @@ func TestServiceLeaseOperations_preservePersistedDomainOutcomes(t *testing.T) {
 	assert.Equal(t, acquired.Msg.GetLease().GetOwner(), persisted.Owner)
 	assert.Equal(t, acquired.Msg.GetLease().GetAcquiredAt().AsTime(), persisted.AcquiredAt)
 	assert.Equal(t, acquired.Msg.GetLease().GetExpiresAt().AsTime(), persisted.ExpiresAt)
-}
-
-type recordingOperations struct {
-	acquisitions []lease.AcquireRequest
-	renewals     []lease.RenewRequest
-	releases     []lease.ReleaseRequest
-	revocations  []lease.RevokeRequest
-	reads        []lease.GetRequest
-
-	value  lease.Lease
-	values []lease.Lease
-	err    error
-}
-
-func (o *recordingOperations) Acquire(_ context.Context, request lease.AcquireRequest) (lease.Lease, error) {
-	o.acquisitions = append(o.acquisitions, request)
-	return o.value, o.err
-}
-
-func (o *recordingOperations) Renew(_ context.Context, request lease.RenewRequest) (lease.Lease, error) {
-	o.renewals = append(o.renewals, request)
-	return o.value, o.err
-}
-
-func (o *recordingOperations) Release(_ context.Context, request lease.ReleaseRequest) (lease.Lease, error) {
-	o.releases = append(o.releases, request)
-	return o.value, o.err
-}
-
-func (o *recordingOperations) Revoke(_ context.Context, request lease.RevokeRequest) (lease.Revocation, error) {
-	o.revocations = append(o.revocations, request)
-	return lease.Revocation{
-		Lease: o.value, RevokedBy: request.RevokedBy,
-		Reason: request.Reason, RevokedAt: o.value.AcquiredAt,
-	}, o.err
-}
-
-func (o *recordingOperations) Get(_ context.Context, request lease.GetRequest) (lease.Lease, error) {
-	o.reads = append(o.reads, request)
-	return o.value, o.err
-}
-
-func (o *recordingOperations) List(context.Context) ([]lease.Lease, error) {
-	return o.values, o.err
 }
 
 func newTestClient(t *testing.T, operations Operations) privatev1connect.LeaseServiceClient {

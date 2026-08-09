@@ -1,7 +1,6 @@
 package configurationconnect
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -13,11 +12,14 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 	privatev1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1/privatev1connect"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
 )
 
 func TestServiceReadsOrderedConfigurationView(t *testing.T) {
-	operations := &configurationOperations{view: testView(t)}
+	view := testView(t)
+	operations := NewMockConfigurations(gomock.NewController(t))
+	operations.EXPECT().Resolve(gomock.Any(), board.ID("board-1")).Return(view, nil)
 	client := newTestClient(t, operations)
 
 	response, err := client.GetConfiguration(
@@ -26,40 +28,60 @@ func TestServiceReadsOrderedConfigurationView(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	assert.Equal(t, board.ID("board-1"), operations.resolvedBoardID)
-	view := response.Msg.GetView()
-	require.Len(t, view.GetLayers(), 4)
+	responseView := response.Msg.GetView()
+	require.Len(t, responseView.GetLayers(), 4)
 	assert.Equal(t, []privatev1.ConfigurationScope{
 		privatev1.ConfigurationScope_CONFIGURATION_SCOPE_BUILT_IN,
 		privatev1.ConfigurationScope_CONFIGURATION_SCOPE_STORE,
 		privatev1.ConfigurationScope_CONFIGURATION_SCOPE_PROJECT,
 		privatev1.ConfigurationScope_CONFIGURATION_SCOPE_BOARD,
 	}, []privatev1.ConfigurationScope{
-		view.GetLayers()[0].GetSource().GetScope(),
-		view.GetLayers()[1].GetSource().GetScope(),
-		view.GetLayers()[2].GetSource().GetScope(),
-		view.GetLayers()[3].GetSource().GetScope(),
+		responseView.GetLayers()[0].GetSource().GetScope(),
+		responseView.GetLayers()[1].GetSource().GetScope(),
+		responseView.GetLayers()[2].GetSource().GetScope(),
+		responseView.GetLayers()[3].GetSource().GetScope(),
 	})
-	assert.Equal(t, "cm-", view.GetLayers()[0].GetOverrides().GetIssue().GetId().GetPrefix())
+	assert.Equal(t, "cm-", responseView.GetLayers()[0].GetOverrides().GetIssue().GetId().GetPrefix())
 	assert.Equal(
 		t,
 		privatev1.ConfigurationIssueIDStrategy_CONFIGURATION_ISSUE_ID_STRATEGY_SEQUENTIAL,
-		view.GetLayers()[1].GetOverrides().GetIssue().GetId().GetStrategy(),
+		responseView.GetLayers()[1].GetOverrides().GetIssue().GetId().GetStrategy(),
 	)
-	assert.Equal(t, "project-1", view.GetLayers()[2].GetSource().GetIdentity())
-	assert.Equal(t, "board-1", view.GetLayers()[3].GetSource().GetIdentity())
-	assert.Equal(t, "project-", view.GetEffective().GetIssue().GetId().GetPrefix())
+	assert.Equal(t, "project-1", responseView.GetLayers()[2].GetSource().GetIdentity())
+	assert.Equal(t, "board-1", responseView.GetLayers()[3].GetSource().GetIdentity())
+	assert.Equal(t, "project-", responseView.GetEffective().GetIssue().GetId().GetPrefix())
 	assert.Equal(
 		t,
 		privatev1.ConfigurationScope_CONFIGURATION_SCOPE_PROJECT,
-		view.GetOrigins().GetIssue().GetId().GetPrefix().GetScope(),
+		responseView.GetOrigins().GetIssue().GetId().GetPrefix().GetScope(),
 	)
 }
 
 func TestServiceUpdatesTypedConfigurationPatch(t *testing.T) {
-	operations := &configurationOperations{view: testView(t)}
-	client := newTestClient(t, operations)
 	prefix := "next-"
+	parsedPrefix, err := configuration.NewPrefix(prefix)
+	require.NoError(t, err)
+	operations := NewMockConfigurations(gomock.NewController(t))
+	operations.EXPECT().Update(
+		gomock.Any(),
+		configuration.NewInvocation("engineer"),
+		configuration.UpdateRequest{
+			BoardID: board.ID("board-1"),
+			Scope:   configuration.ScopeProject,
+			Patch: configuration.Patch{
+				Fields: []configuration.Field{
+					configuration.FieldIssueIDPrefix,
+					configuration.FieldAttachmentMaxBytes,
+				},
+				Overrides: configuration.Overrides{
+					Issue: configuration.IssueOverrides{
+						ID: configuration.IssueIDOverrides{Prefix: &parsedPrefix},
+					},
+				},
+			},
+		},
+	).Return(testView(t), nil)
+	client := newTestClient(t, operations)
 
 	response, err := client.UpdateConfiguration(
 		t.Context(),
@@ -81,20 +103,10 @@ func TestServiceUpdatesTypedConfigurationPatch(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "project-", response.Msg.GetView().GetEffective().GetIssue().GetId().GetPrefix())
-	assert.Equal(t, "engineer", operations.invocation.Actor())
-	assert.Equal(t, board.ID("board-1"), operations.update.BoardID)
-	assert.Equal(t, configuration.ScopeProject, operations.update.Scope)
-	assert.Equal(t, []configuration.Field{
-		configuration.FieldIssueIDPrefix,
-		configuration.FieldAttachmentMaxBytes,
-	}, operations.update.Patch.Fields)
-	require.NotNil(t, operations.update.Patch.Overrides.Issue.ID.Prefix)
-	assert.Equal(t, "next-", operations.update.Patch.Overrides.Issue.ID.Prefix.String())
-	assert.Nil(t, operations.update.Patch.Overrides.Attachment.MaxBytes)
 }
 
 func TestServiceRejectsInvalidConfigurationPatch(t *testing.T) {
-	operations := &configurationOperations{view: testView(t)}
+	operations := NewMockConfigurations(gomock.NewController(t))
 	client := newTestClient(t, operations)
 
 	_, err := client.UpdateConfiguration(
@@ -109,34 +121,6 @@ func TestServiceRejectsInvalidConfigurationPatch(t *testing.T) {
 	)
 
 	assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-	assert.Zero(t, operations.updateCalls)
-}
-
-type configurationOperations struct {
-	view            configuration.View
-	resolvedBoardID board.ID
-	invocation      configuration.Invocation
-	update          configuration.UpdateRequest
-	updateCalls     int
-}
-
-func (o *configurationOperations) Resolve(
-	_ context.Context,
-	boardID board.ID,
-) (configuration.View, error) {
-	o.resolvedBoardID = boardID
-	return o.view, nil
-}
-
-func (o *configurationOperations) Update(
-	_ context.Context,
-	invocation configuration.Invocation,
-	request configuration.UpdateRequest,
-) (configuration.View, error) {
-	o.invocation = invocation
-	o.update = request
-	o.updateCalls++
-	return o.view, nil
 }
 
 func newTestClient(

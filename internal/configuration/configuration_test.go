@@ -1,13 +1,13 @@
 package configuration
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/project"
+	"go.uber.org/mock/gomock"
 )
 
 func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
@@ -17,13 +17,13 @@ func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 	projectSummary := mustByteLimit(t, 4096)
 	boardPrefix := mustPrefix(t, "board-")
 	boardAttachment := mustByteLimit(t, 512)
-	store := &recordingStore{overrides: Overrides{
+	storeOverrides := Overrides{
 		Issue: IssueOverrides{
 			ID:      IssueIDOverrides{Prefix: &prefix},
 			Summary: SummaryOverrides{MaxBytes: &storeSummary},
 		},
-	}}
-	repository := &recordingRepository{layers: DatabaseLayers{
+	}
+	layers := DatabaseLayers{
 		ProjectID: mustProjectID(t, "project-test"),
 		Project: Overrides{Issue: IssueOverrides{
 			ID:      IssueIDOverrides{Strategy: &projectStrategy},
@@ -33,7 +33,11 @@ func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 			Issue:      IssueOverrides{ID: IssueIDOverrides{Prefix: &boardPrefix}},
 			Attachment: AttachmentOverrides{MaxBytes: &boardAttachment},
 		},
-	}}
+	}
+	store := NewMockStore(gomock.NewController(t))
+	store.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(storeOverrides, nil)
+	repository := NewMockRepository(gomock.NewController(t))
+	repository.EXPECT().ReadConfigurationLayers(gomock.Any(), gomock.Any()).Return(layers, nil)
 	service := NewService(store, repository)
 	boardID := mustBoardID(t, "board-test")
 
@@ -56,14 +60,14 @@ func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 	assert.Equal(t, "project-test", resolved.Origins.Issue.ID.Strategy.Identity)
 
 	secondPrefix := mustPrefix(t, "live-")
-	store.overrides.Issue.ID.Prefix = &secondPrefix
-	repository.layers.Board.Issue.ID.Prefix = nil
+	storeOverrides.Issue.ID.Prefix = &secondPrefix
+	layers.Board.Issue.ID.Prefix = nil
+	store.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(storeOverrides, nil)
+	repository.EXPECT().ReadConfigurationLayers(gomock.Any(), boardID).Return(layers, nil)
 	resolved, err = service.Resolve(t.Context(), boardID)
 	require.NoError(t, err)
 	assert.Equal(t, secondPrefix, resolved.Effective.Issue.ID.Prefix)
 	assert.Equal(t, ScopeStore, resolved.Origins.Issue.ID.Prefix.Scope)
-	assert.Equal(t, 2, store.reads)
-	assert.Equal(t, 2, repository.reads)
 }
 
 func TestDefaults(t *testing.T) {
@@ -131,52 +135,6 @@ func TestSelectInitializationPrefix(t *testing.T) {
 	require.NotNil(t, overridden.RetainedProject)
 	assert.Equal(t, explicit, overridden.FreshProject.String())
 	assert.Equal(t, explicit, overridden.RetainedProject.String())
-}
-
-type recordingStore struct {
-	overrides Overrides
-	reads     int
-}
-
-func (s *recordingStore) ReadStoreConfiguration(context.Context) (Overrides, error) {
-	s.reads++
-	return s.overrides, nil
-}
-
-func (s *recordingStore) UpdateStoreConfiguration(
-	context.Context,
-	Patch,
-) (Overrides, error) {
-	return s.overrides, nil
-}
-
-type recordingRepository struct {
-	layers DatabaseLayers
-	reads  int
-}
-
-func (r *recordingRepository) ReadConfigurationLayers(
-	context.Context,
-	board.ID,
-) (DatabaseLayers, error) {
-	r.reads++
-	return r.layers, nil
-}
-
-func (r *recordingRepository) UpdateProjectConfiguration(
-	context.Context,
-	project.ID,
-	Patch,
-) (Overrides, error) {
-	return r.layers.Project, nil
-}
-
-func (r *recordingRepository) UpdateBoardConfiguration(
-	context.Context,
-	board.ID,
-	Patch,
-) (Overrides, error) {
-	return r.layers.Board, nil
 }
 
 func mustPrefix(t *testing.T, value string) Prefix {

@@ -1,12 +1,12 @@
 package board
 
 import (
-	"context"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceCreatesBoard(t *testing.T) {
@@ -16,15 +16,15 @@ func TestServiceCreatesBoard(t *testing.T) {
 		Name:      "Development",
 		Created:   time.Unix(10, 0).UTC(),
 	})
-	repository := &fakeRepository{created: created}
-	service := NewService(repository, repository)
 	request := CreateRequest{ProjectID: created.ProjectID(), Name: "Development"}
+	changes := NewMockChanges(gomock.NewController(t))
+	changes.EXPECT().CreateBoard(gomock.Any(), request).Return(created, nil)
+	service := NewService(NewMockCatalog(gomock.NewController(t)), changes)
 
 	result, err := service.Create(t.Context(), NewInvocation("  captain  "), request)
 	require.NoError(t, err)
 
 	assert.Same(t, created, result)
-	assert.Equal(t, request, repository.createRequest)
 }
 
 func TestServiceReadsBoardCatalog(t *testing.T) {
@@ -40,12 +40,11 @@ func TestServiceReadsBoardCatalog(t *testing.T) {
 		Name:      "Operations",
 		Created:   time.Unix(20, 0).UTC(),
 	})
-	repository := &fakeRepository{
-		states: []*State{primary, secondary},
-		board:  secondary,
-		sole:   primary,
-	}
-	service := NewService(repository, repository)
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().ListAllBoards(gomock.Any()).Return([]*State{primary, secondary}, nil)
+	catalog.EXPECT().Board(gomock.Any(), secondary.ID()).Return(secondary, nil)
+	catalog.EXPECT().SoleBoard(gomock.Any()).Return(primary, nil)
+	service := NewService(catalog, NewMockChanges(gomock.NewController(t)))
 
 	listed, err := service.List(t.Context())
 	require.NoError(t, err)
@@ -67,54 +66,14 @@ func TestServiceEditsBoardSettings(t *testing.T) {
 		Name:      "Operations",
 		Created:   time.Unix(10, 0).UTC(),
 	})
-	repository := &fakeRepository{edited: edited}
-	service := NewService(repository, repository)
 	name := "Operations"
 	request := EditRequest{BoardID: edited.ID(), Settings: SettingsEdit{Name: &name}}
+	changes := NewMockChanges(gomock.NewController(t))
+	changes.EXPECT().EditBoardSettings(gomock.Any(), request).Return(edited, nil)
+	service := NewService(NewMockCatalog(gomock.NewController(t)), changes)
 
 	result, err := service.EditSettings(t.Context(), NewInvocation("captain"), request)
 	require.NoError(t, err)
 
 	assert.Same(t, edited, result)
-	assert.Equal(t, request, repository.editRequest)
-}
-
-type fakeRepository struct {
-	states []*State
-	board  *State
-	sole   *State
-
-	createRequest CreateRequest
-	created       *State
-
-	editRequest EditRequest
-	edited      *State
-}
-
-func (f *fakeRepository) ListAllBoards(context.Context) ([]*State, error) {
-	return f.states, nil
-}
-
-func (f *fakeRepository) Board(context.Context, ID) (*State, error) {
-	return f.board, nil
-}
-
-func (f *fakeRepository) SoleBoard(context.Context) (*State, error) {
-	return f.sole, nil
-}
-
-func (f *fakeRepository) CreateBoard(
-	_ context.Context,
-	request CreateRequest,
-) (*State, error) {
-	f.createRequest = request
-	return f.created, nil
-}
-
-func (f *fakeRepository) EditBoardSettings(
-	_ context.Context,
-	request EditRequest,
-) (*State, error) {
-	f.editRequest = request
-	return f.edited, nil
 }

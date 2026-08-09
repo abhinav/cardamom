@@ -1,7 +1,6 @@
 package record
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -9,13 +8,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 func TestRecorderAttributesLogEntries(t *testing.T) {
 	t.Parallel()
 
-	changes := new(fakeChanges)
-	recorder := NewRecorder(changes, new(fakeIssueReader))
+	changes := NewMockChanges(gomock.NewController(t))
+	changes.EXPECT().SetState(gomock.Any(), SetState{
+		IssueID: issue.MustID("an-1"), Author: issue.NewActor("alice"), Text: "next",
+	}).Return(StateSet{}, nil)
+	changes.EXPECT().AddLogEntry(gomock.Any(), AddLogEntry{
+		IssueID: issue.MustID("an-1"), Author: issue.NewActor("bob"), Body: "done",
+	}).Return(LogEntryAdded{}, nil)
+	reader := NewMockReader(gomock.NewController(t))
+	reader.EXPECT().ReadIssue(gomock.Any(), gomock.Any()).Return(issue.View{}, nil)
+	recorder := NewRecorder(changes, reader)
 
 	_, err := recorder.SetState(
 		t.Context(),
@@ -23,8 +31,6 @@ func TestRecorderAttributesLogEntries(t *testing.T) {
 		SetStateRequest{IssueID: "an-1", Text: "next"},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, issue.MustID("an-1"), changes.setState.IssueID)
-	assert.Equal(t, issue.NewActor("alice"), changes.setState.Author)
 
 	_, err = recorder.AddLogEntry(
 		t.Context(),
@@ -32,16 +38,20 @@ func TestRecorderAttributesLogEntries(t *testing.T) {
 		AddLogEntryRequest{IssueID: "an-1", Body: "done"},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, issue.NewActor("bob"), changes.addLogEntry.Author)
 }
 
 func TestNoOpAppendReadsCommittedProjection(t *testing.T) {
 	t.Parallel()
 
-	changes := &fakeChanges{appendOutcome: StateAppended{State: "current"}}
-	reader := &fakeIssueReader{issue: issue.View{Detail: issue.Detail{
+	changes := NewMockChanges(gomock.NewController(t))
+	changes.EXPECT().AppendState(gomock.Any(), AppendState{
+		IssueID: issue.MustID("an-1"), Author: issue.NewActor("operator"),
+	}).Return(StateAppended{State: "current"}, nil)
+	view := issue.View{Detail: issue.Detail{
 		Issue: issue.Issue{ID: "an-1", Revision: 17, State: new("current")},
-	}}}
+	}}
+	reader := NewMockReader(gomock.NewController(t))
+	reader.EXPECT().ReadIssue(gomock.Any(), gomock.Any()).Return(view, nil)
 	recorder := NewRecorder(changes, reader)
 
 	state, err := recorder.AppendState(
@@ -51,23 +61,24 @@ func TestNoOpAppendReadsCommittedProjection(t *testing.T) {
 	)
 	require.NoError(t, err)
 	assert.Equal(t, int64(17), state.Issue.Revision)
-	assert.Equal(t, 1, reader.calls)
 }
 
 func TestRecorderExposesRecordReads(t *testing.T) {
 	t.Parallel()
 
-	reader := &fakeIssueReader{
-		issue: issue.View{Detail: issue.Detail{
-			Issue: issue.Issue{ID: "an-1", State: new("next")},
-			State: &issue.RecoveryState{Body: "next"},
-		}},
-		logEntries: []issue.LogEntry{{
-			ID: "cmt_00000000000000000000000000000001", IssueID: "an-1",
-		}},
-		result: issue.Result{IssueID: "an-1", Body: "done"},
-	}
-	recorder := NewRecorder(new(fakeChanges), reader)
+	issueView := issue.View{Detail: issue.Detail{
+		Issue: issue.Issue{ID: "an-1", State: new("next")},
+		State: &issue.RecoveryState{Body: "next"},
+	}}
+	expectedLogEntries := []issue.LogEntry{{
+		ID: "cmt_00000000000000000000000000000001", IssueID: "an-1",
+	}}
+	expectedResult := issue.Result{IssueID: "an-1", Body: "done"}
+	reader := NewMockReader(gomock.NewController(t))
+	reader.EXPECT().ReadIssue(gomock.Any(), issue.ReadRequest{IssueID: "an-1"}).Return(issueView, nil)
+	reader.EXPECT().ListLogEntries(gomock.Any(), issue.LogListRequest{IssueID: "an-1"}).Return(expectedLogEntries, nil)
+	reader.EXPECT().ReadResult(gomock.Any(), issue.ResultRequest{IssueID: "an-1"}).Return(expectedResult, nil)
+	recorder := NewRecorder(NewMockChanges(gomock.NewController(t)), reader)
 
 	state, err := recorder.GetState(t.Context(), GetStateRequest{IssueID: "an-1"})
 	require.NoError(t, err)
@@ -80,11 +91,13 @@ func TestRecorderExposesRecordReads(t *testing.T) {
 		issue.LogListRequest{IssueID: "an-1"},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, reader.logEntries, logEntries)
+	assert.Equal(t, []issue.LogEntry{{
+		ID: "cmt_00000000000000000000000000000001", IssueID: "an-1",
+	}}, logEntries)
 
 	result, err := recorder.GetResult(t.Context(), GetResultRequest{IssueID: "an-1"})
 	require.NoError(t, err)
-	assert.Equal(t, reader.result, result)
+	assert.Equal(t, issue.Result{IssueID: "an-1", Body: "done"}, result)
 }
 
 func TestPolicyRejectsInvalidLogEntries(t *testing.T) {
@@ -262,83 +275,4 @@ func testIssueState(t *testing.T, id, recoveryState string) issue.State {
 	})
 	require.NoError(t, err)
 	return state
-}
-
-type fakeIssueReader struct {
-	issue      issue.View
-	logEntries []issue.LogEntry
-	result     issue.Result
-	calls      int
-}
-
-func (f *fakeIssueReader) ReadIssue(
-	_ context.Context,
-	_ issue.ReadRequest,
-) (issue.View, error) {
-	f.calls++
-	return f.issue, nil
-}
-
-func (f *fakeIssueReader) ListLogEntries(
-	context.Context,
-	issue.LogListRequest,
-) ([]issue.LogEntry, error) {
-	return f.logEntries, nil
-}
-
-func (f *fakeIssueReader) ReadResult(
-	context.Context,
-	issue.ResultRequest,
-) (issue.Result, error) {
-	return f.result, nil
-}
-
-type fakeChanges struct {
-	setState      SetState
-	addLogEntry   AddLogEntry
-	appendOutcome StateAppended
-}
-
-func (f *fakeChanges) SetState(
-	_ context.Context,
-	command SetState,
-) (StateSet, error) {
-	f.setState = command
-	return StateSet{}, nil
-}
-
-func (*fakeChanges) ClearState(
-	context.Context,
-	ClearState,
-) (StateSet, error) {
-	return StateSet{}, nil
-}
-
-func (f *fakeChanges) AppendState(
-	context.Context,
-	AppendState,
-) (StateAppended, error) {
-	return f.appendOutcome, nil
-}
-
-func (f *fakeChanges) AddLogEntry(
-	_ context.Context,
-	command AddLogEntry,
-) (LogEntryAdded, error) {
-	f.addLogEntry = command
-	return LogEntryAdded{}, nil
-}
-
-func (*fakeChanges) CommitState(
-	context.Context,
-	CommitState,
-) (StateCommitted, error) {
-	return StateCommitted{}, nil
-}
-
-func (*fakeChanges) SetResult(
-	context.Context,
-	SetResult,
-) (ResultSet, error) {
-	return ResultSet{}, nil
 }

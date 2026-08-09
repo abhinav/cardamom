@@ -11,6 +11,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceMapsMetadataPaginationAndRemoval(t *testing.T) {
@@ -43,13 +44,22 @@ func TestServiceMapsMetadataPaginationAndRemoval(t *testing.T) {
 	removed.Removed = &attachment.Attribution{
 		Actor: "remover", At: now.Add(time.Minute), Revision: board.Revision(8),
 	}
-	repository := &recordingRepository{
-		attachment: active,
-		page: attachment.Page{
-			Attachments:   []attachment.Attachment{active, removed},
-			NextPageToken: "next-page",
-		},
-	}
+	repository := NewMockRepository(gomock.NewController(t))
+	repository.EXPECT().GetAttachment(gomock.Any(), attachment.GetRequest{
+		BoardID: "board-one", AttachmentID: active.ID,
+	}).Return(active, nil)
+	originIssueID := issue.ID("an-origin")
+	repository.EXPECT().ListAttachments(gomock.Any(), attachment.ListRequest{
+		BoardID: "board-one", OriginIssueID: &originIssueID,
+		IncludeRemoved: true, PageSize: 25, PageToken: "opaque-page",
+	}).Return(attachment.Page{
+		Attachments:   []attachment.Attachment{active, removed},
+		NextPageToken: "next-page",
+	}, nil)
+	repository.EXPECT().RemoveAttachment(gomock.Any(), attachment.RemoveRequest{
+		Invocation: attachment.NewInvocation("remover"),
+		BoardID:    "board-one", AttachmentID: active.ID,
+	}).Return(removed, nil)
 	client := newDomainTestClient(t, repository)
 
 	got, err := client.GetAttachment(t.Context(), connect.NewRequest(
@@ -65,7 +75,6 @@ func TestServiceMapsMetadataPaginationAndRemoval(t *testing.T) {
 		},
 	))
 	require.NoError(t, err)
-	repository.attachment = removed
 	deleted, err := client.RemoveAttachment(t.Context(), connect.NewRequest(
 		&privatev1.RemoveAttachmentRequest{
 			BoardId: "board-one", AttachmentId: active.ID.String(),
@@ -79,13 +88,7 @@ func TestServiceMapsMetadataPaginationAndRemoval(t *testing.T) {
 	assert.Equal(t, privatev1.BlobAvailability_BLOB_AVAILABILITY_VERIFIED, got.Msg.GetAttachment().GetAvailability())
 	assert.Len(t, listed.Msg.GetAttachments(), 2)
 	assert.Equal(t, "next-page", listed.Msg.GetNextPageToken())
-	assert.Equal(t, "opaque-page", repository.listRequest.PageToken)
-	assert.Equal(t, uint32(25), repository.listRequest.PageSize)
-	assert.True(t, repository.listRequest.IncludeRemoved)
-	require.NotNil(t, repository.listRequest.OriginIssueID)
-	assert.Equal(t, "an-origin", repository.listRequest.OriginIssueID.String())
 	assert.Equal(t, privatev1.AttachmentLifecycle_ATTACHMENT_LIFECYCLE_REMOVED, deleted.Msg.GetAttachment().GetLifecycle())
-	assert.Equal(t, "remover", repository.removeRequest.Invocation.Actor())
 	assert.Equal(t, "remover", deleted.Msg.GetAttachment().GetRemoved().GetActor())
 }
 
@@ -93,7 +96,9 @@ func TestServiceMapsTypedDomainErrors(t *testing.T) {
 	attachmentID := "att_aaaaaaaaaaaaaaaaaaaaaaaaaa"
 
 	t.Run("UploadConflict", func(t *testing.T) {
-		repository := &recordingRepository{beginErr: attachment.ErrUploadActorConflict}
+		repository := NewMockRepository(gomock.NewController(t))
+		repository.EXPECT().BeginUpload(gomock.Any(), gomock.Any()).
+			Return(validUpload(t), attachment.ErrUploadActorConflict)
 		client := newDomainTestClient(t, repository)
 		_, err := client.BeginAttachmentUpload(t.Context(), connect.NewRequest(
 			&privatev1.BeginAttachmentUploadRequest{
@@ -105,7 +110,9 @@ func TestServiceMapsTypedDomainErrors(t *testing.T) {
 	})
 
 	t.Run("AttachmentNotFound", func(t *testing.T) {
-		repository := &recordingRepository{metadataGetErr: attachment.ErrAttachmentNotFound}
+		repository := NewMockRepository(gomock.NewController(t))
+		repository.EXPECT().GetAttachment(gomock.Any(), gomock.Any()).
+			Return(validAttachment(t), attachment.ErrAttachmentNotFound)
 		client := newDomainTestClient(t, repository)
 		_, err := client.GetAttachment(t.Context(), connect.NewRequest(
 			&privatev1.GetAttachmentRequest{
@@ -116,7 +123,9 @@ func TestServiceMapsTypedDomainErrors(t *testing.T) {
 	})
 
 	t.Run("InvalidPageToken", func(t *testing.T) {
-		repository := &recordingRepository{listErr: attachment.ErrAttachmentPageTokenInvalid}
+		repository := NewMockRepository(gomock.NewController(t))
+		repository.EXPECT().ListAttachments(gomock.Any(), gomock.Any()).
+			Return(attachment.Page{Attachments: []attachment.Attachment{}}, attachment.ErrAttachmentPageTokenInvalid)
 		client := newDomainTestClient(t, repository)
 		_, err := client.ListAttachments(t.Context(), connect.NewRequest(
 			&privatev1.ListAttachmentsRequest{
@@ -129,18 +138,17 @@ func TestServiceMapsTypedDomainErrors(t *testing.T) {
 
 func TestServiceRejectsInvalidWireIdentities(t *testing.T) {
 	t.Run("BoardID", func(t *testing.T) {
-		repository := new(recordingRepository)
+		repository := NewMockRepository(gomock.NewController(t))
 		client := newDomainTestClient(t, repository)
 		_, err := client.ListAttachments(t.Context(), connect.NewRequest(
 			&privatev1.ListAttachmentsRequest{BoardId: "not valid"},
 		))
 
 		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-		assert.Empty(t, repository.listRequest.BoardID)
 	})
 
 	t.Run("IssueID", func(t *testing.T) {
-		repository := new(recordingRepository)
+		repository := NewMockRepository(gomock.NewController(t))
 		client := newDomainTestClient(t, repository)
 		_, err := client.ListAttachments(t.Context(), connect.NewRequest(
 			&privatev1.ListAttachmentsRequest{
@@ -149,11 +157,10 @@ func TestServiceRejectsInvalidWireIdentities(t *testing.T) {
 		))
 
 		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-		assert.Nil(t, repository.listRequest.OriginIssueID)
 	})
 
 	t.Run("AttachmentID", func(t *testing.T) {
-		repository := new(recordingRepository)
+		repository := NewMockRepository(gomock.NewController(t))
 		client := newDomainTestClient(t, repository)
 		_, err := client.GetAttachment(t.Context(), connect.NewRequest(
 			&privatev1.GetAttachmentRequest{
@@ -162,22 +169,20 @@ func TestServiceRejectsInvalidWireIdentities(t *testing.T) {
 		))
 
 		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-		assert.Empty(t, repository.metadataGet.AttachmentID)
 	})
 
 	t.Run("UploadID", func(t *testing.T) {
-		repository := new(recordingRepository)
+		repository := NewMockRepository(gomock.NewController(t))
 		client := newDomainTestClient(t, repository)
 		_, err := client.GetAttachmentUpload(t.Context(), connect.NewRequest(
 			&privatev1.GetAttachmentUploadRequest{UploadId: "not valid"},
 		))
 
 		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-		assert.Empty(t, repository.getRequest.UploadID)
 	})
 
 	t.Run("Filename", func(t *testing.T) {
-		repository := new(recordingRepository)
+		repository := NewMockRepository(gomock.NewController(t))
 		client := newDomainTestClient(t, repository)
 		_, err := client.BeginAttachmentUpload(t.Context(), connect.NewRequest(
 			&privatev1.BeginAttachmentUploadRequest{
@@ -187,11 +192,10 @@ func TestServiceRejectsInvalidWireIdentities(t *testing.T) {
 		))
 
 		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-		assert.Empty(t, repository.beginRequest.Filename)
 	})
 
 	t.Run("Digest", func(t *testing.T) {
-		repository := new(recordingRepository)
+		repository := NewMockRepository(gomock.NewController(t))
 		client := newDomainTestClient(t, repository)
 		_, err := client.BeginAttachmentUpload(t.Context(), connect.NewRequest(
 			&privatev1.BeginAttachmentUploadRequest{
@@ -202,7 +206,6 @@ func TestServiceRejectsInvalidWireIdentities(t *testing.T) {
 		))
 
 		assert.Equal(t, connect.CodeInvalidArgument, connect.CodeOf(err))
-		assert.Nil(t, repository.beginRequest.ExpectedDigest)
 	})
 }
 
@@ -210,7 +213,10 @@ func TestServiceRejectsImpossibleDomainEnums(t *testing.T) {
 	t.Run("UploadState", func(t *testing.T) {
 		upload := validUpload(t)
 		upload.State = 0
-		repository := &recordingRepository{upload: upload}
+		repository := NewMockRepository(gomock.NewController(t))
+		repository.EXPECT().GetUpload(gomock.Any(), attachment.GetUploadRequest{
+			UploadID: "upload-one",
+		}).Return(upload, nil)
 		client := newDomainTestClient(t, repository)
 		_, err := client.GetAttachmentUpload(t.Context(), connect.NewRequest(
 			&privatev1.GetAttachmentUploadRequest{UploadId: "upload-one"},
@@ -222,7 +228,10 @@ func TestServiceRejectsImpossibleDomainEnums(t *testing.T) {
 	t.Run("AttachmentLifecycle", func(t *testing.T) {
 		value := validAttachment(t)
 		value.Lifecycle = 0
-		repository := &recordingRepository{attachment: value}
+		repository := NewMockRepository(gomock.NewController(t))
+		repository.EXPECT().GetAttachment(gomock.Any(), attachment.GetRequest{
+			BoardID: "board-one", AttachmentID: value.ID,
+		}).Return(value, nil)
 		client := newDomainTestClient(t, repository)
 		_, err := client.GetAttachment(t.Context(), connect.NewRequest(
 			&privatev1.GetAttachmentRequest{
@@ -237,7 +246,10 @@ func TestServiceRejectsImpossibleDomainEnums(t *testing.T) {
 	t.Run("BlobAvailability", func(t *testing.T) {
 		verification := validVerification(t)
 		verification.Availability = 0
-		repository := &recordingRepository{verify: verification}
+		repository := NewMockRepository(gomock.NewController(t))
+		repository.EXPECT().VerifyAttachment(gomock.Any(), attachment.VerifyRequest{
+			BoardID: "board-one", AttachmentID: verification.AttachmentID,
+		}).Return(verification, nil)
 		client := newDomainTestClient(t, repository)
 		_, err := client.VerifyAttachment(t.Context(), connect.NewRequest(
 			&privatev1.VerifyAttachmentRequest{

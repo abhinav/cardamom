@@ -2,7 +2,6 @@ package issueconnect
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -21,6 +20,7 @@ import (
 	"go.abhg.dev/cardamom/internal/project"
 	"go.abhg.dev/cardamom/internal/web/boardscope"
 	"go.abhg.dev/cardamom/internal/web/issueview"
+	"go.uber.org/mock/gomock"
 )
 
 func TestServiceListIssuesAppliesOneGlobalOrderAndLimit(t *testing.T) {
@@ -34,10 +34,13 @@ func TestServiceListIssuesAppliesOneGlobalOrderAndLimit(t *testing.T) {
 	readerTwo := &testBoardReader{issues: []issue.Summary{
 		testIssueSummary("issue-b", "Needle beta", "checkpoint", "open", "ready", 0, 10, []string{"blue", "green"}, true),
 	}}
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(readerOne, nil)
+	readers.EXPECT().Reader(boardTwo.ID()).Return(readerTwo, nil)
 	client := newTestClient(t, testConfig{
 		Catalog:      &testCatalog{boards: []*board.State{boardOne, boardTwo}},
 		IssueBoards:  testIssueLocator{},
-		BoardReaders: testBoardReaders{"board-1": readerOne, "board-2": readerTwo},
+		BoardReaders: readers,
 		Markdown:     markdown.New(),
 	})
 
@@ -134,10 +137,12 @@ func TestServiceListIssuesContinuesStablePage(t *testing.T) {
 			testIssueSummary("issue-a", "Alpha", "task", "open", "ready", 0, 10, nil, false),
 		},
 	}
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(reader, nil).Times(2)
 	client := newTestClient(t, testConfig{
 		Catalog:      &testCatalog{boards: []*board.State{boardOne}},
 		IssueBoards:  testIssueLocator{},
-		BoardReaders: testBoardReaders{"board-1": reader},
+		BoardReaders: readers,
 		Markdown:     markdown.New(),
 	})
 	request := &privatev1.ListIssuesRequest{
@@ -174,10 +179,12 @@ func TestServiceListIssuesRejectsInvalidContinuation(t *testing.T) {
 			testIssueSummary("issue-b", "Bravo", "task", "open", "ready", 0, 20, nil, false),
 		},
 	}
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(reader, nil).Times(4)
 	client := newTestClient(t, testConfig{
 		Catalog:      &testCatalog{boards: []*board.State{boardOne}},
 		IssueBoards:  testIssueLocator{},
-		BoardReaders: testBoardReaders{"board-1": reader},
+		BoardReaders: readers,
 		Markdown:     markdown.New(),
 	})
 	request := &privatev1.ListIssuesRequest{
@@ -218,10 +225,12 @@ func TestServiceListIssuesFiltersProtocolDimensions(t *testing.T) {
 		testIssueSummary("open-checkpoint", "Open gate", "checkpoint", "open", "ready", 0, 20, nil, false),
 		testIssueSummary("blocked-task", "Blocked task", "task", "open", "ready", 0, 30, nil, true),
 	}, filteredTotal: new(1)}
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(reader, nil)
 	client := newTestClient(t, testConfig{
 		Catalog:      &testCatalog{boards: []*board.State{boardOne}},
 		IssueBoards:  testIssueLocator{},
-		BoardReaders: testBoardReaders{"board-1": reader},
+		BoardReaders: readers,
 		Markdown:     markdown.New(),
 	})
 
@@ -245,10 +254,13 @@ func TestServiceListIssuesFiltersProtocolDimensions(t *testing.T) {
 func TestServiceListIssuesReturnsPresentEmptyCollections(t *testing.T) {
 	projectOne := testProject(t, "project-1", "Project One")
 	boardOne := testBoard(t, "board-1", projectOne.ID(), "Board One", nil)
+	reader := new(testBoardReader)
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(reader, nil).Times(2)
 	service := newTestService(t, testConfig{
 		Catalog:      &testCatalog{boards: []*board.State{boardOne}},
 		IssueBoards:  testIssueLocator{},
-		BoardReaders: testBoardReaders{"board-1": {}},
+		BoardReaders: readers,
 		Markdown:     markdown.New(),
 	})
 	client := newTestClientForService(t, service)
@@ -346,10 +358,12 @@ func TestServiceGetIssue(t *testing.T) {
 			},
 		},
 	}
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(reader, nil)
 	client := newTestClient(t, testConfig{
 		Catalog:      &testCatalog{boards: []*board.State{boardOne}},
 		IssueBoards:  testIssueLocator{"selected": "board-1"},
-		BoardReaders: testBoardReaders{"board-1": reader},
+		BoardReaders: readers,
 		Markdown:     markdown.New(),
 	})
 
@@ -461,16 +475,6 @@ func (l testIssueLocator) BoardForIssue(_ context.Context, issueID string) (boar
 		return "", selection.ErrIssueNotFound
 	}
 	return boardID, nil
-}
-
-type testBoardReaders map[board.ID]*testBoardReader
-
-func (f testBoardReaders) Reader(boardID board.ID) (BoardReader, error) {
-	reader, ok := f[boardID]
-	if !ok || reader == nil {
-		return nil, errors.New("test board reader not configured")
-	}
-	return reader, nil
 }
 
 type testBoardReader struct {

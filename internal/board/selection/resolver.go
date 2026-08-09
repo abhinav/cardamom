@@ -20,6 +20,8 @@ var ErrBindingNotFound = errors.New("board binding not found")
 // ErrIssueNotFound reports that an issue selector has no owning board.
 var ErrIssueNotFound = errkind.Errorf(errkind.NotFound, "issue not found")
 
+//go:generate go tool mockgen -destination mocks_test.go -package selection -typed -write_package_comment=false . Catalog,Binding,IssueLocator
+
 // Catalog supplies the board reads required for selection.
 type Catalog interface {
 	// List returns every board in deterministic order.

@@ -11,10 +11,11 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/errkind"
 	issuekernel "go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 func TestPlannerResolvesConfigurationForEachOperation(t *testing.T) {
-	changes := &fakeChanges{}
+	changes := NewMockChanges(gomock.NewController(t))
 	first := configuration.Defaults()
 	firstPrefix, err := configuration.NewPrefix("first-")
 	require.NoError(t, err)
@@ -27,7 +28,10 @@ func TestPlannerResolvesConfigurationForEachOperation(t *testing.T) {
 	configurations := &changingConfiguration{values: []configuration.Configuration{first, second}}
 	boardID, err := board.NewID("board-test")
 	require.NoError(t, err)
-	planner := NewPlanner(changes, &fakeReaders{}, &PlannerOptions{
+	changes.EXPECT().CreateIssue(gomock.Any(), first.Issue.ID, gomock.Any()).Return(IssueCreated{}, nil)
+	reader := NewMockIssueReader(gomock.NewController(t))
+	reader.EXPECT().ReadIssue(gomock.Any(), gomock.Any()).Return(issuekernel.View{}, nil).AnyTimes()
+	planner := NewPlanner(changes, reader, &PlannerOptions{
 		BoardID: boardID, Configuration: configurations,
 	})
 
@@ -37,7 +41,6 @@ func TestPlannerResolvesConfigurationForEachOperation(t *testing.T) {
 		CreateIssueRequest{Title: "First", Priority: 1, Summary: "four"},
 	)
 	require.NoError(t, err)
-	assert.Equal(t, first.Issue.ID, changes.issueIDConfiguration)
 
 	_, err = planner.CreateIssue(
 		t.Context(),
@@ -51,7 +54,21 @@ func TestPlannerResolvesConfigurationForEachOperation(t *testing.T) {
 func TestApplyDocumentNormalizesTypedReferencesAndPresence(t *testing.T) {
 	t.Parallel()
 
-	changes := &fakeChanges{}
+	changes := NewMockChanges(gomock.NewController(t))
+	var applied ApplyDocument
+	var appliedMode ApplyMode
+	changes.EXPECT().ApplyDocument(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(
+			_ context.Context,
+			_ configuration.IssueIDConfiguration,
+			command ApplyDocument,
+			mode ApplyMode,
+		) (DocumentApplied, error) {
+			applied = command
+			appliedMode = mode
+			return DocumentApplied{}, nil
+		},
+	)
 	planner := newTestPlanner(t, changes)
 	priority := 1
 	labels := []string{"backend"}
@@ -69,20 +86,32 @@ func TestApplyDocumentNormalizesTypedReferencesAndPresence(t *testing.T) {
 		}},
 	})
 	require.NoError(t, err)
-	require.Len(t, changes.applyDocument.issues, 1)
-	entry := changes.applyDocument.issues[0]
+	require.Len(t, applied.issues, 1)
+	entry := applied.issues[0]
 	assert.Equal(t, IssueAlias("build"), *entry.alias)
 	assert.Equal(t, issuekernel.MustID("an-build"), *entry.id)
 	assert.Equal(t, ExternalKey("source:1"), *entry.key)
 	assert.Equal(t, issuekernel.MustID("an-prereq"), (*entry.dependsOn)[0].id)
 	assert.Equal(t, IssueAlias("workstream"), entry.parent.reference.alias)
-	assert.Equal(t, ApplyModeDryRun, changes.applyMode)
+	assert.Equal(t, ApplyModeDryRun, appliedMode)
 }
 
 func TestApplyDocumentReportsUniqueDurableReferences(t *testing.T) {
 	t.Parallel()
 
-	changes := &fakeChanges{}
+	changes := NewMockChanges(gomock.NewController(t))
+	var applied ApplyDocument
+	changes.EXPECT().ApplyDocument(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(
+			_ context.Context,
+			_ configuration.IssueIDConfiguration,
+			command ApplyDocument,
+			_ ApplyMode,
+		) (DocumentApplied, error) {
+			applied = command
+			return DocumentApplied{}, nil
+		},
+	)
 	planner := newTestPlanner(t, changes)
 	dependencies := []ApplyIssueReference{
 		{Kind: ApplyReferenceID, ID: "an-parent"},
@@ -112,28 +141,46 @@ func TestApplyDocumentReportsUniqueDurableReferences(t *testing.T) {
 		issuekernel.MustID("an-target"),
 		issuekernel.MustID("an-parent"),
 		issuekernel.MustID("an-dependency"),
-	}, changes.applyDocument.ReferencedIssueIDs())
+	}, applied.ReferencedIssueIDs())
 }
 
 func TestPlannerUsesWorkstreamKindAtApplicationBoundary(t *testing.T) {
 	t.Parallel()
 
-	changes := &fakeChanges{}
+	changes := NewMockChanges(gomock.NewController(t))
+	var created CreateIssue
+	changes.EXPECT().CreateIssue(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(
+			_ context.Context,
+			_ configuration.IssueIDConfiguration,
+			command CreateIssue,
+		) (IssueCreated, error) {
+			created = command
+			return IssueCreated{}, nil
+		},
+	)
+	var edited EditIssue
+	changes.EXPECT().EditIssue(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, command EditIssue) (IssueEdited, error) {
+			edited = command
+			return IssueEdited{}, nil
+		},
+	)
 	planner := newTestPlanner(t, changes)
 
 	_, err := planner.CreateIssue(t.Context(), issuekernel.NewInvocation("planner"), CreateIssueRequest{
 		Title: "Persistent deliverable", Type: "workstream", Priority: 1,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, issuekernel.KindWorkstream, changes.createIssue.Kind)
+	assert.Equal(t, issuekernel.KindWorkstream, created.Kind)
 
 	kind := "workstream"
 	_, err = planner.EditIssue(t.Context(), issuekernel.NewInvocation("planner"), EditIssueRequest{
 		ID: "an-1", Type: &kind,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, changes.editIssue.Kind)
-	assert.Equal(t, issuekernel.KindWorkstream, *changes.editIssue.Kind)
+	require.NotNil(t, edited.Kind)
+	assert.Equal(t, issuekernel.KindWorkstream, *edited.Kind)
 
 	for _, removed := range []string{"mission", "epic"} {
 		_, err = planner.CreateIssue(t.Context(), issuekernel.NewInvocation("planner"), CreateIssueRequest{
@@ -146,37 +193,66 @@ func TestPlannerUsesWorkstreamKindAtApplicationBoundary(t *testing.T) {
 func TestCreateIssueNormalizesParentAtApplicationBoundary(t *testing.T) {
 	t.Parallel()
 
-	changes := &fakeChanges{}
+	changes := NewMockChanges(gomock.NewController(t))
+	var created CreateIssue
+	changes.EXPECT().CreateIssue(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(
+			_ context.Context,
+			_ configuration.IssueIDConfiguration,
+			command CreateIssue,
+		) (IssueCreated, error) {
+			created = command
+			return IssueCreated{}, nil
+		},
+	)
 	planner := newTestPlanner(t, changes)
 
 	_, err := planner.CreateIssue(t.Context(), issuekernel.NewInvocation("planner"), CreateIssueRequest{
 		Title: "Contained task", Type: "task", Priority: 1, Parent: "an-parent",
 	})
 	require.NoError(t, err)
-	require.NotNil(t, changes.createIssue.Parent)
-	assert.Equal(t, issuekernel.MustID("an-parent"), *changes.createIssue.Parent)
+	require.NotNil(t, created.Parent)
+	assert.Equal(t, issuekernel.MustID("an-parent"), *created.Parent)
 }
 
 func TestPlannerNormalizesDirectExternalKeys(t *testing.T) {
 	t.Parallel()
 
-	changes := &fakeChanges{}
+	changes := NewMockChanges(gomock.NewController(t))
+	var created CreateIssue
+	changes.EXPECT().CreateIssue(gomock.Any(), gomock.Any(), gomock.Any()).DoAndReturn(
+		func(
+			_ context.Context,
+			_ configuration.IssueIDConfiguration,
+			command CreateIssue,
+		) (IssueCreated, error) {
+			created = command
+			return IssueCreated{}, nil
+		},
+	)
+	var edited EditIssue
+	changes.EXPECT().EditIssue(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, command EditIssue) (IssueEdited, error) {
+			edited = command
+			return IssueEdited{}, nil
+		},
+	)
 	planner := newTestPlanner(t, changes)
 
 	_, err := planner.CreateIssue(t.Context(), issuekernel.NewInvocation("planner"), CreateIssueRequest{
 		Title: "Produced task", Type: "task", Priority: 1, Key: new(" source:task "),
 	})
 	require.NoError(t, err)
-	require.NotNil(t, changes.createIssue.ExternalKey)
-	assert.Equal(t, ExternalKey(" source:task "), *changes.createIssue.ExternalKey)
+	require.NotNil(t, created.ExternalKey)
+	assert.Equal(t, ExternalKey(" source:task "), *created.ExternalKey)
 
 	key := " source:other "
 	_, err = planner.EditIssue(t.Context(), issuekernel.NewInvocation("planner"), EditIssueRequest{
 		ID: "an-1", Key: &key,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, changes.editIssue.ExternalKey)
-	assert.Equal(t, ExternalKey(" source:other "), *changes.editIssue.ExternalKey)
+	require.NotNil(t, edited.ExternalKey)
+	assert.Equal(t, ExternalKey(" source:other "), *edited.ExternalKey)
 
 	empty := ""
 	_, err = planner.CreateIssue(t.Context(), issuekernel.NewInvocation("planner"), CreateIssueRequest{
@@ -188,7 +264,8 @@ func TestPlannerNormalizesDirectExternalKeys(t *testing.T) {
 func TestApplyDocumentPublishesRepositoryReceipt(t *testing.T) {
 	t.Parallel()
 
-	changes := &fakeChanges{applyOutcome: DocumentApplied{
+	changes := NewMockChanges(gomock.NewController(t))
+	outcome := DocumentApplied{
 		Receipt: ApplyReceipt{
 			Entries: []ApplyReceiptEntry{{
 				InputIndex: 0, Alias: new("build"), ID: new("an-build"),
@@ -197,7 +274,8 @@ func TestApplyDocumentPublishesRepositoryReceipt(t *testing.T) {
 			Counts: ApplyCounts{Create: 1},
 		},
 		CommittedRevision: CommittedRevision{Revision: 9},
-	}}
+	}
+	changes.EXPECT().ApplyDocument(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(outcome, nil)
 	planner := newTestPlanner(t, changes)
 
 	result, err := planner.ApplyDocument(t.Context(), issuekernel.NewInvocation("planner"), ApplyDocumentRequest{
@@ -213,7 +291,14 @@ func TestApplyDocumentPublishesRepositoryReceipt(t *testing.T) {
 func TestEditIssueReplacesLabelsInOneEditCommand(t *testing.T) {
 	t.Parallel()
 
-	changes := &fakeChanges{}
+	changes := NewMockChanges(gomock.NewController(t))
+	var edited EditIssue
+	changes.EXPECT().EditIssue(gomock.Any(), gomock.Any()).DoAndReturn(
+		func(_ context.Context, command EditIssue) (IssueEdited, error) {
+			edited = command
+			return IssueEdited{}, nil
+		},
+	)
 	planner := newTestPlanner(t, changes)
 	labels := []string{"docs", "urgent"}
 
@@ -221,86 +306,33 @@ func TestEditIssueReplacesLabelsInOneEditCommand(t *testing.T) {
 		ID: "an-1", Labels: &labels,
 	})
 	require.NoError(t, err)
-	require.NotNil(t, changes.editIssue.ReplaceLabels)
-	assert.Equal(t, []issuekernel.Label{issuekernel.MustLabel("docs"), issuekernel.MustLabel("urgent")}, *changes.editIssue.ReplaceLabels)
+	require.NotNil(t, edited.ReplaceLabels)
+	assert.Equal(t, []issuekernel.Label{issuekernel.MustLabel("docs"), issuekernel.MustLabel("urgent")}, *edited.ReplaceLabels)
 }
 
 func TestEditIssuePublishesCompletePostCommitView(t *testing.T) {
 	t.Parallel()
 
 	issue := applicationTestIssue(t, "an-1", issuekernel.StatusReady)
-	changes := &fakeChanges{editOutcome: IssueEdited{
+	changes := NewMockChanges(gomock.NewController(t))
+	editOutcome := IssueEdited{
 		Issue:             issue,
 		CommittedRevision: CommittedRevision{Revision: 9},
-	}}
-	readers := &fakeReaders{issue: issuekernel.View{Detail: issuekernel.Detail{
+	}
+	changes.EXPECT().EditIssue(gomock.Any(), gomock.Any()).Return(editOutcome, nil)
+	view := issuekernel.View{Detail: issuekernel.Detail{
 		Issue:  issuekernel.Issue{ID: "an-1", Revision: 9},
 		Labels: []string{"docs"}, Blocks: []issuekernel.Reference{{ID: "an-2"}},
-	}}}
+	}}
+	readers := NewMockIssueReader(gomock.NewController(t))
+	readers.EXPECT().ReadIssue(gomock.Any(), issuekernel.ReadRequest{IssueID: "an-1"}).Return(view, nil)
 	planner := newTestPlannerWithReaders(t, changes, readers)
 
 	result, err := planner.EditIssue(t.Context(), issuekernel.NewInvocation("operator"), EditIssueRequest{
 		ID: "an-1", Title: new("Renamed"),
 	})
 	require.NoError(t, err)
-	assert.Equal(t, readers.issue.Detail, result.Issue)
-	assert.Equal(t, issuekernel.ReadRequest{IssueID: "an-1"}, readers.readIssueRequest)
-	assert.Equal(t, 1, readers.readIssueCalls)
-}
-
-type fakeReaders struct {
-	issue            issuekernel.View
-	readIssueRequest issuekernel.ReadRequest
-	readIssueCalls   int
-}
-
-func (f *fakeReaders) ReadIssue(
-	_ context.Context,
-	request issuekernel.ReadRequest,
-) (issuekernel.View, error) {
-	f.readIssueCalls++
-	f.readIssueRequest = request
-	return f.issue, nil
-}
-
-type fakeChanges struct {
-	issueIDConfiguration configuration.IssueIDConfiguration
-	createIssue          CreateIssue
-	editIssue            EditIssue
-	applyDocument        ApplyDocument
-	applyMode            ApplyMode
-	applyOutcome         DocumentApplied
-	editOutcome          IssueEdited
-}
-
-func (f *fakeChanges) CreateIssue(
-	_ context.Context,
-	issueIDConfiguration configuration.IssueIDConfiguration,
-	command CreateIssue,
-) (IssueCreated, error) {
-	f.issueIDConfiguration = issueIDConfiguration
-	f.createIssue = command
-	return IssueCreated{}, nil
-}
-
-func (f *fakeChanges) EditIssue(
-	_ context.Context,
-	command EditIssue,
-) (IssueEdited, error) {
-	f.editIssue = command
-	return f.editOutcome, nil
-}
-
-func (f *fakeChanges) ApplyDocument(
-	_ context.Context,
-	issueIDConfiguration configuration.IssueIDConfiguration,
-	command ApplyDocument,
-	mode ApplyMode,
-) (DocumentApplied, error) {
-	f.issueIDConfiguration = issueIDConfiguration
-	f.applyDocument = command
-	f.applyMode = mode
-	return f.applyOutcome, nil
+	assert.Equal(t, view.Detail, result.Issue)
 }
 
 type changingConfiguration struct {
@@ -317,14 +349,16 @@ func (c *changingConfiguration) ResolveConfiguration(
 	return value, nil
 }
 
-func newTestPlanner(t *testing.T, changes *fakeChanges) *Planner {
+func newTestPlanner(t *testing.T, changes Changes) *Planner {
 	t.Helper()
-	return newTestPlannerWithReaders(t, changes, &fakeReaders{})
+	reader := NewMockIssueReader(gomock.NewController(t))
+	reader.EXPECT().ReadIssue(gomock.Any(), gomock.Any()).Return(issuekernel.View{}, nil).AnyTimes()
+	return newTestPlannerWithReaders(t, changes, reader)
 }
 
 func newTestPlannerWithReaders(
 	t *testing.T,
-	changes *fakeChanges,
+	changes Changes,
 	readers IssueReader,
 ) *Planner {
 	t.Helper()

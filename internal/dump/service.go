@@ -12,6 +12,8 @@ import (
 	"go.abhg.dev/cardamom/internal/errkind"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package dump -typed -write_package_comment=false . SnapshotReader,Publisher
+
 // SnapshotReader returns the complete board state from one coherent read.
 type SnapshotReader interface {
 	// ReadDumpSnapshot returns one canonical board revision and all dump data

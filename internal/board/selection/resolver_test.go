@@ -1,7 +1,6 @@
 package selection
 
 import (
-	"context"
 	"testing"
 	"time"
 
@@ -9,16 +8,22 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/errkind"
+	"go.uber.org/mock/gomock"
 )
 
 func TestResolver_Resolve_precedence(t *testing.T) {
 	defaultBoard := testBoard(t, "board-default", "Default")
 	secondBoard := testBoard(t, "board-second", "Second")
-	resolver := NewResolver(
-		&fakeCatalog{boards: []*board.State{defaultBoard, secondBoard}},
-		&fakeBinding{boardID: secondBoard.ID()},
-		fakeIssueBoards{"issue-default": defaultBoard.ID()},
-	)
+	boards := []*board.State{defaultBoard, secondBoard}
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().List(gomock.Any()).Return(boards, nil).Times(2)
+	catalog.EXPECT().Get(gomock.Any(), secondBoard.ID()).Return(secondBoard, nil)
+	catalog.EXPECT().Get(gomock.Any(), defaultBoard.ID()).Return(defaultBoard, nil)
+	binding := NewMockBinding(gomock.NewController(t))
+	binding.EXPECT().Read().Return(secondBoard.ID(), nil)
+	issues := NewMockIssueLocator(gomock.NewController(t))
+	issues.EXPECT().BoardForIssue(gomock.Any(), "issue-default").Return(defaultBoard.ID(), nil)
+	resolver := NewResolver(catalog, binding, issues)
 	selector := testBoardSelector(t, "Default")
 
 	selected, err := resolver.Resolve(t.Context(), Request{Selector: &selector})
@@ -40,11 +45,11 @@ func TestResolver_Resolve_precedence(t *testing.T) {
 func TestResolver_Resolve_rejectsIssueBoardMismatch(t *testing.T) {
 	defaultBoard := testBoard(t, "board-default", "Default")
 	secondBoard := testBoard(t, "board-second", "Second")
-	resolver := NewResolver(
-		&fakeCatalog{boards: []*board.State{defaultBoard, secondBoard}},
-		&fakeBinding{},
-		fakeIssueBoards{"issue-second": secondBoard.ID()},
-	)
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().List(gomock.Any()).Return([]*board.State{defaultBoard, secondBoard}, nil)
+	issues := NewMockIssueLocator(gomock.NewController(t))
+	issues.EXPECT().BoardForIssue(gomock.Any(), "issue-second").Return(secondBoard.ID(), nil)
+	resolver := NewResolver(catalog, NewMockBinding(gomock.NewController(t)), issues)
 	selector := testBoardSelector(t, "Default")
 
 	_, err := resolver.Resolve(t.Context(), Request{
@@ -63,13 +68,13 @@ func TestResolver_Resolve_rejectsIssueBoardMismatch(t *testing.T) {
 func TestResolver_Resolve_rejectsIssuesFromMultipleBoards(t *testing.T) {
 	defaultBoard := testBoard(t, "board-default", "Default")
 	secondBoard := testBoard(t, "board-second", "Second")
+	issues := NewMockIssueLocator(gomock.NewController(t))
+	issues.EXPECT().BoardForIssue(gomock.Any(), "issue-default").Return(defaultBoard.ID(), nil)
+	issues.EXPECT().BoardForIssue(gomock.Any(), "issue-second").Return(secondBoard.ID(), nil)
 	resolver := NewResolver(
-		&fakeCatalog{boards: []*board.State{defaultBoard, secondBoard}},
-		&fakeBinding{},
-		fakeIssueBoards{
-			"issue-default": defaultBoard.ID(),
-			"issue-second":  secondBoard.ID(),
-		},
+		NewMockCatalog(gomock.NewController(t)),
+		NewMockBinding(gomock.NewController(t)),
+		issues,
 	)
 
 	_, err := resolver.Resolve(t.Context(), Request{
@@ -85,7 +90,13 @@ func TestResolver_Resolve_rejectsIssuesFromMultipleBoards(t *testing.T) {
 }
 
 func TestResolver_Resolve_reportsMissingIssue(t *testing.T) {
-	resolver := NewResolver(&fakeCatalog{}, &fakeBinding{}, fakeIssueBoards{})
+	issues := NewMockIssueLocator(gomock.NewController(t))
+	issues.EXPECT().BoardForIssue(gomock.Any(), "missing").Return(board.ID(""), ErrIssueNotFound)
+	resolver := NewResolver(
+		NewMockCatalog(gomock.NewController(t)),
+		NewMockBinding(gomock.NewController(t)),
+		issues,
+	)
 
 	_, err := resolver.Resolve(t.Context(), Request{IssueIDs: []string{"missing"}})
 
@@ -95,14 +106,13 @@ func TestResolver_Resolve_reportsMissingIssue(t *testing.T) {
 }
 
 func TestResolver_Resolve_requiresUnambiguousAmbientBoard(t *testing.T) {
-	resolver := NewResolver(
-		&fakeCatalog{boards: []*board.State{
-			testBoard(t, "board-one", "First"),
-			testBoard(t, "board-two", "Second"),
-		}},
-		&fakeBinding{},
-		fakeIssueBoards{},
-	)
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().Sole(gomock.Any()).Return(nil, errkind.Errorf(
+		errkind.Conflict, "board selection is ambiguous",
+	))
+	binding := NewMockBinding(gomock.NewController(t))
+	binding.EXPECT().Read().Return(board.ID(""), ErrBindingNotFound)
+	resolver := NewResolver(catalog, binding, NewMockIssueLocator(gomock.NewController(t)))
 
 	_, err := resolver.Resolve(t.Context(), Request{})
 
@@ -111,7 +121,11 @@ func TestResolver_Resolve_requiresUnambiguousAmbientBoard(t *testing.T) {
 }
 
 func TestResolver_Resolve_reportsMissingAmbientBoard(t *testing.T) {
-	resolver := NewResolver(&fakeCatalog{}, &fakeBinding{}, fakeIssueBoards{})
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().Sole(gomock.Any()).Return(nil, errkind.Errorf(errkind.NotFound, "board not found"))
+	binding := NewMockBinding(gomock.NewController(t))
+	binding.EXPECT().Read().Return(board.ID(""), ErrBindingNotFound)
+	resolver := NewResolver(catalog, binding, NewMockIssueLocator(gomock.NewController(t)))
 
 	_, err := resolver.Resolve(t.Context(), Request{})
 
@@ -120,7 +134,13 @@ func TestResolver_Resolve_reportsMissingAmbientBoard(t *testing.T) {
 }
 
 func TestResolver_Resolve_reportsExplicitBoardNotFound(t *testing.T) {
-	resolver := NewResolver(&fakeCatalog{}, &fakeBinding{}, fakeIssueBoards{})
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().List(gomock.Any()).Return([]*board.State{}, nil)
+	resolver := NewResolver(
+		catalog,
+		NewMockBinding(gomock.NewController(t)),
+		NewMockIssueLocator(gomock.NewController(t)),
+	)
 	selector := testBoardSelector(t, "Missing")
 
 	_, err := resolver.Resolve(t.Context(), Request{Selector: &selector})
@@ -130,13 +150,15 @@ func TestResolver_Resolve_reportsExplicitBoardNotFound(t *testing.T) {
 }
 
 func TestResolver_Resolve_reportsAmbiguousExplicitBoard(t *testing.T) {
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().List(gomock.Any()).Return([]*board.State{
+		testBoard(t, "board-one", "Shared"),
+		testBoard(t, "board-two", "Shared"),
+	}, nil)
 	resolver := NewResolver(
-		&fakeCatalog{boards: []*board.State{
-			testBoard(t, "board-one", "Shared"),
-			testBoard(t, "board-two", "Shared"),
-		}},
-		&fakeBinding{},
-		fakeIssueBoards{},
+		catalog,
+		NewMockBinding(gomock.NewController(t)),
+		NewMockIssueLocator(gomock.NewController(t)),
 	)
 	selector := testBoardSelector(t, "Shared")
 
@@ -148,11 +170,14 @@ func TestResolver_Resolve_reportsAmbiguousExplicitBoard(t *testing.T) {
 
 func TestResolver_Use_persistsCheckoutBinding(t *testing.T) {
 	state := testBoard(t, "board-one", "Development")
-	binding := &fakeBinding{}
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().List(gomock.Any()).Return([]*board.State{state}, nil)
+	binding := NewMockBinding(gomock.NewController(t))
+	binding.EXPECT().Write(state.ID()).Return(nil)
 	resolver := NewResolver(
-		&fakeCatalog{boards: []*board.State{state}},
+		catalog,
 		binding,
-		fakeIssueBoards{},
+		NewMockIssueLocator(gomock.NewController(t)),
 	)
 
 	selected, err := resolver.Use(
@@ -162,62 +187,6 @@ func TestResolver_Use_persistsCheckoutBinding(t *testing.T) {
 
 	require.NoError(t, err)
 	assert.Same(t, state, selected)
-	assert.Equal(t, state.ID(), binding.written)
-}
-
-type fakeCatalog struct {
-	boards []*board.State
-}
-
-func (f *fakeCatalog) List(context.Context) ([]*board.State, error) {
-	return f.boards, nil
-}
-
-func (f *fakeCatalog) Get(_ context.Context, id board.ID) (*board.State, error) {
-	for _, state := range f.boards {
-		if state.ID() == id {
-			return state, nil
-		}
-	}
-	return nil, errkind.Errorf(errkind.NotFound, "board not found")
-}
-
-func (f *fakeCatalog) Sole(context.Context) (*board.State, error) {
-	switch len(f.boards) {
-	case 0:
-		return nil, errkind.Errorf(errkind.NotFound, "board not found")
-	case 1:
-		return f.boards[0], nil
-	default:
-		return nil, errkind.Errorf(errkind.Conflict, "board selection is ambiguous")
-	}
-}
-
-type fakeBinding struct {
-	boardID board.ID
-	written board.ID
-}
-
-func (f *fakeBinding) Read() (board.ID, error) {
-	if f.boardID == "" {
-		return "", ErrBindingNotFound
-	}
-	return f.boardID, nil
-}
-
-func (f *fakeBinding) Write(id board.ID) error {
-	f.written = id
-	return nil
-}
-
-type fakeIssueBoards map[string]board.ID
-
-func (f fakeIssueBoards) BoardForIssue(_ context.Context, issueID string) (board.ID, error) {
-	boardID, ok := f[issueID]
-	if !ok {
-		return "", ErrIssueNotFound
-	}
-	return boardID, nil
 }
 
 func testBoard(t *testing.T, id, name string) *board.State {

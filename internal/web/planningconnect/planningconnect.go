@@ -20,6 +20,8 @@ import (
 	"go.abhg.dev/cardamom/internal/web/issueview"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package planningconnect -typed -write_package_comment=false . BoardPlanner,BoardPlannerFactory
+
 // BoardPlanner supplies the domain operations exposed by PlanningService.
 type BoardPlanner interface {
 	// CreateIssue creates one issue and its initial relationships.

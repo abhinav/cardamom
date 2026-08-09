@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.uber.org/mock/gomock"
 )
 
 func TestIssueInspector_ReadIssue_listsEveryAssociatedAttachmentPage(t *testing.T) {
@@ -27,25 +28,21 @@ func TestIssueInspector_ReadIssue_listsEveryAssociatedAttachmentPage(t *testing.
 	require.NoError(t, err)
 	second.ID = secondID
 
-	issues := &issueViewReaderStub{
-		view: issue.View{Detail: issue.Detail{Issue: issue.Issue{ID: issueID.String()}}},
-	}
+	issueView := issue.View{Detail: issue.Detail{Issue: issue.Issue{ID: issueID.String()}}}
+	readRequest := issue.ReadRequest{IssueID: issueID.String(), ContextDepth: new(2)}
+	issues := NewMockIssueViewReader(gomock.NewController(t))
+	issues.EXPECT().ReadIssue(gomock.Any(), readRequest).Return(issueView, nil)
 	attachments := &issueAttachmentListerStub{pages: []Page{
 		{Attachments: []Attachment{first}, NextPageToken: "next"},
 		{Attachments: []Attachment{second}},
 	}}
 	inspector := NewIssueInspector(boardID, issues, attachments)
 
-	view, err := inspector.ReadIssue(t.Context(), issue.ReadRequest{
-		IssueID: issueID.String(), ContextDepth: new(2),
-	})
+	view, err := inspector.ReadIssue(t.Context(), readRequest)
 
 	require.NoError(t, err)
-	assert.Equal(t, issues.view, view.Issue)
+	assert.Equal(t, issueView, view.Issue)
 	assert.Equal(t, []Attachment{first, second}, view.Attachments)
-	assert.Equal(t, issue.ReadRequest{
-		IssueID: issueID.String(), ContextDepth: new(2),
-	}, issues.request)
 	require.Len(t, attachments.requests, 2)
 	assert.Equal(t, ListRequest{
 		BoardID: boardID, OriginIssueID: &issueID,
@@ -61,34 +58,21 @@ func TestIssueInspector_ReadIssue_usesResolvedIssueForKeyRequest(t *testing.T) {
 	boardID, err := board.NewID("board-test")
 	require.NoError(t, err)
 	issueID := issue.MustID("an-1")
-	issues := &issueViewReaderStub{
-		view: issue.View{Detail: issue.Detail{Issue: issue.Issue{ID: issueID.String()}}},
-	}
+	issueView := issue.View{Detail: issue.Detail{Issue: issue.Issue{ID: issueID.String()}}}
+	readRequest := issue.ReadRequest{Key: "source:one"}
+	issues := NewMockIssueViewReader(gomock.NewController(t))
+	issues.EXPECT().ReadIssue(gomock.Any(), readRequest).Return(issueView, nil)
 	attachments := &issueAttachmentListerStub{pages: []Page{{Attachments: []Attachment{}}}}
 	inspector := NewIssueInspector(boardID, issues, attachments)
 
-	view, err := inspector.ReadIssue(t.Context(), issue.ReadRequest{Key: "source:one"})
+	view, err := inspector.ReadIssue(t.Context(), readRequest)
 
 	require.NoError(t, err)
 	assert.Equal(t, issueID.String(), view.Issue.Detail.Issue.ID)
-	assert.Equal(t, issue.ReadRequest{Key: "source:one"}, issues.request)
 	require.Len(t, attachments.requests, 1)
 	assert.Equal(t, ListRequest{
 		BoardID: boardID, OriginIssueID: &issueID,
 	}, attachments.requests[0])
-}
-
-type issueViewReaderStub struct {
-	request issue.ReadRequest
-	view    issue.View
-}
-
-func (s *issueViewReaderStub) ReadIssue(
-	_ context.Context,
-	request issue.ReadRequest,
-) (issue.View, error) {
-	s.request = request
-	return s.view, nil
 }
 
 type issueAttachmentListerStub struct {

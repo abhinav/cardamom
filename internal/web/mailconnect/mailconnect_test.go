@@ -1,7 +1,6 @@
 package mailconnect
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -16,24 +15,31 @@ import (
 	"go.abhg.dev/cardamom/internal/mail"
 	repositorymail "go.abhg.dev/cardamom/internal/repository/mail"
 	"go.abhg.dev/cardamom/internal/repository/store"
+	"go.uber.org/mock/gomock"
 	"google.golang.org/protobuf/types/known/durationpb"
 )
 
 func TestServiceMailOperations(t *testing.T) {
 	now := time.Date(2026, time.July, 20, 12, 0, 0, 0, time.UTC)
-	operations := &recordingOperations{
-		message: mail.Message{
-			ID:     "mail_33333333333333333333333333333333",
-			Sender: "alice", Recipient: "bob", Body: "status",
-			Created: now, Expires: now.Add(time.Hour),
-		},
-		messages: []mail.Message{{
-			ID:     "mail_33333333333333333333333333333333",
-			Sender: "alice", Recipient: "bob", Body: "status",
-			Created: now, Expires: now.Add(time.Hour),
-		}},
-		cleared: mail.ClearResult{Cleared: 2},
+	message := mail.Message{
+		ID:     "mail_33333333333333333333333333333333",
+		Sender: "alice", Recipient: "bob", Body: "status",
+		Created: now, Expires: now.Add(time.Hour),
 	}
+	operations := NewMockOperations(gomock.NewController(t))
+	operations.EXPECT().Send(gomock.Any(), mail.SendRequest{
+		Sender: "alice", Recipient: "bob", Body: "status", TTL: time.Hour,
+	}).Return(message, nil)
+	operations.EXPECT().Receive(gomock.Any(), mail.MailboxRequest{
+		Recipient: "bob", IncludeRead: true,
+		MaxAge: 30 * time.Minute, Limit: 4,
+	}).Return([]mail.Message{message}, nil)
+	operations.EXPECT().Peek(gomock.Any(), mail.MailboxRequest{
+		AllRecipients: true, IncludeRead: true,
+	}).Return([]mail.Message{message}, nil)
+	operations.EXPECT().Clear(gomock.Any(), mail.MailboxRequest{
+		Recipient: "bob", Limit: 2,
+	}).Return(mail.ClearResult{Cleared: 2}, nil)
 	client := newTestClient(t, operations)
 
 	sent, err := client.SendMail(t.Context(), connect.NewRequest(&privatev1.SendMailRequest{
@@ -55,18 +61,6 @@ func TestServiceMailOperations(t *testing.T) {
 	}))
 
 	require.NoError(t, err)
-	require.Len(t, operations.sends, 1)
-	assert.Equal(t, mail.SendRequest{
-		Sender: "alice", Recipient: "bob", Body: "status", TTL: time.Hour,
-	}, operations.sends[0])
-	assert.Equal(t, mail.MailboxRequest{
-		Recipient: "bob", IncludeRead: true,
-		MaxAge: 30 * time.Minute, Limit: 4,
-	}, operations.receives[0])
-	assert.Equal(t, mail.MailboxRequest{
-		AllRecipients: true, IncludeRead: true,
-	}, operations.peeks[0])
-	assert.Equal(t, mail.MailboxRequest{Recipient: "bob", Limit: 2}, operations.clears[0])
 	assert.Equal(t, "mail_33333333333333333333333333333333", sent.Msg.GetMessage().GetId())
 	assert.Equal(t, "mail_33333333333333333333333333333333", received.Msg.GetMessages()[0].GetId())
 	assert.Equal(t, "mail_33333333333333333333333333333333", peeked.Msg.GetMessages()[0].GetId())
@@ -75,17 +69,21 @@ func TestServiceMailOperations(t *testing.T) {
 
 func TestServiceSubscriptionOperations(t *testing.T) {
 	now := time.Date(2026, time.July, 20, 12, 0, 0, 0, time.UTC)
-	operations := &recordingOperations{
-		subscription: mail.Subscription{
-			Listener: "alice", Pattern: "release.*",
-			Created: now, Expires: now.Add(time.Hour),
-		},
-		subscriptions: []mail.Subscription{{
-			Listener: "alice", Pattern: "release.*",
-			Created: now, Expires: now.Add(time.Hour),
-		}},
-		removal: mail.SubscriptionRemoval{Pattern: "release.*", Removed: true},
+	subscription := mail.Subscription{
+		Listener: "alice", Pattern: "release.*",
+		Created: now, Expires: now.Add(time.Hour),
 	}
+	operations := NewMockOperations(gomock.NewController(t))
+	operations.EXPECT().Subscribe(gomock.Any(), mail.SubscriptionRequest{
+		Listener: "alice", Pattern: "release.*", TTL: time.Hour,
+	}).Return(subscription, nil)
+	operations.EXPECT().ListSubscriptions(gomock.Any()).Return(
+		[]mail.Subscription{subscription}, nil,
+	)
+	operations.EXPECT().RemoveSubscription(
+		gomock.Any(),
+		mail.SubscriptionRemovalRequest{Listener: "alice", Pattern: "release.*"},
+	).Return(mail.SubscriptionRemoval{Pattern: "release.*", Removed: true}, nil)
 	client := newTestClient(t, operations)
 
 	created, err := client.Subscribe(t.Context(), connect.NewRequest(&privatev1.SubscribeRequest{
@@ -99,10 +97,6 @@ func TestServiceSubscriptionOperations(t *testing.T) {
 	}))
 
 	require.NoError(t, err)
-	assert.Equal(t, time.Hour, operations.creates[0].TTL)
-	assert.Equal(t, mail.SubscriptionRemovalRequest{
-		Listener: "alice", Pattern: "release.*",
-	}, operations.removals[0])
 	assert.Equal(t, "alice", created.Msg.GetSubscription().GetListener())
 	assert.Equal(t, "release.*", listed.Msg.GetSubscriptions()[0].GetPattern())
 	assert.True(t, removed.Msg.GetRemoved())
@@ -141,62 +135,6 @@ func TestServiceMailOperations_preservePersistedDomainOutcomes(t *testing.T) {
 	assert.Equal(t, "carol", received.Msg.GetMessages()[0].GetRecipient())
 	assert.Equal(t, "release/ready", received.Msg.GetMessages()[0].GetSourceTopic())
 	assert.Empty(t, unread)
-}
-
-type recordingOperations struct {
-	sends     []mail.SendRequest
-	publishes []mail.PublishRequest
-	receives  []mail.MailboxRequest
-	peeks     []mail.MailboxRequest
-	clears    []mail.MailboxRequest
-	creates   []mail.SubscriptionRequest
-	removals  []mail.SubscriptionRemovalRequest
-
-	message       mail.Message
-	messages      []mail.Message
-	cleared       mail.ClearResult
-	subscription  mail.Subscription
-	subscriptions []mail.Subscription
-	removal       mail.SubscriptionRemoval
-}
-
-func (o *recordingOperations) Send(_ context.Context, request mail.SendRequest) (mail.Message, error) {
-	o.sends = append(o.sends, request)
-	return o.message, nil
-}
-
-func (o *recordingOperations) Publish(_ context.Context, request mail.PublishRequest) ([]mail.Message, error) {
-	o.publishes = append(o.publishes, request)
-	return o.messages, nil
-}
-
-func (o *recordingOperations) Receive(_ context.Context, request mail.MailboxRequest) ([]mail.Message, error) {
-	o.receives = append(o.receives, request)
-	return o.messages, nil
-}
-
-func (o *recordingOperations) Peek(_ context.Context, request mail.MailboxRequest) ([]mail.Message, error) {
-	o.peeks = append(o.peeks, request)
-	return o.messages, nil
-}
-
-func (o *recordingOperations) Clear(_ context.Context, request mail.MailboxRequest) (mail.ClearResult, error) {
-	o.clears = append(o.clears, request)
-	return o.cleared, nil
-}
-
-func (o *recordingOperations) Subscribe(_ context.Context, request mail.SubscriptionRequest) (mail.Subscription, error) {
-	o.creates = append(o.creates, request)
-	return o.subscription, nil
-}
-
-func (o *recordingOperations) ListSubscriptions(context.Context) ([]mail.Subscription, error) {
-	return o.subscriptions, nil
-}
-
-func (o *recordingOperations) RemoveSubscription(_ context.Context, request mail.SubscriptionRemovalRequest) (mail.SubscriptionRemoval, error) {
-	o.removals = append(o.removals, request)
-	return o.removal, nil
 }
 
 func newTestClient(t *testing.T, operations Operations) privatev1connect.MailServiceClient {

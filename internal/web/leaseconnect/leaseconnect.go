@@ -16,6 +16,8 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package leaseconnect -typed -write_package_comment=false . Operations
+
 // Operations supplies the store-scoped resource lease behavior exposed by
 // LeaseService.
 type Operations interface {

@@ -18,6 +18,8 @@ import (
 	"go.abhg.dev/cardamom/internal/web/issueview"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package recordconnect -typed -write_package_comment=false . BoardRecords,BoardRecordFactory
+
 // BoardRecords supplies the domain operations exposed by RecordService.
 type BoardRecords interface {
 	// ListLogEntries returns one issue's log entries in durable order.

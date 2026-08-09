@@ -16,6 +16,8 @@ import (
 	"go.abhg.dev/cardamom/internal/web"
 )
 
+//go:generate go tool mockgen -destination mocks_test.go -package informationconnect -typed -write_package_comment=false . Reader
+
 // Reader returns information for an explicitly selected board.
 type Reader interface {
 	// Read returns typed store identity and inventory.
