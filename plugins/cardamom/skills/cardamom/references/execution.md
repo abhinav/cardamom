@@ -41,6 +41,13 @@ and the expected Result.
 Use an absolute `card` path when another worktree may resolve a different
 binary.
 
+The claim owner remains responsible for the claimed issue's current State.
+When delegated evidence changes that issue's active position or next action,
+incorporate the operative conclusion before further work relies on it.
+Keep worker-local chronology and supporting evidence on the child issue or
+source record;
+do not copy every checkpoint into the claimed issue mechanically.
+
 ## Reassess dependency-sensitive plans
 
 Ready means that graph prerequisites are satisfied;
@@ -80,6 +87,22 @@ As an action produces useful facts,
 replace State with the current result and next established transition.
 Partial work needs an update when the recoverable position changes,
 not after every command.
+
+Incomplete reconciliation does not justify retaining State
+that established evidence has disproved.
+Record the confirmed position,
+label unresolved evidence as pending,
+and state how it will be reconciled.
+For quantitative work, a conservative confirmed floor is sufficient
+until pending evidence is reconciled.
+Current State must not retain an earlier execution position
+after accepted evidence establishes a transition.
+For example, State cannot still describe work as paused
+after accepted evidence establishes that execution resumed.
+
+Before reporting current status, compare State and its next action
+with active execution and accepted delegated results.
+Update State to resolve a material contradiction before answering.
 
 ## Preserve completed positions and reasoning
 

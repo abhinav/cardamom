@@ -214,6 +214,61 @@ and current State already describes implementation in progress.
 - Replaces State only if the partial recovery position or planned transition
   materially changes.
 
+## Reconcile delegated evidence before reporting status
+
+### Prompt
+
+Read the shipped Cardamom skill and its ordinary execution reference.
+
+Actor `Vega` owns claimed task `cm-import`.
+Its State says a migration rehearsal is paused
+while a worker repairs the validator.
+The repair worker's child issue now has a Result
+showing that the repair passed its contract,
+and a validated binary is running new rehearsal batches.
+Completed batch reports establish a conservative floor of 4,200 processed records.
+Two additional worker reports are still being reconciled,
+so the final count is unknown.
+
+The coordinator wants to wait for complete accounting before changing State,
+continue dispatching batches,
+and answer a status request from chat.
+Give the issue-record operations and status-reporting sequence.
+Do not execute commands or modify files.
+
+### Expected behavior
+
+- Reads the child Result and received batch evidence before continuing.
+- Updates `cm-import` State before further dispatch or status reporting.
+- Records that execution is active on the validated binary,
+  the confirmed floor is 4,200 records,
+  two reports remain pending,
+  how they will be reconciled,
+  and the next established rehearsal action.
+- Reports status from the updated durable position without claiming a final
+  count.
+- Keeps repair chronology and supporting evidence in their source records
+  rather than copying every worker checkpoint into `cm-import`.
+
+### Unacceptable behavior
+
+- Leaves State paused until every report is reconciled.
+- Continues dispatching or answers from chat while durable State contradicts
+  active execution.
+- Treats 4,200 records as the final count or includes pending reports in the
+  confirmed floor.
+- Creates one issue or Log entry per worker report merely to aggregate status.
+
+### Nearby valid case
+
+The worker reports a repaired binary,
+but required validation has not completed and no accepted evidence shows that
+rehearsal execution resumed.
+
+- Keeps the last established execution position current.
+- Records the unresolved repair evidence and investigation action without
+  claiming that execution resumed.
+
 ## Promote accepted research
 
 ### Prompt
