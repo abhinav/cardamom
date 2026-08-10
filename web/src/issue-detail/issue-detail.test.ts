@@ -30,6 +30,7 @@ import {
   IssueSummarySchema,
   IssueType,
   SortDirection,
+  WaitingStateSchema,
 } from "../gen/cardamom/private/v1/issue_pb.ts";
 import {
   LogEntrySchema,
@@ -148,6 +149,41 @@ describe("issue detail presentation", () => {
         `<span class="metadata-chip issue-external-key">${longKey}</span>`,
     );
     expect(markup).not.toContain("Copy producer key");
+  });
+
+  it("shows why a waiting issue paused and when waiting began", () => {
+    const waitingMarkup = renderToStaticMarkup(
+      IssueHeader({
+        summary: create(IssueSummarySchema, {
+          id: "cm-waiting",
+          title: "Waiting task",
+          status: IssueStatus.WAITING,
+          waiting: create(WaitingStateSchema, {
+            reason: "root acceptance",
+            since: create(TimestampSchema, { seconds: 1_704_165_840n }),
+          }),
+        }),
+        externalKeys: [],
+      }),
+    );
+    const readyMarkup = renderToStaticMarkup(
+      IssueHeader({
+        summary: create(IssueSummarySchema, {
+          id: "cm-ready",
+          title: "Ready task",
+          status: IssueStatus.READY,
+        }),
+        externalKeys: [],
+      }),
+    );
+
+    expect(waitingMarkup).toContain("Waiting: root acceptance");
+    expect(waitingMarkup).toContain("Waiting since");
+    expect(waitingMarkup).toContain(
+      'dateTime="2024-01-02T03:24:00.000Z"',
+    );
+    expect(readyMarkup).not.toContain("Waiting:");
+    expect(readyMarkup).not.toContain("Waiting since");
   });
 
   it("renders summary and details from the renamed protocol shape", () => {

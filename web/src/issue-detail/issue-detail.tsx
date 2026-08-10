@@ -57,6 +57,7 @@ import { BoardScopeSchema } from "../gen/cardamom/private/v1/scope_pb.ts";
 import type { SourceRef } from "../gen/cardamom/private/v1/source_pb.ts";
 import { issueTypeLabel } from "../issue-collection.ts";
 import { IssueStatusBadge } from "../issue-status.tsx";
+import { IssueWaitingReason } from "../issue-waiting.tsx";
 import { IssueLabel, type SelectLabel } from "../issue-label.tsx";
 import {
   IssueReferencePill,
@@ -696,6 +697,7 @@ export function IssueHeader({
         <span className="metadata-chip">{issueTypeLabel(summary.type)}</span>
         <span className="metadata-chip">P{summary.priority}</span>
       </div>
+      <IssueWaitingReason issue={summary} mode="detail" />
     </header>
   );
 }

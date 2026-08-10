@@ -48,7 +48,7 @@ export function checkpointDecisionPresentation(
   if (issue.waiting !== undefined) {
     return {
       state: "waiting",
-      message: `Waiting for ${issue.waiting.reason}.`,
+      message: "This checkpoint is not actionable while it is waiting.",
     };
   }
   return { state: "ready" };

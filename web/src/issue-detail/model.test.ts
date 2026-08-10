@@ -170,7 +170,7 @@ describe("checkpointDecisionPresentation", () => {
     });
     expect(checkpointDecisionPresentation(waiting)).toEqual({
       state: "waiting",
-      message: "Waiting for vendor access.",
+      message: "This checkpoint is not actionable while it is waiting.",
     });
     expect(
       checkpointDecisionPresentation(
