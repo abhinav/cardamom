@@ -1,0 +1,89 @@
+at 2026-08-10T14:00:00Z
+
+mkdir project-show
+cd project-show
+exec card init --prefix root- --no-board
+exec card project create Secondary --prefix secondary-
+
+# A project with no boards can be inspected by stable ID without selecting a board.
+exec card --json project show project_11111111111111111111
+cmpjson stdout $WORK/golden/empty.json
+! exists .git/cardamom-board
+
+# Name selection returns project-scoped configuration and deterministically
+# ordered board summaries without adding a project filter to board list.
+exec card board create --project project_11111111111111111111 Zulu
+exec card board create --project project_11111111111111111111 Alpha
+exec card board create --project project_11111111111111111111 Alpha
+exec card --json project show Secondary
+cmpjson stdout $WORK/golden/populated.json
+exec card project show Secondary
+cmp stdout $WORK/golden/populated.txt
+! exists .git/cardamom-board
+
+# Duplicate exact names retain the existing selector ambiguity contract.
+exec card project create Secondary --prefix duplicate-
+! exec card project show Secondary
+! stdout .
+stderr 'project "Secondary" is ambiguous; use an ID'
+
+-- golden/empty.json --
+{
+  "id": "project_11111111111111111111",
+  "name": "Secondary",
+  "created": 1786370400,
+  "configuration": {
+    "issue": {
+      "id": {"prefix": "secondary-", "strategy": "random"},
+      "summary": {"max_bytes": 2048}
+    },
+    "attachment": {"max_bytes": 104857600}
+  },
+  "boards": []
+}
+-- golden/populated.json --
+{
+  "id": "project_11111111111111111111",
+  "name": "Secondary",
+  "created": 1786370400,
+  "configuration": {
+    "issue": {
+      "id": {"prefix": "secondary-", "strategy": "random"},
+      "summary": {"max_bytes": 2048}
+    },
+    "attachment": {"max_bytes": 104857600}
+  },
+  "boards": [
+    {
+      "id": "board_22222222222222222222",
+      "project_id": "project_11111111111111111111",
+      "name": "Alpha",
+      "created": 1786370400
+    },
+    {
+      "id": "board_33333333333333333333",
+      "project_id": "project_11111111111111111111",
+      "name": "Alpha",
+      "created": 1786370400
+    },
+    {
+      "id": "board_11111111111111111111",
+      "project_id": "project_11111111111111111111",
+      "name": "Zulu",
+      "created": 1786370400
+    }
+  ]
+}
+-- golden/populated.txt --
+ID:      project_11111111111111111111
+Name:    Secondary
+Created: 2026-08-10T14:00:00Z
+Configuration:
+  Issue ID prefix:      secondary-
+  Issue ID strategy:    random
+  Summary maximum:      2048 bytes
+  Attachment maximum:   104857600 bytes
+Boards:
+  board_22222222222222222222	Alpha
+  board_33333333333333333333	Alpha
+  board_11111111111111111111	Zulu

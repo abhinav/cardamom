@@ -123,6 +123,26 @@ type View struct {
 	Origins Origins
 }
 
+// ProjectView represents effective configuration at project scope.
+// It deliberately omits a board layer; Effective and Origins resolve only
+// built-in, store, and project precedence.
+type ProjectView struct {
+	// BuiltIn contains Cardamom's compiled defaults.
+	BuiltIn Configuration
+
+	// Store contains local physical-store overrides.
+	Store Layer
+
+	// Project contains logical project overrides.
+	Project Layer
+
+	// Effective contains the highest-precedence value for every field.
+	Effective Configuration
+
+	// Origins identifies the source of every effective field.
+	Origins Origins
+}
+
 // DatabaseLayers contains the project and board layers for one selected board.
 type DatabaseLayers struct {
 	// ProjectID identifies the selected board's project.
@@ -150,6 +170,10 @@ type Store interface {
 type Repository interface {
 	// ReadConfigurationLayers returns coherent project and board layers.
 	ReadConfigurationLayers(context.Context, board.ID) (DatabaseLayers, error)
+
+	// ReadProjectConfiguration returns one project's override layer without
+	// requiring the project to contain a board.
+	ReadProjectConfiguration(context.Context, project.ID) (Overrides, error)
 
 	// UpdateProjectConfiguration atomically applies one project patch.
 	UpdateProjectConfiguration(
@@ -237,6 +261,45 @@ func (s *Service) Resolve(ctx context.Context, boardID board.ID) (View, error) {
 	), nil
 }
 
+// ResolveProject rereads and resolves configuration through one project layer.
+// It does not select a board or introduce a board layer into the result.
+func (s *Service) ResolveProject(
+	ctx context.Context,
+	projectID project.ID,
+) (ProjectView, error) {
+	storeOverrides, err := s.store.ReadStoreConfiguration(ctx)
+	if err != nil {
+		return ProjectView{}, fmt.Errorf("read store configuration: %w", err)
+	}
+	projectOverrides, err := s.repository.ReadProjectConfiguration(ctx, projectID)
+	if err != nil {
+		return ProjectView{}, fmt.Errorf("read project configuration: %w", err)
+	}
+	if err := storeOverrides.Validate(); err != nil {
+		return ProjectView{}, fmt.Errorf("store configuration: %w", err)
+	}
+	if err := projectOverrides.Validate(); err != nil {
+		return ProjectView{}, fmt.Errorf("project configuration: %w", err)
+	}
+	builtIn := Defaults()
+	storeLayer := Layer{
+		Source:    Source{Scope: ScopeStore, Identity: s.storeID},
+		Overrides: storeOverrides,
+	}
+	projectLayer := Layer{
+		Source:    Source{Scope: ScopeProject, Identity: projectID.String()},
+		Overrides: projectOverrides,
+	}
+	effective, origins := resolveLayers(builtIn, storeLayer, projectLayer)
+	return ProjectView{
+		BuiltIn:   builtIn,
+		Store:     storeLayer,
+		Project:   projectLayer,
+		Effective: effective,
+		Origins:   origins,
+	}, nil
+}
+
 // ResolveConfiguration returns the fully resolved configuration for one board.
 func (s *Service) ResolveConfiguration(
 	ctx context.Context,
@@ -298,7 +361,6 @@ func resolve(
 	boardOverrides Overrides,
 ) View {
 	builtIn := Defaults()
-	builtInSource := Source{Scope: ScopeBuiltIn, Identity: "built-in"}
 	view := View{
 		BuiltIn: builtIn,
 		Store: Layer{
@@ -310,36 +372,54 @@ func resolve(
 		Board: Layer{
 			Source: Source{Scope: ScopeBoard, Identity: boardID.String()}, Overrides: boardOverrides,
 		},
-		Effective: builtIn,
-		Origins: Origins{
-			Issue: IssueOrigins{
-				ID:      IssueIDOrigins{Prefix: builtInSource, Strategy: builtInSource},
-				Summary: SummaryOrigins{MaxBytes: builtInSource},
-			},
-			Attachment: AttachmentOrigins{MaxBytes: builtInSource},
-		},
 	}
-	applyLayer(&view, view.Store)
-	applyLayer(&view, view.Project)
-	applyLayer(&view, view.Board)
+	view.Effective, view.Origins = resolveLayers(
+		builtIn, view.Store, view.Project, view.Board,
+	)
 	return view
 }
 
-func applyLayer(view *View, layer Layer) {
+// resolveLayers applies layers in the supplied precedence order.
+// Each later override replaces both the effective field and its recorded
+// origin, so callers must pass layers from least to most specific.
+func resolveLayers(
+	builtIn Configuration,
+	layers ...Layer,
+) (Configuration, Origins) {
+	builtInSource := Source{Scope: ScopeBuiltIn, Identity: "built-in"}
+	effective := builtIn
+	origins := Origins{
+		Issue: IssueOrigins{
+			ID:      IssueIDOrigins{Prefix: builtInSource, Strategy: builtInSource},
+			Summary: SummaryOrigins{MaxBytes: builtInSource},
+		},
+		Attachment: AttachmentOrigins{MaxBytes: builtInSource},
+	}
+	for _, layer := range layers {
+		applyLayer(&effective, &origins, layer)
+	}
+	return effective, origins
+}
+
+func applyLayer(
+	effective *Configuration,
+	origins *Origins,
+	layer Layer,
+) {
 	if value := layer.Overrides.Issue.ID.Prefix; value != nil {
-		view.Effective.Issue.ID.Prefix = *value
-		view.Origins.Issue.ID.Prefix = layer.Source
+		effective.Issue.ID.Prefix = *value
+		origins.Issue.ID.Prefix = layer.Source
 	}
 	if value := layer.Overrides.Issue.ID.Strategy; value != nil {
-		view.Effective.Issue.ID.Strategy = *value
-		view.Origins.Issue.ID.Strategy = layer.Source
+		effective.Issue.ID.Strategy = *value
+		origins.Issue.ID.Strategy = layer.Source
 	}
 	if value := layer.Overrides.Issue.Summary.MaxBytes; value != nil {
-		view.Effective.Issue.Summary.MaxBytes = *value
-		view.Origins.Issue.Summary.MaxBytes = layer.Source
+		effective.Issue.Summary.MaxBytes = *value
+		origins.Issue.Summary.MaxBytes = layer.Source
 	}
 	if value := layer.Overrides.Attachment.MaxBytes; value != nil {
-		view.Effective.Attachment.MaxBytes = *value
-		view.Origins.Attachment.MaxBytes = layer.Source
+		effective.Attachment.MaxBytes = *value
+		origins.Attachment.MaxBytes = layer.Source
 	}
 }

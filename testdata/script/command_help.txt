@@ -131,9 +131,10 @@ stdout 'board show'
 stdout 'board edit'
 
 exec card project --help
-stdout 'Create, edit, and list project namespaces'
+stdout 'Create, inspect, edit, and list project namespaces'
 stdout 'project list'
 stdout 'project create'
+stdout 'project show'
 stdout 'project edit'
 stdout 'without selecting or creating'
 stdout 'a board'
@@ -154,6 +155,12 @@ stdout 'ID. The replacement name is trimmed'
 stdout '--name=NAME'
 stdout 'Renaming does not change project identity, boards, configuration, or creation'
 stdout 'time.'
+
+exec card project show --help
+stdout 'Show one project namespace in the selected physical store'
+stdout 'PROJECT is a stable project ID or exact name. Duplicate exact names require an'
+stdout 'ID. The output includes effective configuration through the project layer'
+stdout 'every board owned by the project. No board selection is required.'
 
 exec card board create --help
 stdout 'Create one board in a project'

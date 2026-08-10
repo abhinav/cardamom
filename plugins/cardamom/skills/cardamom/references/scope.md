@@ -34,12 +34,16 @@ Inspect unresolved scope without changing it:
 
 ```bash
 card --actor <actor> --json project list
+card --actor <actor> --json project show <project-id>
 card --actor <actor> --json board list
 card --actor <actor> --board <board-id> --json board show
 card --actor <actor> --board <board-id> --json info
 ```
 
-`project list` and `board list` require a store but not a selected board.
+`project list`, `project show`, and `board list`
+require a store but not a selected board.
+Use `project show` when project configuration and its board inventory
+must be inspected together.
 `info` describes the effective store, project, board, schema, and configuration
 after a board is selected.
 

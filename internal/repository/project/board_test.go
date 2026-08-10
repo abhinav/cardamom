@@ -260,6 +260,7 @@ func TestRepository_ListAllBoards_stableProjectNameIdentityOrder(t *testing.T) {
 		}},
 	})
 	insertProject(t, persistence, "project-b", "Second project")
+	insertProject(t, persistence, "project-c", "Empty project")
 	repository := New(persistence, Config{
 		Clock: fixedClock{now: time.Unix(30, 0).UTC()},
 		IDSource: &sequenceIDs{steps: []idStep{
@@ -294,6 +295,54 @@ func TestRepository_ListAllBoards_stableProjectNameIdentityOrder(t *testing.T) {
 	}, []boardpkg.ID{
 		boards[0].ID(), boards[1].ID(), boards[2].ID(), boards[3].ID(),
 	})
+}
+
+func TestRepository_ListProjectBoards_scopesAndOrdersByNameThenIdentity(t *testing.T) {
+	persistence, err := store.Open(t.Context(), store.Config{Path: t.TempDir() + "/board.sqlite3"})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+	namespace := initializeProjectCatalog(t, persistence, new("Zulu"), Config{
+		Clock: fixedClock{now: time.Unix(10, 0).UTC()},
+		IDSource: &sequenceIDs{steps: []idStep{
+			{value: "project-a"},
+			{value: "board-a-zulu"},
+		}},
+	})
+	insertProject(t, persistence, "project-b", "Second project")
+	repository := New(persistence, Config{
+		Clock: fixedClock{now: time.Unix(30, 0).UTC()},
+		IDSource: &sequenceIDs{steps: []idStep{
+			{value: "board-a-alpha-b"},
+			{value: "board-a-alpha-a"},
+			{value: "board-b-alpha"},
+		}},
+	})
+	for _, request := range []boardpkg.CreateRequest{
+		{ProjectID: namespace.Project.ID().String(), Name: "Alpha"},
+		{ProjectID: namespace.Project.ID().String(), Name: "Alpha"},
+		{ProjectID: "project-b", Name: "Alpha"},
+	} {
+		_, err := boardpkg.NewService(repository, repository).Create(
+			t.Context(), boardpkg.NewInvocation(""), request,
+		)
+		require.NoError(t, err)
+	}
+
+	boards, err := repository.ListProjectBoards(t.Context(), namespace.Project.ID())
+	require.NoError(t, err)
+
+	require.Len(t, boards, 3)
+	assert.Equal(t, []boardpkg.ID{
+		mustBoardID(t, "board-a-alpha-a"),
+		mustBoardID(t, "board-a-alpha-b"),
+		mustBoardID(t, "board-a-zulu"),
+	}, []boardpkg.ID{boards[0].ID(), boards[1].ID(), boards[2].ID()})
+
+	empty, err := repository.ListProjectBoards(
+		t.Context(), mustProjectID(t, "project-c"),
+	)
+	require.NoError(t, err)
+	assert.Empty(t, empty)
 }
 
 func TestRepository_CreateBoard_persistsDescription(t *testing.T) {

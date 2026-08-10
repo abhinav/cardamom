@@ -70,6 +70,35 @@ func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 	assert.Equal(t, ScopeStore, resolved.Origins.Issue.ID.Prefix.Scope)
 }
 
+func TestService_ResolveProject_stopsAtProjectLayer(t *testing.T) {
+	storePrefix := mustPrefix(t, "store-")
+	projectPrefix := mustPrefix(t, "project-")
+	projectStrategy := IDStrategySequential
+	storeOverrides := Overrides{Issue: IssueOverrides{
+		ID: IssueIDOverrides{Prefix: &storePrefix},
+	}}
+	projectOverrides := Overrides{Issue: IssueOverrides{ID: IssueIDOverrides{
+		Prefix: &projectPrefix, Strategy: &projectStrategy,
+	}}}
+	store := NewMockStore(gomock.NewController(t))
+	store.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(storeOverrides, nil)
+	repository := NewMockRepository(gomock.NewController(t))
+	projectID := mustProjectID(t, "project-test")
+	repository.EXPECT().ReadProjectConfiguration(gomock.Any(), projectID).Return(projectOverrides, nil)
+	service := NewService(store, repository)
+	service.SetStoreIdentity("/stores/test")
+
+	resolved, err := service.ResolveProject(t.Context(), projectID)
+	require.NoError(t, err)
+
+	assert.Equal(t, projectPrefix, resolved.Effective.Issue.ID.Prefix)
+	assert.Equal(t, IDStrategySequential, resolved.Effective.Issue.ID.Strategy)
+	assert.Equal(t, ScopeProject, resolved.Origins.Issue.ID.Prefix.Scope)
+	assert.Equal(t, ScopeProject, resolved.Origins.Issue.ID.Strategy.Scope)
+	assert.Equal(t, "/stores/test", resolved.Store.Source.Identity)
+	assert.Equal(t, "project-test", resolved.Project.Source.Identity)
+}
+
 func TestDefaults(t *testing.T) {
 	assert.Equal(t, "cm-", Defaults().Issue.ID.Prefix.String())
 	assert.Equal(t, IDStrategyRandom, Defaults().Issue.ID.Strategy)

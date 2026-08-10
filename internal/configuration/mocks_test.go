@@ -182,6 +182,45 @@ func (c *MockRepositoryReadConfigurationLayersCall) DoAndReturn(f func(context.C
 	return c
 }
 
+// ReadProjectConfiguration mocks base method.
+func (m *MockRepository) ReadProjectConfiguration(arg0 context.Context, arg1 project.ID) (Overrides, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadProjectConfiguration", arg0, arg1)
+	ret0, _ := ret[0].(Overrides)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadProjectConfiguration indicates an expected call of ReadProjectConfiguration.
+func (mr *MockRepositoryMockRecorder) ReadProjectConfiguration(arg0, arg1 any) *MockRepositoryReadProjectConfigurationCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadProjectConfiguration", reflect.TypeOf((*MockRepository)(nil).ReadProjectConfiguration), arg0, arg1)
+	return &MockRepositoryReadProjectConfigurationCall{Call: call}
+}
+
+// MockRepositoryReadProjectConfigurationCall wrap *gomock.Call
+type MockRepositoryReadProjectConfigurationCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockRepositoryReadProjectConfigurationCall) Return(arg0 Overrides, arg1 error) *MockRepositoryReadProjectConfigurationCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockRepositoryReadProjectConfigurationCall) Do(f func(context.Context, project.ID) (Overrides, error)) *MockRepositoryReadProjectConfigurationCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockRepositoryReadProjectConfigurationCall) DoAndReturn(f func(context.Context, project.ID) (Overrides, error)) *MockRepositoryReadProjectConfigurationCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // UpdateBoardConfiguration mocks base method.
 func (m *MockRepository) UpdateBoardConfiguration(arg0 context.Context, arg1 board.ID, arg2 Patch) (Overrides, error) {
 	m.ctrl.T.Helper()

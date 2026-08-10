@@ -12,6 +12,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board/selection"
 	"go.abhg.dev/cardamom/internal/project"
 	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
+	projectinspection "go.abhg.dev/cardamom/internal/project/inspection"
 	"go.abhg.dev/komplete"
 )
 
@@ -223,7 +224,71 @@ func writeInitResult(output *Output, result InitResult) error {
 type projectCommand struct {
 	List   projectListCommand   `cmd:"" help:"List project namespaces."`
 	Create projectCreateCommand `cmd:"" help:"Create a project namespace."`
+	Show   projectShowCommand   `cmd:"" help:"Show a project namespace and its boards."`
 	Edit   projectEditCommand   `cmd:"" help:"Edit a project namespace."`
+}
+
+// projectShowCommand requires one project selector and never consults ambient
+// board selection. The inspection itself owns project-scoped reads.
+type projectShowCommand struct {
+	Selector string `arg:"" name:"project" predictor:"projects" help:"Stable project ID or exact name."`
+}
+
+// Help explains project selection and the project-scoped read model.
+func (*projectShowCommand) Help() string {
+	return `Show one project namespace in the selected physical store.
+
+PROJECT is a stable project ID or exact name. Duplicate exact names require an
+ID. The output includes effective configuration through the project layer and
+every board owned by the project. No board selection is required.`
+}
+
+// Run resolves and renders one project-scoped inspection.
+func (c *projectShowCommand) Run(
+	invocation *Invocation,
+	inspector *projectinspection.Service,
+) error {
+	selector, err := project.NewSelector(c.Selector)
+	if err != nil {
+		return err
+	}
+	detail, err := inspector.Show(invocation.Context, selector)
+	if err != nil {
+		return err
+	}
+	record := newProjectDetailOut(detail)
+	if invocation.Output.JSON() {
+		return invocation.Output.WriteJSON(record)
+	}
+	if err := invocation.Output.WriteString(fmt.Sprintf(
+		"ID:      %s\nName:    %s\nCreated: %s\n"+
+			"Configuration:\n"+
+			"  Issue ID prefix:      %s\n"+
+			"  Issue ID strategy:    %s\n"+
+			"  Summary maximum:      %d bytes\n"+
+			"  Attachment maximum:   %d bytes\n"+
+			"Boards:\n",
+		record.ID,
+		record.Name,
+		detail.Project.Created().Format(time.RFC3339),
+		record.Configuration.Issue.ID.Prefix,
+		record.Configuration.Issue.ID.Strategy,
+		record.Configuration.Issue.Summary.MaxBytes,
+		record.Configuration.Attachment.MaxBytes,
+	)); err != nil {
+		return err
+	}
+	if len(record.Boards) == 0 {
+		return invocation.Output.WriteString("  (none)\n")
+	}
+	for _, board := range record.Boards {
+		if err := invocation.Output.WriteString(fmt.Sprintf(
+			"  %s\t%s\n", board.ID, board.Name,
+		)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // projectEditCommand requires one project selector and replacement name.
@@ -363,6 +428,42 @@ type projectSummaryOut struct {
 func newProjectSummaryOut(state *project.State) projectSummaryOut {
 	return projectSummaryOut{
 		ID: state.ID().String(), Name: state.Name(), Created: state.Created().Unix(),
+	}
+}
+
+// projectDetailOut is the stable structured representation of one project
+// inspection. Configuration is effective only through the project layer.
+type projectDetailOut struct {
+	projectSummaryOut
+	Configuration InfoConfiguration `json:"configuration"`
+	Boards        []boardSummaryOut `json:"boards"`
+}
+
+// newProjectDetailOut translates domain configuration and board state into the
+// single stable JSON object shared by JSON and human renderers.
+func newProjectDetailOut(detail projectinspection.Detail) projectDetailOut {
+	effective := detail.Configuration.Effective
+	boards := make([]boardSummaryOut, 0, len(detail.Boards))
+	for _, board := range detail.Boards {
+		boards = append(boards, newBoardSummaryOut(board))
+	}
+	return projectDetailOut{
+		projectSummaryOut: newProjectSummaryOut(detail.Project),
+		Configuration: InfoConfiguration{
+			Issue: InfoIssueConfiguration{
+				ID: InfoIssueIDConfiguration{
+					Prefix:   effective.Issue.ID.Prefix.String(),
+					Strategy: effective.Issue.ID.Strategy.String(),
+				},
+				Summary: InfoSummaryConfiguration{
+					MaxBytes: effective.Issue.Summary.MaxBytes.Uint64(),
+				},
+			},
+			Attachment: InfoAttachmentConfiguration{
+				MaxBytes: effective.Attachment.MaxBytes.Uint64(),
+			},
+		},
+		Boards: boards,
 	}
 }
 

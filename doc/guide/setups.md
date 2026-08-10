@@ -79,6 +79,17 @@ card --actor coordinator --json project create \
 ```
 
 `project create` returns the new project ID.
+Inspect the project before creating or selecting a board:
+
+```bash
+card --actor coordinator --json project show <project-id>
+```
+
+`project show` reports the project metadata,
+effective configuration through the project layer,
+and the project's boards in stable order.
+It does not require or change board selection.
+
 Use that ID when creating the project's first board:
 
 ```bash
