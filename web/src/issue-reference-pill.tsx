@@ -6,12 +6,14 @@ import { ClipboardPill } from "./clipboard-pill.tsx";
 import type {
   IssueStatus,
   IssueType,
+  WaitingState,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import { issueTypeLabel } from "./issue-collection.ts";
 import {
   IssueStatusDot,
   issueStatusPresentation,
 } from "./issue-status.tsx";
+import { IssueWaitingReason } from "./issue-waiting.tsx";
 
 import "./issue-reference-pill.css";
 
@@ -28,6 +30,9 @@ export interface IssueReferencePreview {
 
   /** priority is the issue's domain ordering priority. */
   priority: number;
+
+  /** waiting records why and when the issue entered waiting. */
+  waiting?: WaitingState;
 }
 
 /** LoadIssueReferencePreview obtains one issue preview through the shared cache. */
@@ -153,6 +158,7 @@ export function IssueReferencePill({
             <span>{issueTypeLabel(preview.type)}</span>
             <span>P{preview.priority}</span>
           </span>
+          <IssueWaitingReason issue={preview} />
         </span>,
         visible,
       )}

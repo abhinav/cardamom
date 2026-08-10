@@ -1572,12 +1572,51 @@ button:disabled {
 }
 
 .issue-metadata {
+  min-width: 0;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.3rem 0.45rem;
   color: var(--muted);
   font-size: 0.68rem;
+}
+
+.issue-waiting-reason-compact {
+  display: block;
+  min-width: 0;
+  max-width: 100%;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.68rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.issue-metadata .issue-waiting-reason-compact {
+  flex: 1 1 100%;
+}
+
+.issue-title-cell .issue-waiting-reason-compact {
+  margin-top: 0.2rem;
+}
+
+.issue-waiting-reason-detail {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.3rem 0.75rem;
+  margin-top: 0.75rem;
+  overflow-wrap: anywhere;
+}
+
+.issue-waiting-reason-detail strong {
+  font-size: 0.85rem;
+}
+
+.issue-waiting-since {
+  color: var(--muted);
+  font-size: 0.75rem;
 }
 
 .issue-updated {
@@ -1985,6 +2024,7 @@ button:disabled {
   .issue-records li {
     min-width: 0;
     display: grid;
+    grid-template-columns: minmax(0, 1fr);
     gap: 0.5rem;
     padding: 0.7rem;
     border-bottom: 1px solid var(--border);

@@ -1,4 +1,5 @@
 import { create } from "@bufbuild/protobuf";
+import { TimestampSchema } from "@bufbuild/protobuf/wkt";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MemoryRouter } from "react-router";
@@ -8,10 +9,11 @@ import {
   IssueStatus,
   IssueType,
   ListIssuesRequestSchema,
+  WaitingStateSchema,
   type IssueSummary,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import type { IssuePageStream } from "./issue-pages.ts";
-import { formatIssueTime, KanbanBoard } from "./issue-views.tsx";
+import { formatIssueTime, IssueList, KanbanBoard } from "./issue-views.tsx";
 
 describe("issue time presentation", () => {
   it("includes time of day from the most recent issue timestamp", () => {
@@ -158,6 +160,53 @@ describe("kanban board", () => {
     expect(markup).toContain("No issues here.");
     expect(markup).not.toContain("Create");
   });
+
+  it("shows a waiting reason only on the waiting issue card", () => {
+    const waiting = issueWithStatus("cm-waiting", IssueStatus.WAITING);
+    waiting.waiting = create(WaitingStateSchema, {
+      reason: "root acceptance",
+      since: create(TimestampSchema, { seconds: 1_704_165_840n }),
+    });
+    const markup = renderKanban({
+      boards: [],
+      grouping: "status",
+      streams: [
+        pageStream("current", "Current", [
+          waiting,
+          issueWithStatus("cm-ready", IssueStatus.READY),
+        ]),
+      ],
+      loadMore: vi.fn(),
+      selectLabel: vi.fn(),
+      showBoard: false,
+    });
+
+    const cards = markup.match(/<article class="issue-card".*?<\/article>/g);
+    expect(cards).toHaveLength(2);
+    expect(cards?.[0]).toContain("Waiting: root acceptance");
+    expect(cards?.[1]).not.toContain("Waiting:");
+  });
+});
+
+describe("issue list", () => {
+  it("shows a waiting reason in the desktop row and mobile record only when waiting", () => {
+    const waiting = issueWithStatus("cm-waiting", IssueStatus.WAITING);
+    waiting.waiting = create(WaitingStateSchema, {
+      reason: "root acceptance",
+      since: create(TimestampSchema, { seconds: 1_704_165_840n }),
+    });
+    const waitingMarkup = renderIssueList([waiting]);
+    const [waitingTable, waitingMobile] = waitingMarkup.split(
+      '<ul class="issue-records">',
+    );
+    const readyMarkup = renderIssueList([
+      issueWithStatus("cm-ready", IssueStatus.READY),
+    ]);
+
+    expect(waitingTable).toContain("Waiting: root acceptance");
+    expect(waitingMobile).toContain("Waiting: root acceptance");
+    expect(readyMarkup).not.toContain("Waiting:");
+  });
 });
 
 function renderKanban(
@@ -168,6 +217,24 @@ function renderKanban(
       MemoryRouter,
       null,
       createElement(KanbanBoard, props),
+    ),
+  );
+}
+
+function renderIssueList(issues: readonly IssueSummary[]): string {
+  return renderToStaticMarkup(
+    createElement(
+      MemoryRouter,
+      null,
+      createElement(IssueList, {
+        boards: [],
+        projects: [],
+        stream: pageStream("all", "All", issues),
+        loadMore: vi.fn(),
+        selectLabel: vi.fn(),
+        showBoard: false,
+        scope: { kind: "board", boardId: "board-1" },
+      }),
     ),
   );
 }

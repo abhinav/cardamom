@@ -37,6 +37,7 @@ import {
 } from "./issue-collection.ts";
 import { IssueLabel, type SelectLabel } from "./issue-label.tsx";
 import { IssueStatusBadge } from "./issue-status.tsx";
+import { IssueWaitingReason } from "./issue-waiting.tsx";
 import { issueIdentity, visibleIssueProvenance } from "./provenance.ts";
 import {
   buildIssueStreams,
@@ -648,7 +649,7 @@ function IssueCard({
   );
 }
 
-function IssueList({
+export function IssueList({
   boards,
   projects,
   stream,
@@ -701,6 +702,7 @@ function IssueList({
                   <Link to={issuePath(issue.boardId, issue.id)}>
                     {issue.title}
                   </Link>
+                  <IssueWaitingReason issue={issue} />
                   {issue.labels.length > 0 && (
                     <span className="table-labels">
                       {issue.labels.map((label) => (
@@ -856,6 +858,7 @@ function IssueMetadata({
       {issue.labels.map((label) => (
         <IssueLabel key={label} label={label} select={selectLabel} />
       ))}
+      <IssueWaitingReason issue={issue} />
     </div>
   );
 }
