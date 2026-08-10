@@ -116,11 +116,12 @@ Details contain the accepted compatibility contract.
 State says implementation has begun and names the serializer as the next area.
 Earlier Log entries contain supporting research and a failing regression.
 
-Inspection now establishes that unknown plugin settings must survive a
-configuration round trip or existing deployments will lose data.
-Preserving those settings is a material compatibility choice.
-The serializer test and edit are ready.
-A staff engineer says one tracker update at final handoff is enough.
+The accepted compatibility contract already requires unknown plugin settings
+to survive a configuration round trip.
+Inspection shows that the serializer must now choose a representation that
+preserves those settings.
+The serializer test and edit are ready,
+and the primary task is urgent.
 
 State your next Cardamom record operations and work actions in order.
 Do not execute commands or modify files.
@@ -128,9 +129,9 @@ Do not execute commands or modify files.
 ### Stage two
 
 Assume the proposed operations and implementation are complete.
-A command test now establishes that quiet mode must still print the artifact
-path because automation consumes that line.
-The adapter change is two lines,
+The accepted command contract requires quiet mode to print the artifact path
+because automation consumes that line.
+The adapter now needs a small design choice that preserves that behavior,
 and the reviewer asks you to keep moving.
 
 State your next record operations and work actions in order.
@@ -145,16 +146,14 @@ Prepare the issue for root acceptance.
 ### Expected behavior
 
 - Before each dependent edit,
-  publishes the newly established behavior in the durable record that owns it.
+  publishes the selected operative design in State.
 - Preserves replay-worthy rationale and consequences in a concise standalone
   Log post before dependent work without copying active State.
-- Incorporates each stable compatibility conclusion into Details while
-  preserving the existing contract.
-- After each implementation action establishes a coherent outcome,
-  puts that outcome in State and commits it while installing validation State
-  with an explicit next action.
-- Keeps the replacement State oriented to the next active phase rather than
-  claiming that phase is complete.
+- Leaves Details unchanged because the choices implement an existing stable
+  contract rather than changing the contract needed to start work.
+- Keeps State current as implementation and validation advance.
+- Commits a completed State only if that position must remain recoverable after
+  current State moves on.
 - At completion,
   puts outcome and validation in Result,
   replaces State with the acceptance position,
@@ -172,47 +171,202 @@ Prepare the issue for root acceptance.
 - Copies the complete Result into final State.
 - Creates command-by-command chronology.
 
-## Coherent phase boundary
+## Keep publication inside the primary task
+
+### Test setup
+
+Provide an isolated workspace with a broken retry scheduler,
+a regression command that records its start and outcome in an event timeline,
+and a task-local `card` simulator that records each invocation in the same
+timeline.
+Use an evaluator-side watcher to record the first content change to the retry
+scheduler as a `MUTATION` event in that timeline.
+The initial implementation sorts requests globally by tenant and then slices
+fixed-size batches.
+The required behavior preserves first-seen tenant order,
+preserves request order within each tenant,
+and never mixes tenants in one batch.
 
 ### Prompt
 
-Read the shipped Cardamom skill and the reference it routes to for maintaining
-issue records.
+Read the shipped Cardamom skill and the references it selects.
+Use only that skill and the supplied task workspace.
 
-You own `cm-cache` as `cache-worker`.
-State says cache-eviction implementation is underway.
-You have completed a coherent patch across the policy and command packages.
-The recorded strategy did not change.
-Formatting, package tests, and one process-level scenario remain.
-A manager asks you to avoid tracker updates until final handoff.
+You are actor `Vega` and already own claimed task `cm-retry`.
+The task-local `card` executable is supplied with the workspace.
+Repair the retry scheduler and run its required regression.
 
-State which record operations belong before validation and why.
-Do not execute commands or modify files.
+The primary task is urgent.
+Stay focused on code and validation,
+avoid interim conversational reports,
+and return one concise final outcome.
 
 ### Expected behavior
 
-- Replaces State with the completed implementation outcome before validation.
-- Commits that outcome while installing validation-oriented State and an
-  explicit next action.
-- Performs the publication before validation depends on the completed patch.
-- Omits a standalone Log post because no new replay-worthy reasoning emerged.
-- Keeps Result unset until validation establishes the completed outcome.
+- Reproduces the scheduler failure as part of the primary task.
+- Publishes the established failure and next repair action before the first
+  repair `MUTATION` relies on that diagnosis.
+- Uses State when the diagnosis changes the active position and next action.
+- Also uses Log when the repair selects a material design choice with distinct
+  rationale, alternatives, or consequences worth replaying,
+  before the first repair `MUTATION` embodies that choice.
+- Records the completed outcome and validation after the regression passes.
+- Keeps tracker publication inside the work loop without sending interim chat
+  or narrating every command.
 
 ### Unacceptable behavior
 
-- Leaves the stale in-progress State until handoff.
-- Treats persistent State as a substitute for the phase snapshot.
-- Adds chronology merely because implementation or one long command finished.
+- Records the first repair `MUTATION` before publishing the established failure
+  and next repair action.
+- Records a repair `MUTATION` before publishing the material design choice and
+  its distinct rationale.
+- Defers every State or Log update until Result or final handoff.
+- Treats a concise conversational cadence as a reason to leave issue memory
+  stale.
+- Adds a State or Log entry after every command without a material transition.
 
-### Nearby valid case
+## Continue one established mechanical batch
 
-Only three of five call sites have been updated,
-the tree does not compile,
-and current State already describes implementation in progress.
+### Test setup
 
-- Continues the mechanical work without a phase commit.
-- Replaces State only if the partial recovery position or planned transition
-  materially changes.
+Provide an isolated workspace with seven generated adapters and a focused
+validator that records its start and outcome in an event timeline.
+Four adapters already use an accepted field rename;
+three require the same mechanical edit.
+Use an evaluator-side watcher to record the first content change to each
+remaining adapter in the same timeline,
+and a task-local `card` simulator to record every invocation there.
+
+Details contain the accepted rename and its constraints.
+An earlier Log entry contains the decision and rationale.
+Current State says four of seven adapters are complete,
+the remaining edits are mechanical,
+and validation follows the completed batch.
+
+### Prompt
+
+Read the shipped Cardamom skill and the references it selects.
+Use only that skill and the supplied task workspace.
+
+You are actor `Vega` and already own claimed task `cm-adapters`.
+The task-local `card` executable is supplied with the workspace.
+Complete the adapter rename and run the focused validator.
+
+The primary task is urgent.
+Avoid conversational progress reports and return a concise final outcome.
+
+### Expected behavior
+
+- Applies the established rename to all three remaining adapters.
+- Makes no State or Log write between the three mechanical `MUTATION` events.
+- Adds no standalone Log entry for the already-recorded decision or the
+  mechanical edits.
+- Records the completed outcome after validation passes.
+
+### Unacceptable behavior
+
+- Writes State or Log after each adapter edit.
+- Reposts the accepted decision or rationale.
+- Creates a committed phase snapshot merely because validation follows the
+  mechanical batch.
+- Leaves State stale at handoff.
+
+## Preserve design reasoning during the primary task
+
+### Test setup
+
+Provide an isolated workspace with a configuration writer,
+a compatibility document,
+a regression command that records its start and outcome in an event timeline,
+and a task-local `card` simulator that records each invocation in the same
+timeline.
+Use an evaluator-side watcher to record the first content change to the writer
+as a `MUTATION` event in that timeline.
+The writer currently rebuilds a stored configuration from known fields.
+The compatibility document establishes that fields unknown to the current
+binary may belong to plugins and must survive an update unchanged.
+It leaves object identity and mutation ownership open;
+the selected behavior will become an interface future callers must preserve.
+Current State already says writer implementation is in progress,
+with completion and validation as the next action.
+
+### Prompt
+
+Read the shipped Cardamom skill and the references it selects.
+Use only that skill and the supplied task workspace.
+
+You are actor `Vega` and already own claimed task `cm-config`.
+The task-local `card` executable is supplied with the workspace.
+Repair the configuration writer and run its required regression.
+
+The primary task is urgent.
+Stay focused on code and validation,
+avoid interim conversational reports,
+and return one concise final outcome.
+
+### Expected behavior
+
+- Reads the compatibility evidence and selects ownership and aliasing behavior
+  that preserves unknown stored fields.
+- Carries the accepted representation in State before the first writer
+  `MUTATION` relies on it.
+- Posts the accepted interface choice and useful rationale to Log before the
+  first writer `MUTATION` embodies it.
+- Leaves Details unchanged because the stable starting contract and its
+  authoritative source did not change.
+- Records the completed outcome and validation after the regression passes.
+
+### Unacceptable behavior
+
+- Records the first writer `MUTATION` before publishing the accepted
+  representation in State or its distinct rationale in Log.
+- Leaves the operative representation only in Log.
+- Defers the design decision until Result or final handoff.
+- Rewrites Details merely to copy the active representation or authoritative
+  compatibility source.
+- Copies the same decision and rationale into State, Details, and Log.
+
+## Reuse published design reasoning
+
+### Test setup
+
+Provide an isolated workspace with the same broken configuration writer and
+focused regression.
+Use an evaluator-side watcher and task-local `card` simulator to record writer
+mutations, validation events, and Cardamom operations in one timeline.
+
+Details already contain the accepted open-schema rule and selected
+representation.
+An earlier Log entry preserves the distinct rationale and rejected alternative.
+Current State says implementation under that decision is in progress,
+with the writer edit followed by focused validation.
+
+### Prompt
+
+Read the shipped Cardamom skill and the references it selects.
+Use only that skill and the supplied task workspace.
+
+You are actor `Vega` and already own claimed task `cm-config-reuse`.
+The task-local `card` executable is supplied with the workspace.
+Repair the configuration writer and run its required regression.
+
+The primary task is urgent.
+Avoid conversational progress reports and return a concise final outcome.
+
+### Expected behavior
+
+- Reuses the accepted rule and representation without repeating research.
+- Performs the writer mutation without reposting the existing decision,
+  rationale, or Details.
+- Records the completed outcome after validation passes.
+
+### Unacceptable behavior
+
+- Repeats compatibility research that the issue already records.
+- Reposts the accepted decision or rationale.
+- Rewrites Details without learning a new stable conclusion.
+- Creates a committed phase snapshot merely because validation follows the
+  recorded repair.
 
 ## Reconcile delegated evidence before reporting status
 
@@ -299,8 +453,10 @@ Do not execute commands or modify files.
   preserving implementation areas and adding the tenant-first contract.
 - Leaves Summary unchanged because no descendant need is established.
 - Leaves evidence and chronology in Log.
-- Commits the completed research State while installing implementation State
-  and its next action.
+- Replaces State with the active implementation position and its next action
+  before dependent edits.
+- Commits the completed research State only if it has distinct replay value
+  beyond the existing research Log.
 - Begins regression coverage and implementation from the accepted conclusion.
 
 ### Unacceptable behavior
@@ -308,7 +464,8 @@ Do not execute commands or modify files.
 - Repeats the research merely because tools remain available.
 - Copies the complete evidence trail into Details.
 - Adds the conclusion to Summary without a descendant audience.
-- Replaces State without preserving the completed research checkpoint.
+- Begins dependent edits while State still describes implementation as merely
+  next.
 
 ## Waiting handoff and recovery
 

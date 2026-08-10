@@ -52,8 +52,11 @@ work.
 Inspect ancestor Details, terminal descendant outcomes,
 or earlier Results when their deeper context affects continuation.
 
-After recovering a stable conclusion from history,
-promote it into Details when future execution should not need the same replay.
+After recovery,
+replace Details only when a conclusion changes the stable issue-local contract
+needed to start work.
+Keep a conclusion needed only to continue active work in State;
+Log retains the expanded history.
 Replace State when recovered evidence changes the active position or next
 action.
 Treat an unset Result as an observed absence;
