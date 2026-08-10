@@ -131,9 +131,10 @@ stdout 'board show'
 stdout 'board edit'
 
 exec card project --help
-stdout 'Create and list project namespaces'
+stdout 'Create, edit, and list project namespaces'
 stdout 'project list'
 stdout 'project create'
+stdout 'project edit'
 stdout 'without selecting or creating'
 stdout 'a board'
 
@@ -145,6 +146,14 @@ stdout '--prefix=PREFIX'
 stdout 'inherits an active store prefix'
 stdout 'persists a prefix inferred'
 stdout 'does not create or select a board'
+
+exec card project edit --help
+stdout 'Edit one project namespace'
+stdout 'PROJECT is a stable project ID or exact name. Duplicate exact names require an'
+stdout 'ID. The replacement name is trimmed'
+stdout '--name=NAME'
+stdout 'Renaming does not change project identity, boards, configuration, or creation'
+stdout 'time.'
 
 exec card board create --help
 stdout 'Create one board in a project'

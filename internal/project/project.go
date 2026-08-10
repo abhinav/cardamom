@@ -1,5 +1,12 @@
-// Package project owns project identity, state, selection, and fresh setup
-// contracts.
+// Package project owns project namespace identity, validated state,
+// catalog selection, and name-edit contracts within one Cardamom store.
+//
+// State values are immutable snapshots. EditName returns a new validated State
+// while preserving stable identity and creation time. Service resolves
+// selectors against a project catalog and delegates ID-addressed mutations to
+// repository implementations, which own persistence and revision publication.
+// StoreInitializer defines the fresh-store handoff that establishes the first
+// project and its optional board.
 package project
 
 import (
@@ -59,8 +66,9 @@ type Snapshot struct {
 	Created time.Time
 }
 
-// State identifies a repository or product whose boards share a store.
-// State has identity and must be passed and returned by pointer.
+// State is an immutable snapshot of a project namespace whose boards share a
+// store. State has identity and must be passed and returned by pointer;
+// transformations return a new State rather than changing the receiver.
 type State struct {
 	// id is the project identity established for the lifetime of this state.
 	id ID
@@ -95,3 +103,10 @@ func (p *State) Name() string { return p.name }
 
 // Created returns when the project was established.
 func (p *State) Created() time.Time { return p.created }
+
+// EditName returns a new State with name trimmed of surrounding whitespace.
+// It preserves the project identity and creation time. A blank name returns an
+// InvalidInput error, and every failure leaves the receiver unchanged.
+func (p *State) EditName(name string) (*State, error) {
+	return Load(Snapshot{ID: p.id, Name: name, Created: p.created})
+}

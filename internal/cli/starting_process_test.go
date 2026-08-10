@@ -130,7 +130,7 @@ func TestBoardCommandsDelegateNamespaceRulesAndRenderResults(t *testing.T) {
 	binding := &fakeBoardBinding{selected: secondary.ID()}
 	boards := board.NewService(catalog, catalog)
 	resolver := selection.NewResolver(boards, binding, fakeIssueBoardLocator{})
-	projects := project.NewService(catalog)
+	projects := project.NewService(catalog, catalog)
 
 	t.Run("ListJSONLines", func(t *testing.T) {
 		var stdout, stderr bytes.Buffer
@@ -596,6 +596,24 @@ type fakeProjectCatalog struct {
 
 func (f *fakeProjectCatalog) ListProjects(context.Context) ([]*project.State, error) {
 	return f.projects, nil
+}
+
+func (f *fakeProjectCatalog) EditProjectName(
+	_ context.Context,
+	request project.EditNameRequest,
+) (*project.State, error) {
+	for index, state := range f.projects {
+		if state.ID() != request.ProjectID {
+			continue
+		}
+		edited, err := state.EditName(request.Name)
+		if err != nil {
+			return nil, err
+		}
+		f.projects[index] = edited
+		return edited, nil
+	}
+	return nil, errkind.Errorf(errkind.NotFound, "project not found")
 }
 
 func (f *fakeProjectCatalog) ListAllBoards(context.Context) ([]*board.State, error) {

@@ -1,0 +1,52 @@
+at 2026-08-10T12:00:00Z
+
+mkdir project-edit
+cd project-edit
+exec card init --prefix root- --board-name 'Root board'
+exec card project create Secondary --prefix secondary-
+exec card --json board create --project project_11111111111111111111 'Secondary board'
+
+# Name selection returns the authoritative committed project state.
+exec card --json project edit Secondary --name 'Renamed project'
+cmpjson stdout $WORK/golden/renamed-project.json
+
+# The rename preserves board membership and project issue configuration.
+exec card --json board list
+cmp stdout $WORK/golden/boards.jsonl
+exec card --board board_11111111111111111111 create 'Configured issue'
+cmp stdout $WORK/golden/configured-issue.txt
+
+# Stable identity selection supports human output, and a repeated edit is a no-op.
+exec card project edit project_11111111111111111111 --name 'Final project'
+cmp stdout $WORK/golden/final-project.txt
+exec card --json project edit project_11111111111111111111 --name 'Final project'
+cmpjson stdout $WORK/golden/final-project.json
+
+# Invalid input leaves the committed project unchanged.
+! exec card project edit project_11111111111111111111 --name ' '
+! stdout .
+stderr 'project name required'
+exec card --json project edit project_11111111111111111111 --name 'Final project'
+cmpjson stdout $WORK/golden/final-project.json
+
+# Duplicate names remain valid, while selecting an ambiguous name requires an ID.
+exec card project create 'Final project'
+! exec card project edit 'Final project' --name Ambiguous
+! stdout .
+stderr 'project "Final project" is ambiguous; use an ID'
+exec card --json project edit project_22222222222222222222 --name 'Final project'
+cmpjson stdout $WORK/golden/duplicate-project.json
+
+-- golden/renamed-project.json --
+{"id":"project_11111111111111111111","name":"Renamed project","created":1786363200}
+-- golden/boards.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Root board","created":1786363200}
+{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Secondary board","created":1786363200}
+-- golden/configured-issue.txt --
+secondary-aaaa
+-- golden/final-project.txt --
+updated project project_11111111111111111111 (Final project)
+-- golden/final-project.json --
+{"id":"project_11111111111111111111","name":"Final project","created":1786363200}
+-- golden/duplicate-project.json --
+{"id":"project_22222222222222222222","name":"Final project","created":1786363200}

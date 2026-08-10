@@ -90,7 +90,7 @@ func (i *Initializer) retainedProjectIDPrefix(
 	defer func() { err = errors.Join(err, persistence.Close()) }()
 
 	repository := New(persistence, i.config)
-	catalog := project.NewService(repository)
+	catalog := project.NewService(repository, repository)
 	projects, err := catalog.List(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("list retained projects: %w", err)
