@@ -1,0 +1,59 @@
+exec git init -b main
+at 2026-08-10T16:00:00Z
+exec card init --prefix root- --board-name 'Root board'
+exec card config set --scope store issue.id.strategy sequential
+exec card project create Secondary --prefix secondary-
+
+# An explicit project bypasses ambient board selection, including for a
+# project that has no boards.
+env CARDAMOM_BOARD=missing-board
+exec card --json config show --project Secondary
+cmpenv stdout $WORK/golden/effective.json
+exec card --json config show --project project_11111111111111111111 --scope project
+cmpenv stdout $WORK/golden/layer.json
+
+# Direct project mutation returns a project-scoped view and persists the
+# override without routing through a board.
+exec card --json config set --project Secondary --scope project issue.id.strategy random
+cmpenv stdout $WORK/golden/overridden.json
+exec card --json config show --project project_11111111111111111111 --scope project
+cmpenv stdout $WORK/golden/overridden-layer.json
+exec card --json config unset --project project_11111111111111111111 --scope project issue.id.strategy
+cmpenv stdout $WORK/golden/effective.json
+exec card config show --project project_11111111111111111111
+cmpenv stdout $WORK/golden/effective.txt
+
+# An explicit board and a direct project are competing targets. Direct project
+# mutation accepts only the project scope.
+! exec card --board board_00000000000000000000 config show --project project_11111111111111111111
+! stdout .
+stderr '--project cannot be combined with --board'
+! exec card config set --project project_11111111111111111111 --scope board issue.id.strategy random
+! stdout .
+stderr '--scope "board" cannot be used with --project'
+
+# Duplicate exact names preserve project selector ambiguity.
+exec card project create Secondary --prefix duplicate-
+! exec card config show --project Secondary
+! stdout .
+stderr 'project "Secondary" is ambiguous; use an ID'
+
+-- golden/effective.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_11111111111111111111","board":null,"values":{"issue":{"id":{"prefix":"secondary-","strategy":"sequential"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_11111111111111111111"},"strategy":{"scope":"store","identity":"$WORK/.cardamom"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/layer.json --
+{"scope":"project","store":"$WORK/.cardamom","project":"project_11111111111111111111","board":null,"values":{"issue":{"id":{"prefix":"secondary-","strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_11111111111111111111"},"strategy":null},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}}}
+-- golden/overridden.json --
+{"scope":"effective","store":"$WORK/.cardamom","project":"project_11111111111111111111","board":null,"values":{"issue":{"id":{"prefix":"secondary-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_11111111111111111111"},"strategy":{"scope":"project","identity":"project_11111111111111111111"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
+-- golden/overridden-layer.json --
+{"scope":"project","store":"$WORK/.cardamom","project":"project_11111111111111111111","board":null,"values":{"issue":{"id":{"prefix":"secondary-","strategy":"random"},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_11111111111111111111"},"strategy":{"scope":"project","identity":"project_11111111111111111111"}},"summary":{"max_bytes":null}},"attachment":{"max_bytes":null}}}
+-- golden/effective.txt --
+Scope:    effective
+Store:    $WORK/.cardamom
+Project:  project_11111111111111111111
+Board:    -
+
+KEY                      VALUE       ORIGIN
+issue.id.prefix          secondary-  project (project_11111111111111111111)
+issue.id.strategy        sequential  store ($WORK/.cardamom)
+issue.summary.max_bytes  2048        built_in (built-in)
+attachment.max_bytes     104857600   built_in (built-in)

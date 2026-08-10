@@ -90,6 +90,22 @@ effective configuration through the project layer,
 and the project's boards in stable order.
 It does not require or change board selection.
 
+Inspect or update the same project configuration directly when no board has
+been created or selected:
+
+```bash
+card --actor coordinator --json config show --project <project-id>
+card --actor coordinator --json config set \
+  --project <project-id> --scope project issue.id.strategy sequential
+card --actor coordinator --json config unset \
+  --project <project-id> --scope project issue.id.strategy
+```
+
+Direct project configuration resolves the project by stable ID or exact name.
+It ignores ambient board selection,
+but cannot be combined with an explicit `--board` target.
+`config set` and `config unset` require `--scope project` in this mode.
+
 Use that ID when creating the project's first board:
 
 ```bash

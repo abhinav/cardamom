@@ -99,6 +99,42 @@ func TestService_ResolveProject_stopsAtProjectLayer(t *testing.T) {
 	assert.Equal(t, "project-test", resolved.Project.Source.Identity)
 }
 
+func TestService_UpdateProject_returnsProjectScopedView(t *testing.T) {
+	projectID := mustProjectID(t, "project-test")
+	projectPrefix := mustPrefix(t, "project-")
+	strategy := IDStrategySequential
+	patch := Patch{
+		Fields: []Field{FieldIssueIDStrategy},
+		Overrides: Overrides{Issue: IssueOverrides{
+			ID: IssueIDOverrides{Strategy: &strategy},
+		}},
+	}
+	store := NewMockStore(gomock.NewController(t))
+	store.EXPECT().ReadStoreConfiguration(gomock.Any()).Return(Overrides{}, nil)
+	repository := NewMockRepository(gomock.NewController(t))
+	repository.EXPECT().UpdateProjectConfiguration(
+		gomock.Any(), projectID, patch,
+	).Return(Overrides{}, nil)
+	repository.EXPECT().ReadProjectConfiguration(
+		gomock.Any(), projectID,
+	).Return(Overrides{Issue: IssueOverrides{ID: IssueIDOverrides{
+		Prefix: &projectPrefix, Strategy: &strategy,
+	}}}, nil)
+	service := NewService(store, repository)
+	service.SetStoreIdentity("/stores/test")
+
+	resolved, err := service.UpdateProject(
+		t.Context(),
+		NewInvocation("captain"),
+		ProjectUpdateRequest{ProjectID: projectID, Patch: patch},
+	)
+	require.NoError(t, err)
+
+	assert.Equal(t, projectPrefix, resolved.Effective.Issue.ID.Prefix)
+	assert.Equal(t, IDStrategySequential, resolved.Effective.Issue.ID.Strategy)
+	assert.Equal(t, ScopeProject, resolved.Origins.Issue.ID.Strategy.Scope)
+}
+
 func TestDefaults(t *testing.T) {
 	assert.Equal(t, "cm-", Defaults().Issue.ID.Prefix.String())
 	assert.Equal(t, IDStrategyRandom, Defaults().Issue.ID.Strategy)
