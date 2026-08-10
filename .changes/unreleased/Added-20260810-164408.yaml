@@ -1,0 +1,3 @@
+kind: Added
+body: Allow config show, set, and unset to target a project without selecting a board.
+time: 2026-08-10T16:44:08.842978-07:00

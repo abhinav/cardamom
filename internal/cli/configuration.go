@@ -1,13 +1,49 @@
 package cli
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"text/tabwriter"
 
-	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
+	"go.abhg.dev/cardamom/internal/project"
 )
+
+// ConfigurationOperations resolves invocation-scoped board or project
+// targets before delegating typed configuration operations.
+// Project methods never require or infer a board.
+type ConfigurationOperations interface {
+	// ResolveBoard resolves the invocation's board context and every
+	// configuration layer through that board.
+	ResolveBoard(context.Context) (configuration.View, error)
+
+	// ResolveProject resolves one project selector and configuration through
+	// its project layer.
+	ResolveProject(
+		context.Context,
+		project.Selector,
+	) (configuration.ProjectView, error)
+
+	// UpdateBoard resolves the invocation's board context, applies one layer
+	// patch, and returns the resulting board-scoped view.
+	UpdateBoard(
+		context.Context,
+		configuration.Invocation,
+		configuration.Scope,
+		configuration.Patch,
+	) (configuration.View, error)
+
+	// UpdateProject resolves one project selector, applies its project-layer
+	// patch, and returns the resulting project-scoped view.
+	UpdateProject(
+		context.Context,
+		configuration.Invocation,
+		project.Selector,
+		configuration.Patch,
+	) (configuration.ProjectView, error)
+}
 
 type configurationCommand struct {
 	Show  configurationShowCommand  `cmd:"" help:"Show effective or scoped configuration."`
@@ -17,31 +53,67 @@ type configurationCommand struct {
 
 // Help explains configuration selection and mutation scope.
 func (*configurationCommand) Help() string {
-	return `Inspect and update typed configuration for the selected board.
+	return `Inspect and update typed configuration for a selected board or project.
 
 Root --store and --board flags select the physical store and board context.
-The selected board determines project scope. Mutations require --scope.`
+The selected board determines project scope unless --project selects a project
+directly. Mutations require --scope.`
 }
 
 type configurationShowCommand struct {
-	Scope string `name:"scope" default:"" enum:"store,project,board," placeholder:"SCOPE" help:"Show the raw store, project, or board layer instead of effective values."`
+	Scope   string `name:"scope" default:"" enum:"store,project,board," placeholder:"SCOPE" help:"Show the raw store, project, or board layer instead of effective values."`
+	Project string `name:"project" predictor:"projects" placeholder:"PROJECT" help:"Project ID or exact name. Bypasses board selection and conflicts with root --board."`
 }
 
 // Help distinguishes the effective configuration from one raw layer.
 func (*configurationShowCommand) Help() string {
-	return `Show the selected board's effective configuration by default.
+	return `Show effective configuration by default for the selected board.
 
 Use --scope store, project, or board to show only values explicitly stored at
-that layer. Fields without a layer value remain unset.`
+that layer. Fields without a layer value remain unset.
+
+Use --project to resolve configuration through one project without selecting a
+board. A direct project supports the effective view and --scope project.`
 }
 
-// Run resolves the selected board configuration and renders one view.
+// Run parses one board- or project-scoped read and renders its view.
 func (c *configurationShowCommand) Run(
 	invocation *Invocation,
-	selected *board.State,
-	service *configuration.Service,
+	operations ConfigurationOperations,
 ) error {
-	view, err := service.Resolve(invocation.Context, selected.ID())
+	projectSelector, err := parseConfigurationProjectTarget(
+		invocation,
+		c.Project,
+	)
+	if err != nil {
+		return UsageErrorf("config show: %v", err)
+	}
+	if projectSelector != nil {
+		if c.Scope != "" && c.Scope != configuration.ScopeProject.String() {
+			return UsageErrorf(
+				"config show: --scope %q cannot be used with --project",
+				c.Scope,
+			)
+		}
+		view, err := operations.ResolveProject(
+			invocation.Context,
+			*projectSelector,
+		)
+		if err != nil {
+			return err
+		}
+		if c.Scope == "" {
+			return renderConfiguration(
+				invocation.Output,
+				newEffectiveProjectConfigurationOut(view),
+			)
+		}
+		return renderConfiguration(
+			invocation.Output,
+			newProjectLayerConfigurationOut(view),
+		)
+	}
+	view, err := operations.ResolveBoard(invocation.Context)
 	if err != nil {
 		return err
 	}
@@ -56,14 +128,18 @@ func (c *configurationShowCommand) Run(
 }
 
 type configurationSetCommand struct {
-	Scope string `name:"scope" required:"" enum:"store,project,board" placeholder:"SCOPE" help:"Layer to update: store, project, or board."`
-	Key   string `arg:"" name:"key" enum:"issue.id.prefix,issue.id.strategy,issue.summary.max_bytes,attachment.max_bytes" help:"Typed configuration key."`
-	Value string `arg:"" name:"value" help:"Replacement value."`
+	Scope   string `name:"scope" required:"" enum:"store,project,board" placeholder:"SCOPE" help:"Layer to update: store, project, or board."`
+	Project string `name:"project" predictor:"projects" placeholder:"PROJECT" help:"Project ID or exact name. Requires --scope project and conflicts with root --board."`
+	Key     string `arg:"" name:"key" enum:"issue.id.prefix,issue.id.strategy,issue.summary.max_bytes,attachment.max_bytes" help:"Typed configuration key."`
+	Value   string `arg:"" name:"value" help:"Replacement value."`
 }
 
 // Help lists the finite value syntax accepted by config set.
 func (*configurationSetCommand) Help() string {
 	return `Set one value at the required store, project, or board scope.
+
+Use --project with --scope project to update a project without selecting a
+board.
 
 Keys:
   issue.id.prefix
@@ -80,8 +156,7 @@ Byte limits accept a positive decimal byte count.`
 // Run parses one typed replacement and renders the resulting effective view.
 func (c *configurationSetCommand) Run(
 	invocation *Invocation,
-	selected *board.State,
-	service *configuration.Service,
+	operations ConfigurationOperations,
 ) error {
 	scope, err := parseConfigurationScope(c.Scope)
 	if err != nil {
@@ -91,12 +166,40 @@ func (c *configurationSetCommand) Run(
 	if err != nil {
 		return UsageErrorf("config set: %v", err)
 	}
-	view, err := service.Update(
+	projectSelector, err := parseConfigurationProjectTarget(
+		invocation,
+		c.Project,
+	)
+	if err != nil {
+		return UsageErrorf("config set: %v", err)
+	}
+	configurationInvocation := configuration.NewInvocation(invocation.Actor)
+	if projectSelector != nil {
+		if scope != configuration.ScopeProject {
+			return UsageErrorf(
+				"config set: --scope %q cannot be used with --project",
+				c.Scope,
+			)
+		}
+		view, err := operations.UpdateProject(
+			invocation.Context,
+			configurationInvocation,
+			*projectSelector,
+			patch,
+		)
+		if err != nil {
+			return err
+		}
+		return renderConfiguration(
+			invocation.Output,
+			newEffectiveProjectConfigurationOut(view),
+		)
+	}
+	view, err := operations.UpdateBoard(
 		invocation.Context,
-		configuration.NewInvocation(invocation.Actor),
-		configuration.UpdateRequest{
-			BoardID: selected.ID(), Scope: scope, Patch: patch,
-		},
+		configurationInvocation,
+		scope,
+		patch,
 	)
 	if err != nil {
 		return err
@@ -105,14 +208,18 @@ func (c *configurationSetCommand) Run(
 }
 
 type configurationUnsetCommand struct {
-	Scope string `name:"scope" required:"" enum:"store,project,board" placeholder:"SCOPE" help:"Layer to update: store, project, or board."`
-	Key   string `arg:"" name:"key" enum:"issue.id.prefix,issue.id.strategy,issue.summary.max_bytes,attachment.max_bytes" help:"Typed configuration key."`
+	Scope   string `name:"scope" required:"" enum:"store,project,board" placeholder:"SCOPE" help:"Layer to update: store, project, or board."`
+	Project string `name:"project" predictor:"projects" placeholder:"PROJECT" help:"Project ID or exact name. Requires --scope project and conflicts with root --board."`
+	Key     string `arg:"" name:"key" enum:"issue.id.prefix,issue.id.strategy,issue.summary.max_bytes,attachment.max_bytes" help:"Typed configuration key."`
 }
 
 // Help explains inheritance restoration and lists the finite key vocabulary.
 func (*configurationUnsetCommand) Help() string {
 	return `Clear one value at the required store, project, or board scope.
 The field then inherits from less specific layers.
+
+Use --project with --scope project to update a project without selecting a
+board.
 
 Keys:
   issue.id.prefix
@@ -124,8 +231,7 @@ Keys:
 // Run clears one typed override and renders the resulting effective view.
 func (c *configurationUnsetCommand) Run(
 	invocation *Invocation,
-	selected *board.State,
-	service *configuration.Service,
+	operations ConfigurationOperations,
 ) error {
 	scope, err := parseConfigurationScope(c.Scope)
 	if err != nil {
@@ -135,19 +241,67 @@ func (c *configurationUnsetCommand) Run(
 	if err != nil {
 		return UsageErrorf("config unset: %v", err)
 	}
-	view, err := service.Update(
+	projectSelector, err := parseConfigurationProjectTarget(
+		invocation,
+		c.Project,
+	)
+	if err != nil {
+		return UsageErrorf("config unset: %v", err)
+	}
+	configurationInvocation := configuration.NewInvocation(invocation.Actor)
+	patch := configuration.Patch{Fields: []configuration.Field{field}}
+	if projectSelector != nil {
+		if scope != configuration.ScopeProject {
+			return UsageErrorf(
+				"config unset: --scope %q cannot be used with --project",
+				c.Scope,
+			)
+		}
+		view, err := operations.UpdateProject(
+			invocation.Context,
+			configurationInvocation,
+			*projectSelector,
+			patch,
+		)
+		if err != nil {
+			return err
+		}
+		return renderConfiguration(
+			invocation.Output,
+			newEffectiveProjectConfigurationOut(view),
+		)
+	}
+	view, err := operations.UpdateBoard(
 		invocation.Context,
-		configuration.NewInvocation(invocation.Actor),
-		configuration.UpdateRequest{
-			BoardID: selected.ID(),
-			Scope:   scope,
-			Patch:   configuration.Patch{Fields: []configuration.Field{field}},
-		},
+		configurationInvocation,
+		scope,
+		patch,
 	)
 	if err != nil {
 		return err
 	}
 	return renderConfiguration(invocation.Output, newEffectiveConfigurationOut(view))
+}
+
+// parseConfigurationProjectTarget distinguishes an explicit project target
+// from board-derived selection.
+// An explicit root board is a conflicting target, while ambient board context
+// remains unused when the caller supplies a project.
+func parseConfigurationProjectTarget(
+	invocation *Invocation,
+	value string,
+) (*project.Selector, error) {
+	if value == "" {
+		return nil, nil
+	}
+	if invocation.BoardExplicit {
+		return nil, errors.New("--project cannot be combined with --board")
+	}
+	selector, err := project.NewSelector(value)
+	if err != nil {
+		return nil, err
+	}
+	return &selector, nil
 }
 
 func parseConfigurationScope(value string) (configuration.Scope, error) {
@@ -227,7 +381,7 @@ type configurationOut struct {
 	Scope   string                  `json:"scope"`
 	Store   string                  `json:"store"`
 	Project string                  `json:"project"`
-	Board   string                  `json:"board"`
+	Board   *string                 `json:"board"`
 	Values  configurationValuesOut  `json:"values"`
 	Origins configurationOriginsOut `json:"origins"`
 }
@@ -290,26 +444,57 @@ type configurationSourceOut struct {
 }
 
 func newEffectiveConfigurationOut(view configuration.View) configurationOut {
+	boardIdentity := view.Board.Source.Identity
+	return newEffectiveConfigurationOutForTarget(
+		view.Store.Source.Identity,
+		view.Project.Source.Identity,
+		&boardIdentity,
+		view.Effective,
+		view.Origins,
+	)
+}
+
+func newEffectiveProjectConfigurationOut(
+	view configuration.ProjectView,
+) configurationOut {
+	return newEffectiveConfigurationOutForTarget(
+		view.Store.Source.Identity,
+		view.Project.Source.Identity,
+		nil,
+		view.Effective,
+		view.Origins,
+	)
+}
+
+// newEffectiveConfigurationOutForTarget keeps the shared effective-value
+// representation identical while preserving whether a board was selected.
+func newEffectiveConfigurationOutForTarget(
+	storeIdentity string,
+	projectIdentity string,
+	boardIdentity *string,
+	effective configuration.Configuration,
+	origins configuration.Origins,
+) configurationOut {
 	return configurationOut{
 		Scope:   "effective",
-		Store:   view.Store.Source.Identity,
-		Project: view.Project.Source.Identity,
-		Board:   view.Board.Source.Identity,
+		Store:   storeIdentity,
+		Project: projectIdentity,
+		Board:   boardIdentity,
 		Values: configurationValuesOut{
 			Issue: configurationIssueValuesOut{
 				ID: configurationIssueIDValuesOut{
-					Prefix:   new(view.Effective.Issue.ID.Prefix.String()),
-					Strategy: new(view.Effective.Issue.ID.Strategy.String()),
+					Prefix:   new(effective.Issue.ID.Prefix.String()),
+					Strategy: new(effective.Issue.ID.Strategy.String()),
 				},
 				Summary: configurationSummaryValuesOut{
-					MaxBytes: new(view.Effective.Issue.Summary.MaxBytes.Uint64()),
+					MaxBytes: new(effective.Issue.Summary.MaxBytes.Uint64()),
 				},
 			},
 			Attachment: configurationAttachmentValuesOut{
-				MaxBytes: new(view.Effective.Attachment.MaxBytes.Uint64()),
+				MaxBytes: new(effective.Attachment.MaxBytes.Uint64()),
 			},
 		},
-		Origins: newEffectiveConfigurationOriginsOut(view.Origins),
+		Origins: newEffectiveConfigurationOriginsOut(origins),
 	}
 }
 
@@ -349,9 +534,21 @@ func newLayerConfigurationOut(
 		Scope:   scope.String(),
 		Store:   view.Store.Source.Identity,
 		Project: view.Project.Source.Identity,
-		Board:   view.Board.Source.Identity,
+		Board:   new(view.Board.Source.Identity),
 		Values:  newLayerConfigurationValuesOut(layer.Overrides),
 		Origins: newLayerConfigurationOriginsOut(layer),
+	}
+}
+
+func newProjectLayerConfigurationOut(
+	view configuration.ProjectView,
+) configurationOut {
+	return configurationOut{
+		Scope:   configuration.ScopeProject.String(),
+		Store:   view.Store.Source.Identity,
+		Project: view.Project.Source.Identity,
+		Values:  newLayerConfigurationValuesOut(view.Project.Overrides),
+		Origins: newLayerConfigurationOriginsOut(view.Project),
 	}
 }
 
@@ -407,7 +604,10 @@ func renderConfiguration(output *Output, value configurationOut) error {
 	_, _ = fmt.Fprintf(
 		writer,
 		"Scope:\t%s\nStore:\t%s\nProject:\t%s\nBoard:\t%s\n\n",
-		value.Scope, value.Store, value.Project, value.Board,
+		value.Scope,
+		value.Store,
+		value.Project,
+		formatConfigurationValue(value.Board),
 	)
 	_, _ = fmt.Fprintln(writer, "KEY\tVALUE\tORIGIN")
 	writeConfigurationRow(

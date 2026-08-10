@@ -98,13 +98,16 @@ stdout 'config unset'
 exec card config show --help
 stdout 'effective configuration by default'
 stdout 'raw store, project, or board layer'
+stdout '--project'
 exec card config set --help
 stdout 'Layer to update: store, project, or board'
+stdout '--project'
 stdout 'positive decimal byte count'
 stdout 'issue.id.prefix'
 stdout 'attachment.max_bytes'
 exec card config unset --help
 stdout 'Layer to update: store, project, or board'
+stdout '--project'
 stdout 'inherits from less specific layers'
 stdout 'issue.id.prefix'
 stdout 'attachment.max_bytes'

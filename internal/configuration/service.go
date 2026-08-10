@@ -213,6 +213,16 @@ type UpdateRequest struct {
 	Patch Patch
 }
 
+// ProjectUpdateRequest identifies one project layer and finite patch without
+// requiring a board context.
+type ProjectUpdateRequest struct {
+	// ProjectID identifies the project that owns the mutable layer.
+	ProjectID project.ID
+
+	// Patch selects values to set or clear.
+	Patch Patch
+}
+
 // Service owns typed configuration resolution and mutation operations.
 type Service struct {
 	store      Store      // required
@@ -350,6 +360,31 @@ func (s *Service) Update(
 		return View{}, fmt.Errorf("configuration scope %q is not mutable", request.Scope.String())
 	}
 	return s.Resolve(ctx, request.BoardID)
+}
+
+// UpdateProject atomically applies one project patch and resolves the
+// resulting configuration through that project layer.
+// A missing project returns NotFound, and a rejected patch leaves the stored
+// layer unchanged.
+func (s *Service) UpdateProject(
+	ctx context.Context,
+	_ Invocation,
+	request ProjectUpdateRequest,
+) (ProjectView, error) {
+	if _, err := project.NewID(request.ProjectID.String()); err != nil {
+		return ProjectView{}, err
+	}
+	if err := request.Patch.Validate(); err != nil {
+		return ProjectView{}, err
+	}
+	if _, err := s.repository.UpdateProjectConfiguration(
+		ctx,
+		request.ProjectID,
+		request.Patch,
+	); err != nil {
+		return ProjectView{}, fmt.Errorf("update project configuration: %w", err)
+	}
+	return s.ResolveProject(ctx, request.ProjectID)
 }
 
 func resolve(
