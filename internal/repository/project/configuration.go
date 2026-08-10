@@ -34,6 +34,35 @@ func (r *Repository) ReadConfigurationLayers(
 	return loadConfigurationLayers(row)
 }
 
+// ReadProjectConfiguration returns one project's overrides without requiring
+// that the project contain a board.
+// A missing project returns NotFound.
+func (r *Repository) ReadProjectConfiguration(
+	ctx context.Context,
+	projectID project.ID,
+) (out configuration.Overrides, err error) {
+	view, err := r.store.View(ctx)
+	if err != nil {
+		return out, err
+	}
+	defer func() { err = errors.Join(err, view.Done()) }()
+	row, err := query.New(view).ProjectGetProjectConfiguration(
+		ctx, projectID.String(),
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return out, errkind.Errorf(errkind.NotFound, "project not found")
+	}
+	if err != nil {
+		return out, err
+	}
+	return (nullableConfiguration{
+		prefix:             row.IssueIDPrefix,
+		strategy:           row.IssueIDStrategy,
+		summaryMaxBytes:    row.IssueSummaryMaxBytes,
+		attachmentMaxBytes: row.AttachmentMaxBytes,
+	}).overrides()
+}
+
 // UpdateProjectConfiguration atomically applies one typed project patch.
 func (r *Repository) UpdateProjectConfiguration(
 	ctx context.Context,

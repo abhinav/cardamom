@@ -85,6 +85,37 @@ func TestRepositoryPersistsProjectAndBoardConfiguration(t *testing.T) {
 	assert.Equal(t, int64(3), canonicalRevision(t, persistence))
 }
 
+func TestRepositoryReadsProjectConfigurationWithoutBoard(t *testing.T) {
+	persistence, err := store.Open(t.Context(), store.Config{
+		Path: t.TempDir() + "/board.sqlite3",
+	})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+	namespace := initializeProjectCatalog(t, persistence, nil, Config{})
+	repository := New(persistence, Config{})
+	prefix, err := configuration.NewPrefix("project-")
+	require.NoError(t, err)
+	_, err = repository.UpdateProjectConfiguration(
+		t.Context(),
+		namespace.Project.ID(),
+		configuration.Patch{
+			Fields: []configuration.Field{configuration.FieldIssueIDPrefix},
+			Overrides: configuration.Overrides{Issue: configuration.IssueOverrides{
+				ID: configuration.IssueIDOverrides{Prefix: &prefix},
+			}},
+		},
+	)
+	require.NoError(t, err)
+
+	overrides, err := repository.ReadProjectConfiguration(
+		t.Context(), namespace.Project.ID(),
+	)
+	require.NoError(t, err)
+
+	require.NotNil(t, overrides.Issue.ID.Prefix)
+	assert.Equal(t, prefix, *overrides.Issue.ID.Prefix)
+}
+
 type emptyConfigurationStore struct{}
 
 func (emptyConfigurationStore) ReadStoreConfiguration(

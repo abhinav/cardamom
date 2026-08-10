@@ -123,3 +123,47 @@ func (q *Queries) ProjectListBoardsForSoleSelection(ctx context.Context) ([]Proj
 	}
 	return items, nil
 }
+
+const projectListProjectBoards = `-- name: ProjectListProjectBoards :many
+SELECT id, project_id, name, description, created_at
+FROM boards
+WHERE project_id = ?1
+ORDER BY name, id
+`
+
+type ProjectListProjectBoardsRow struct {
+	ID          string
+	ProjectID   string
+	Name        string
+	Description *string
+	CreatedAt   time.Time
+}
+
+func (q *Queries) ProjectListProjectBoards(ctx context.Context, projectID string) ([]ProjectListProjectBoardsRow, error) {
+	rows, err := q.db.QueryContext(ctx, projectListProjectBoards, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ProjectListProjectBoardsRow
+	for rows.Next() {
+		var i ProjectListProjectBoardsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

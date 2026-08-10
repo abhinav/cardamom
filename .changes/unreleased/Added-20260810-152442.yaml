@@ -1,0 +1,3 @@
+kind: Added
+body: Add `card project show` to inspect project metadata, effective project configuration, and its boards without selecting a board.
+time: 2026-08-10T15:24:42.242146-07:00

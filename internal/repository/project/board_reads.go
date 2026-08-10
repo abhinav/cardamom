@@ -40,6 +40,40 @@ func (r *Repository) ListAllBoards(ctx context.Context) (out []*board.State, err
 	return out, nil
 }
 
+// ListProjectBoards returns one project's boards in stable name and identity
+// order.
+// An existing project with no boards returns an empty slice.
+// The read does not verify project existence; callers resolve projectID before
+// using it.
+func (r *Repository) ListProjectBoards(
+	ctx context.Context,
+	projectID project.ID,
+) (out []*board.State, err error) {
+	view, err := r.store.View(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { err = errors.Join(err, view.Done()) }()
+	rows, err := query.New(view).ProjectListProjectBoards(ctx, projectID.String())
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range rows {
+		state, err := loadBoard(
+			row.ID,
+			row.ProjectID,
+			row.Name,
+			row.Description,
+			row.CreatedAt,
+		)
+		if err != nil {
+			return nil, err
+		}
+		out = append(out, state)
+	}
+	return out, nil
+}
+
 // Board returns one board by stable identity.
 func (r *Repository) Board(ctx context.Context, id board.ID) (out *board.State, err error) {
 	view, err := r.store.View(ctx)

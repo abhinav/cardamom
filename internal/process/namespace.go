@@ -15,6 +15,7 @@ import (
 	"go.abhg.dev/cardamom/internal/issue/record"
 	"go.abhg.dev/cardamom/internal/project"
 	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
+	projectinspection "go.abhg.dev/cardamom/internal/project/inspection"
 	repositoryboard "go.abhg.dev/cardamom/internal/repository/board"
 	repositoryproject "go.abhg.dev/cardamom/internal/repository/project"
 	"go.abhg.dev/cardamom/internal/repository/store"
@@ -24,17 +25,18 @@ import (
 // namespaceRuntime owns one open store and the process services that select
 // and operate on project boards in that store.
 type namespaceRuntime struct {
-	directory      string
-	store          *store.Store
-	configuration  *configuration.Service
-	catalog        *repositoryproject.Repository
-	projects       *project.Service
-	projectCreator *projectcreation.Service
-	boards         *board.Service
-	locator        *repositoryboard.Locator
-	selection      *selection.Resolver
-	clock          Clock
-	entropy        io.Reader
+	directory        string
+	store            *store.Store
+	configuration    *configuration.Service
+	catalog          *repositoryproject.Repository
+	projects         *project.Service
+	projectCreator   *projectcreation.Service
+	projectInspector *projectinspection.Service
+	boards           *board.Service
+	locator          *repositoryboard.Locator
+	selection        *selection.Resolver
+	clock            Clock
+	entropy          io.Reader
 }
 
 // openNamespace resolves one physical store and composes its project namespace.
@@ -94,6 +96,11 @@ func composeNamespace(
 		settingsStore{directory: directory},
 		catalog,
 	)
+	projectInspector := projectinspection.NewService(
+		projects,
+		configurationService,
+		catalog,
+	)
 	boards := board.NewService(catalog, catalog)
 	locator := repositoryboard.NewLocator(persistence)
 	bindingPaths, err := storelocation.ResolveBoardBindingPaths(cfg.CWD)
@@ -101,14 +108,15 @@ func composeNamespace(
 		return nil, errors.Join(err, persistence.Close())
 	}
 	return &namespaceRuntime{
-		directory:      directory,
-		store:          persistence,
-		configuration:  configurationService,
-		catalog:        catalog,
-		projects:       projects,
-		projectCreator: projectCreator,
-		boards:         boards,
-		locator:        locator,
+		directory:        directory,
+		store:            persistence,
+		configuration:    configurationService,
+		catalog:          catalog,
+		projects:         projects,
+		projectCreator:   projectCreator,
+		projectInspector: projectInspector,
+		boards:           boards,
+		locator:          locator,
 		selection: selection.NewResolver(
 			boards,
 			&checkoutBoardBinding{
@@ -223,6 +231,12 @@ func provideProjectCreationService(
 	runtime *namespaceRuntime,
 ) *projectcreation.Service {
 	return runtime.projectCreator
+}
+
+func provideProjectInspectionService(
+	runtime *namespaceRuntime,
+) *projectinspection.Service {
+	return runtime.projectInspector
 }
 
 func provideConfigurationService(
