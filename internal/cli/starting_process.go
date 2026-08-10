@@ -218,9 +218,61 @@ func writeInitResult(output *Output, result InitResult) error {
 	}
 }
 
+// projectCommand groups store-scoped project operations.
+// None of its commands require or change board selection.
 type projectCommand struct {
 	List   projectListCommand   `cmd:"" help:"List project namespaces."`
 	Create projectCreateCommand `cmd:"" help:"Create a project namespace."`
+	Edit   projectEditCommand   `cmd:"" help:"Edit a project namespace."`
+}
+
+// projectEditCommand requires one project selector and replacement name.
+// Selector resolution precedes the ID-addressed mutation so an ambiguous name
+// cannot reach the persistence boundary.
+type projectEditCommand struct {
+	Selector string `arg:"" name:"project" predictor:"projects" help:"Stable project ID or exact name."`
+	Name     string `name:"name" required:"" placeholder:"NAME" help:"Replace the project name."`
+}
+
+// Help explains project selection and the rename boundary.
+func (*projectEditCommand) Help() string {
+	return `Edit one project namespace in the selected physical store.
+
+PROJECT is a stable project ID or exact name. Duplicate exact names require an
+ID. The replacement name is trimmed and must contain a non-whitespace character.
+
+Renaming does not change project identity, boards, configuration, or creation time.`
+}
+
+// Run resolves one project, requests its name edit by stable ID, and renders
+// the authoritative committed State. Resolution or validation failure produces
+// no mutation.
+func (c *projectEditCommand) Run(
+	invocation *Invocation,
+	projects *project.Service,
+) error {
+	selector, err := project.NewSelector(c.Selector)
+	if err != nil {
+		return err
+	}
+	selected, err := projects.Resolve(invocation.Context, &selector)
+	if err != nil {
+		return err
+	}
+	edited, err := projects.EditName(
+		invocation.Context,
+		project.EditNameRequest{ProjectID: selected.ID(), Name: c.Name},
+	)
+	if err != nil {
+		return err
+	}
+	record := newProjectSummaryOut(edited)
+	if invocation.Output.JSON() {
+		return invocation.Output.WriteJSON(record)
+	}
+	return invocation.Output.WriteString(
+		fmt.Sprintf("updated project %s (%s)\n", record.ID, record.Name),
+	)
 }
 
 // Help explains project ownership inside the selected physical store.

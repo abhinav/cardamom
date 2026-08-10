@@ -89,7 +89,7 @@ func composeNamespace(
 		catalog,
 	)
 	configurationService.SetStoreIdentity(directory)
-	projects := project.NewService(catalog)
+	projects := project.NewService(catalog, catalog)
 	projectCreator := projectcreation.NewService(
 		settingsStore{directory: directory},
 		catalog,

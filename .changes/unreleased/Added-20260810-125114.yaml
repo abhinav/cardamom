@@ -1,0 +1,3 @@
+kind: Added
+body: Add `card project edit` to rename projects while preserving their identity, boards, configuration, and creation time.
+time: 2026-08-10T12:51:14.309087-07:00

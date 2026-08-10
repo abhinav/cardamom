@@ -365,6 +365,16 @@ card --actor coordinator --json board create \
   --project <project-id> "Payments delivery"
 ```
 
+Rename an existing project by stable ID:
+
+```bash
+card --actor coordinator --json project edit \
+  <project-id> --name "Payments platform"
+```
+
+`project edit` returns the updated project state.
+Renaming preserves the project ID, boards, configuration, and creation time.
+
 Project creation does not create or select a board.
 Project names need not be unique,
 so use the stable project ID when a name is ambiguous.

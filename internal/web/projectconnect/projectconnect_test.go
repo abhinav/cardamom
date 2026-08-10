@@ -33,7 +33,7 @@ func TestServiceBootstrapAndBoard(t *testing.T) {
 		boards:   []*board.State{boardOne, boardTwo},
 	}
 	client := newTestClient(t, Config{
-		Projects:       project.NewService(catalog),
+		Projects:       project.NewService(catalog, catalog),
 		ProjectCreator: NewMockProjectCreator(gomock.NewController(t)),
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       markdown.New(), ServerDefaultBoardID: &defaultBoard,
@@ -102,7 +102,7 @@ func TestServiceRendersBoardDescriptionInBoardScope(t *testing.T) {
 		gomock.Any(), board.ID("board-1"), "", []string{description},
 	).Return([]string{description}, nil)
 	client := newTestClient(t, Config{
-		Projects:       project.NewService(catalog),
+		Projects:       project.NewService(catalog, catalog),
 		ProjectCreator: NewMockProjectCreator(gomock.NewController(t)),
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       renderer,
@@ -126,7 +126,7 @@ func TestServiceBoardMutations(t *testing.T) {
 		boards:   []*board.State{boardOne},
 	}
 	client := newTestClient(t, Config{
-		Projects:       project.NewService(catalog),
+		Projects:       project.NewService(catalog, catalog),
 		ProjectCreator: NewMockProjectCreator(gomock.NewController(t)),
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       markdown.New(),
@@ -169,7 +169,7 @@ func TestService_CreateProject(t *testing.T) {
 		projectcreation.Request{Name: "Mission Control", Prefix: &prefix},
 	).Return(created, nil)
 	client := newTestClient(t, Config{
-		Projects:       project.NewService(catalog),
+		Projects:       project.NewService(catalog, catalog),
 		ProjectCreator: projectCreator,
 		Boards:         board.NewService(catalog, catalog),
 		Markdown:       markdown.New(),
@@ -214,6 +214,24 @@ type testCatalog struct {
 
 func (c *testCatalog) ListProjects(context.Context) ([]*project.State, error) {
 	return c.projects, nil
+}
+
+func (c *testCatalog) EditProjectName(
+	_ context.Context,
+	request project.EditNameRequest,
+) (*project.State, error) {
+	for index, state := range c.projects {
+		if state.ID() != request.ProjectID {
+			continue
+		}
+		edited, err := state.EditName(request.Name)
+		if err != nil {
+			return nil, err
+		}
+		c.projects[index] = edited
+		return edited, nil
+	}
+	return nil, errkind.Errorf(errkind.NotFound, "project not found")
 }
 
 func (c *testCatalog) ListAllBoards(context.Context) ([]*board.State, error) {

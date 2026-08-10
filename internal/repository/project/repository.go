@@ -16,6 +16,7 @@ import (
 var (
 	_ board.Changes            = (*Repository)(nil)
 	_ project.Projects         = (*Repository)(nil)
+	_ project.Changes          = (*Repository)(nil)
 	_ projectcreation.Projects = (*Repository)(nil)
 	_ board.Catalog            = (*Repository)(nil)
 )

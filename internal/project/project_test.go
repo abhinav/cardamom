@@ -21,6 +21,36 @@ func TestLoadProjectRejectsBlankName(t *testing.T) {
 	assert.Equal(t, errkind.InvalidInput, errkind.Of(err))
 }
 
+func TestStateEditsNameWithoutChangingIdentityOrCreation(t *testing.T) {
+	created := time.Unix(10, 0).UTC()
+	state := testProjectState(t, Snapshot{
+		ID:      testProjectID(t, "project-one"),
+		Name:    "Original",
+		Created: created,
+	})
+
+	edited, err := state.EditName("  Renamed  ")
+	require.NoError(t, err)
+
+	assert.Equal(t, state.ID(), edited.ID())
+	assert.Equal(t, "Renamed", edited.Name())
+	assert.Equal(t, created, edited.Created())
+	assert.Equal(t, "Original", state.Name())
+}
+
+func TestStateRejectsBlankNameEdit(t *testing.T) {
+	state := testProjectState(t, Snapshot{
+		ID:      testProjectID(t, "project-one"),
+		Name:    "Original",
+		Created: time.Unix(10, 0).UTC(),
+	})
+
+	_, err := state.EditName(" ")
+
+	assert.Equal(t, errkind.InvalidInput, errkind.Of(err))
+	assert.Equal(t, "Original", state.Name())
+}
+
 func TestSelectorMatchesIdentityOrName(t *testing.T) {
 	state := testProjectState(t, Snapshot{
 		ID:      testProjectID(t, "project-one"),
@@ -52,7 +82,7 @@ func TestServiceListsAndSelectsExplicitOrSoleProject(t *testing.T) {
 		Created: time.Unix(10, 0).UTC(),
 	})
 	projects := NewMockProjects(gomock.NewController(t))
-	service := NewService(projects)
+	service := NewService(projects, NewMockChanges(gomock.NewController(t)))
 	selector := testProjectSelector(t, "Secondary")
 
 	projects.EXPECT().ListProjects(gomock.Any()).Return([]*State{primary, secondary}, nil)
@@ -78,12 +108,29 @@ func TestServiceRejectsAmbiguousProject(t *testing.T) {
 		testProjectState(t, Snapshot{ID: testProjectID(t, "one"), Name: "Shared", Created: created}),
 		testProjectState(t, Snapshot{ID: testProjectID(t, "two"), Name: "Shared", Created: created}),
 	}, nil)
-	service := NewService(projects)
+	service := NewService(projects, NewMockChanges(gomock.NewController(t)))
 	selector := testProjectSelector(t, "Shared")
 
 	_, err := service.Resolve(t.Context(), &selector)
 
 	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+}
+
+func TestServiceEditsProjectName(t *testing.T) {
+	edited := testProjectState(t, Snapshot{
+		ID:      testProjectID(t, "project-one"),
+		Name:    "Renamed",
+		Created: time.Unix(10, 0).UTC(),
+	})
+	request := EditNameRequest{ProjectID: edited.ID(), Name: "Renamed"}
+	changes := NewMockChanges(gomock.NewController(t))
+	changes.EXPECT().EditProjectName(gomock.Any(), request).Return(edited, nil)
+	service := NewService(NewMockProjects(gomock.NewController(t)), changes)
+
+	result, err := service.EditName(t.Context(), request)
+	require.NoError(t, err)
+
+	assert.Same(t, edited, result)
 }
 
 func TestIDStrategyPreservesTextualJSON(t *testing.T) {

@@ -19,7 +19,7 @@ type commandTree struct {
 	Quiet bool   `name:"quiet" short:"q" group:"global" help:"Suppress status notices while preserving requested output and errors."`
 
 	Init    initCommand          `cmd:"" group:"starting" help:"Initialize a store, project, and first board."`
-	Project projectCommand       `cmd:"" group:"starting" help:"Create and list project namespaces."`
+	Project projectCommand       `cmd:"" group:"starting" help:"Create, edit, and list project namespaces."`
 	Board   boardCommand         `cmd:"" group:"starting" help:"Create, select, and inspect coordination boards."`
 	Config  configurationCommand `cmd:"" group:"configuration" help:"Inspect and update typed configuration."`
 
