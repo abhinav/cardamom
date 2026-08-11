@@ -1,100 +1,63 @@
 # Resolve scope
 
-Projects organize boards but are not a separate execution selection.
+Resolve only the persistence scope the selected operation needs.
+Projects organize boards;
+they are not a separate issue-execution selection.
 
-## Resolve existing scope
+## Resolve an existing store and board
 
-Prefer scope already supplied by the user or handoff.
-Cardamom can resolve an existing store through these routes:
+Use scope supplied by the user or handoff.
+A store resolves, in precedence order, from `--store`, `CARDAMOM_STORE`,
+or discovery of an existing `.cardamom` store from the checkout.
+Pass an absolute store path explicitly when another process or worktree might
+discover a different store.
 
-1. `--store <path>` for this invocation;
-2. `CARDAMOM_STORE` from the environment; or
-3. automatic discovery of an existing `.cardamom` store from the checkout.
+Issue and attachment commands also resolve a board from:
 
-Automatic discovery is convenient for work that stays in one checkout.
-Pass the resolved store explicitly
-when another worktree, process, or handoff might discover a different location.
-
-Board-scoped commands can resolve a board through these routes:
-
-1. the owning board inferred from supplied issue IDs;
-2. `--board` or `CARDAMOM_BOARD` selection;
-3. the checkout binding persisted by `board use`; or
+1. the board that owns a supplied issue ID;
+2. `--board` or `CARDAMOM_BOARD`;
+3. the checkout binding installed by `board use`; or
 4. the store's sole board.
 
-An explicit board must agree with the board that owns supplied issue IDs.
-When more than one board remains possible,
-report the stable identities and stop rather than choosing one implicitly.
-When a handoff supplies a board ID, pass it explicitly throughout that work.
-
-Store-scoped mail and lease operations stop after store resolution.
-Do not resolve or persist a board solely for those operations.
+An explicit board must agree with supplied issue IDs.
+If several boards remain possible,
+report their stable IDs and stop instead of choosing one.
+Mail and leases stop after store resolution;
+do not select a board solely for those operations.
 
 Inspect unresolved scope without changing it:
 
 ```bash
-card --actor <actor> --json project list
 card --actor <actor> --json project show <project-id>
 card --actor <actor> --json config show --project <project-id>
 card --actor <actor> --json board list
-card --actor <actor> --board <board-id> --json board show
 card --actor <actor> --board <board-id> --json info
 ```
 
-`project list`, `project show`, and `board list`
-require a store but not a selected board.
-Use `project show` when project configuration and its board inventory
-must be inspected together.
-Use `config show --project` when only project configuration is needed,
-including before the project has a board.
-`info` describes the effective store, project, board, schema, and configuration
-after a board is selected.
+`project show` combines project configuration and board inventory.
+`config show --project` works before the project has a board.
+`info` describes effective configuration after a board is selected.
 
-Select or create a board only when the user requested that persistent change.
+## Perform only requested setup
 
-When matching work may already exist,
-search the selected board before creating another issue:
-
-```bash
-card --actor <actor> --board <board-id> --json list \
-  --status ready,blocked,in_progress,waiting,closed,cancelled \
-  --title-regexp '<title-regexp>' --limit 0
-card --actor <actor> --board <board-id> --json \
-  show <candidate-id> --context
-```
-
-Continue the issue that owns the same outcome.
-
-## Perform requested setup
-
-Use setup commands only when initialization or persistent selection is part of
-the requested outcome:
+Initialization, creation, and persisted selection change durable scope.
+Use them only when setup is part of the requested outcome:
 
 ```bash
 card --actor <actor> init --board-name '<board-name>'
-card --actor <actor> --json project create \
-  --prefix <prefix> '<project-name>'
-card --actor <actor> --json board create \
-  --project <project-id> '<board-name>'
+card --actor <actor> --json project create --prefix <prefix> '<project-name>'
+card --actor <actor> --json board create --project <project-id> '<board-name>'
 card --actor <actor> board use <board-id-or-exact-name>
 ```
 
 Creating a project does not create or select a board.
 Creating a board does not change the physical store.
-Persisted names may be ambiguous;
-use returned project and board IDs for later selection.
+Use returned IDs rather than a possibly ambiguous name.
 
-## Prepare another worktree
+## Cross a worktree boundary explicitly
 
-Before dispatching board-scoped work into another worktree,
-establish all context that automatic discovery might change:
-
-- the absolute store path;
-- the board ID;
-- the worker's stable actor;
-- the working directory and owned files;
-- the intended `card` executable when several builds may exist; and
-- the issue ID and required validation.
-
-Verify that the supplied store and board reach the intended context from that
-worktree before material execution begins.
+Give a worker the absolute store path, board ID, stable actor, issue ID,
+working directory and owned files, intended `card` executable,
+and required validation.
+Verify that this scope reaches the intended context from the target worktree
+before primary work begins.

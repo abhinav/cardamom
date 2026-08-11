@@ -1,19 +1,44 @@
 # Execute issue work
 
-This workflow carries one ordinary issue from custody through execution,
-handoff, and completion.
+This workflow carries one ordinary issue from custody through publication,
+execution, status reporting, and its next disposition.
 
-## Establish custody and context
+## Enter at the current position
 
-When an issue is already selected,
-claim it by ID and receive its assembled context:
+Use established custody, durable records, and current evidence to find the
+first unresolved decision:
+
+| Task position | Enter at |
+| --- | --- |
+| Ordinary selected work is unclaimed, or its executable contract is not established | [Establish custody and a usable contract](#establish-custody-and-a-usable-contract) |
+| A plan depended on conditions that have now changed | [Reassess plans when conditions change](#reassess-plans-when-conditions-change) |
+| Another actor may own an independent outcome | [Choose custody before dispatch](#choose-custody-before-dispatch) |
+| The current actor will execute or execution is active | [Run the publication loop](#run-the-publication-loop) |
+| Execution and validation are complete | [Choose the next disposition](#choose-the-next-disposition) |
+| Interrupted work has uncertain prior custody or context | [Recover interrupted issue work](recovery.md) |
+
+Start at that decision and continue only through later decisions the task still
+needs.
+Revisit an established stage only when its evidence is absent, invalidated,
+or contradicted.
+
+## Establish custody and a usable contract
+
+Claim selected unclaimed work by ID and receive its assembled context:
 
 ```bash
 card --actor <actor> --json claim <issue-id> --context
 ```
 
-When choosing work from an automatic pool, constrain both the containing outcome
-and the action class:
+If the current actor already owns the claim,
+inspect the current context instead of claiming again:
+
+```bash
+card --actor <actor> --json show <issue-id> --context
+```
+
+When choosing from an automatic pool,
+constrain both the containing outcome and action class:
 
 ```bash
 card --actor <actor> --json claim \
@@ -22,186 +47,173 @@ card --actor <actor> --json claim \
   --context
 ```
 
-Repeated `--label` filters require every label.
-Repeated `--label-any` filters permit any listed action label.
-Use a negative label only for a real exclusion from a shared pool.
+Repeated `--label` values require every label;
+`--label-any` permits any listed label.
 
-Before material work, confirm that the current Summary and Details,
-inherited ancestor Summaries, completed dependency Results,
-and execution environment establish the concrete intended change,
-owned work area, constraints, and acceptance evidence without chat history.
-Source inspection may supply execution evidence;
+Before primary work,
+confirm that the current Summary and Details, ancestor Summaries,
+completed dependency Results, and execution environment establish the intended
+outcome, owned area, constraints, first safe action, and acceptance evidence.
+Source inspection may support that contract;
 it must not be the only place that identifies what the issue means.
-If the existing Summary names only a generic activity,
-replace it with the concise outcome and acceptance boundary before primary
-work begins.
-If an accepted implementation plan from conversation or inspection is absent
-from Details,
-publish the stable plan before State, Log, or dependent work relies on it.
-This gate applies when the claim owner will implement the work directly;
-it does not depend on a delegation or handoff boundary.
-When the contract cannot support execution, publish the gap and stop.
-Retain custody only when the same actor owns the correction;
-otherwise leave recoverable State and release the issue.
+Use [planning.md](planning.md) to repair a generic or incomplete contract.
+If established knowledge cannot support safe execution,
+publish the gap and stop.
 
-Before dispatch, decide whether another actor will own an issue
-or will assist inside an issue the coordinator continues to own.
+Treat accepted issue records as durable task knowledge.
+Before repeating investigation,
+identify the record that owns the needed conclusion and decide whether its
+scope, provenance, and relevant conditions still support the next action.
+When they do,
+use the recorded conclusion rather than reopening its cited sources merely for
+confidence.
+Investigate again when the needed conclusion or provenance is missing or
+ambiguous,
+a relevant source, dependency, environment, or acceptance requirement changed,
+or current evidence contradicts the record.
+A new actor, session, or desire for personal confidence does not make accepted
+knowledge stale.
 
-For a delegated issue, give the executor this shipped skill,
-the issue ID and runtime actor, the store and board selection,
-the working directory and owned files, the required validation,
-the expected Result, and the expected completion or handoff.
-Use an absolute `card` path when another worktree may resolve a different
-binary.
-State that the executor must claim the issue before material work
-and maintain its durable records and handoff while it owns execution.
-If the coordinator already holds the claim,
+## Reassess plans when conditions change
+
+Ready means graph prerequisites are satisfied;
+it does not prove that an earlier plan still fits.
+When a plan depended on unfinished prerequisites,
+read their Results and inspect the resulting system before dispatch or
+implementation.
+
+Use the new evidence to choose one disposition:
+
+- keep the accepted plan when its recorded conditions still apply;
+- replace Details when the stable remaining contract changes;
+- replace State with the current position and next established transition;
+- add Log only for distinct replay-worthy reasoning;
+- close or cancel when prerequisite work already achieved the outcome or made
+  it unnecessary; or
+- publish the unresolved gap and stop when no safe plan is established.
+
+Do not preserve or dispatch a superseded draft merely because the issue became
+ready.
+
+## Choose custody before dispatch
+
+Decide whether another actor will own an independent outcome
+or assist inside the issue the coordinator continues to own.
+
+For a delegated issue,
+give the executor the shipped skill, issue ID and runtime actor,
+required validation, expected Result, and completion or handoff disposition.
+When dispatch crosses a process or worktree boundary,
+follow [scope.md](scope.md) for explicit store, board, working directory,
+owned files, and `card` executable context.
+Require the executor to claim before material work
+and maintain the delegated issue's records while it owns execution.
+
+If the coordinator already holds the delegated claim,
 publish any material work already performed,
 then release it before the executor claims.
+The delegated executor owns that issue's State, Log, Result, and handoff.
+The containing claim owner publishes only delegated conclusions that change the
+containing issue's position or decision trail;
+chronology and supporting evidence remain on the delegated issue.
 
-After transfer, the executor authors the delegated issue's records.
-If the coordinator owns a containing issue,
-it maintains that issue.
-At handoff, the executor reports the delegated outcome to the coordinator.
-When that outcome changes a containing issue's active position or next action,
-the containing issue's claim owner incorporates the operative conclusion
-before further work relies on it.
-Keep chronology and supporting evidence on the delegated issue;
-carry only the operative conclusion into the containing issue.
-
-For assistance within an existing claimed issue,
+For assistance within one claimed issue,
 give the helper a bounded request and an evidence-return contract.
-The existing claim owner retains issue-record responsibility
-and publishes accepted evidence when it changes the issue's active position,
-decision trail, or outcome.
+The claim owner retains record responsibility and publishes accepted evidence
+when it changes the active position, decision trail, or outcome.
 
-## Reassess dependency-sensitive plans
+Use [mail.md](mail.md) only when an asynchronous Cardamom attention channel is
+needed in addition to durable issue records and runtime dispatch.
 
-Ready means that graph prerequisites are satisfied;
-it does not establish that an earlier execution plan still fits.
-When implementation choices depended on unfinished prerequisites,
-read their Results and inspect the resulting system before continuing.
+## Run the publication loop
 
-Use the new evidence to choose the current outcome:
+The claim owner repeats this loop:
 
-- Incorporate a conclusion into Details when it changes the stable
-  issue-local contract that remaining execution or review must rely on.
-- Put the current execution position and next established transition in State.
-- Preserve a changed or rejected approach in Log when its reasoning will matter
-  later.
-- Close or cancel the issue when prerequisite work already achieved its outcome
-  or made the outcome unnecessary.
+1. Compare the issue record with the premise, choice,
+   and recovery position the next action will consume.
+2. Apply every matching publication predicate from the primary skill.
+3. Perform the dependent primary-work action.
+4. Re-enter the loop when evidence, a choice, the active position,
+   or the next action changes.
 
-Do not preserve a superseded draft merely because work was previously planned.
+State is the complete active position rather than a transcript.
+Because `state set` replaces both State and its optional next action,
+every update retains facts that remain operative.
 
-Do not put every accepted conclusion in Details.
-If accepted research or inspection establishes an implementation plan that
-future execution or review must retain,
-replace Details with the complete stable working contract.
-Keep the research evidence and alternatives in Log,
-then replace State with the active execution position and next action.
-Commit the completed research State first only when that distinct position has
-replay value beyond the existing research Log.
-If a conclusion changes only the immediate next action or a transient working
-tactic,
-leave Details unchanged and carry it in State.
-
-## Keep active State current
-
-State is the complete active working position,
-not a transcript.
-Its optional next action is the established transition from that position.
-Because `state set` replaces both, every update retains the facts
-that remain operative.
-
-Publish intent before starting material work when interruption would otherwise
-leave the active position ambiguous:
+Publish intent before material work when interruption would otherwise leave the
+position ambiguous:
 
 ```bash
 card --actor <actor> state set <issue-id> \
-  'The parser failure is being reproduced; no repair is selected.'
+  'The parser failure is being reproduced; no repair is selected.' \
+  --next 'Run the focused reproduction and inspect the failing path.'
 ```
 
-As an action produces useful facts,
-replace State with the current result and next established transition.
-Partial work needs an update when the recoverable position changes,
-not after every command.
-
-Incomplete reconciliation does not justify retaining State
-that established evidence has disproved.
-Record the confirmed position,
-label unresolved evidence as pending,
-and state how it will be reconciled.
-For quantitative work, a conservative confirmed floor is sufficient
-until pending evidence is reconciled.
-Current State must not retain an earlier execution position
-after accepted evidence establishes a transition.
-For example, State cannot still describe work as paused
-after accepted evidence establishes that execution resumed.
-
-Before reporting current status, compare State and its next action
-with active execution and accepted delegated results.
-Update State to resolve a material contradiction before answering.
-
-## Preserve decisions and completed positions
-
-Use a standalone Log post for material design, strategy, policy,
-or behavior choices and for distinct reasoning, evidence, alternatives,
-or consequences needed to reconstruct the choice or path.
+When evidence selects a material repair,
+put the operative choice in State before implementation.
+Add a Log post only when distinct rationale, provenance, alternatives,
+or consequences will help later recovery or review:
 
 ```bash
+card --actor <actor> state set <issue-id> \
+  'The malformed escape is reproduced; preserving scanner escape state is the selected repair.' \
+  --next 'Implement escape-state preservation and run the focused regression.'
 card --actor <actor> log post <issue-id> - <<'LOG'
-The command adapter retains the existing result type.
-Adding a second result type would move transport policy into the domain API and
-force non-rendering callers to depend on command concerns.
+The scanner retains escape state until validation.
+Normalizing in the token reader was rejected because it would erase evidence
+needed to distinguish valid and malformed escapes.
 LOG
 ```
 
-Replace State separately only when the choice changes the active position or
-next action.
+The Log entry does not replace the operative choice in State
+and should not copy the complete State or next action.
 
-`state commit` preserves completed State in Log,
-then installs the next active State from `--set`
-or clears State when `--set` is omitted:
+Use `state commit` when a completed State has replay value after the active
+position advances:
 
 ```bash
-card --actor <actor> state set <issue-id> \
-  'The malformed escape is reproduced in the quoted-input regression.' \
-  --next 'Select a repair that preserves escape-state evidence.'
-
 card --actor <actor> state commit <issue-id> \
-  --set 'The reproduction is recorded; repair selection is in progress.' \
-  --next 'Choose the repair and update the regression.'
+  --set 'Implementation is complete; validation is the active position.' \
+  --next 'Run the required validation.'
 ```
 
-The committed State needs no standalone Log entry containing the same
-reproduction.
+A committed State snapshot needs no standalone Log entry containing the same
+position.
 Elapsed time, one long command, and incomplete mechanical edits do not create a
 snapshot by themselves.
+When temporary State should disappear without entering history,
+clear it with `state set <issue-id> ''`.
+Use bare `state commit` instead when the current position should remain
+replayable but no replacement State is active.
 
-Promote only the smallest conclusion every descendant needs into the containing
-Summary.
-Keep decision evidence, alternatives, and chronology in Log.
-Read Summary or Details before replacing it,
-retain every still-operative part, and replace obsolete guidance
-rather than accumulating history.
+Before reporting status,
+compare State and its next action with active execution and accepted delegated
+evidence.
+Resolve a material contradiction before answering.
+Record confirmed facts, pending evidence, and how it will be reconciled;
+do not leave a disproved or superseded position active while waiting for
+complete accounting.
 
-## Author durable records
+## Author durable bodies and references
 
-Write each rendered record for the decision or continuation its reader owns.
-Account for context the reader receives from the issue graph,
-but do not rely on chat or unstated investigation.
-Introduce prerequisites before claims that depend on them,
-reuse stable names,
+Write each record for the decision or continuation its reader owns.
+Account for graph context without relying on chat or unstated investigation.
+Introduce prerequisites before dependent claims, reuse stable names,
 and make material scope, causes, evidence, and uncertainty explicit.
-Omit command narration and background that does not help the reader use the
-record.
-Use headings and lists when they expose real structure;
-do not add them around a single clear sentence.
 Keep chronology only in records that own history.
 
-Use a single-quoted scalar for a simple one-line body
-and a single-quoted heredoc for multiline or Markdown-rich input:
+Structure a body for the reader's scanning task.
+Use short paragraphs for one connected thought,
+bullets or tables for independent facts,
+and small domain-specific headings when several sections matter.
+Separate paragraphs with blank lines;
+single source line breaks still render as one paragraph.
+Do not add generic `State`, `Current state`, or `Next action` headings around
+fields whose command output already supplies those roles.
+
+Use a single-quoted scalar for a simple one-line body.
+Use a single-quoted heredoc for multiline or Markdown-rich input
+so dollar signs, backticks, and backslashes remain literal:
 
 ```bash
 card --actor <actor> log post <issue-id> - <<'LOG'
@@ -212,105 +224,75 @@ The documented escape spelling is `\n`.
 LOG
 ```
 
-The quoted delimiter preserves dollar signs, backticks, and backslashes.
-Use real lines rather than serialized escape sequences when the rendered
-record needs paragraphs or lists.
-
-Cardamom references provide durable navigation:
-
-| Target | Form |
-| --- | --- |
-| Issue | `%<issue-id>` |
-| Log entry | `%log_<id>` |
-
-Keep the material conclusion in the surrounding record;
-a reference does not carry its meaning.
-Use a full navigable URL for an external artifact needed for inspection or
-continuation.
-
-Use [attachments.md](attachments.md) for attachment references
-and when later work needs produced file bytes.
-
-## Finish, hand off, or wait
-
-Result owns the completed outcome and validation.
-Do not repeat that same completion or validation in standalone Log;
-use Log at finish only for distinct reasoning or evidence that Result and
-committed State do not preserve:
+Use real lines rather than serialized newline escapes.
+When a multiline State also has a scalar next action,
+put the stdin selector and flags before the heredoc redirection:
 
 ```bash
-card --actor <actor> result set <issue-id> "$(cat <<'RESULT'
-Implemented the parser repair.
+card --actor <actor> state set <issue-id> - \
+  --next 'Implement the selected repair.' <<'STATE'
+The failure is reproduced and the repair is selected.
+STATE
 
-The quoted-input regression and required parser validation pass.
-RESULT
-)"
+card --actor <actor> state commit <issue-id> \
+  --set - --next 'Run validation.' <<'STATE'
+Implementation is complete; validation is active.
+STATE
 ```
 
-At completion or acceptance handoff, replace State with the operative
-acceptance position rather than repeating Result:
+Reference issues as `%<issue-id>` and Log entries as `%log_<id>`.
+Keep the material conclusion in the surrounding record;
+a reference supplies navigation rather than meaning.
+When a published external artifact is required for continuation or inspection,
+store its full navigable URL rather than only local shorthand.
+Use [attachments.md](attachments.md) when later work needs produced file bytes.
+
+## Choose the next disposition
+
+Result owns the completed outcome and validation.
+Choose the disposition from the issue contract and actual execution state:
+
+| Condition | Required sequence |
+| --- | --- |
+| Complete; executor may accept | Set Result, then follow the close workflow |
+| Complete; independent acceptance | Set Result, install acceptance State, release waiting |
+| Partial; any eligible actor may continue | Install recoverable State, release ordinarily |
+| Partial; directed or external continuation | Install recoverable State, release waiting |
+
+Use [termination.md](termination.md) to close completed work or choose another
+terminal disposition.
+
+Do not copy Result into State or a standalone Log entry.
+At independent handoff,
+State identifies the acceptance position and separate next action:
 
 ```bash
+card --actor <actor> result set <issue-id> - <<'RESULT'
+Implemented the parser repair.
+
+The focused regression and required parser validation pass.
+RESULT
 card --actor <actor> state set <issue-id> \
   'Execution is complete; Result records the outcome and validation.' \
   --next 'Inspect Result and accept or return the issue.'
-```
-
-At a partial or interrupted handoff, State instead retains completed
-and remaining work,
-relevant files or artifacts, observed validation, blockers,
-and the next established action.
-
-Choose release by the intended continuation:
-
-```bash
-# Any eligible actor may select the issue from an automatic pool.
-card --actor <actor> release <issue-id>
-
-# Continuation is directed, awaits acceptance, or needs an external event.
 card --actor <actor> release <issue-id> \
-  --waiting '<continuation reason>'
+  --waiting 'independent acceptance'
 ```
 
-Release ends custody and preserves changed State in Log automatically.
-Ordinary release returns the open issue to its dependency-derived position.
-Waiting keeps the open issue outside automatic pools.
-The next executor claims waiting work directly by ID with `--context`.
+Ordinary release returns open work to its dependency-derived pool.
+Waiting release ends custody and keeps open work outside automatic pools.
+Release preserves changed State automatically;
+do not run `state commit` solely to prepare for release.
+The next executor claims waiting work directly by ID;
+the claim clears waiting but does not prove authority or satisfy its reason.
 
-Use an independent acceptor only when the issue contract requires independent
-acceptance.
-Otherwise the executor responsible for the outcome may complete the ordinary
-acceptance and closure work.
-
-## Accept or terminate work
-
-An acceptor reads Result and material child outcomes,
-records the acceptance decision,
-then closes the issue:
-
-```bash
-card --actor <acceptor-actor> --json result show <issue-id>
-card --actor <acceptor-actor> log post <issue-id> \
-  'The recorded outcome satisfies the issue contract and required validation.'
-card --actor <acceptor-actor> close <issue-id>
-```
-
-Workstreams and routines close after every direct child is closed or cancelled.
-Terminal operations preserve changed State automatically.
-
-`cancel` and `checkpoint deny` cancel non-terminal transitive dependents.
-Before either operation, walk every direct `blocks` edge,
-tracking seen issue IDs
-until no unseen dependent remains:
-
-```bash
-issue_json=$(card --actor <actor> --json show <issue-id>)
-printf '%s\n' "$issue_json" | jq -r '.blocks[]'
-```
-
-Inspect the resulting non-terminal set before applying the terminal operation.
-Record rationale before `close`, `reopen`, or `cancel`;
-those commands do not accept a reason flag.
-
-Use `state set <issue-id> ''` only when intentionally discarding temporary
-State without preserving it.
+An acceptor reads Result and material child outcomes without claiming the issue.
+If the outcome satisfies the contract,
+follow the close workflow in [termination.md](termination.md).
+If it does not,
+record the concrete gaps in Log,
+replace State with the returned position and next corrective action,
+and leave the issue waiting for direct claim by the corrective executor.
+Claim only when the acceptor will perform corrective execution.
+The submitted Result remains the last proposed outcome until corrective work
+replaces it.

@@ -2,75 +2,44 @@
 
 A routine is one persistent operating contract awakened by an external
 scheduler or coordinator.
-Cardamom preserves its context and run history;
-it does not schedule the next awakening.
+Cardamom preserves context and run history;
+it does not schedule awakenings.
 
-## Create the operating contract
+Use [leases.md](leases.md) before a run when the routine needs exclusive use of
+an external resource.
+Acquire and release the lease within each awakening.
+
+## Establish the operating contract
 
 Use one routine for one stable scope and success definition.
 
-| Record | Routine contents |
+| Record | Routine content |
 | --- | --- |
 | Summary | Stable scope and contract facts every child needs |
-| Details | Successful-run and retirement conditions unless every child needs them, plus procedure, evidence requirements, and stable resource requirements |
-| State | Cursor, current targets, active-run facts, and partial progress |
-| Next action | Transition for the next awakening, when established |
-| Log | Committed run snapshots and replay-worthy policy decisions |
+| Details | Run and retirement conditions, procedure, evidence, resource needs |
+| State | Cursor, targets, active-run facts, partial progress, and next transition |
+| Log | Distinct policy choices or evidence not preserved by committed State |
 
-```bash
-summary=$(cat <<'MARKDOWN'
-Assess tracked releases.
-MARKDOWN
-)
-details=$(cat <<'MARKDOWN'
-Each run succeeds when every tracked release is accepted or returned with an
-actionable failure.
-Retire when this release process ends.
-
-Inspect the targets and safe cursor in State.
-Record review and validation evidence for every assessed target.
-MARKDOWN
-)
-routine_id=$(card --actor <actor> create \
-  --type routine \
-  --summary "$summary" \
-  --details "$details" \
-  'Assess releases')
-
-card --actor <actor> state set "$routine_id" "$(cat <<'STATE'
-## Current targets
-
-- release-121
-- release-122
-
-## Safe cursor
-
-release-120
-STATE
-)" --next 'Assess the current release targets.'
-```
-
-Routines do not appear in ready or blocked claim pools.
-Dispatch a routine by its known ID.
-
-## Begin one awakening
-
-Claim the routine for one run:
+Routines do not appear in automatic ready or blocked claim pools.
+An external wake policy claims the known routine ID:
 
 ```bash
 card --actor <actor> --json claim <routine-id> --context
 ```
 
 Explicit selection still respects dependencies.
-If an open dependency blocks the routine, leave it unclaimed
-and let the external wake policy retry.
+If an open dependency blocks the routine,
+leave it unclaimed and let the wake policy retry.
 
-Beginning the run consumes the planned transition.
-Before external work, replace State with the persistent cursor and targets
-plus an active-run boundary:
+## Run one awakening
+
+Before external work,
+install an active-run State that retains the last safe cursor and current
+targets:
 
 ```bash
-card --actor <actor> state set <routine-id> "$(cat <<'STATE'
+card --actor <actor> state set <routine-id> - \
+  --next 'Assess the current release targets.' <<'STATE'
 ## Current targets
 
 - release-121
@@ -82,126 +51,72 @@ release-120
 
 ## Active run
 
-- Wake: 2026-07-16T10:00:00Z
 - Starting cursor: release-120
 - Evidence: review and validation status for every inspected release
 STATE
-)"
 ```
 
-Create a child task when part of the run needs independent ownership,
+Create a child only when part of the run needs independent custody,
 dependencies, artifacts, or acceptance.
 The routine owns coordination;
 the child owns that bounded outcome.
 
-## Finish or pause the run
-
-Append the run outcome to active State as it becomes known.
-Advance a cursor only through successfully assessed input.
-At the run boundary, commit the completed run while installing State
-and the next action for the following awakening:
+Advance a cursor only through successfully processed input.
+At the run boundary,
+append the completed outcome to the active-run State before committing it.
+`state commit` can preserve only the State that exists at that moment;
+it cannot recover run evidence that was never published.
 
 ```bash
-card --actor <actor> state append <routine-id> "$(cat <<'STATE'
+card --actor <actor> state append <routine-id> - <<'STATE'
 ## Run outcome
 
 - Releases 121 through 123 are resolved.
-- Release 124 has a failing validation job and remains active.
+- Release 124 remains active.
 STATE
-)"
+```
 
-next_state=$(cat <<'STATE'
-## Current targets
+Then commit the completed run while installing the next recoverable State:
 
-- release-124: validation job `test` is failing
-
-## Safe cursor
-
-release-124
-STATE
-)
+```bash
 card --actor <actor> state commit <routine-id> \
-  --set "$next_state" \
+  --set 'Release 124 remains active; safe cursor is release-123.' \
   --next 'Recheck release 124 before advancing the cursor.'
 card --actor <actor> release <routine-id>
 ```
 
-The commit preserves the completed run.
-Release preserves the installed next-run State automatically.
-A standalone Log post is useful only when the run establishes a material
-policy choice or other reasoning not represented by either State snapshot.
+The committed State preserves the run boundary.
+Add Log only for distinct policy or reasoning useful to later runs.
+When a run establishes stable procedure or interpretation,
+replace Details with the complete durable contract before release.
+Do not accumulate run chronology there.
 
-## Upgrade knowledge between awakenings
-
-Every routine claim returns the routine's Details and current State.
-Keep those records sufficient to begin the next awakening without replaying the
-routine's complete Log.
-
-When a run establishes stable procedure,
-interpretation rules, resource requirements,
-or policy that later runs need,
-incorporate the conclusion into Details before release.
-Preserve the evidence and decision trail in the committed run State or a
-standalone Log entry,
-but replace obsolete Details instead of accumulating run chronology there.
-
-Keep current targets, cursors, partial progress, and wake-specific conditions
-in State.
-Keep Summary limited to the stable routine scope
-and conclusions every child must inherit.
-Keep successful-run and retirement conditions in Details
-unless every child needs them.
-Retrieve bounded Log history only when a specific past run or decision affects
-the current awakening.
-
-## Wait for external continuation
-
-When no run can proceed until an external event,
-commit the partial run while installing the last safe cursor and trigger,
-then release into waiting:
+When an external event prevents the next run,
+append partial progress and the observed trigger to the active-run State,
+then install the last safe cursor and trigger,
+then use waiting release:
 
 ```bash
-next_state=$(cat <<'STATE'
-## Current targets
+card --actor <actor> state append <routine-id> - <<'STATE'
+## Partial run outcome
 
-- release-125: not yet assessed
-
-## Safe cursor
-
-release-124
-
-## External trigger
-
-The signing service must recover before assessment resumes.
+- Release 124 completed successfully.
+- The signing service failed before release 125 was assessed.
 STATE
-)
 card --actor <actor> state commit <routine-id> \
-  --set "$next_state" \
-  --next 'Resume after the signing service is restored.'
+  --set 'Release 125 is unassessed; safe cursor is release-124.' \
+  --next 'Resume after the signing service recovers.'
 card --actor <actor> release <routine-id> \
-  --waiting 'signing service is restored'
+  --waiting 'signing service recovery'
 ```
 
-An external condition is waiting state, not dependency-derived blocked status.
-The next direct claim clears waiting after the trigger is satisfied.
+## Retire the operating contract
 
-Acquire and release a required resource lease within each run.
-Do not carry a lease between awakenings.
-Use [leases.md](leases.md) for the acquisition and recovery boundary.
-
-## Retire the routine
-
-Verify that no actor owns an active run, reconcile direct children,
-record why the operating contract ended, then close or cancel the routine:
-
-```bash
-card --actor <actor> --json show <routine-id> --context
-card --actor <actor> --json list \
-  --under <routine-id> \
-  --status ready,blocked,in_progress,waiting,closed,cancelled --limit 0
-card --actor <actor> log post <routine-id> \
-  'This routine is retired because its operating contract no longer applies.'
-card --actor <actor> close <routine-id>
-```
-
-A routine Result is optional.
+Verify that no actor owns an active run.
+Set Result only when acceptors or dependents need the completed terminal
+outcome.
+Then use [termination.md](termination.md) to reconcile children,
+publish why the operating contract ended,
+and choose close or cancellation.
+One terminal decision record may also carry the retirement rationale;
+do not post the same conclusion twice.
