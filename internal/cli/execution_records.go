@@ -659,7 +659,7 @@ var _ StateCommitOperations = (*record.Recorder)(nil)
 
 type stateCommitCommand struct {
 	ID   string  `arg:"" name:"id" help:"Issue whose current State will be committed."`
-	Set  *string `name:"set" placeholder:"MARKDOWN" help:"State body after the commit. Use - to read standard input or an empty value to clear State."`
+	Set  *string `name:"set" placeholder:"MARKDOWN" help:"State body after the commit. Use - to read standard input."`
 	Next *string `name:"next" placeholder:"ACTION" help:"Optional next-action Markdown for a non-empty --set. Use - to read standard input."`
 }
 
@@ -667,7 +667,7 @@ func (c *stateCommitCommand) referencedIssueIDs() []string { return []string{c.I
 
 // Help describes the atomic State disposition selected by each flag.
 func (*stateCommitCommand) Help() string {
-	return "Commit changed State to the Log. Retain current State by default or set its next value with --set; an empty --set clears it."
+	return "Commit changed State to the Log. Clear current State by default or install its next value with --set."
 }
 
 // Run selects Markdown and delegates the atomic State commit.
@@ -678,7 +678,7 @@ func (c *stateCommitCommand) Run(
 ) error {
 	request := record.CommitStateRequest{
 		IssueID:     c.ID,
-		Disposition: record.CommitStateRetain,
+		Disposition: record.CommitStateClear,
 	}
 	if c.Next != nil && c.Set == nil {
 		return UsageErrorf("--next requires a non-empty --set")

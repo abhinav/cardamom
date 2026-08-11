@@ -46,7 +46,7 @@ preserve these distinctions:
 - A final Result does not repair an earlier transition that dependent work
   crossed without durable publication.
 - Commit State when a completed position must remain recoverable after current
-  State moves on.
+  State changes or ends.
 - A committed State snapshot and a standalone Log post are alternative history
   mechanisms when they would preserve the same information.
 - Routine commands and incomplete mechanical work do not create chronology by

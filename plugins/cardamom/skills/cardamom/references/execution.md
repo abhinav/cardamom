@@ -149,8 +149,9 @@ LOG
 Replace State separately only when the choice changes the active position or
 next action.
 
-Use `state commit` when the current State must remain available after the next
-active position replaces it:
+`state commit` preserves completed State in Log,
+then installs the next active State from `--set`
+or clears State when `--set` is omitted:
 
 ```bash
 card --actor <actor> state set <issue-id> \
@@ -162,9 +163,8 @@ card --actor <actor> state commit <issue-id> \
   --next 'Choose the repair and update the regression.'
 ```
 
-The commit snapshots the completed reproduction State into Log and selects the
-new active State.
-It needs no standalone Log entry containing the same reproduction.
+The committed State needs no standalone Log entry containing the same
+reproduction.
 Elapsed time, one long command, and incomplete mechanical edits do not create a
 snapshot by themselves.
 

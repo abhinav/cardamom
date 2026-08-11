@@ -57,7 +57,8 @@ Find the Migration backlog workstream and atomically claim one ready task under
 it with the implementation label and inherited context.
 Carry out the claimed task and keep State aligned with current recovery truth.
 Put an optional planned transition in `--next`
-and commit State at durable checkpoints.
+and commit a completed position when it must remain recoverable after State
+changes or ends; use `--set` when another active position follows.
 Use standalone Log posts only for replay-worthy material
 that State snapshots do not represent.
 If any migration worker may resume unfinished work, release it to the pool.

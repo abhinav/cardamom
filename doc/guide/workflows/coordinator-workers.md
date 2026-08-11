@@ -68,7 +68,8 @@ Claim issue <issue-id> by ID with inherited context.
 Complete the assigned release task.
 Keep State aligned with current recovery truth
 and put an optional planned transition in `--next`.
-Commit State at durable checkpoints.
+Commit a completed position when it must remain recoverable after State changes
+or ends; use `--set` when another active position follows.
 Use standalone Log posts only for replay-worthy material
 that State snapshots do not represent.
 Set a useful result and release the task waiting for coordinator acceptance.

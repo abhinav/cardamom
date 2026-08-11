@@ -15,7 +15,9 @@ exec card --json state show state-1
 cmpjson stdout $WORK/golden/next-state.json
 
 exec card --actor data --json state commit state-1
-cmpjson stdout $WORK/golden/commit-retain.json
+cmpjson stdout $WORK/golden/commit-default-clear.json
+exec card --json state show state-1
+cmpjson stdout $WORK/golden/absent-state.json
 exec card --actor data --json state commit state-1
 cmpjson stdout $WORK/golden/commit-no-op.json
 
@@ -61,7 +63,8 @@ stdout '--set=MARKDOWN'
 stdout '--next=ACTION'
 stdout 'Use - to read'
 stdout 'standard input\.'
-stdout 'Retain current State by default'
+stdout 'Clear current State by default'
+! stdout 'empty.*clear'
 exec card state set --help
 stdout '--next=ACTION'
 
@@ -73,10 +76,10 @@ Only one value can consume this input.
 {"issue_id":"state-1","snapshot_created":true,"state":{"body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","author":"data","updated":1784030400},"log_entry":{"id":"log_00000000000000000000000000000001","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Current recovery State.\nSecondary diagnostic.","next_action":"Inspect the primary plasma conduit.","created":1784030400}}
 -- golden/next-state.json --
 {"issue_id":"state-1","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","author":"data","updated":1784030400}
--- golden/commit-retain.json --
-{"issue_id":"state-1","snapshot_created":true,"state":{"body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","author":"data","updated":1784030400,"snapshot_log_entry_id":"log_00000000000000000000000000000002"},"log_entry":{"id":"log_00000000000000000000000000000002","issue_id":"state-1","kind":"state_snapshot","author":"data","committer":"data","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","created":1784030400}}
+-- golden/commit-default-clear.json --
+{"issue_id":"state-1","snapshot_created":true,"state":null,"log_entry":{"id":"log_00000000000000000000000000000002","issue_id":"state-1","kind":"state_snapshot","author":"data","committer":"data","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","created":1784030400}}
 -- golden/commit-no-op.json --
-{"issue_id":"state-1","snapshot_created":false,"state":{"body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","author":"data","updated":1784030400,"snapshot_log_entry_id":"log_00000000000000000000000000000002"}}
+{"issue_id":"state-1","snapshot_created":false,"state":null}
 -- golden/commit-clear.json --
 {"issue_id":"state-1","snapshot_created":true,"state":null,"log_entry":{"id":"log_00000000000000000000000000000003","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Final uncommitted State.","created":1784030400}}
 -- golden/absent-state.json --

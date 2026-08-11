@@ -132,7 +132,7 @@ card --actor worker-a state commit "$issue" \
 The commit preserves the verified-archive State in Log
 and makes publication the current working position.
 When a coherent phase ends with no remaining active work,
-commit it with `--set ''` to snapshot and clear State.
+use bare `state commit` to snapshot and clear State.
 Use `log post` only for additional replay-worthy reasoning or evidence
 that the State snapshot does not represent.
 
@@ -153,7 +153,7 @@ Choose the transition that matches the next reader:
 | Situation | Operation |
 | --- | --- |
 | A coherent phase ends and another begins | Commit current State while installing the next State with `state commit --set`. |
-| A coherent phase ends without another active position | Commit current State and clear it with `state commit --set ''`. |
+| A coherent phase ends without another active position | Commit current State and clear it with bare `state commit`. |
 | Work is complete under the current actor | Set a result when useful, keep final State current, then `close`. |
 | Any eligible worker may continue | Keep State and its optional next action current, then ordinary `release`. |
 | A named acceptor or external event acts next | Set a useful result or current working position, then `release --waiting "<reason>"`. |
