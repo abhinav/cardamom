@@ -1,7 +1,14 @@
 import { useTransport } from "@connectrpc/connect-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Settings } from "lucide-react";
 import {
   Link,
@@ -16,10 +23,6 @@ import {
 } from "react-router";
 
 import type { AttachmentClient, ChangeClient, WebClient } from "./api.ts";
-import { ApprovalsRoute } from "./approvals/approvals.tsx";
-import {
-  BoardSettingsDialog,
-} from "./board-settings.tsx";
 import { BoardPickerRoute, BoardSelector } from "./board-selector.tsx";
 import {
   collectionRouteLocationSearch,
@@ -32,7 +35,6 @@ import {
   type IssueCollectionMode,
   type IssueFilterNavigation,
 } from "./collection-route.ts";
-import { ConfigurationRoute } from "./configuration.tsx";
 import {
   boardScopePath,
   boardScopeHref,
@@ -58,8 +60,6 @@ import {
 import { DocumentTitle } from "./document-title.tsx";
 import { type StreamStatus, watchContinuously } from "./invalidation.ts";
 import { bootstrapQueryOptions } from "./query-runtime.ts";
-import { BoardRoute, ListRoute } from "./issue-views.tsx";
-import { IssueDetailPage } from "./issue-detail/issue-detail.tsx";
 import {
   defaultBoardView,
   defaultListView,
@@ -73,12 +73,47 @@ import {
   type PreferencesStorage,
   type ThemePreference,
 } from "./preferences.ts";
-import { RoutinesRoute } from "./routines/routines.tsx";
 import {
   effectiveMutationCapability,
   ServerAccessProvider,
   useServerAccess,
 } from "./server-access.tsx";
+
+const ApprovalsRoute = lazy(() =>
+  import("./approvals/approvals.tsx").then(({ ApprovalsRoute }) => ({
+    default: ApprovalsRoute,
+  }))
+);
+const BoardRoute = lazy(() =>
+  import("./issue-views.tsx").then(({ BoardRoute }) => ({
+    default: BoardRoute,
+  }))
+);
+const BoardSettingsDialog = lazy(() =>
+  import("./board-settings.tsx").then(({ BoardSettingsDialog }) => ({
+    default: BoardSettingsDialog,
+  }))
+);
+const ConfigurationRoute = lazy(() =>
+  import("./configuration.tsx").then(({ ConfigurationRoute }) => ({
+    default: ConfigurationRoute,
+  }))
+);
+const IssueDetailPage = lazy(() =>
+  import("./issue-detail/issue-detail.tsx").then(({ IssueDetailPage }) => ({
+    default: IssueDetailPage,
+  }))
+);
+const ListRoute = lazy(() =>
+  import("./issue-views.tsx").then(({ ListRoute }) => ({
+    default: ListRoute,
+  }))
+);
+const RoutinesRoute = lazy(() =>
+  import("./routines/routines.tsx").then(({ RoutinesRoute }) => ({
+    default: RoutinesRoute,
+  }))
+);
 
 interface AppProps {
   client: WebClient;
@@ -386,15 +421,17 @@ function ApplicationShell({
             updatePreferences={updatePreferences}
           />
         </main>
-        {!aggregateMode && canMutateServer && boardSettingsOpen && selectedBoard !== undefined && (
-          <BoardSettingsDialog
-            key={selectedBoard.id}
-            actor={preferences.actor}
-            boardId={selectedBoard.id}
-            onDismiss={() => setBoardSettingsOpen(false)}
-            onSaved={() => setBoardSettingsOpen(false)}
-          />
-        )}
+        <Suspense fallback={null}>
+          {!aggregateMode && canMutateServer && boardSettingsOpen && selectedBoard !== undefined && (
+            <BoardSettingsDialog
+              key={selectedBoard.id}
+              actor={preferences.actor}
+              boardId={selectedBoard.id}
+              onDismiss={() => setBoardSettingsOpen(false)}
+              onSaved={() => setBoardSettingsOpen(false)}
+            />
+          )}
+        </Suspense>
       </div>
     </>
   );
@@ -648,62 +685,64 @@ function RouteContent({
     />
   );
   return (
-    <Routes>
-      <Route
-        path="/"
-        element={
-          <BoardPickerRoute
-            aggregate={aggregateMode}
-            boards={boards}
-            projects={projects}
-            sources={sources}
-          />
-        }
-      />
-      <Route path="/board/:boardId" element={boardRoute} />
-      <Route path="/all" element={boardRoute} />
-      <Route path="/board/:boardId/approvals" element={approvalsRoute} />
-      <Route path="/all/approvals" element={approvalsRoute} />
-      <Route path="/board/:boardId/list" element={listRoute} />
-      <Route path="/all/list" element={listRoute} />
-      <Route path="/board/:boardId/routines" element={routinesRoute} />
-      <Route path="/all/routines" element={routinesRoute} />
-      <Route
-        path="/board/:boardId/settings"
-        element={
-          aggregateMode
-            ? <NotFoundPage />
-            : (
-              <ConfigurationRoute
-                actor={preferences.actor}
-                boardId={selection.kind === "board" ? selection.boardId : undefined}
-                boardName={
-                  selection.kind === "board"
-                    ? boards.find((board) => board.id === selection.boardId)?.name
-                    : undefined
-                }
-                canMutateServer={canMutateServer}
-              />
-            )
-        }
-      />
-      <Route
-        path="/board/:boardId/issue/:issueId"
-        element={
-          <IssuePage
-            aggregateMode={aggregateMode}
-            attachmentClient={attachmentClient}
-            boards={boards}
-            preferences={preferences}
-            projects={projects}
-            selection={selection}
-            selectLabel={selectLabel}
-            updatePreferences={updatePreferences}
-          />
-        }
-      />
-      <Route path="*" element={<NotFoundPage />} />
-    </Routes>
+    <Suspense fallback={<StartupState message="Loading page" />}>
+      <Routes>
+        <Route
+          path="/"
+          element={
+            <BoardPickerRoute
+              aggregate={aggregateMode}
+              boards={boards}
+              projects={projects}
+              sources={sources}
+            />
+          }
+        />
+        <Route path="/board/:boardId" element={boardRoute} />
+        <Route path="/all" element={boardRoute} />
+        <Route path="/board/:boardId/approvals" element={approvalsRoute} />
+        <Route path="/all/approvals" element={approvalsRoute} />
+        <Route path="/board/:boardId/list" element={listRoute} />
+        <Route path="/all/list" element={listRoute} />
+        <Route path="/board/:boardId/routines" element={routinesRoute} />
+        <Route path="/all/routines" element={routinesRoute} />
+        <Route
+          path="/board/:boardId/settings"
+          element={
+            aggregateMode
+              ? <NotFoundPage />
+              : (
+                <ConfigurationRoute
+                  actor={preferences.actor}
+                  boardId={selection.kind === "board" ? selection.boardId : undefined}
+                  boardName={
+                    selection.kind === "board"
+                      ? boards.find((board) => board.id === selection.boardId)?.name
+                      : undefined
+                  }
+                  canMutateServer={canMutateServer}
+                />
+              )
+          }
+        />
+        <Route
+          path="/board/:boardId/issue/:issueId"
+          element={
+            <IssuePage
+              aggregateMode={aggregateMode}
+              attachmentClient={attachmentClient}
+              boards={boards}
+              preferences={preferences}
+              projects={projects}
+              selection={selection}
+              selectLabel={selectLabel}
+              updatePreferences={updatePreferences}
+            />
+          }
+        />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </Suspense>
   );
 }
 
