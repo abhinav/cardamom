@@ -1,5 +1,6 @@
 import { useMutation, useTransport } from "@connectrpc/connect-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Archive, Pencil, X } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
@@ -59,6 +60,10 @@ interface BoardSettingsDialogProps {
   onSaved: () => void;
 }
 
+/**
+ * BoardSettingsDialog owns settings and lifecycle mutations for one explicit
+ * board. Archived boards remain readable here and expose only unarchive.
+ */
 export function BoardSettingsDialog({
   actor,
   boardId,
@@ -68,6 +73,8 @@ export function BoardSettingsDialog({
   const transport = useTransport();
   const queryClient = useQueryClient();
   const updateBoard = useMutation(ProjectService.method.updateBoard);
+  const archiveBoard = useMutation(ProjectService.method.archiveBoard);
+  const unarchiveBoard = useMutation(ProjectService.method.unarchiveBoard);
   const load = useQuery({
     ...unaryRouteQueryOptions(
       ProjectService.method.getBoard,
@@ -88,6 +95,9 @@ export function BoardSettingsDialog({
     submission: { kind: "idle" },
   }));
   const { draft, mode, submission } = editor;
+  const [archiveReason, setArchiveReason] = useState("");
+  const [archiveExpanded, setArchiveExpanded] = useState(false);
+  const [lifecycleError, setLifecycleError] = useState<string>();
 
   useEffect(() => {
     if (load.data === undefined) {
@@ -131,6 +141,38 @@ export function BoardSettingsDialog({
     }
   };
 
+  type LifecycleAction = "archive" | "unarchive";
+
+  // Lifecycle changes invalidate both detail and catalog membership because
+  // archival changes the board's writable state and its default discoverability.
+  const changeLifecycle = async (action: LifecycleAction) => {
+    setLifecycleError(undefined);
+    try {
+      const resources = [WatchResource.BOARD, WatchResource.BOARD_CATALOG];
+      if (action === "archive") {
+        await runInvalidatingMutation(
+          queryClient,
+          resources,
+          () => archiveBoard.mutateAsync({
+              boardId,
+              reason: archiveReason.trim() || undefined,
+              context: { actor: actor.trim() },
+            }),
+        );
+      } else {
+        await runInvalidatingMutation(
+          queryClient,
+          resources,
+          () => unarchiveBoard.mutateAsync({ boardId }),
+        );
+      }
+      await load.refetch();
+      onSaved();
+    } catch (failure) {
+      setLifecycleError(failureMessage(failure));
+    }
+  };
+
   return (
     <div className="modal-backdrop">
       <section
@@ -139,11 +181,20 @@ export function BoardSettingsDialog({
         aria-modal="true"
         aria-labelledby="board-settings-title"
       >
-        <header className="modal-header">
+        <header className="modal-header board-settings-header">
           <div>
             <h2 id="board-settings-title">Board settings</h2>
             <p>{boardId}</p>
           </div>
+          <button
+            type="button"
+            className="secondary-button board-settings-icon-button"
+            aria-label="Close board settings"
+            title="Close"
+            onClick={onDismiss}
+          >
+            <X aria-hidden="true" />
+          </button>
         </header>
         {load.data === undefined && !load.isError && (
           <p role="status">Loading board settings</p>
@@ -157,49 +208,59 @@ export function BoardSettingsDialog({
           </div>
         )}
         {load.data !== undefined && (
-          <BoardSettingsContent
-            board={load.data}
-            draft={draft}
-            mode={mode}
-            submission={submission}
-            onBeginEdit={() => {
-              setEditor((current) => ({
-                ...current,
-                draft: {
-                  name: load.data.name,
-                  descriptionSource: load.data.description?.source ?? "",
-                },
-                mode: "edit",
-                submission: { kind: "idle" },
-              }));
-            }}
-            onCancelEdit={() => {
-              setEditor((current) => ({
-                ...current,
-                draft: {
-                  name: load.data.name,
-                  descriptionSource: load.data.description?.source ?? "",
-                },
-                mode: "read",
-                submission: { kind: "idle" },
-              }));
-            }}
-            onChangeDraft={(nextDraft) =>
-              setEditor((current) => ({
-                ...current,
-                draft: nextDraft,
-              }))
-            }
-            onDismiss={onDismiss}
-            onSubmit={submit}
-          />
-        )}
-        {load.data === undefined && (
-          <div className="modal-actions">
-            <button type="button" className="secondary-button" onClick={onDismiss}>
-              Close
-            </button>
-          </div>
+          <>
+            <BoardSettingsContent
+              board={load.data}
+              draft={draft}
+              mode={mode}
+              submission={submission}
+              onBeginEdit={(nextMode) => {
+                setEditor((current) => ({
+                  ...current,
+                  draft: {
+                    name: load.data.name,
+                    descriptionSource: load.data.description?.source ?? "",
+                  },
+                  mode: nextMode,
+                  submission: { kind: "idle" },
+                }));
+              }}
+              onCancelEdit={() => {
+                setEditor((current) => ({
+                  ...current,
+                  draft: {
+                    name: load.data.name,
+                    descriptionSource: load.data.description?.source ?? "",
+                  },
+                  mode: "read",
+                  submission: { kind: "idle" },
+                }));
+              }}
+              onChangeDraft={(nextDraft) =>
+                setEditor((current) => ({
+                  ...current,
+                  draft: nextDraft,
+                }))
+              }
+              onSubmit={submit}
+            />
+            <BoardLifecycleControls
+              archived={load.data.archived !== undefined}
+              expanded={archiveExpanded}
+              reason={archiveReason}
+              error={lifecycleError}
+              submitting={archiveBoard.isPending || unarchiveBoard.isPending}
+              onBeginArchive={() => setArchiveExpanded(true)}
+              onCancelArchive={() => {
+                setArchiveExpanded(false);
+                setArchiveReason("");
+                setLifecycleError(undefined);
+              }}
+              onReasonChange={setArchiveReason}
+              onArchive={() => void changeLifecycle("archive")}
+              onUnarchive={() => void changeLifecycle("unarchive")}
+            />
+          </>
         )}
       </section>
     </div>
@@ -211,14 +272,16 @@ interface BoardSettingsContentProps {
   draft: BoardSettingsDraft;
   mode: BoardSettingsMode;
   submission: BoardSettingsSubmission;
-  onBeginEdit: () => void;
+  onBeginEdit: (mode: Exclude<BoardSettingsMode, "read">) => void;
   onCancelEdit: () => void;
   onChangeDraft: (draft: BoardSettingsDraft) => void;
-  onDismiss: () => void;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }
 
-/** BoardSettingsContent renders one loaded board in read or edit mode. */
+/**
+ * BoardSettingsContent renders one loaded board in read or edit mode. Archived
+ * boards remain readable and never expose the settings editor.
+ */
 export function BoardSettingsContent({
   board,
   draft,
@@ -227,15 +290,27 @@ export function BoardSettingsContent({
   onBeginEdit,
   onCancelEdit,
   onChangeDraft,
-  onDismiss,
   onSubmit,
 }: BoardSettingsContentProps) {
   if (mode === "read") {
     const renderedDescription = board.description?.renderedHtml ?? "";
     return (
       <div className="board-settings-content">
-        <div className="board-settings-read">
+        <div className="board-settings-field-row">
           <h3>{board.name}</h3>
+          {board.archived === undefined && (
+            <button
+              type="button"
+              className="secondary-button board-settings-icon-button"
+              aria-label="Edit board name"
+              title="Edit name"
+              onClick={() => onBeginEdit("name")}
+            >
+              <Pencil aria-hidden="true" />
+            </button>
+          )}
+        </div>
+        <div className="board-settings-field-row board-settings-description-row">
           {renderedDescription === "" ? (
             <p className="empty-copy">No description.</p>
           ) : (
@@ -244,14 +319,17 @@ export function BoardSettingsContent({
               dangerouslySetInnerHTML={{ __html: renderedDescription }}
             />
           )}
-        </div>
-        <div className="modal-actions">
-          <button type="button" className="secondary-button" onClick={onDismiss}>
-            Close
-          </button>
-          <button type="button" onClick={onBeginEdit}>
-            Edit
-          </button>
+          {board.archived === undefined && (
+            <button
+              type="button"
+              className="secondary-button board-settings-icon-button"
+              aria-label="Edit board description"
+              title="Edit description"
+              onClick={() => onBeginEdit("description")}
+            >
+              <Pencil aria-hidden="true" />
+            </button>
+          )}
         </div>
       </div>
     );
@@ -259,31 +337,35 @@ export function BoardSettingsContent({
 
   return (
     <form className="workflow-form" onSubmit={onSubmit}>
-      <label className="form-field form-field-wide">
-        <span>Name</span>
-        <input
-          autoFocus
-          required
-          type="text"
-          value={draft.name}
-          onInput={(event) =>
-            onChangeDraft({ ...draft, name: event.currentTarget.value })
-          }
-        />
-      </label>
-      <label className="form-field form-field-wide">
-        <span>Description (Markdown)</span>
-        <textarea
-          rows={9}
-          value={draft.descriptionSource}
-          onInput={(event) =>
-            onChangeDraft({
-              ...draft,
-              descriptionSource: event.currentTarget.value,
-            })
-          }
-        />
-      </label>
+      {mode === "name" ? (
+        <label className="form-field form-field-wide">
+          <span>Name</span>
+          <input
+            autoFocus
+            required
+            type="text"
+            value={draft.name}
+            onInput={(event) =>
+              onChangeDraft({ ...draft, name: event.currentTarget.value })
+            }
+          />
+        </label>
+      ) : (
+        <label className="form-field form-field-wide">
+          <span>Description (Markdown)</span>
+          <textarea
+            autoFocus
+            rows={9}
+            value={draft.descriptionSource}
+            onInput={(event) =>
+              onChangeDraft({
+                ...draft,
+                descriptionSource: event.currentTarget.value,
+              })
+            }
+          />
+        </label>
+      )}
       {submission.kind === "error" && (
         <p className="form-error form-field-wide" role="alert">
           {submission.message}
@@ -299,7 +381,9 @@ export function BoardSettingsContent({
           Cancel
         </button>
         <button type="submit" disabled={submission.kind === "submitting"}>
-          {submission.kind === "submitting" ? "Saving" : "Save settings"}
+          {submission.kind === "submitting"
+            ? "Saving"
+            : mode === "name" ? "Save name" : "Save description"}
         </button>
       </div>
     </form>
@@ -320,7 +404,101 @@ interface BoardSettingsEditorState {
   submission: BoardSettingsSubmission;
 }
 
-type BoardSettingsMode = "read" | "edit";
+type BoardSettingsMode = "read" | "name" | "description";
+
+interface BoardLifecycleControlsProps {
+  archived: boolean;
+  expanded: boolean;
+  reason: string;
+  error?: string;
+  submitting?: boolean;
+  onBeginArchive: () => void;
+  onCancelArchive: () => void;
+  onReasonChange: (reason: string) => void;
+  onArchive: () => void;
+  onUnarchive: () => void;
+}
+
+/**
+ * BoardLifecycleControls keeps the infrequent archive form collapsed until the
+ * user explicitly requests it. The final Archive button remains a distinct
+ * action so opening the form cannot mutate the board.
+ */
+export function BoardLifecycleControls({
+  archived,
+  expanded,
+  reason,
+  error,
+  submitting = false,
+  onBeginArchive,
+  onCancelArchive,
+  onReasonChange,
+  onArchive,
+  onUnarchive,
+}: BoardLifecycleControlsProps) {
+  return (
+    <div className="board-settings-lifecycle">
+      {archived ? (
+        <div className="board-settings-lifecycle-summary">
+          <p>This board is archived.</p>
+          <button
+            type="button"
+            className="secondary-button"
+            disabled={submitting}
+            onClick={onUnarchive}
+          >
+            {submitting ? "Unarchiving" : "Unarchive"}
+          </button>
+        </div>
+      ) : expanded ? (
+        <form
+          className="board-settings-archive-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onArchive();
+          }}
+        >
+          <label className="form-field form-field-wide">
+            <span>Archive reason (optional)</span>
+            <input
+              autoFocus
+              type="text"
+              value={reason}
+              onInput={(event) => onReasonChange(event.currentTarget.value)}
+            />
+          </label>
+          <div className="board-settings-archive-actions">
+            <button
+              type="button"
+              className="secondary-button"
+              disabled={submitting}
+              onClick={onCancelArchive}
+            >
+              Cancel
+            </button>
+            <button type="submit" className="danger-button" disabled={submitting}>
+              {submitting ? "Archiving" : "Archive"}
+            </button>
+          </div>
+        </form>
+      ) : (
+        <div className="board-settings-lifecycle-summary">
+          <p>Archive this board</p>
+          <button
+            type="button"
+            className="danger-button board-settings-icon-button"
+            aria-label="Archive board"
+            title="Archive board"
+            onClick={onBeginArchive}
+          >
+            <Archive aria-hidden="true" />
+          </button>
+        </div>
+      )}
+      {error !== undefined && <p role="alert">{error}</p>}
+    </div>
+  );
+}
 
 type BoardSettingsSubmission =
   | { kind: "idle" }

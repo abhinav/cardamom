@@ -121,7 +121,9 @@ func (r *Repository) UpdateProjectConfiguration(
 	return out, change.Commit()
 }
 
-// UpdateBoardConfiguration atomically applies one typed board patch.
+// UpdateBoardConfiguration atomically applies one typed board patch. It returns
+// board.ErrArchived without changing configuration or revisions when the board
+// is archived.
 func (r *Repository) UpdateBoardConfiguration(
 	ctx context.Context,
 	boardID board.ID,
@@ -142,6 +144,11 @@ func (r *Repository) UpdateBoardConfiguration(
 	}
 	if err != nil {
 		return out, err
+	}
+	// Lifecycle and configuration are read through the same immediate writer, so
+	// an archive transition cannot interleave with an accepted configuration edit.
+	if row.ArchivedAt != nil {
+		return out, board.ErrArchived
 	}
 	current, err := (nullableConfiguration{
 		prefix:             row.IssueIDPrefix,

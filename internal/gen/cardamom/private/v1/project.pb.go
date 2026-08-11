@@ -149,7 +149,9 @@ type BoardSummary struct {
 	// name is the human-readable board name.
 	Name string `protobuf:"bytes,3,opt,name=name,proto3" json:"name,omitempty"`
 	// source identifies the server that supplied this board in aggregate mode.
-	Source        *SourceRef `protobuf:"bytes,4,opt,name=source,proto3,oneof" json:"source,omitempty"`
+	Source *SourceRef `protobuf:"bytes,4,opt,name=source,proto3,oneof" json:"source,omitempty"`
+	// archived is present for an archived board and absent for an active board.
+	Archived      *BoardArchive `protobuf:"bytes,5,opt,name=archived,proto3,oneof" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -212,6 +214,78 @@ func (x *BoardSummary) GetSource() *SourceRef {
 	return nil
 }
 
+func (x *BoardSummary) GetArchived() *BoardArchive {
+	if x != nil {
+		return x.Archived
+	}
+	return nil
+}
+
+// BoardArchive is the board's current logical archive state. Unarchiving clears
+// this metadata; it is not a lifecycle history.
+type BoardArchive struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// actor identifies the invocation that archived the board.
+	Actor string `protobuf:"bytes,1,opt,name=actor,proto3" json:"actor,omitempty"`
+	// at is the time at which the archive transition committed.
+	At *timestamppb.Timestamp `protobuf:"bytes,2,opt,name=at,proto3" json:"at,omitempty"`
+	// reason is the optional normalized explanation supplied by the actor.
+	Reason        *string `protobuf:"bytes,3,opt,name=reason,proto3,oneof" json:"reason,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BoardArchive) Reset() {
+	*x = BoardArchive{}
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[2]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BoardArchive) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardArchive) ProtoMessage() {}
+
+func (x *BoardArchive) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[2]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardArchive.ProtoReflect.Descriptor instead.
+func (*BoardArchive) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{2}
+}
+
+func (x *BoardArchive) GetActor() string {
+	if x != nil {
+		return x.Actor
+	}
+	return ""
+}
+
+func (x *BoardArchive) GetAt() *timestamppb.Timestamp {
+	if x != nil {
+		return x.At
+	}
+	return nil
+}
+
+func (x *BoardArchive) GetReason() string {
+	if x != nil && x.Reason != nil {
+		return *x.Reason
+	}
+	return ""
+}
+
 // Board contains browser-visible board settings and rendered context.
 type Board struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -226,14 +300,16 @@ type Board struct {
 	// created_at is the time at which the board was created.
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// source identifies the server that supplied this board in aggregate mode.
-	Source        *SourceRef `protobuf:"bytes,6,opt,name=source,proto3,oneof" json:"source,omitempty"`
+	Source *SourceRef `protobuf:"bytes,6,opt,name=source,proto3,oneof" json:"source,omitempty"`
+	// archived is present for an archived board and absent for an active board.
+	Archived      *BoardArchive `protobuf:"bytes,7,opt,name=archived,proto3,oneof" json:"archived,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *Board) Reset() {
 	*x = Board{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[2]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -245,7 +321,7 @@ func (x *Board) String() string {
 func (*Board) ProtoMessage() {}
 
 func (x *Board) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[2]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -258,7 +334,7 @@ func (x *Board) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Board.ProtoReflect.Descriptor instead.
 func (*Board) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{2}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Board) GetId() string {
@@ -303,6 +379,13 @@ func (x *Board) GetSource() *SourceRef {
 	return nil
 }
 
+func (x *Board) GetArchived() *BoardArchive {
+	if x != nil {
+		return x.Archived
+	}
+	return nil
+}
+
 // ListProjectsRequest requests every project in catalog order.
 type ListProjectsRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
@@ -312,7 +395,7 @@ type ListProjectsRequest struct {
 
 func (x *ListProjectsRequest) Reset() {
 	*x = ListProjectsRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[3]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -324,7 +407,7 @@ func (x *ListProjectsRequest) String() string {
 func (*ListProjectsRequest) ProtoMessage() {}
 
 func (x *ListProjectsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[3]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -337,7 +420,7 @@ func (x *ListProjectsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProjectsRequest.ProtoReflect.Descriptor instead.
 func (*ListProjectsRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{3}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{4}
 }
 
 // ListProjectsResponse contains every project visible to the server.
@@ -351,7 +434,7 @@ type ListProjectsResponse struct {
 
 func (x *ListProjectsResponse) Reset() {
 	*x = ListProjectsResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[4]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -363,7 +446,7 @@ func (x *ListProjectsResponse) String() string {
 func (*ListProjectsResponse) ProtoMessage() {}
 
 func (x *ListProjectsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[4]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -376,7 +459,7 @@ func (x *ListProjectsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListProjectsResponse.ProtoReflect.Descriptor instead.
 func (*ListProjectsResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{4}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{5}
 }
 
 func (x *ListProjectsResponse) GetProjects() []*Project {
@@ -395,7 +478,7 @@ type ListBoardsRequest struct {
 
 func (x *ListBoardsRequest) Reset() {
 	*x = ListBoardsRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[5]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -407,7 +490,7 @@ func (x *ListBoardsRequest) String() string {
 func (*ListBoardsRequest) ProtoMessage() {}
 
 func (x *ListBoardsRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[5]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -420,7 +503,7 @@ func (x *ListBoardsRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBoardsRequest.ProtoReflect.Descriptor instead.
 func (*ListBoardsRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{5}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{6}
 }
 
 // ListBoardsResponse contains every board visible to the server.
@@ -434,7 +517,7 @@ type ListBoardsResponse struct {
 
 func (x *ListBoardsResponse) Reset() {
 	*x = ListBoardsResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[6]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -446,7 +529,7 @@ func (x *ListBoardsResponse) String() string {
 func (*ListBoardsResponse) ProtoMessage() {}
 
 func (x *ListBoardsResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[6]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -459,7 +542,7 @@ func (x *ListBoardsResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListBoardsResponse.ProtoReflect.Descriptor instead.
 func (*ListBoardsResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{6}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ListBoardsResponse) GetBoards() []*BoardSummary {
@@ -478,7 +561,7 @@ type GetBootstrapRequest struct {
 
 func (x *GetBootstrapRequest) Reset() {
 	*x = GetBootstrapRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[7]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -490,7 +573,7 @@ func (x *GetBootstrapRequest) String() string {
 func (*GetBootstrapRequest) ProtoMessage() {}
 
 func (x *GetBootstrapRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[7]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -503,7 +586,7 @@ func (x *GetBootstrapRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBootstrapRequest.ProtoReflect.Descriptor instead.
 func (*GetBootstrapRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{7}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{8}
 }
 
 // GetBootstrapResponse contains startup data independent of board selection.
@@ -537,7 +620,7 @@ type GetBootstrapResponse struct {
 
 func (x *GetBootstrapResponse) Reset() {
 	*x = GetBootstrapResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[8]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -549,7 +632,7 @@ func (x *GetBootstrapResponse) String() string {
 func (*GetBootstrapResponse) ProtoMessage() {}
 
 func (x *GetBootstrapResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[8]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -562,7 +645,7 @@ func (x *GetBootstrapResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBootstrapResponse.ProtoReflect.Descriptor instead.
 func (*GetBootstrapResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{8}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *GetBootstrapResponse) GetProjects() []*Project {
@@ -657,7 +740,7 @@ type GetBoardRequest struct {
 
 func (x *GetBoardRequest) Reset() {
 	*x = GetBoardRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[9]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -669,7 +752,7 @@ func (x *GetBoardRequest) String() string {
 func (*GetBoardRequest) ProtoMessage() {}
 
 func (x *GetBoardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[9]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -682,7 +765,7 @@ func (x *GetBoardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBoardRequest.ProtoReflect.Descriptor instead.
 func (*GetBoardRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{9}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *GetBoardRequest) GetBoardId() string {
@@ -717,7 +800,7 @@ type GetBoardResponse struct {
 
 func (x *GetBoardResponse) Reset() {
 	*x = GetBoardResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[10]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -729,7 +812,7 @@ func (x *GetBoardResponse) String() string {
 func (*GetBoardResponse) ProtoMessage() {}
 
 func (x *GetBoardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[10]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -742,7 +825,7 @@ func (x *GetBoardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetBoardResponse.ProtoReflect.Descriptor instead.
 func (*GetBoardResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{10}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *GetBoardResponse) GetBoard() *Board {
@@ -767,7 +850,7 @@ type CreateProjectRequest struct {
 
 func (x *CreateProjectRequest) Reset() {
 	*x = CreateProjectRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[11]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -779,7 +862,7 @@ func (x *CreateProjectRequest) String() string {
 func (*CreateProjectRequest) ProtoMessage() {}
 
 func (x *CreateProjectRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[11]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -792,7 +875,7 @@ func (x *CreateProjectRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateProjectRequest.ProtoReflect.Descriptor instead.
 func (*CreateProjectRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{11}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *CreateProjectRequest) GetName() string {
@@ -827,7 +910,7 @@ type CreateProjectResponse struct {
 
 func (x *CreateProjectResponse) Reset() {
 	*x = CreateProjectResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[12]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -839,7 +922,7 @@ func (x *CreateProjectResponse) String() string {
 func (*CreateProjectResponse) ProtoMessage() {}
 
 func (x *CreateProjectResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[12]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -852,7 +935,7 @@ func (x *CreateProjectResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateProjectResponse.ProtoReflect.Descriptor instead.
 func (*CreateProjectResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{12}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *CreateProjectResponse) GetProject() *Project {
@@ -879,7 +962,7 @@ type CreateBoardRequest struct {
 
 func (x *CreateBoardRequest) Reset() {
 	*x = CreateBoardRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[13]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -891,7 +974,7 @@ func (x *CreateBoardRequest) String() string {
 func (*CreateBoardRequest) ProtoMessage() {}
 
 func (x *CreateBoardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[13]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -904,7 +987,7 @@ func (x *CreateBoardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBoardRequest.ProtoReflect.Descriptor instead.
 func (*CreateBoardRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{13}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *CreateBoardRequest) GetProjectId() string {
@@ -946,7 +1029,7 @@ type CreateBoardResponse struct {
 
 func (x *CreateBoardResponse) Reset() {
 	*x = CreateBoardResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[14]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -958,7 +1041,7 @@ func (x *CreateBoardResponse) String() string {
 func (*CreateBoardResponse) ProtoMessage() {}
 
 func (x *CreateBoardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[14]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -971,7 +1054,7 @@ func (x *CreateBoardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateBoardResponse.ProtoReflect.Descriptor instead.
 func (*CreateBoardResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{14}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *CreateBoardResponse) GetBoard() *Board {
@@ -998,7 +1081,7 @@ type UpdateBoardRequest struct {
 
 func (x *UpdateBoardRequest) Reset() {
 	*x = UpdateBoardRequest{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[15]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1010,7 +1093,7 @@ func (x *UpdateBoardRequest) String() string {
 func (*UpdateBoardRequest) ProtoMessage() {}
 
 func (x *UpdateBoardRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[15]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1023,7 +1106,7 @@ func (x *UpdateBoardRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBoardRequest.ProtoReflect.Descriptor instead.
 func (*UpdateBoardRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{15}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *UpdateBoardRequest) GetBoardId() string {
@@ -1065,7 +1148,7 @@ type UpdateBoardResponse struct {
 
 func (x *UpdateBoardResponse) Reset() {
 	*x = UpdateBoardResponse{}
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[16]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1077,7 +1160,7 @@ func (x *UpdateBoardResponse) String() string {
 func (*UpdateBoardResponse) ProtoMessage() {}
 
 func (x *UpdateBoardResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_project_proto_msgTypes[16]
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1090,7 +1173,7 @@ func (x *UpdateBoardResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateBoardResponse.ProtoReflect.Descriptor instead.
 func (*UpdateBoardResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{16}
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *UpdateBoardResponse) GetBoard() *Board {
@@ -1098,6 +1181,336 @@ func (x *UpdateBoardResponse) GetBoard() *Board {
 		return x.Board
 	}
 	return nil
+}
+
+// ArchiveBoardRequest selects a board for logical archival.
+type ArchiveBoardRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// board_id identifies the board explicitly; archived boards remain addressable.
+	BoardId string `protobuf:"bytes,1,opt,name=board_id,json=boardId,proto3" json:"board_id,omitempty"`
+	// reason optionally records a non-empty explanation for the transition.
+	Reason *string `protobuf:"bytes,2,opt,name=reason,proto3,oneof" json:"reason,omitempty"`
+	// context supplies attribution for the archive transition.
+	Context       *MutationContext `protobuf:"bytes,3,opt,name=context,proto3" json:"context,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArchiveBoardRequest) Reset() {
+	*x = ArchiveBoardRequest{}
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveBoardRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveBoardRequest) ProtoMessage() {}
+
+func (x *ArchiveBoardRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveBoardRequest.ProtoReflect.Descriptor instead.
+func (*ArchiveBoardRequest) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ArchiveBoardRequest) GetBoardId() string {
+	if x != nil {
+		return x.BoardId
+	}
+	return ""
+}
+
+func (x *ArchiveBoardRequest) GetReason() string {
+	if x != nil && x.Reason != nil {
+		return *x.Reason
+	}
+	return ""
+}
+
+func (x *ArchiveBoardRequest) GetContext() *MutationContext {
+	if x != nil {
+		return x.Context
+	}
+	return nil
+}
+
+// ArchiveBoardResponse reports the committed lifecycle state and issue snapshot.
+type ArchiveBoardResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// board is the authoritative current board record.
+	Board *Board `protobuf:"bytes,1,opt,name=board,proto3" json:"board,omitempty"`
+	// changed is true only when this invocation performed the transition.
+	Changed bool `protobuf:"varint,2,opt,name=changed,proto3" json:"changed,omitempty"`
+	// issues is the status population observed by the archive writer.
+	Issues        *BoardArchiveIssueCounts `protobuf:"bytes,3,opt,name=issues,proto3" json:"issues,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ArchiveBoardResponse) Reset() {
+	*x = ArchiveBoardResponse{}
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ArchiveBoardResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ArchiveBoardResponse) ProtoMessage() {}
+
+func (x *ArchiveBoardResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ArchiveBoardResponse.ProtoReflect.Descriptor instead.
+func (*ArchiveBoardResponse) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *ArchiveBoardResponse) GetBoard() *Board {
+	if x != nil {
+		return x.Board
+	}
+	return nil
+}
+
+func (x *ArchiveBoardResponse) GetChanged() bool {
+	if x != nil {
+		return x.Changed
+	}
+	return false
+}
+
+func (x *ArchiveBoardResponse) GetIssues() *BoardArchiveIssueCounts {
+	if x != nil {
+		return x.Issues
+	}
+	return nil
+}
+
+// BoardArchiveIssueCounts is the effective status partition observed in the
+// same transaction as an archive attempt. Status counts sum to total.
+type BoardArchiveIssueCounts struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// total is the number of issues in the board.
+	Total uint64 `protobuf:"varint,1,opt,name=total,proto3" json:"total,omitempty"`
+	// ready is the number of issues whose effective status is ready.
+	Ready uint64 `protobuf:"varint,2,opt,name=ready,proto3" json:"ready,omitempty"`
+	// blocked is the number of issues whose effective status is blocked.
+	Blocked uint64 `protobuf:"varint,3,opt,name=blocked,proto3" json:"blocked,omitempty"`
+	// in_progress is the number of issues whose effective status is in progress.
+	InProgress uint64 `protobuf:"varint,4,opt,name=in_progress,json=inProgress,proto3" json:"in_progress,omitempty"`
+	// waiting is the number of issues whose effective status is waiting.
+	Waiting uint64 `protobuf:"varint,5,opt,name=waiting,proto3" json:"waiting,omitempty"`
+	// closed is the number of issues whose effective status is closed.
+	Closed uint64 `protobuf:"varint,6,opt,name=closed,proto3" json:"closed,omitempty"`
+	// cancelled is the number of issues whose effective status is cancelled.
+	Cancelled     uint64 `protobuf:"varint,7,opt,name=cancelled,proto3" json:"cancelled,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *BoardArchiveIssueCounts) Reset() {
+	*x = BoardArchiveIssueCounts{}
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *BoardArchiveIssueCounts) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*BoardArchiveIssueCounts) ProtoMessage() {}
+
+func (x *BoardArchiveIssueCounts) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use BoardArchiveIssueCounts.ProtoReflect.Descriptor instead.
+func (*BoardArchiveIssueCounts) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *BoardArchiveIssueCounts) GetTotal() uint64 {
+	if x != nil {
+		return x.Total
+	}
+	return 0
+}
+
+func (x *BoardArchiveIssueCounts) GetReady() uint64 {
+	if x != nil {
+		return x.Ready
+	}
+	return 0
+}
+
+func (x *BoardArchiveIssueCounts) GetBlocked() uint64 {
+	if x != nil {
+		return x.Blocked
+	}
+	return 0
+}
+
+func (x *BoardArchiveIssueCounts) GetInProgress() uint64 {
+	if x != nil {
+		return x.InProgress
+	}
+	return 0
+}
+
+func (x *BoardArchiveIssueCounts) GetWaiting() uint64 {
+	if x != nil {
+		return x.Waiting
+	}
+	return 0
+}
+
+func (x *BoardArchiveIssueCounts) GetClosed() uint64 {
+	if x != nil {
+		return x.Closed
+	}
+	return 0
+}
+
+func (x *BoardArchiveIssueCounts) GetCancelled() uint64 {
+	if x != nil {
+		return x.Cancelled
+	}
+	return 0
+}
+
+// UnarchiveBoardRequest selects a board to restore to active service.
+type UnarchiveBoardRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// board_id identifies the board explicitly.
+	BoardId       string `protobuf:"bytes,1,opt,name=board_id,json=boardId,proto3" json:"board_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnarchiveBoardRequest) Reset() {
+	*x = UnarchiveBoardRequest{}
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnarchiveBoardRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnarchiveBoardRequest) ProtoMessage() {}
+
+func (x *UnarchiveBoardRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnarchiveBoardRequest.ProtoReflect.Descriptor instead.
+func (*UnarchiveBoardRequest) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *UnarchiveBoardRequest) GetBoardId() string {
+	if x != nil {
+		return x.BoardId
+	}
+	return ""
+}
+
+// UnarchiveBoardResponse reports the committed lifecycle state.
+type UnarchiveBoardResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// board is the authoritative active board record.
+	Board *Board `protobuf:"bytes,1,opt,name=board,proto3" json:"board,omitempty"`
+	// changed is true only when this invocation cleared archive metadata.
+	Changed       bool `protobuf:"varint,2,opt,name=changed,proto3" json:"changed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnarchiveBoardResponse) Reset() {
+	*x = UnarchiveBoardResponse{}
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnarchiveBoardResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnarchiveBoardResponse) ProtoMessage() {}
+
+func (x *UnarchiveBoardResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_project_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnarchiveBoardResponse.ProtoReflect.Descriptor instead.
+func (*UnarchiveBoardResponse) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_project_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *UnarchiveBoardResponse) GetBoard() *Board {
+	if x != nil {
+		return x.Board
+	}
+	return nil
+}
+
+func (x *UnarchiveBoardResponse) GetChanged() bool {
+	if x != nil {
+		return x.Changed
+	}
+	return false
 }
 
 var File_cardamom_private_v1_project_proto protoreflect.FileDescriptor
@@ -1109,14 +1522,21 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12;\n" +
 	"\x06source\x18\x03 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01B\t\n" +
-	"\a_source\"\x99\x01\n" +
+	"\a_source\"\xea\x01\n" +
 	"\fBoardSummary\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x02 \x01(\tR\tprojectId\x12\x12\n" +
 	"\x04name\x18\x03 \x01(\tR\x04name\x12;\n" +
-	"\x06source\x18\x04 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01B\t\n" +
-	"\a_source\"\xaa\x02\n" +
+	"\x06source\x18\x04 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01\x12B\n" +
+	"\barchived\x18\x05 \x01(\v2!.cardamom.private.v1.BoardArchiveH\x01R\barchived\x88\x01\x01B\t\n" +
+	"\a_sourceB\v\n" +
+	"\t_archived\"x\n" +
+	"\fBoardArchive\x12\x14\n" +
+	"\x05actor\x18\x01 \x01(\tR\x05actor\x12*\n" +
+	"\x02at\x18\x02 \x01(\v2\x1a.google.protobuf.TimestampR\x02at\x12\x1b\n" +
+	"\x06reason\x18\x03 \x01(\tH\x00R\x06reason\x88\x01\x01B\t\n" +
+	"\a_reason\"\xfb\x02\n" +
 	"\x05Board\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1d\n" +
 	"\n" +
@@ -1125,9 +1545,11 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\vdescription\x18\x04 \x01(\v2$.cardamom.private.v1.MarkdownContentH\x00R\vdescription\x88\x01\x01\x129\n" +
 	"\n" +
 	"created_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x12;\n" +
-	"\x06source\x18\x06 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x01R\x06source\x88\x01\x01B\x0e\n" +
+	"\x06source\x18\x06 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x01R\x06source\x88\x01\x01\x12B\n" +
+	"\barchived\x18\a \x01(\v2!.cardamom.private.v1.BoardArchiveH\x02R\barchived\x88\x01\x01B\x0e\n" +
 	"\f_descriptionB\t\n" +
-	"\a_source\"\x15\n" +
+	"\a_sourceB\v\n" +
+	"\t_archived\"\x15\n" +
 	"\x13ListProjectsRequest\"P\n" +
 	"\x14ListProjectsResponse\x128\n" +
 	"\bprojects\x18\x01 \x03(\v2\x1c.cardamom.private.v1.ProjectR\bprojects\"\x13\n" +
@@ -1183,12 +1605,35 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\x05_nameB\x15\n" +
 	"\x13_description_source\"G\n" +
 	"\x13UpdateBoardResponse\x120\n" +
-	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board*`\n" +
+	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board\"\x98\x01\n" +
+	"\x13ArchiveBoardRequest\x12\x19\n" +
+	"\bboard_id\x18\x01 \x01(\tR\aboardId\x12\x1b\n" +
+	"\x06reason\x18\x02 \x01(\tH\x00R\x06reason\x88\x01\x01\x12>\n" +
+	"\acontext\x18\x03 \x01(\v2$.cardamom.private.v1.MutationContextR\acontextB\t\n" +
+	"\a_reason\"\xa8\x01\n" +
+	"\x14ArchiveBoardResponse\x120\n" +
+	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board\x12\x18\n" +
+	"\achanged\x18\x02 \x01(\bR\achanged\x12D\n" +
+	"\x06issues\x18\x03 \x01(\v2,.cardamom.private.v1.BoardArchiveIssueCountsR\x06issues\"\xd0\x01\n" +
+	"\x17BoardArchiveIssueCounts\x12\x14\n" +
+	"\x05total\x18\x01 \x01(\x04R\x05total\x12\x14\n" +
+	"\x05ready\x18\x02 \x01(\x04R\x05ready\x12\x18\n" +
+	"\ablocked\x18\x03 \x01(\x04R\ablocked\x12\x1f\n" +
+	"\vin_progress\x18\x04 \x01(\x04R\n" +
+	"inProgress\x12\x18\n" +
+	"\awaiting\x18\x05 \x01(\x04R\awaiting\x12\x16\n" +
+	"\x06closed\x18\x06 \x01(\x04R\x06closed\x12\x1c\n" +
+	"\tcancelled\x18\a \x01(\x04R\tcancelled\"2\n" +
+	"\x15UnarchiveBoardRequest\x12\x19\n" +
+	"\bboard_id\x18\x01 \x01(\tR\aboardId\"d\n" +
+	"\x16UnarchiveBoardResponse\x120\n" +
+	"\x05board\x18\x01 \x01(\v2\x1a.cardamom.private.v1.BoardR\x05board\x12\x18\n" +
+	"\achanged\x18\x02 \x01(\bR\achanged*`\n" +
 	"\n" +
 	"AccessMode\x12\x1b\n" +
 	"\x17ACCESS_MODE_UNSPECIFIED\x10\x00\x12\x1a\n" +
 	"\x16ACCESS_MODE_READ_WRITE\x10\x01\x12\x19\n" +
-	"\x15ACCESS_MODE_READ_ONLY\x10\x022\xd2\x05\n" +
+	"\x15ACCESS_MODE_READ_ONLY\x10\x022\xa2\a\n" +
 	"\x0eProjectService\x12h\n" +
 	"\fListProjects\x12(.cardamom.private.v1.ListProjectsRequest\x1a).cardamom.private.v1.ListProjectsResponse\"\x03\x90\x02\x01\x12b\n" +
 	"\n" +
@@ -1197,7 +1642,9 @@ const file_cardamom_private_v1_project_proto_rawDesc = "" +
 	"\bGetBoard\x12$.cardamom.private.v1.GetBoardRequest\x1a%.cardamom.private.v1.GetBoardResponse\"\x03\x90\x02\x01\x12f\n" +
 	"\rCreateProject\x12).cardamom.private.v1.CreateProjectRequest\x1a*.cardamom.private.v1.CreateProjectResponse\x12`\n" +
 	"\vCreateBoard\x12'.cardamom.private.v1.CreateBoardRequest\x1a(.cardamom.private.v1.CreateBoardResponse\x12`\n" +
-	"\vUpdateBoard\x12'.cardamom.private.v1.UpdateBoardRequest\x1a(.cardamom.private.v1.UpdateBoardResponseB\xd8\x01\n" +
+	"\vUpdateBoard\x12'.cardamom.private.v1.UpdateBoardRequest\x1a(.cardamom.private.v1.UpdateBoardResponse\x12c\n" +
+	"\fArchiveBoard\x12(.cardamom.private.v1.ArchiveBoardRequest\x1a).cardamom.private.v1.ArchiveBoardResponse\x12i\n" +
+	"\x0eUnarchiveBoard\x12*.cardamom.private.v1.UnarchiveBoardRequest\x1a+.cardamom.private.v1.UnarchiveBoardResponseB\xd8\x01\n" +
 	"\x17com.cardamom.private.v1B\fProjectProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 
 var (
@@ -1213,81 +1660,98 @@ func file_cardamom_private_v1_project_proto_rawDescGZIP() []byte {
 }
 
 var file_cardamom_private_v1_project_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_cardamom_private_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_cardamom_private_v1_project_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_cardamom_private_v1_project_proto_goTypes = []any{
-	(AccessMode)(0),               // 0: cardamom.private.v1.AccessMode
-	(*Project)(nil),               // 1: cardamom.private.v1.Project
-	(*BoardSummary)(nil),          // 2: cardamom.private.v1.BoardSummary
-	(*Board)(nil),                 // 3: cardamom.private.v1.Board
-	(*ListProjectsRequest)(nil),   // 4: cardamom.private.v1.ListProjectsRequest
-	(*ListProjectsResponse)(nil),  // 5: cardamom.private.v1.ListProjectsResponse
-	(*ListBoardsRequest)(nil),     // 6: cardamom.private.v1.ListBoardsRequest
-	(*ListBoardsResponse)(nil),    // 7: cardamom.private.v1.ListBoardsResponse
-	(*GetBootstrapRequest)(nil),   // 8: cardamom.private.v1.GetBootstrapRequest
-	(*GetBootstrapResponse)(nil),  // 9: cardamom.private.v1.GetBootstrapResponse
-	(*GetBoardRequest)(nil),       // 10: cardamom.private.v1.GetBoardRequest
-	(*GetBoardResponse)(nil),      // 11: cardamom.private.v1.GetBoardResponse
-	(*CreateProjectRequest)(nil),  // 12: cardamom.private.v1.CreateProjectRequest
-	(*CreateProjectResponse)(nil), // 13: cardamom.private.v1.CreateProjectResponse
-	(*CreateBoardRequest)(nil),    // 14: cardamom.private.v1.CreateBoardRequest
-	(*CreateBoardResponse)(nil),   // 15: cardamom.private.v1.CreateBoardResponse
-	(*UpdateBoardRequest)(nil),    // 16: cardamom.private.v1.UpdateBoardRequest
-	(*UpdateBoardResponse)(nil),   // 17: cardamom.private.v1.UpdateBoardResponse
-	(*SourceRef)(nil),             // 18: cardamom.private.v1.SourceRef
-	(*MarkdownContent)(nil),       // 19: cardamom.private.v1.MarkdownContent
-	(*timestamppb.Timestamp)(nil), // 20: google.protobuf.Timestamp
-	(IssueType)(0),                // 21: cardamom.private.v1.IssueType
-	(IssueStatus)(0),              // 22: cardamom.private.v1.IssueStatus
-	(*SourceCatalogEntry)(nil),    // 23: cardamom.private.v1.SourceCatalogEntry
-	(*AggregateStatus)(nil),       // 24: cardamom.private.v1.AggregateStatus
-	(*BoardScope)(nil),            // 25: cardamom.private.v1.BoardScope
-	(*PresentationContext)(nil),   // 26: cardamom.private.v1.PresentationContext
-	(*MutationContext)(nil),       // 27: cardamom.private.v1.MutationContext
+	(AccessMode)(0),                 // 0: cardamom.private.v1.AccessMode
+	(*Project)(nil),                 // 1: cardamom.private.v1.Project
+	(*BoardSummary)(nil),            // 2: cardamom.private.v1.BoardSummary
+	(*BoardArchive)(nil),            // 3: cardamom.private.v1.BoardArchive
+	(*Board)(nil),                   // 4: cardamom.private.v1.Board
+	(*ListProjectsRequest)(nil),     // 5: cardamom.private.v1.ListProjectsRequest
+	(*ListProjectsResponse)(nil),    // 6: cardamom.private.v1.ListProjectsResponse
+	(*ListBoardsRequest)(nil),       // 7: cardamom.private.v1.ListBoardsRequest
+	(*ListBoardsResponse)(nil),      // 8: cardamom.private.v1.ListBoardsResponse
+	(*GetBootstrapRequest)(nil),     // 9: cardamom.private.v1.GetBootstrapRequest
+	(*GetBootstrapResponse)(nil),    // 10: cardamom.private.v1.GetBootstrapResponse
+	(*GetBoardRequest)(nil),         // 11: cardamom.private.v1.GetBoardRequest
+	(*GetBoardResponse)(nil),        // 12: cardamom.private.v1.GetBoardResponse
+	(*CreateProjectRequest)(nil),    // 13: cardamom.private.v1.CreateProjectRequest
+	(*CreateProjectResponse)(nil),   // 14: cardamom.private.v1.CreateProjectResponse
+	(*CreateBoardRequest)(nil),      // 15: cardamom.private.v1.CreateBoardRequest
+	(*CreateBoardResponse)(nil),     // 16: cardamom.private.v1.CreateBoardResponse
+	(*UpdateBoardRequest)(nil),      // 17: cardamom.private.v1.UpdateBoardRequest
+	(*UpdateBoardResponse)(nil),     // 18: cardamom.private.v1.UpdateBoardResponse
+	(*ArchiveBoardRequest)(nil),     // 19: cardamom.private.v1.ArchiveBoardRequest
+	(*ArchiveBoardResponse)(nil),    // 20: cardamom.private.v1.ArchiveBoardResponse
+	(*BoardArchiveIssueCounts)(nil), // 21: cardamom.private.v1.BoardArchiveIssueCounts
+	(*UnarchiveBoardRequest)(nil),   // 22: cardamom.private.v1.UnarchiveBoardRequest
+	(*UnarchiveBoardResponse)(nil),  // 23: cardamom.private.v1.UnarchiveBoardResponse
+	(*SourceRef)(nil),               // 24: cardamom.private.v1.SourceRef
+	(*timestamppb.Timestamp)(nil),   // 25: google.protobuf.Timestamp
+	(*MarkdownContent)(nil),         // 26: cardamom.private.v1.MarkdownContent
+	(IssueType)(0),                  // 27: cardamom.private.v1.IssueType
+	(IssueStatus)(0),                // 28: cardamom.private.v1.IssueStatus
+	(*SourceCatalogEntry)(nil),      // 29: cardamom.private.v1.SourceCatalogEntry
+	(*AggregateStatus)(nil),         // 30: cardamom.private.v1.AggregateStatus
+	(*BoardScope)(nil),              // 31: cardamom.private.v1.BoardScope
+	(*PresentationContext)(nil),     // 32: cardamom.private.v1.PresentationContext
+	(*MutationContext)(nil),         // 33: cardamom.private.v1.MutationContext
 }
 var file_cardamom_private_v1_project_proto_depIdxs = []int32{
-	18, // 0: cardamom.private.v1.Project.source:type_name -> cardamom.private.v1.SourceRef
-	18, // 1: cardamom.private.v1.BoardSummary.source:type_name -> cardamom.private.v1.SourceRef
-	19, // 2: cardamom.private.v1.Board.description:type_name -> cardamom.private.v1.MarkdownContent
-	20, // 3: cardamom.private.v1.Board.created_at:type_name -> google.protobuf.Timestamp
-	18, // 4: cardamom.private.v1.Board.source:type_name -> cardamom.private.v1.SourceRef
-	1,  // 5: cardamom.private.v1.ListProjectsResponse.projects:type_name -> cardamom.private.v1.Project
-	2,  // 6: cardamom.private.v1.ListBoardsResponse.boards:type_name -> cardamom.private.v1.BoardSummary
-	1,  // 7: cardamom.private.v1.GetBootstrapResponse.projects:type_name -> cardamom.private.v1.Project
-	2,  // 8: cardamom.private.v1.GetBootstrapResponse.boards:type_name -> cardamom.private.v1.BoardSummary
-	21, // 9: cardamom.private.v1.GetBootstrapResponse.issue_types:type_name -> cardamom.private.v1.IssueType
-	22, // 10: cardamom.private.v1.GetBootstrapResponse.issue_statuses:type_name -> cardamom.private.v1.IssueStatus
-	0,  // 11: cardamom.private.v1.GetBootstrapResponse.access_mode:type_name -> cardamom.private.v1.AccessMode
-	23, // 12: cardamom.private.v1.GetBootstrapResponse.sources:type_name -> cardamom.private.v1.SourceCatalogEntry
-	24, // 13: cardamom.private.v1.GetBootstrapResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
-	25, // 14: cardamom.private.v1.GetBootstrapResponse.default_scope:type_name -> cardamom.private.v1.BoardScope
-	18, // 15: cardamom.private.v1.GetBoardRequest.source:type_name -> cardamom.private.v1.SourceRef
-	26, // 16: cardamom.private.v1.GetBoardRequest.presentation:type_name -> cardamom.private.v1.PresentationContext
-	3,  // 17: cardamom.private.v1.GetBoardResponse.board:type_name -> cardamom.private.v1.Board
-	27, // 18: cardamom.private.v1.CreateProjectRequest.context:type_name -> cardamom.private.v1.MutationContext
-	1,  // 19: cardamom.private.v1.CreateProjectResponse.project:type_name -> cardamom.private.v1.Project
-	27, // 20: cardamom.private.v1.CreateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
-	3,  // 21: cardamom.private.v1.CreateBoardResponse.board:type_name -> cardamom.private.v1.Board
-	27, // 22: cardamom.private.v1.UpdateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
-	3,  // 23: cardamom.private.v1.UpdateBoardResponse.board:type_name -> cardamom.private.v1.Board
-	4,  // 24: cardamom.private.v1.ProjectService.ListProjects:input_type -> cardamom.private.v1.ListProjectsRequest
-	6,  // 25: cardamom.private.v1.ProjectService.ListBoards:input_type -> cardamom.private.v1.ListBoardsRequest
-	8,  // 26: cardamom.private.v1.ProjectService.GetBootstrap:input_type -> cardamom.private.v1.GetBootstrapRequest
-	10, // 27: cardamom.private.v1.ProjectService.GetBoard:input_type -> cardamom.private.v1.GetBoardRequest
-	12, // 28: cardamom.private.v1.ProjectService.CreateProject:input_type -> cardamom.private.v1.CreateProjectRequest
-	14, // 29: cardamom.private.v1.ProjectService.CreateBoard:input_type -> cardamom.private.v1.CreateBoardRequest
-	16, // 30: cardamom.private.v1.ProjectService.UpdateBoard:input_type -> cardamom.private.v1.UpdateBoardRequest
-	5,  // 31: cardamom.private.v1.ProjectService.ListProjects:output_type -> cardamom.private.v1.ListProjectsResponse
-	7,  // 32: cardamom.private.v1.ProjectService.ListBoards:output_type -> cardamom.private.v1.ListBoardsResponse
-	9,  // 33: cardamom.private.v1.ProjectService.GetBootstrap:output_type -> cardamom.private.v1.GetBootstrapResponse
-	11, // 34: cardamom.private.v1.ProjectService.GetBoard:output_type -> cardamom.private.v1.GetBoardResponse
-	13, // 35: cardamom.private.v1.ProjectService.CreateProject:output_type -> cardamom.private.v1.CreateProjectResponse
-	15, // 36: cardamom.private.v1.ProjectService.CreateBoard:output_type -> cardamom.private.v1.CreateBoardResponse
-	17, // 37: cardamom.private.v1.ProjectService.UpdateBoard:output_type -> cardamom.private.v1.UpdateBoardResponse
-	31, // [31:38] is the sub-list for method output_type
-	24, // [24:31] is the sub-list for method input_type
-	24, // [24:24] is the sub-list for extension type_name
-	24, // [24:24] is the sub-list for extension extendee
-	0,  // [0:24] is the sub-list for field type_name
+	24, // 0: cardamom.private.v1.Project.source:type_name -> cardamom.private.v1.SourceRef
+	24, // 1: cardamom.private.v1.BoardSummary.source:type_name -> cardamom.private.v1.SourceRef
+	3,  // 2: cardamom.private.v1.BoardSummary.archived:type_name -> cardamom.private.v1.BoardArchive
+	25, // 3: cardamom.private.v1.BoardArchive.at:type_name -> google.protobuf.Timestamp
+	26, // 4: cardamom.private.v1.Board.description:type_name -> cardamom.private.v1.MarkdownContent
+	25, // 5: cardamom.private.v1.Board.created_at:type_name -> google.protobuf.Timestamp
+	24, // 6: cardamom.private.v1.Board.source:type_name -> cardamom.private.v1.SourceRef
+	3,  // 7: cardamom.private.v1.Board.archived:type_name -> cardamom.private.v1.BoardArchive
+	1,  // 8: cardamom.private.v1.ListProjectsResponse.projects:type_name -> cardamom.private.v1.Project
+	2,  // 9: cardamom.private.v1.ListBoardsResponse.boards:type_name -> cardamom.private.v1.BoardSummary
+	1,  // 10: cardamom.private.v1.GetBootstrapResponse.projects:type_name -> cardamom.private.v1.Project
+	2,  // 11: cardamom.private.v1.GetBootstrapResponse.boards:type_name -> cardamom.private.v1.BoardSummary
+	27, // 12: cardamom.private.v1.GetBootstrapResponse.issue_types:type_name -> cardamom.private.v1.IssueType
+	28, // 13: cardamom.private.v1.GetBootstrapResponse.issue_statuses:type_name -> cardamom.private.v1.IssueStatus
+	0,  // 14: cardamom.private.v1.GetBootstrapResponse.access_mode:type_name -> cardamom.private.v1.AccessMode
+	29, // 15: cardamom.private.v1.GetBootstrapResponse.sources:type_name -> cardamom.private.v1.SourceCatalogEntry
+	30, // 16: cardamom.private.v1.GetBootstrapResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
+	31, // 17: cardamom.private.v1.GetBootstrapResponse.default_scope:type_name -> cardamom.private.v1.BoardScope
+	24, // 18: cardamom.private.v1.GetBoardRequest.source:type_name -> cardamom.private.v1.SourceRef
+	32, // 19: cardamom.private.v1.GetBoardRequest.presentation:type_name -> cardamom.private.v1.PresentationContext
+	4,  // 20: cardamom.private.v1.GetBoardResponse.board:type_name -> cardamom.private.v1.Board
+	33, // 21: cardamom.private.v1.CreateProjectRequest.context:type_name -> cardamom.private.v1.MutationContext
+	1,  // 22: cardamom.private.v1.CreateProjectResponse.project:type_name -> cardamom.private.v1.Project
+	33, // 23: cardamom.private.v1.CreateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	4,  // 24: cardamom.private.v1.CreateBoardResponse.board:type_name -> cardamom.private.v1.Board
+	33, // 25: cardamom.private.v1.UpdateBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	4,  // 26: cardamom.private.v1.UpdateBoardResponse.board:type_name -> cardamom.private.v1.Board
+	33, // 27: cardamom.private.v1.ArchiveBoardRequest.context:type_name -> cardamom.private.v1.MutationContext
+	4,  // 28: cardamom.private.v1.ArchiveBoardResponse.board:type_name -> cardamom.private.v1.Board
+	21, // 29: cardamom.private.v1.ArchiveBoardResponse.issues:type_name -> cardamom.private.v1.BoardArchiveIssueCounts
+	4,  // 30: cardamom.private.v1.UnarchiveBoardResponse.board:type_name -> cardamom.private.v1.Board
+	5,  // 31: cardamom.private.v1.ProjectService.ListProjects:input_type -> cardamom.private.v1.ListProjectsRequest
+	7,  // 32: cardamom.private.v1.ProjectService.ListBoards:input_type -> cardamom.private.v1.ListBoardsRequest
+	9,  // 33: cardamom.private.v1.ProjectService.GetBootstrap:input_type -> cardamom.private.v1.GetBootstrapRequest
+	11, // 34: cardamom.private.v1.ProjectService.GetBoard:input_type -> cardamom.private.v1.GetBoardRequest
+	13, // 35: cardamom.private.v1.ProjectService.CreateProject:input_type -> cardamom.private.v1.CreateProjectRequest
+	15, // 36: cardamom.private.v1.ProjectService.CreateBoard:input_type -> cardamom.private.v1.CreateBoardRequest
+	17, // 37: cardamom.private.v1.ProjectService.UpdateBoard:input_type -> cardamom.private.v1.UpdateBoardRequest
+	19, // 38: cardamom.private.v1.ProjectService.ArchiveBoard:input_type -> cardamom.private.v1.ArchiveBoardRequest
+	22, // 39: cardamom.private.v1.ProjectService.UnarchiveBoard:input_type -> cardamom.private.v1.UnarchiveBoardRequest
+	6,  // 40: cardamom.private.v1.ProjectService.ListProjects:output_type -> cardamom.private.v1.ListProjectsResponse
+	8,  // 41: cardamom.private.v1.ProjectService.ListBoards:output_type -> cardamom.private.v1.ListBoardsResponse
+	10, // 42: cardamom.private.v1.ProjectService.GetBootstrap:output_type -> cardamom.private.v1.GetBootstrapResponse
+	12, // 43: cardamom.private.v1.ProjectService.GetBoard:output_type -> cardamom.private.v1.GetBoardResponse
+	14, // 44: cardamom.private.v1.ProjectService.CreateProject:output_type -> cardamom.private.v1.CreateProjectResponse
+	16, // 45: cardamom.private.v1.ProjectService.CreateBoard:output_type -> cardamom.private.v1.CreateBoardResponse
+	18, // 46: cardamom.private.v1.ProjectService.UpdateBoard:output_type -> cardamom.private.v1.UpdateBoardResponse
+	20, // 47: cardamom.private.v1.ProjectService.ArchiveBoard:output_type -> cardamom.private.v1.ArchiveBoardResponse
+	23, // 48: cardamom.private.v1.ProjectService.UnarchiveBoard:output_type -> cardamom.private.v1.UnarchiveBoardResponse
+	40, // [40:49] is the sub-list for method output_type
+	31, // [31:40] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_project_proto_init() }
@@ -1303,18 +1767,20 @@ func file_cardamom_private_v1_project_proto_init() {
 	file_cardamom_private_v1_project_proto_msgTypes[0].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[1].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[2].OneofWrappers = []any{}
-	file_cardamom_private_v1_project_proto_msgTypes[8].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[3].OneofWrappers = []any{}
 	file_cardamom_private_v1_project_proto_msgTypes[9].OneofWrappers = []any{}
-	file_cardamom_private_v1_project_proto_msgTypes[11].OneofWrappers = []any{}
-	file_cardamom_private_v1_project_proto_msgTypes[13].OneofWrappers = []any{}
-	file_cardamom_private_v1_project_proto_msgTypes[15].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[10].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[12].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[14].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[16].OneofWrappers = []any{}
+	file_cardamom_private_v1_project_proto_msgTypes[18].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_v1_project_proto_rawDesc), len(file_cardamom_private_v1_project_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   17,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

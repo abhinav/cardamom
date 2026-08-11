@@ -1,0 +1,150 @@
+at 2026-07-15T12:00:00Z
+exec card init --prefix archive- --board-name 'Archive board'
+exec card board use 'Archive board'
+exec sh -c 'printf "version: 1\nissue:\n  id:\n    prefix: archive-\n    strategy: sequential\n" > .cardamom/config.yaml'
+
+# Open issues are archived as-is and reported by effective status.
+exec card create 'Ready issue'
+cmp stdout $WORK/golden/ready-id.txt
+exec card create 'Prerequisite'
+cmp stdout $WORK/golden/prerequisite-id.txt
+exec card create --depends-on archive-2 'Blocked issue'
+cmp stdout $WORK/golden/blocked-id.txt
+exec card create 'Waiting issue'
+cmp stdout $WORK/golden/waiting-id.txt
+exec card claim archive-4
+exec card release archive-4 --waiting 'awaiting continuation'
+
+# Active custody is the only issue-state barrier to archival.
+exec card claim archive-1
+! exec card board archive 'Archive board' --reason 'Retired coordination context'
+! stdout .
+stderr 'board has an active claim'
+exec card release archive-1
+exec sh -c 'printf retained > retained.txt'
+
+exec card --json board archive 'Archive board' --reason 'Retired coordination context'
+cmpjson stdout $WORK/golden/archived.json
+
+# Ordinary discovery omits the archived board while explicit reads retain it.
+exec card --json board list
+! stdout .
+exec card --json board list --include-archived
+cmp stdout $WORK/golden/archived-list.jsonl
+exec card --json board show
+cmpjson stdout $WORK/golden/archived-board.json
+
+# Checkout selection continues to resolve reads and rejects mutations.
+! exec card create 'Rejected issue'
+! stdout .
+stderr 'board is archived'
+! exec card board edit --name 'Rejected rename'
+! stdout .
+stderr 'board is archived'
+! exec card config set --scope board issue.id.strategy random
+! stdout .
+stderr 'board is archived'
+! exec card attachment add retained.txt
+! stdout .
+stderr 'board is archived'
+
+# Repeating either lifecycle operation is a successful no-op.
+exec card --json board archive 'Archive board' --reason 'Replacement reason'
+cmpjson stdout $WORK/golden/already-archived.json
+exec card --json board unarchive 'Archive board'
+cmpjson stdout $WORK/golden/unarchived.json
+exec card --json board unarchive 'Archive board'
+cmpjson stdout $WORK/golden/already-active.json
+exec card --json board list
+cmp stdout $WORK/golden/active-list.jsonl
+
+-- golden/ready-id.txt --
+archive-1
+-- golden/prerequisite-id.txt --
+archive-2
+-- golden/blocked-id.txt --
+archive-3
+-- golden/waiting-id.txt --
+archive-4
+-- golden/archived.json --
+{
+  "board": {
+    "id": "board_00000000000000000000",
+    "project_id": "project_00000000000000000000",
+    "name": "Archive board",
+    "created": 1784116800,
+    "description": null,
+    "archived": {
+      "actor": "test-user",
+      "at": 1784116800,
+      "reason": "Retired coordination context"
+    }
+  },
+  "changed": true,
+  "issues": {
+    "total": 4,
+    "by_status": [
+      {"status": "ready", "count": 2},
+      {"status": "blocked", "count": 1},
+      {"status": "in_progress", "count": 0},
+      {"status": "waiting", "count": 1},
+      {"status": "closed", "count": 0},
+      {"status": "cancelled", "count": 0}
+    ]
+  }
+}
+-- golden/archived-list.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Archive board","created":1784116800,"archived":{"actor":"test-user","at":1784116800,"reason":"Retired coordination context"}}
+-- golden/archived-board.json --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Archive board","created":1784116800,"description":null,"archived":{"actor":"test-user","at":1784116800,"reason":"Retired coordination context"}}
+-- golden/already-archived.json --
+{
+  "board": {
+    "id": "board_00000000000000000000",
+    "project_id": "project_00000000000000000000",
+    "name": "Archive board",
+    "created": 1784116800,
+    "description": null,
+    "archived": {
+      "actor": "test-user",
+      "at": 1784116800,
+      "reason": "Retired coordination context"
+    }
+  },
+  "changed": false,
+  "issues": {
+    "total": 4,
+    "by_status": [
+      {"status": "ready", "count": 2},
+      {"status": "blocked", "count": 1},
+      {"status": "in_progress", "count": 0},
+      {"status": "waiting", "count": 1},
+      {"status": "closed", "count": 0},
+      {"status": "cancelled", "count": 0}
+    ]
+  }
+}
+-- golden/unarchived.json --
+{
+  "board": {
+    "id": "board_00000000000000000000",
+    "project_id": "project_00000000000000000000",
+    "name": "Archive board",
+    "created": 1784116800,
+    "description": null
+  },
+  "changed": true
+}
+-- golden/already-active.json --
+{
+  "board": {
+    "id": "board_00000000000000000000",
+    "project_id": "project_00000000000000000000",
+    "name": "Archive board",
+    "created": 1784116800,
+    "description": null
+  },
+  "changed": false
+}
+-- golden/active-list.jsonl --
+{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Archive board","created":1784116800}

@@ -51,6 +51,54 @@ type Boards interface {
 
 	// EditSettings changes one board's settings with canonical invocation metadata.
 	EditSettings(context.Context, board.Invocation, board.EditRequest) (*board.State, error)
+
+	// Archive logically archives a board without active custody and reports the
+	// issue population observed by that writer.
+	Archive(context.Context, board.Invocation, board.ArchiveRequest) (board.ArchiveResult, error)
+
+	// Unarchive clears archive metadata and reports whether state changed.
+	Unarchive(context.Context, board.ID) (*board.State, bool, error)
+}
+
+// ArchiveBoard logically archives a board without active custody. It returns
+// the committed metadata and issue snapshot even when the board was already
+// archived and Changed is false.
+func (s *Service) ArchiveBoard(ctx context.Context, request *connect.Request[privatev1.ArchiveBoardRequest]) (*connect.Response[privatev1.ArchiveBoardResponse], error) {
+	id, err := board.NewID(request.Msg.GetBoardId())
+	if err != nil {
+		return nil, web.FromError(err)
+	}
+	result, err := s.boards.Archive(ctx, mutationInvocation(request.Msg.GetContext()), board.ArchiveRequest{
+		BoardID: id, Reason: cloneString(request.Msg.Reason),
+	})
+	if err != nil {
+		return nil, web.FromError(err)
+	}
+	converted, err := s.board(ctx, result.Board, "")
+	if err != nil {
+		return nil, web.FromError(err)
+	}
+	return connect.NewResponse(&privatev1.ArchiveBoardResponse{
+		Board: converted, Changed: result.Changed, Issues: issueInventoryMessage(result.Issues),
+	}), nil
+}
+
+// UnarchiveBoard restores an archived board to active mutation service. Changed
+// is false when the board was already active.
+func (s *Service) UnarchiveBoard(ctx context.Context, request *connect.Request[privatev1.UnarchiveBoardRequest]) (*connect.Response[privatev1.UnarchiveBoardResponse], error) {
+	id, err := board.NewID(request.Msg.GetBoardId())
+	if err != nil {
+		return nil, web.FromError(err)
+	}
+	state, changed, err := s.boards.Unarchive(ctx, id)
+	if err != nil {
+		return nil, web.FromError(err)
+	}
+	converted, err := s.board(ctx, state, "")
+	if err != nil {
+		return nil, web.FromError(err)
+	}
+	return connect.NewResponse(&privatev1.UnarchiveBoardResponse{Board: converted, Changed: changed}), nil
 }
 
 // MarkdownRenderer converts stored board Markdown to trusted presentation HTML.
@@ -143,7 +191,8 @@ func (s *Service) ListProjects(
 	}), nil
 }
 
-// ListBoards returns every board in catalog order.
+// ListBoards returns active and archived boards in catalog order so clients can
+// provide an explicit archive opt-in without a separate discovery endpoint.
 func (s *Service) ListBoards(
 	ctx context.Context,
 	_ *connect.Request[privatev1.ListBoardsRequest],
@@ -231,7 +280,8 @@ func (s *Service) listBoards(ctx context.Context) ([]*privatev1.BoardSummary, er
 	return result, nil
 }
 
-// GetBoard returns one explicitly identified board and rendered context.
+// GetBoard returns one explicitly identified active or archived board and its
+// rendered context.
 func (s *Service) GetBoard(
 	ctx context.Context,
 	request *connect.Request[privatev1.GetBoardRequest],
@@ -346,11 +396,15 @@ func (s *Service) board(
 	if err != nil {
 		return nil, err
 	}
-	return &privatev1.Board{
+	out := &privatev1.Board{
 		Id: value.ID().String(), ProjectId: value.ProjectID(),
 		Name: value.Name(), Description: description,
 		CreatedAt: timestamp(value.Created().Unix()),
-	}, nil
+	}
+	if archived := value.Archived(); archived != nil {
+		out.Archived = archiveMessage(archived)
+	}
+	return out, nil
 }
 
 func (s *Service) optionalMarkdown(
@@ -395,9 +449,29 @@ func validIssueStatuses() []privatev1.IssueStatus {
 }
 
 func boardSummary(value *board.State) *privatev1.BoardSummary {
-	return &privatev1.BoardSummary{
+	out := &privatev1.BoardSummary{
 		Id: value.ID().String(), ProjectId: value.ProjectID(),
 		Name: value.Name(),
+	}
+	if archived := value.Archived(); archived != nil {
+		out.Archived = archiveMessage(archived)
+	}
+	return out
+}
+
+// archiveMessage converts current domain lifecycle metadata to its wire form.
+func archiveMessage(value *board.Archive) *privatev1.BoardArchive {
+	return &privatev1.BoardArchive{Actor: value.Actor, At: timestamppb.New(value.At), Reason: cloneString(value.Reason)}
+}
+
+// issueInventoryMessage converts the complete effective status partition to its
+// fixed wire representation.
+func issueInventoryMessage(counts board.IssueCounts) *privatev1.BoardArchiveIssueCounts {
+	return &privatev1.BoardArchiveIssueCounts{
+		Total: uint64(counts.Total), Ready: uint64(counts.Ready),
+		Blocked: uint64(counts.Blocked), InProgress: uint64(counts.InProgress),
+		Waiting: uint64(counts.Waiting), Closed: uint64(counts.Closed),
+		Cancelled: uint64(counts.Cancelled),
 	}
 }
 

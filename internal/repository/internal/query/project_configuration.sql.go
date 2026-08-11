@@ -7,6 +7,7 @@ package query
 
 import (
 	"context"
+	"time"
 )
 
 const projectGetBoardConfiguration = `-- name: ProjectGetBoardConfiguration :one
@@ -14,7 +15,8 @@ SELECT
     issue_id_prefix,
     issue_id_strategy,
     issue_summary_max_bytes,
-    attachment_max_bytes
+    attachment_max_bytes,
+    archived_at
 FROM boards
 WHERE id = ?1
 `
@@ -24,8 +26,11 @@ type ProjectGetBoardConfigurationRow struct {
 	IssueIDStrategy      *string
 	IssueSummaryMaxBytes *int64
 	AttachmentMaxBytes   *int64
+	ArchivedAt           *time.Time
 }
 
+// The board configuration writer reads lifecycle in the same transaction as
+// the values it may replace.
 func (q *Queries) ProjectGetBoardConfiguration(ctx context.Context, id string) (ProjectGetBoardConfigurationRow, error) {
 	row := q.db.QueryRowContext(ctx, projectGetBoardConfiguration, id)
 	var i ProjectGetBoardConfigurationRow
@@ -34,6 +39,7 @@ func (q *Queries) ProjectGetBoardConfiguration(ctx context.Context, id string) (
 		&i.IssueIDStrategy,
 		&i.IssueSummaryMaxBytes,
 		&i.AttachmentMaxBytes,
+		&i.ArchivedAt,
 	)
 	return i, err
 }

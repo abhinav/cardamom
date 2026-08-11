@@ -10,18 +10,77 @@ import (
 	"time"
 )
 
+const projectBoardHasActiveClaim = `-- name: ProjectBoardHasActiveClaim :one
+SELECT EXISTS (SELECT 1 FROM active_claims WHERE board_id = ?1)
+`
+
+func (q *Queries) ProjectBoardHasActiveClaim(ctx context.Context, boardID string) (bool, error) {
+	row := q.db.QueryRowContext(ctx, projectBoardHasActiveClaim, boardID)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
+const projectCountBoardIssues = `-- name: ProjectCountBoardIssues :one
+SELECT count(*) FROM issues WHERE board_id = ?1
+`
+
+func (q *Queries) ProjectCountBoardIssues(ctx context.Context, boardID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, projectCountBoardIssues, boardID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const projectCountBoardIssuesByStatus = `-- name: ProjectCountBoardIssuesByStatus :one
+SELECT count(*)
+FROM issues AS issue
+LEFT JOIN active_claims AS claim ON claim.issue_id = issue.id
+WHERE issue.board_id = ?1
+    AND CASE
+        WHEN issue.lifecycle <> 'open' THEN issue.lifecycle
+        WHEN claim.issue_id IS NOT NULL THEN 'in_progress'
+        WHEN issue.waiting_reason IS NOT NULL THEN 'waiting'
+        WHEN EXISTS (
+            SELECT 1
+            FROM dependencies AS dependency
+            JOIN issues AS prerequisite ON prerequisite.id = dependency.prerequisite_id
+            WHERE dependency.issue_id = issue.id
+                AND prerequisite.lifecycle <> 'closed'
+        ) THEN 'blocked'
+        ELSE 'ready'
+    END = ?2
+`
+
+type ProjectCountBoardIssuesByStatusParams struct {
+	BoardID string
+	Status  string
+}
+
+// Effective status precedence matches board inventory and archive reporting.
+func (q *Queries) ProjectCountBoardIssuesByStatus(ctx context.Context, arg ProjectCountBoardIssuesByStatusParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, projectCountBoardIssuesByStatus, arg.BoardID, arg.Status)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const projectGetBoard = `-- name: ProjectGetBoard :one
-SELECT id, project_id, name, description, created_at
+SELECT id, project_id, name, description, created_at,
+       archived_at, archived_by, archive_reason
 FROM boards
 WHERE id = ?1
 `
 
 type ProjectGetBoardRow struct {
-	ID          string
-	ProjectID   string
-	Name        string
-	Description *string
-	CreatedAt   time.Time
+	ID            string
+	ProjectID     string
+	Name          string
+	Description   *string
+	CreatedAt     time.Time
+	ArchivedAt    *time.Time
+	ArchivedBy    *string
+	ArchiveReason *string
 }
 
 func (q *Queries) ProjectGetBoard(ctx context.Context, id string) (ProjectGetBoardRow, error) {
@@ -33,22 +92,29 @@ func (q *Queries) ProjectGetBoard(ctx context.Context, id string) (ProjectGetBoa
 		&i.Name,
 		&i.Description,
 		&i.CreatedAt,
+		&i.ArchivedAt,
+		&i.ArchivedBy,
+		&i.ArchiveReason,
 	)
 	return i, err
 }
 
 const projectListAllBoards = `-- name: ProjectListAllBoards :many
-SELECT id, project_id, name, description, created_at
+SELECT id, project_id, name, description, created_at,
+       archived_at, archived_by, archive_reason
 FROM boards
 ORDER BY project_id, name, id
 `
 
 type ProjectListAllBoardsRow struct {
-	ID          string
-	ProjectID   string
-	Name        string
-	Description *string
-	CreatedAt   time.Time
+	ID            string
+	ProjectID     string
+	Name          string
+	Description   *string
+	CreatedAt     time.Time
+	ArchivedAt    *time.Time
+	ArchivedBy    *string
+	ArchiveReason *string
 }
 
 func (q *Queries) ProjectListAllBoards(ctx context.Context) ([]ProjectListAllBoardsRow, error) {
@@ -66,6 +132,9 @@ func (q *Queries) ProjectListAllBoards(ctx context.Context) ([]ProjectListAllBoa
 			&i.Name,
 			&i.Description,
 			&i.CreatedAt,
+			&i.ArchivedAt,
+			&i.ArchivedBy,
+			&i.ArchiveReason,
 		); err != nil {
 			return nil, err
 		}
@@ -81,20 +150,26 @@ func (q *Queries) ProjectListAllBoards(ctx context.Context) ([]ProjectListAllBoa
 }
 
 const projectListBoardsForSoleSelection = `-- name: ProjectListBoardsForSoleSelection :many
-SELECT id, project_id, name, description, created_at
+SELECT id, project_id, name, description, created_at,
+       archived_at, archived_by, archive_reason
 FROM boards
+WHERE archived_at IS NULL
 ORDER BY id
 LIMIT 2
 `
 
 type ProjectListBoardsForSoleSelectionRow struct {
-	ID          string
-	ProjectID   string
-	Name        string
-	Description *string
-	CreatedAt   time.Time
+	ID            string
+	ProjectID     string
+	Name          string
+	Description   *string
+	CreatedAt     time.Time
+	ArchivedAt    *time.Time
+	ArchivedBy    *string
+	ArchiveReason *string
 }
 
+// Archived boards do not make ambient board selection ambiguous.
 func (q *Queries) ProjectListBoardsForSoleSelection(ctx context.Context) ([]ProjectListBoardsForSoleSelectionRow, error) {
 	rows, err := q.db.QueryContext(ctx, projectListBoardsForSoleSelection)
 	if err != nil {
@@ -110,6 +185,9 @@ func (q *Queries) ProjectListBoardsForSoleSelection(ctx context.Context) ([]Proj
 			&i.Name,
 			&i.Description,
 			&i.CreatedAt,
+			&i.ArchivedAt,
+			&i.ArchivedBy,
+			&i.ArchiveReason,
 		); err != nil {
 			return nil, err
 		}
@@ -125,20 +203,26 @@ func (q *Queries) ProjectListBoardsForSoleSelection(ctx context.Context) ([]Proj
 }
 
 const projectListProjectBoards = `-- name: ProjectListProjectBoards :many
-SELECT id, project_id, name, description, created_at
+SELECT id, project_id, name, description, created_at,
+       archived_at, archived_by, archive_reason
 FROM boards
-WHERE project_id = ?1
+WHERE project_id = ?1 AND archived_at IS NULL
 ORDER BY name, id
 `
 
 type ProjectListProjectBoardsRow struct {
-	ID          string
-	ProjectID   string
-	Name        string
-	Description *string
-	CreatedAt   time.Time
+	ID            string
+	ProjectID     string
+	Name          string
+	Description   *string
+	CreatedAt     time.Time
+	ArchivedAt    *time.Time
+	ArchivedBy    *string
+	ArchiveReason *string
 }
 
+// Project aggregate discovery excludes archived boards; explicit identity reads
+// use ProjectGetBoard below and include either lifecycle state.
 func (q *Queries) ProjectListProjectBoards(ctx context.Context, projectID string) ([]ProjectListProjectBoardsRow, error) {
 	rows, err := q.db.QueryContext(ctx, projectListProjectBoards, projectID)
 	if err != nil {
@@ -154,6 +238,9 @@ func (q *Queries) ProjectListProjectBoards(ctx context.Context, projectID string
 			&i.Name,
 			&i.Description,
 			&i.CreatedAt,
+			&i.ArchivedAt,
+			&i.ArchivedBy,
+			&i.ArchiveReason,
 		); err != nil {
 			return nil, err
 		}

@@ -31,11 +31,14 @@ SET issue_id_prefix = sqlc.narg(issue_id_prefix),
 WHERE id = sqlc.arg(id);
 
 -- name: ProjectGetBoardConfiguration :one
+-- The board configuration writer reads lifecycle in the same transaction as
+-- the values it may replace.
 SELECT
     issue_id_prefix,
     issue_id_strategy,
     issue_summary_max_bytes,
-    attachment_max_bytes
+    attachment_max_bytes,
+    archived_at
 FROM boards
 WHERE id = sqlc.arg(id);
 

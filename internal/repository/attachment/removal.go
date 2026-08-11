@@ -11,6 +11,8 @@ import (
 )
 
 // RemoveAttachment creates one permanent tombstone or returns the existing one.
+// It returns board.ErrArchived without changing metadata when the owning board
+// is archived.
 func (r *Repository) RemoveAttachment(
 	ctx context.Context,
 	request domainattachment.RemoveRequest,
@@ -20,6 +22,9 @@ func (r *Repository) RemoveAttachment(
 		return domainattachment.Attachment{}, fmt.Errorf("begin attachment removal: %w", err)
 	}
 	defer func() { err = errors.Join(err, change.Done()) }()
+	if err := requireMutableBoard(ctx, query.New(change), request.BoardID); err != nil {
+		return domainattachment.Attachment{}, err
+	}
 	value, err := r.loadAttachment(ctx, change, request.BoardID, request.AttachmentID)
 	if err != nil {
 		return domainattachment.Attachment{}, err

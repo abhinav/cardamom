@@ -3,11 +3,30 @@
 package board
 
 import (
+	"errors"
 	"strings"
 	"time"
 
 	"go.abhg.dev/cardamom/internal/errkind"
 )
+
+// ErrArchived reports that a mutation cannot change an archived board.
+// Callers may recognize it as a conflict; the rejected operation leaves board
+// state unchanged.
+var ErrArchived = errkind.Wrap(errkind.Conflict, errors.New("board is archived"))
+
+// Archive is the board's current logical archive state. Unarchiving clears this
+// metadata; it is not a lifecycle history.
+type Archive struct {
+	// Actor identifies the invocation that archived the board.
+	Actor string
+
+	// At records when the archive transition committed.
+	At time.Time
+
+	// Reason is the optional normalized explanation supplied by the actor.
+	Reason *string
+}
 
 // ID is the stable identity of one coordination context.
 type ID string
@@ -42,6 +61,9 @@ type Snapshot struct {
 
 	// Created records when the board was established.
 	Created time.Time
+
+	// Archived records the board's logical archive state, when present.
+	Archived *Archive
 }
 
 // State is an explicitly established coordination context within a project.
@@ -61,6 +83,9 @@ type State struct {
 
 	// created records when the board identity was established.
 	created time.Time
+
+	// archived owns a copy of the optional logical archive metadata.
+	archived *Archive
 }
 
 // Load validates and restores one persisted board state.
@@ -82,12 +107,17 @@ func Load(snapshot Snapshot) (*State, error) {
 	if snapshot.Description != nil && strings.TrimSpace(*snapshot.Description) == "" {
 		return nil, errkind.Errorf(errkind.InvalidInput, "invalid project namespace: board description required")
 	}
+	archived, err := normalizeArchive(snapshot.Archived)
+	if err != nil {
+		return nil, err
+	}
 	return &State{
 		id:          snapshot.ID,
 		projectID:   projectID,
 		name:        name,
 		description: cloneString(snapshot.Description),
 		created:     snapshot.Created,
+		archived:    archived,
 	}, nil
 }
 
@@ -105,6 +135,42 @@ func (b *State) Description() *string { return cloneString(b.description) }
 
 // Created returns when the board was established.
 func (b *State) Created() time.Time { return b.created }
+
+// Archived returns a copy of the archive metadata, or nil when active.
+func (b *State) Archived() *Archive { return cloneArchive(b.archived) }
+
+// RequireMutable returns ErrArchived while the board is archived. Callers must
+// invoke it before changing state.
+func (b *State) RequireMutable() error {
+	if b.archived != nil {
+		return ErrArchived
+	}
+	return nil
+}
+
+// ArchiveBoard records the first archive transition. Repeated calls preserve
+// the existing metadata and report false without validating replacement input.
+func (b *State) ArchiveBoard(actor string, at time.Time, reason *string) (bool, error) {
+	if b.archived != nil {
+		return false, nil
+	}
+	archive, err := normalizeArchive(&Archive{Actor: actor, At: at, Reason: reason})
+	if err != nil {
+		return false, err
+	}
+	b.archived = archive
+	return true, nil
+}
+
+// Unarchive clears the current archive metadata. It reports false without
+// changing an already active board.
+func (b *State) Unarchive() bool {
+	if b.archived == nil {
+		return false
+	}
+	b.archived = nil
+	return true
+}
 
 // SettingsEdit selects settings changed by one atomic board operation.
 type SettingsEdit struct {
@@ -131,6 +197,9 @@ func ReplaceDescription(value *string) *DescriptionEdit {
 
 // EditSettings validates and applies one atomic board settings operation.
 func (b *State) EditSettings(edit SettingsEdit) (*State, error) {
+	if err := b.RequireMutable(); err != nil {
+		return nil, err
+	}
 	if edit.Name == nil && edit.Description == nil {
 		return nil, errkind.Errorf(errkind.InvalidInput, "invalid project namespace: board setting required")
 	}
@@ -154,7 +223,36 @@ func (b *State) EditSettings(edit SettingsEdit) (*State, error) {
 		name:        name,
 		description: description,
 		created:     b.created,
+		archived:    cloneArchive(b.archived),
 	}, nil
+}
+
+// normalizeArchive validates the all-or-nothing archive representation and
+// returns a copy owned by board state.
+func normalizeArchive(value *Archive) (*Archive, error) {
+	if value == nil {
+		return nil, nil
+	}
+	actor := strings.TrimSpace(value.Actor)
+	if actor == "" || value.At.IsZero() {
+		return nil, errkind.Errorf(errkind.InvalidInput, "invalid board archive metadata")
+	}
+	reason := cloneString(value.Reason)
+	if reason != nil {
+		trimmed := strings.TrimSpace(*reason)
+		if trimmed == "" {
+			return nil, errkind.Errorf(errkind.InvalidInput, "invalid board archive reason")
+		}
+		reason = &trimmed
+	}
+	return &Archive{Actor: actor, At: value.At, Reason: reason}, nil
+}
+
+func cloneArchive(value *Archive) *Archive {
+	if value == nil {
+		return nil
+	}
+	return &Archive{Actor: value.Actor, At: value.At, Reason: cloneString(value.Reason)}
 }
 
 func cloneString(value *string) *string {

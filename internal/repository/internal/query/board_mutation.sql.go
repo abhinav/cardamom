@@ -8,19 +8,27 @@ package query
 import (
 	"context"
 	"database/sql"
+	"time"
 )
 
 const boardGetRevision = `-- name: BoardGetRevision :one
-SELECT revision
+SELECT revision, archived_at
 FROM boards
 WHERE id = ?1
 `
 
-func (q *Queries) BoardGetRevision(ctx context.Context, id string) (int64, error) {
+type BoardGetRevisionRow struct {
+	Revision   int64
+	ArchivedAt *time.Time
+}
+
+// Issue writers read lifecycle and revision together through their immediate
+// transaction, preventing archive and mutation acceptance from interleaving.
+func (q *Queries) BoardGetRevision(ctx context.Context, id string) (BoardGetRevisionRow, error) {
 	row := q.db.QueryRowContext(ctx, boardGetRevision, id)
-	var revision int64
-	err := row.Scan(&revision)
-	return revision, err
+	var i BoardGetRevisionRow
+	err := row.Scan(&i.Revision, &i.ArchivedAt)
+	return i, err
 }
 
 const boardPublishIssueRevision = `-- name: BoardPublishIssueRevision :execresult

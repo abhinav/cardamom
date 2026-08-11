@@ -468,12 +468,14 @@ func newProjectDetailOut(detail projectinspection.Detail) projectDetailOut {
 }
 
 type boardCommand struct {
-	List   boardListCommand   `cmd:"" help:"List coordination boards."`
-	Create boardCreateCommand `cmd:"" help:"Create a coordination board."`
-	Copy   boardCopyCommand   `cmd:"" help:"Copy a board into another store."`
-	Use    boardUseCommand    `cmd:"" help:"Select a board for this checkout."`
-	Show   boardShowCommand   `cmd:"" help:"Show board metadata."`
-	Edit   boardEditCommand   `cmd:"" help:"Edit board metadata."`
+	List      boardListCommand      `cmd:"" help:"List coordination boards."`
+	Create    boardCreateCommand    `cmd:"" help:"Create a coordination board."`
+	Copy      boardCopyCommand      `cmd:"" help:"Copy a board into another store."`
+	Use       boardUseCommand       `cmd:"" help:"Select a board for this checkout."`
+	Show      boardShowCommand      `cmd:"" help:"Show board metadata."`
+	Edit      boardEditCommand      `cmd:"" help:"Edit board metadata."`
+	Archive   boardArchiveCommand   `cmd:"" help:"Archive a board without active claims."`
+	Unarchive boardUnarchiveCommand `cmd:"" help:"Restore an archived board."`
 }
 
 // Help explains the independent project, board, and store namespaces.
@@ -485,21 +487,28 @@ A board is an explicitly created shared coordination context within a project.
 Board operations work without changing the physical Cardamom store.`
 }
 
-type boardListCommand struct{}
+type boardListCommand struct {
+	// IncludeArchived opts into archived catalog entries.
+	IncludeArchived bool `name:"include-archived" help:"Include archived boards."`
+}
 
 // BoardCatalog supplies board reads used by commands that do not select one board.
 type BoardCatalog interface {
+	// List returns active and archived boards in deterministic catalog order.
 	List(context.Context) ([]*board.State, error)
 }
 
-// Run lists every board without requiring one board to be selected.
-func (*boardListCommand) Run(invocation *Invocation, catalog BoardCatalog) error {
+// Run lists active boards by default and includes archived boards when requested.
+func (c *boardListCommand) Run(invocation *Invocation, catalog BoardCatalog) error {
 	boards, err := catalog.List(invocation.Context)
 	if err != nil {
 		return err
 	}
 	records := make([]boardSummaryOut, 0, len(boards))
 	for _, board := range boards {
+		if !c.IncludeArchived && board.Archived() != nil {
+			continue
+		}
 		records = append(records, newBoardSummaryOut(board))
 	}
 	if invocation.Output.JSON() {
@@ -512,6 +521,61 @@ func (*boardListCommand) Run(invocation *Invocation, catalog BoardCatalog) error
 		}
 	}
 	return nil
+}
+
+// boardArchiveCommand selects one explicit board for logical archival.
+type boardArchiveCommand struct {
+	Selector string  `arg:"" name:"board" predictor:"boards" help:"Board ID or exact name."`
+	Reason   *string `name:"reason" placeholder:"TEXT" help:"Record why the board was archived."`
+}
+
+// Run archives the selected board and reports its retained issue population.
+func (c *boardArchiveCommand) Run(invocation *Invocation, boards *board.Service, resolver *selection.Resolver) error {
+	selected, err := resolveBoard(invocation, c.Selector, resolver)
+	if err != nil {
+		return err
+	}
+	result, err := boards.Archive(invocation.Context, board.NewInvocation(invocation.Actor), board.ArchiveRequest{
+		BoardID: selected.ID(), Reason: c.Reason,
+	})
+	if err != nil {
+		return err
+	}
+	out := boardArchiveOut{Board: newBoardDetailOut(result.Board), Changed: result.Changed, Issues: newBoardIssueInventoryOut(result.Issues)}
+	if invocation.Output.JSON() {
+		return invocation.Output.WriteJSON(out)
+	}
+	if !result.Changed {
+		return invocation.Output.Noticef("board %s is already archived (%d issues)", result.Board.ID(), result.Issues.Total)
+	}
+	return invocation.Output.Noticef("archived %s (%d issues: %d ready, %d blocked, %d in progress, %d waiting, %d closed, %d cancelled)",
+		result.Board.ID(), result.Issues.Total, result.Issues.Ready, result.Issues.Blocked,
+		result.Issues.InProgress, result.Issues.Waiting, result.Issues.Closed, result.Issues.Cancelled)
+}
+
+// boardUnarchiveCommand selects one explicit board to restore to active service.
+type boardUnarchiveCommand struct {
+	Selector string `arg:"" name:"board" predictor:"boards" help:"Board ID or exact name."`
+}
+
+// Run clears archive metadata and reports whether the lifecycle state changed.
+func (c *boardUnarchiveCommand) Run(invocation *Invocation, boards *board.Service, resolver *selection.Resolver) error {
+	selected, err := resolveBoard(invocation, c.Selector, resolver)
+	if err != nil {
+		return err
+	}
+	state, changed, err := boards.Unarchive(invocation.Context, selected.ID())
+	if err != nil {
+		return err
+	}
+	out := boardUnarchiveOut{Board: newBoardDetailOut(state), Changed: changed}
+	if invocation.Output.JSON() {
+		return invocation.Output.WriteJSON(out)
+	}
+	if !changed {
+		return invocation.Output.Noticef("board %s is already active", state.ID())
+	}
+	return invocation.Output.Noticef("unarchived %s", state.ID())
 }
 
 type boardCreateCommand struct {
@@ -693,22 +757,72 @@ func resolveBoard(
 }
 
 type boardSummaryOut struct {
-	ID        string `json:"id"`
-	ProjectID string `json:"project_id"`
-	Name      string `json:"name"`
-	Created   int64  `json:"created"`
+	ID        string                   `json:"id"`
+	ProjectID string                   `json:"project_id"`
+	Name      string                   `json:"name"`
+	Created   int64                    `json:"created"`
+	Archived  *boardArchiveMetadataOut `json:"archived,omitempty"`
+}
+
+// boardArchiveMetadataOut is the stable JSON representation of current archive
+// state. At is a Unix timestamp in seconds.
+type boardArchiveMetadataOut struct {
+	Actor  string  `json:"actor"`
+	At     int64   `json:"at"`
+	Reason *string `json:"reason"`
 }
 
 func newBoardSummaryOut(board *board.State) boardSummaryOut {
-	return boardSummaryOut{
+	out := boardSummaryOut{
 		ID: board.ID().String(), ProjectID: board.ProjectID(),
 		Name: board.Name(), Created: board.Created().Unix(),
 	}
+	if archived := board.Archived(); archived != nil {
+		out.Archived = &boardArchiveMetadataOut{Actor: archived.Actor, At: archived.At.Unix(), Reason: archived.Reason}
+	}
+	return out
 }
 
 type boardDetailOut struct {
 	boardSummaryOut
 	Description *string `json:"description"`
+}
+
+// boardArchiveOut is the JSON receipt for an archive attempt.
+type boardArchiveOut struct {
+	Board   boardDetailOut         `json:"board"`
+	Changed bool                   `json:"changed"`
+	Issues  boardIssueInventoryOut `json:"issues"`
+}
+
+// boardUnarchiveOut is the JSON receipt for an unarchive attempt.
+type boardUnarchiveOut struct {
+	Board   boardDetailOut `json:"board"`
+	Changed bool           `json:"changed"`
+}
+
+// boardIssueInventoryOut reports the complete effective status partition.
+type boardIssueInventoryOut struct {
+	Total    int                        `json:"total"`
+	ByStatus []boardIssueStatusCountOut `json:"by_status"`
+}
+
+// boardIssueStatusCountOut associates one stable status name with its count.
+type boardIssueStatusCountOut struct {
+	Status string `json:"status"`
+	Count  int    `json:"count"`
+}
+
+// newBoardIssueInventoryOut preserves the CLI's stable status ordering.
+func newBoardIssueInventoryOut(counts board.IssueCounts) boardIssueInventoryOut {
+	return boardIssueInventoryOut{Total: counts.Total, ByStatus: []boardIssueStatusCountOut{
+		{Status: "ready", Count: counts.Ready},
+		{Status: "blocked", Count: counts.Blocked},
+		{Status: "in_progress", Count: counts.InProgress},
+		{Status: "waiting", Count: counts.Waiting},
+		{Status: "closed", Count: counts.Closed},
+		{Status: "cancelled", Count: counts.Cancelled},
+	}}
 }
 
 func newBoardDetailOut(board *board.State) boardDetailOut {

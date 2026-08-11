@@ -5,11 +5,14 @@ import {
   type ReactNode,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   BoardSelectorBoardRow,
   BoardSelectorView,
+  BoardPickerRoute,
+  catalogBoards,
   groupBoardsBySourceAndProject,
 } from "./board-selector.tsx";
 import { create } from "@bufbuild/protobuf";
@@ -36,6 +39,55 @@ const boards = [
 ];
 
 describe("board selector", () => {
+  it("groups archived visibility with the board search controls", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <BoardPickerRoute
+          aggregate={false}
+          boards={boards}
+          projects={projects}
+        />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toMatch(
+      /class="board-picker-filters"[\s\S]*class="board-picker-search"[\s\S]*class="board-picker-archived"/,
+    );
+  });
+
+  it("keeps archived boards out of quick selection and behind catalog opt-in", () => {
+    const archived = {
+      id: "board-old",
+      projectId: "project-a",
+      name: "Retired",
+      archived: {
+        $typeName: "cardamom.private.v1.BoardArchive" as const,
+        actor: "captain",
+      },
+    };
+    expect(catalogBoards([...boards, archived], false)).toEqual(boards);
+    expect(catalogBoards([...boards, archived], true)).toContain(archived);
+
+    const markup = renderToStaticMarkup(BoardSelectorView({
+      aggregate: false,
+      boards: [...boards, archived],
+      open: true,
+      projects,
+      query: "",
+      selection: { kind: "board", boardId: archived.id },
+      onDismiss: vi.fn(),
+      onOpenBoardSettings: vi.fn(),
+      onQueryChange: vi.fn(),
+      onSelectScope: vi.fn(),
+      onToggle: vi.fn(),
+    }));
+    expect(markup).toContain('board-selector-trigger-primary">Retired');
+    expect(markup).toContain("Archived");
+    expect(markup).not.toContain('aria-label="Select Retired"');
+    expect(markup).toContain(">Board settings</button>");
+    expect(markup).toContain("View all boards");
+  });
+
   it("groups aggregate boards by source and then project", () => {
     const builder = create(SourceRefSchema, {
       sourceId: "builder",
@@ -196,6 +248,27 @@ describe("board selector", () => {
     expect(markup).not.toContain("Open settings for Web");
     expect(markup).not.toContain("Open settings for API");
     expect(markup).not.toContain("Open settings for Solo");
+  });
+
+  it("exposes settings for every board when the current scope is all boards", () => {
+    const markup = renderToStaticMarkup(BoardSelectorView({
+      aggregate: false,
+      boards,
+      open: true,
+      projects,
+      query: "",
+      selection: { kind: "all" },
+      onDismiss: vi.fn(),
+      onOpenBoardSettings: vi.fn(),
+      onQueryChange: vi.fn(),
+      onSelectScope: vi.fn(),
+      onToggle: vi.fn(),
+    }));
+
+    expect(markup).toContain("Open settings for Operations");
+    expect(markup).toContain("Open settings for Web");
+    expect(markup).toContain("Open settings for API");
+    expect(markup).toContain("Open settings for Solo");
   });
 
   it("exposes toggle, selection, settings, and Escape interactions", () => {

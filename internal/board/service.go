@@ -43,6 +43,52 @@ type EditRequest struct {
 	Settings SettingsEdit
 }
 
+// ArchiveRequest selects a board and optional reason for archival.
+type ArchiveRequest struct {
+	// BoardID identifies the board to archive.
+	BoardID ID
+
+	// Reason is an optional non-empty explanation for the transition.
+	Reason *string
+}
+
+// ArchiveResult reports the committed lifecycle state and issue population.
+type ArchiveResult struct {
+	// Board is the committed lifecycle state.
+	Board *State
+
+	// Changed reports whether this invocation performed the archive transition.
+	Changed bool
+
+	// Issues is the effective status population observed by the archive writer.
+	Issues IssueCounts
+}
+
+// IssueCounts reports the effective status population observed in the same
+// transaction as an archive attempt. The status fields partition Total.
+type IssueCounts struct {
+	// Total is the number of issues in the board.
+	Total int
+
+	// Ready is the number of issues whose effective status is ready.
+	Ready int
+
+	// Blocked is the number of issues whose effective status is blocked.
+	Blocked int
+
+	// InProgress is the number of issues whose effective status is in progress.
+	InProgress int
+
+	// Waiting is the number of issues whose effective status is waiting.
+	Waiting int
+
+	// Closed is the number of issues whose effective status is closed.
+	Closed int
+
+	// Cancelled is the number of issues whose effective status is cancelled.
+	Cancelled int
+}
+
 //go:generate go tool mockgen -destination mocks_test.go -package board -typed -write_package_comment=false . Catalog,Changes
 
 // Catalog reads boards in deterministic catalog order and by stable identity.
@@ -64,6 +110,27 @@ type Changes interface {
 
 	// EditBoardSettings atomically changes one board's settings.
 	EditBoardSettings(context.Context, EditRequest) (*State, error)
+
+	// ArchiveBoard atomically archives a board without active custody and
+	// reports the issue population observed by that writer.
+	ArchiveBoard(context.Context, Invocation, ArchiveRequest) (ArchiveResult, error)
+
+	// UnarchiveBoard atomically clears archive metadata and reports whether the
+	// lifecycle state changed.
+	UnarchiveBoard(context.Context, ID) (*State, bool, error)
+}
+
+// Archive logically archives one board when it has no active claim. An already
+// archived board succeeds without replacing its metadata; Changed distinguishes
+// that no-op from a transition.
+func (s *Service) Archive(ctx context.Context, invocation Invocation, request ArchiveRequest) (ArchiveResult, error) {
+	return s.changes.ArchiveBoard(ctx, invocation, request)
+}
+
+// Unarchive restores one archived board to active mutation service. Changed is
+// false when the board was already active.
+func (s *Service) Unarchive(ctx context.Context, boardID ID) (*State, bool, error) {
+	return s.changes.UnarchiveBoard(ctx, boardID)
 }
 
 // Service owns finite board catalog and mutation operations.

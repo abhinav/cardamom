@@ -9,7 +9,8 @@ import (
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
-// WriteChunk appends or replays bounded sequential content.
+// WriteChunk appends or replays bounded sequential content. It returns
+// board.ErrArchived without writing content when the upload's board is archived.
 func (r *Repository) WriteChunk(
 	ctx context.Context,
 	request domainattachment.WriteChunkRequest,
@@ -21,6 +22,9 @@ func (r *Repository) WriteChunk(
 	defer func() { err = errors.Join(err, change.Done()) }()
 	upload, err := r.loadUpload(ctx, change, request.UploadID)
 	if err != nil {
+		return domainattachment.Upload{}, err
+	}
+	if err := requireMutableBoard(ctx, query.New(change), upload.Association.BoardID()); err != nil {
 		return domainattachment.Upload{}, err
 	}
 	if err := requireUploadActor(upload, request.Invocation.Actor()); err != nil {
