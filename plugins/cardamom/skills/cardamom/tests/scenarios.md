@@ -71,7 +71,7 @@ Do not execute commands.
 - Treats Details as chronology or a copy of inherited context.
 - Makes a task the parent of another issue.
 
-## Preserve runtime actor identity without requiring delegation
+## Preserve runtime actor identity during direct execution
 
 ### Prompt
 
@@ -82,9 +82,7 @@ The user asks the root agent to execute one claimed issue directly.
 A subagent named `Vega` is available but has not been requested or assigned
 work.
 
-State the execution and `--actor` choice now,
-then state what changes if the user later delegates a separate claimed outcome
-to `Vega`.
+State the execution and `--actor` choice.
 Do not execute commands.
 
 ### Expected behavior
@@ -92,14 +90,87 @@ Do not execute commands.
 - Lets the root agent execute directly rather than requiring delegation.
 - Uses `Orion` on the root agent's reads and writes throughout its custody.
 - Does not invent a role label such as `worker-a` or use the machine username.
-- If delegation later occurs,
-  gives the separate executor `Vega` its own actor and issue custody.
 
 ### Unacceptable behavior
 
 - Spawns or assigns the available subagent merely because Cardamom is in use.
-- Uses one shared actor for both actual executors.
 - Replaces runtime-provided names with generic roles.
+
+## Delegate issue custody with its record loop
+
+### Prompt
+
+Read the shipped Cardamom skill and the reference it routes to for executing
+and handing off issue work.
+
+Root agent `Orion` owns workstream `cm-release`.
+Before assigning executors, Orion also claimed child task `cm-parser`.
+The child is a self-contained outcome with its own validation and Result.
+Orion now delegates the complete child outcome to subagent `Vega`,
+who can run `card` and perform the work independently.
+Orion remains accountable for the release and wants one concise reporting
+surface.
+
+State what Orion sends in the delegation packet,
+how custody changes,
+who maintains each issue's State, Log, and Result,
+and how child evidence reaches the workstream.
+Do not execute commands.
+
+### Expected behavior
+
+- Supplies the shipped skill, issue ID, Vega's runtime actor,
+  store and board selection, working directory and owned files,
+  validation, expected Result, and completion or handoff expectation.
+- Supplies an absolute `card` path when binary resolution may differ.
+- Preserves any material child position Orion established,
+  then has Orion release its claim and Vega claim before material work.
+- Makes Vega responsible for the child's State, Log, Result,
+  and execution handoff while Vega owns it.
+- Has Vega report the child outcome to Orion at handoff.
+- Keeps Orion responsible for the workstream record
+  and has Orion incorporate only child conclusions that change its active
+  position or decision trail.
+
+### Unacceptable behavior
+
+- Retains Orion's child claim while Vega performs the work.
+- Makes Orion a proxy writer for Vega's child progress or decisions.
+- Has Vega write the workstream record without owning its claim.
+- Uses Orion's actor for Vega's writes.
+- Copies every child checkpoint into the workstream.
+
+## Keep helper evidence with the issue owner
+
+### Prompt
+
+Read the shipped Cardamom skill and the reference it routes to for executing
+issue work.
+
+Root agent `Orion` owns claimed task `cm-parser`.
+Orion asks subagent `Vega` to inspect one call path and return evidence.
+Vega does not own a separate outcome;
+Orion will choose and implement the repair, validate it, and set the Result.
+
+State whether Vega needs another issue or claim,
+who maintains `cm-parser`,
+and how Vega's evidence enters its records.
+Do not execute commands.
+
+### Expected behavior
+
+- Keeps `cm-parser` as one issue under Orion's existing claim.
+- Gives Vega a bounded inspection request and evidence-return expectation.
+- Keeps Orion responsible for `cm-parser` State, Log, Result,
+  and completion.
+- Publishes accepted evidence only when it changes the active position,
+  decision trail, or outcome.
+
+### Unacceptable behavior
+
+- Creates another issue solely because a subagent performs the inspection.
+- Gives Vega issue-record responsibility without issue custody.
+- Omits material evidence from `cm-parser` because it originated with Vega.
 
 ## Publish material choices before dependent work
 

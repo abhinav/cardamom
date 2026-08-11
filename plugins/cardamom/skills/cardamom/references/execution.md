@@ -34,19 +34,36 @@ When the contract cannot support execution, publish the gap and stop.
 Retain custody only when the same actor owns the correction;
 otherwise leave recoverable State and release the issue.
 
-When work is delegated, give the executor this shipped skill,
+Before dispatch, decide whether another actor will own an issue
+or will assist inside an issue the coordinator continues to own.
+
+For a delegated issue, give the executor this shipped skill,
 the issue ID and runtime actor, the store and board selection,
 the working directory and owned files, the required validation,
-and the expected Result.
+the expected Result, and the expected completion or handoff.
 Use an absolute `card` path when another worktree may resolve a different
 binary.
+State that the executor must claim the issue before material work
+and maintain its durable records and handoff while it owns execution.
+If the coordinator already holds the claim,
+publish any material work already performed,
+then release it before the executor claims.
 
-The claim owner remains responsible for the claimed issue's current State.
-When delegated evidence changes that issue's active position or next action,
-incorporate the operative conclusion before further work relies on it.
-Keep worker-local chronology and supporting evidence on the child issue or
-source record;
-do not copy every checkpoint into the claimed issue mechanically.
+After transfer, the executor authors the delegated issue's records.
+If the coordinator owns a containing issue,
+it maintains that issue.
+At handoff, the executor reports the delegated outcome to the coordinator.
+When that outcome changes a containing issue's active position or next action,
+the containing issue's claim owner incorporates the operative conclusion
+before further work relies on it.
+Keep chronology and supporting evidence on the delegated issue;
+carry only the operative conclusion into the containing issue.
+
+For assistance within an existing claimed issue,
+give the helper a bounded request and an evidence-return contract.
+The existing claim owner retains issue-record responsibility
+and publishes accepted evidence when it changes the issue's active position,
+decision trail, or outcome.
 
 ## Reassess dependency-sensitive plans
 
