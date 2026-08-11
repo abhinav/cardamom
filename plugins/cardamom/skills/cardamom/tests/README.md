@@ -63,6 +63,38 @@ preserve these distinctions:
 - Ordinary issue recovery may replay Log when history matters;
   routine awakenings normally recover from Details and current State.
 
+For the implementation-contract repair,
+preserve these distinctions:
+
+- Judge the persisted issue and event ordering,
+  not a runner's explanation of what good records would contain.
+- A known implementation plan belongs in Details before dependent mutation;
+  State carries the active position and Log carries distinct rationale.
+- Direct ownership does not waive that publication boundary;
+  shared chat is not durable issue context even when the same actor planned and
+  implements the work.
+- An unresolved implementation choice needs an explicit investigation boundary,
+  not invented specificity.
+- Source inspection may support execution,
+  but it must not be the only way to discover which change an issue owns.
+- Pressure-test both creation and an already-claimed placeholder issue;
+  repairing Details while leaving a generic Summary does not make the issue
+  legible from board-level views.
+- Pair the creation scenario with `Continue one established mechanical batch`;
+  the repair must not cause repeated Details, State, or Log writes for work
+  already governed by a complete contract and recorded decision.
+
+For record-writing guidance,
+judge the rendered Markdown rather than command quoting or section names.
+Each record must support its named reader without chat or unstated
+investigation.
+Judge whether prerequisites precede dependent claims,
+referents remain stable,
+material causes and boundaries are visible,
+and evidence and gaps are represented accurately.
+Accept a clear sentence when no additional structure is needed,
+and structured Markdown when the content has real sections or lists.
+
 When claiming improvement over the battle-tested baseline,
 run the same prompt with the same runner conditions against both skill versions.
 Preserve every raw result and use an independent judge when the outcome is

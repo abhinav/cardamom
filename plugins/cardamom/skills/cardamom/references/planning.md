@@ -26,7 +26,10 @@ outcome.
 
 ## Write a self-contained contract
 
-A new executor should be able to begin without chat history from:
+A future executor should be able to begin,
+and an owner or reviewer should be able to understand and assess the outcome,
+without chat history or reconstructing the intended change from source.
+Those readers start from:
 
 - the current issue's Summary and Details;
 - inherited ancestor Summaries;
@@ -40,12 +43,38 @@ configured byte limit,
 so include a conclusion in a containing Summary only when every descendant
 needs it.
 
-Details complete the current issue's stable working contract.
+Details establish the current issue's stable working contract.
 Use Details for issue-local procedure, locations, interfaces, examples,
 accepted decisions, and evidence requirements that an executor needs
 but descendants should not inherit automatically.
+For implementation work,
+record the concrete facts already established:
+
+- the current behavior or problem that motivates the work;
+- the intended behavior or outcome;
+- the owned files, components, interfaces, or other work area;
+- constraints and relevant behavior that must remain unchanged; and
+- the evidence that will establish completion.
+
+Do not invent an implementation plan before investigation establishes one.
+When implementation is still open,
+Details identify the investigation boundary and evidence needed to choose it.
+When an implementation plan is already accepted,
+omitting it as "implementation detail" makes the issue contract incomplete.
+This applies when the same actor planned the work and will execute it directly:
+shared chat and active context are not durable issue context,
+and direct execution is not an exemption from publishing the contract.
 Do not duplicate parent Summaries or dependency Results.
 Do not put chronology or an unstable implementation diary in either record.
+
+Before creating an executable issue,
+or after claiming an existing issue and before primary work,
+check that another actor could choose the first safe action
+and that an outside reader could distinguish the intended change from a
+generic activity such as "refactor" or "add tests."
+If not,
+add the missing established contract or create an investigation outcome whose
+result will establish it.
 
 Frame the contract before execution or delegation:
 
@@ -99,12 +128,23 @@ Containment does not create that readiness edge.
 Create one issue and its known relationships together:
 
 ```bash
+task_details=$(cat <<'MARKDOWN'
+## Working contract
+
+- Reproduce the malformed escape in the scanner regression suite.
+- Keep documented literal shell examples valid.
+- Repair quoted-input recognition in the scanner package.
+- Run the focused scanner tests and required parser validation.
+MARKDOWN
+)
+
 task_id=$(card --actor <actor> create \
   --type task \
   --parent "$workstream_id" \
   --depends-on <prerequisite-id> \
   --label implementation \
   --summary 'Implement the bounded parser change and its regression test.' \
+  --details "$task_details" \
   'Implement parser repair')
 ```
 
