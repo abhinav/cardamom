@@ -2,8 +2,8 @@ import { create } from "@bufbuild/protobuf";
 import { createRouterTransport } from "@connectrpc/connect";
 import { TransportProvider } from "@connectrpc/connect-query";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { createElement } from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+import { createElement, type ReactNode } from "react";
+import { renderToReadableStream } from "react-dom/server";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 
@@ -21,14 +21,14 @@ import {
 } from "./query-runtime.ts";
 
 describe("application shell", () => {
-  it("names Cardamom while startup metadata is loading", () => {
-    const markup = renderApp(new QueryClient());
+  it("names Cardamom while startup metadata is loading", async () => {
+    const markup = await renderApp(new QueryClient());
 
     expect(markup).toContain("Loading Cardamom");
     expect(markup).toContain(">Cardamom</div>");
   });
 
-  it("renders the root as a board picker even with a server default", () => {
+  it("renders the root as a board picker even with a server default", async () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -39,7 +39,7 @@ describe("application shell", () => {
       serverDefaultBoardId: "board-1",
     });
 
-    const markup = renderApp(queryClient, transport, "/");
+    const markup = await renderApp(queryClient, transport, "/");
 
     expect(markup).toContain(">Boards</h1>");
     expect(markup).toContain('href="/board/board-1"');
@@ -47,7 +47,7 @@ describe("application shell", () => {
     expect(markup).not.toContain('aria-label="Issue board"');
   });
 
-  it("uses the board route instead of persisted scope for shell navigation", () => {
+  it("uses the board route instead of persisted scope for shell navigation", async () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -58,7 +58,7 @@ describe("application shell", () => {
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
 
-    const markup = renderApp(
+    const markup = await renderApp(
       queryClient,
       transport,
       "/board/board-1/list",
@@ -78,7 +78,7 @@ describe("application shell", () => {
     expect(markup).not.toContain('href="/list"');
   });
 
-  it("preserves effective filters between Board and List links", () => {
+  it("preserves effective filters between Board and List links", async () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -88,7 +88,7 @@ describe("application shell", () => {
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
 
-    const markup = renderApp(
+    const markup = await renderApp(
       queryClient,
       transport,
       "/board/board-1?status=in-progress&title=route+filters",
@@ -103,7 +103,7 @@ describe("application shell", () => {
     );
   });
 
-  it("renders canonical all-board navigation", () => {
+  it("renders canonical all-board navigation", async () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -113,7 +113,7 @@ describe("application shell", () => {
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
 
-    const markup = renderApp(queryClient, transport, "/all/approvals");
+    const markup = await renderApp(queryClient, transport, "/all/approvals");
 
     expect(markup).toContain('aria-label="Select board scope: All boards"');
     expect(markup).toContain('href="/all"');
@@ -122,7 +122,7 @@ describe("application shell", () => {
     expect(markup).toContain('href="/all/routines"');
   });
 
-  it("loads board configuration from the canonical settings route", () => {
+  it("loads board configuration from the canonical settings route", async () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -132,7 +132,7 @@ describe("application shell", () => {
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
 
-    const markup = renderApp(
+    const markup = await renderApp(
       queryClient,
       transport,
       "/board/board-1/settings",
@@ -143,7 +143,7 @@ describe("application shell", () => {
     expect(markup).not.toContain("Page not found");
   });
 
-  it("loads a canonical issue route in its board scope", () => {
+  it("loads a canonical issue route in its board scope", async () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -153,7 +153,7 @@ describe("application shell", () => {
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
 
-    const markup = renderApp(
+    const markup = await renderApp(
       queryClient,
       transport,
       "/board/board-1/issue/cm-direct",
@@ -165,7 +165,7 @@ describe("application shell", () => {
     expect(markup).not.toContain("Page not found");
   });
 
-  it("rejects an issue returned outside the route board scope", () => {
+  it("rejects an issue returned outside the route board scope", async () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -193,7 +193,7 @@ describe("application shell", () => {
       },
     );
 
-    const markup = renderApp(
+    const markup = await renderApp(
       queryClient,
       transport,
       "/board/board-1/issue/cm-wrong-board",
@@ -205,7 +205,7 @@ describe("application shell", () => {
     expect(markup).not.toContain("Edit issue");
   });
 
-  it("does not register the transitional issue route", () => {
+  it("does not register the transitional issue route", async () => {
     const queryClient = new QueryClient();
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
@@ -215,7 +215,7 @@ describe("application shell", () => {
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
 
-    const markup = renderApp(queryClient, transport, "/issues/cm-legacy");
+    const markup = await renderApp(queryClient, transport, "/issues/cm-legacy");
 
     expect(markup).toContain("Page not found");
   });
@@ -226,8 +226,8 @@ function renderApp(
   transport = createRouterTransport(() => {}),
   path = "/",
   persistedPreferences: string | null = null,
-): string {
-  return renderToStaticMarkup(
+): Promise<string> {
+  return renderAppToString(
     createElement(
       TransportProvider,
       { transport },
@@ -248,4 +248,10 @@ function renderApp(
       ),
     ),
   );
+}
+
+async function renderAppToString(element: ReactNode): Promise<string> {
+  const stream = await renderToReadableStream(element);
+  await stream.allReady;
+  return new Response(stream).text();
 }

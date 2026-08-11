@@ -40,6 +40,21 @@ Keep primary application and data surfaces opaque.
 Transparency is appropriate for modal scrims
 and transient interaction effects whose composited contrast remains readable.
 
+## Loading boundaries
+
+Treat major routes as browser loading boundaries.
+Keep application-shell dependencies limited to code needed
+before a route is selected,
+and load page-owned code through route-level dynamic imports.
+
+Investigate production bundle-size warnings as dependency-boundary signals.
+Do not suppress a warning by raising its threshold
+unless the larger chunk is deliberate and its loading cost has been measured.
+
+After changing a loading boundary,
+exercise every affected route in the in-app Browser
+and check the browser console for loading failures.
+
 ## Interaction and validation
 
 Primary actions use the accent button treatment.
