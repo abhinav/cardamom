@@ -22,41 +22,6 @@ If it is unavailable,
 use `scripts/cardamom` from this skill directory on macOS or Linux,
 or `scripts/cardamom.ps1` on Windows.
 
-## Synchronize before dependent work
-
-For claimed work,
-State and Log are live execution memory on the primary task's critical path.
-They are not conversational status or separate tracker administration.
-Thinking, research, and execution may produce new knowledge.
-Durable publication finishes that material transition;
-the first edit, command, dispatch, or answer that consumes the knowledge comes
-afterward.
-Immediately before that consuming action,
-compare the issue records with what the action assumes:
-
-- State must contain the complete current premise and next action.
-- Log must already contain a newly selected material design, strategy, policy,
-  or behavior choice and its useful rationale.
-- If accepted knowledge changes the stable contract for remaining work,
-  Details must contain the complete new contract.
-
-One transition may affect several records,
-but publish each distinct effect once.
-Materiality follows the behavior or constraint a choice establishes,
-not the size of its implementation.
-When a choice changes the active approach,
-State carries its operative conclusion while Log carries its distinct rationale;
-neither substitutes for the other.
-
-Publication is part of completing a material transition.
-A material choice is not selected until its applicable records are current,
-and a new active position is not established until State matches it.
-Work that has not changed the recoverable position may continue without an
-update.
-Delivery pressure may make the record concise;
-it does not move publication to final handoff.
-Final handoff summarizes an issue record already kept current by execution.
-
 ## Preserve actor identity
 
 Use the collaboration runtime's readable agent name as `--actor`.
@@ -180,6 +145,41 @@ Progressively disclose context according to the executor's question:
 - Deeper recovery expands Log, ancestor Details, descendant outcomes,
   or earlier Results only when they affect continuation.
 - Acceptance and dependent work consume Result.
+
+## Synchronize before dependent work
+
+For claimed work,
+State and Log are live execution memory on the primary task's critical path.
+They are not conversational status or separate tracker administration.
+Thinking, research, and execution may produce new knowledge.
+Durable publication finishes that material transition;
+the first edit, command, dispatch, or answer that consumes the knowledge comes
+afterward.
+Immediately before that consuming action,
+compare the issue records with what the action assumes:
+
+- State must contain the complete current premise and next action.
+- Log must already contain a newly selected material design, strategy, policy,
+  or behavior choice and its useful rationale.
+- If accepted knowledge changes the stable contract for remaining work,
+  Details must contain the complete new contract.
+
+One transition may affect several records,
+but publish each distinct effect once.
+Materiality follows the behavior or constraint a choice establishes,
+not the size of its implementation.
+When a choice changes the active approach,
+State carries its operative conclusion while Log carries its distinct rationale;
+neither substitutes for the other.
+
+Publication is part of completing a material transition.
+A material choice is not selected until its applicable records are current,
+and a new active position is not established until State matches it.
+Work that has not changed the recoverable position may continue without an
+update.
+Delivery pressure may make the record concise;
+it does not move publication to final handoff.
+Final handoff summarizes an issue record already kept current by execution.
 
 ## Understand lifecycle and custody
 
