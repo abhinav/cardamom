@@ -1,77 +1,78 @@
 # Coordinate an external resource
 
-A claim owns one issue's execution.
-A lease owns one named external resource for a bounded interval.
-Use both when claimed work also requires exclusive infrastructure.
+A claim owns issue execution.
+A lease coordinates exclusive use of one named external resource for a bounded
+interval.
+Use both when claimed work needs exclusivity that the resource itself does not
+already enforce.
 
-## Decide whether Cardamom must coordinate the resource
+## Decide whether to lease
 
-Use a lease when all three conditions hold:
-
-- actors could overlap on the resource;
-- overlap could interfere with work, corrupt state, or allocate unsafely; and
-- no native lock, allocator, or established coordinator already prevents that
-  overlap.
-
-Safe concurrent reads need no lease.
+Use a lease only when actors could overlap,
+overlap could interfere or corrupt state,
+and no native lock, allocator, or established coordinator already prevents it.
 A lease records coordination ownership;
-it does not grant credentials, authorization,
-or control of the external resource.
+it grants neither credentials nor control of the resource.
 
-Lease names are store-scoped across projects and boards.
-Name the resource at its actual exclusivity scope.
-Include a host or another qualifier when the resource is local rather than
-shared across the whole store.
+Lease names are store-scoped across boards.
+Name the resource at its true exclusivity scope,
+including a host qualifier for a host-local resource.
 
-## Publish intent before acquisition
+## Gate resource actions on lease ownership
 
-When an issue has a stable recurring lease requirement,
-put the resource scope and acquire-and-release requirement in Details.
-Keep current intent, ownership, cleanup status, and recovery action in State.
-
-Publish lease intent before acquisition,
-then replace State with successful ownership before resource use:
+Put a stable lease requirement in Details.
+Before acquisition,
+put current intent and next action in State.
+Use one actor for acquisition, renewal, and release.
 
 ```bash
 card --actor <actor> state set <issue-id> \
   'Migration validation requires exclusive use of staging-db.' \
-  --next 'Acquire staging-db for migration validation.'
+  --next 'Acquire staging-db before touching the database.'
 card --actor <actor> lease acquire staging-db --ttl 30m
 card --actor <actor> state set <issue-id> \
-  'Lease staging-db is active; inspect resource disposition before recovery.' \
-  --next 'Run migration validation.'
+  'Lease staging-db is active; the resource has not yet been modified.' \
+  --next 'Run migration validation and keep the lease renewed.'
 ```
 
-Use one actor for the full lease lifecycle:
+If acquisition fails,
+do not touch the resource.
+Record the blocked or waiting position and the observed owner when useful.
+
+Renew before the TTL can expire during long operations:
 
 ```bash
 card --actor <actor> lease renew staging-db --ttl 30m
+```
+
+If renewal fails or ownership is lost,
+stop initiating resource actions,
+make any already-started external operation safe,
+inspect both lease and resource state,
+publish the recovery position,
+and reacquire before resuming.
+Do not infer resource safety from lease expiry or revocation.
+
+Release only after the external resource is safe for another actor:
+
+```bash
 card --actor <actor> lease release staging-db
 ```
 
-Choose a TTL that permits timely renewal while bounding stale coordination.
-Acquire only for the interval that needs exclusivity,
-renew during long operations,
-and release after the resource itself is safe for another actor.
+Completion requires both observed lease ownership for the protected work and a
+safe resource disposition before release.
 
-## Recover a lease safely
+## Recover disputed ownership
 
-Inspect Cardamom ownership and the external resource separately:
+Inspect Cardamom and the resource separately:
 
 ```bash
 card --actor <actor> --json lease show staging-db
-card --actor <actor> --json lease list
 ```
 
-Lease expiry or revocation removes Cardamom ownership.
-Neither operation proves that the external process stopped or that cleanup
-succeeded.
-Before reuse, inspect the resource
-and publish its observed disposition on the owning issue.
-
-When the active owner is known to be unable to continue
-and the resource is safe,
-revoke conditionally using the observed owner:
+When the active owner cannot continue,
+the coordinator may revoke only after authority is established and resource
+safety is verified:
 
 ```bash
 card --actor <coordinator-actor> lease revoke staging-db \
@@ -79,10 +80,7 @@ card --actor <coordinator-actor> lease revoke staging-db \
   --reason 'The prior actor stopped after staging-db cleanup was verified.'
 ```
 
-The owner condition preserves a lease that changed hands before revocation.
-Record the revocation result on the owning issue.
-Use the coordinator's actor for coordinator actions;
-actor attribution does not establish recovery authority.
-
-For routines, acquire and release the lease during each awakening
-rather than carrying it between runs.
+The owner condition preserves a lease that changed hands.
+Record the observed safety and revocation result on the owning issue.
+For routines,
+acquire and release within each awakening.

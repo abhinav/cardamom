@@ -1,90 +1,87 @@
 # Recover interrupted issue work
 
-Recovery continues the existing issue when its outcome remains the same.
-It establishes the current durable position and custody before execution
-continues.
+Recovery continues the existing outcome after re-establishing context and
+custody.
 
-## Re-establish context and custody
+## Establish custody from known state
 
-When status or custody is uncertain, inspect the issue before changing it:
+When current custody is not established,
+inspect before changing it:
 
 ```bash
 card --actor <actor> --json show <issue-id> --context
 ```
 
-Claim available work by ID with context.
-Waiting work is available through direct claim rather than automatic pools.
-Its waiting reason explains the directed continuation, acceptance,
-or external condition that was pending.
-Claim it when taking up the intended continuation:
+When a trusted handoff or runtime observation already establishes that the
+known issue is waiting or unclaimed,
+claim it directly by ID with context instead of adding a separate inspection.
 
-```bash
-card --actor <actor> --json claim <issue-id> --context
-```
+Choose from the observed owner and status:
 
-The claim establishes custody and clears waiting.
-The waiting reason is coordination context,
-not an authorization gate or reservation enforced by Cardamom.
+| Observation | Recovery action |
+| --- | --- |
+| Current actor owns the claim | Inspect and continue without another claim |
+| Issue is unclaimed or waiting | Claim directly by ID with context |
+| Another actor may still be running | Do not take custody; coordinate with that actor or runtime |
+| Prior actor stopped; reassignment is authorized | Use the procedure below |
 
-When no issue ID is supplied,
-constrain an automatic claim by containing outcome and action labels before
-opening deeper history.
-This establishes custody before recovery work changes the issue.
+Do not select unrelated work from an automatic pool while recovering a known
+issue.
+Direct claim clears waiting,
+but the waiting reason remains coordination context rather than an
+authorization grant.
 
-## Expand only the context the recovery question needs
+## Recover only the context needed for safe continuation
 
-Most recovery starts from the current issue's Details and State,
-inherited Summaries and States, and dependency Results.
-These records should establish the operative contract and current position
-without requiring chat.
+Start from the current Summary, Details, and State;
+ancestor Summaries and States;
+and completed direct-dependency Results.
+These records should establish the contract, inherited constraints,
+operative position, and prerequisite outcomes without chat.
 
-Open Log when current records do not explain a material choice,
-evidence may have gone stale, or the path to the current position
-affects safe continuation:
+Open Log when a material choice is unexplained,
+evidence may be stale,
+or the path to the current position affects safe continuation:
 
 ```bash
 card --actor <actor> --json log show <issue-id> --limit 20
 ```
 
-Log output is newest-first by default.
-Use `--oldest-first` when a complete chronological replay is useful for finite
-work.
-Inspect ancestor Details, terminal descendant outcomes,
-or earlier Results when their deeper context affects continuation.
+Log is newest-first by default.
+Increase the bounded window when the needed decision is older;
+use `--oldest-first` only when chronological replay from the beginning answers
+the recovery question.
 
-After recovery,
-replace Details only when a conclusion changes the stable issue-local contract
-that remaining execution or review must rely on.
-Keep an immediate next action or transient working tactic in State;
-Log retains the expanded history.
-Replace State when recovered evidence changes the active position or next
-action.
-Treat an unset Result as an observed absence;
-other command or store errors stop recovery.
+Inspect ancestor Details, terminal descendant outcomes, attachments,
+or earlier Results only when the recovery question needs them.
+Do not replay complete history merely because a new actor or session arrived.
 
-After context and custody are established,
-follow [execution.md](execution.md) for ordinary work and record transitions.
+Before primary work,
+replace Details if recovered knowledge changes the stable remaining contract.
+Replace State if it changes the active position, uncertainty, or next action.
+Use Log only for distinct reasoning or evidence useful later.
+Then continue with [execution.md](execution.md).
 
 ## Reassign a stopped executor
 
-When the prior executor may still run,
-stop that executor before reassignment.
-Cardamom has no force-release operation.
+The runtime must first confirm that the prior executor has stopped.
+Cardamom does not stop processes and has no force-release operation.
 
-After the runtime confirms the prior executor is stopped
-and the coordinator is authorized to reassign the work,
-record the reassignment under the coordinator actor,
-issue one release under the claim owner's actor,
-and claim under the replacement actor:
+After explicit reassignment authority is established:
+
+1. The coordinator records the evidence and decision under its own actor.
+2. The coordinator issues one owner-attributed release under the stopped
+   actor solely to end that actor's claim.
+3. The replacement actor claims by ID and re-establishes context before work.
 
 ```bash
 card --actor <coordinator-actor> log post <issue-id> \
-  'The prior executor was stopped; this issue is reassigned for recovery.'
+  'The runtime confirmed the prior executor stopped; reassignment is authorized.'
 card --actor <prior-actor> release <issue-id> \
-  --waiting 'worker reassignment'
+  --waiting 'stopped executor reassignment'
 card --actor <replacement-actor> --json claim <issue-id> --context
 ```
 
-The owner-attributed release is limited to ending the stopped owner's claim.
-It does not establish authority,
-reserve the waiting issue, or transfer custody directly.
+This exception neither proves authority nor transfers custody directly.
+If process termination or reassignment authority is uncertain,
+leave custody unchanged and report the gap.

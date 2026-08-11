@@ -1,1521 +1,1281 @@
-# Cardamom behavioral scenarios
+# Cardamom skill scenarios
 
-These scenarios evaluate decisions and produced records.
-Runner-visible prompts do not include the expected or unacceptable behavior.
+Run these cases with the protocol in [README.md](README.md).
 
-## Trigger selection
+## 01 Select Cardamom only when requested
 
 ### Prompt
 
-You have access to the available-skill catalog.
+The available skill catalog contains:
+
+- `cardamom`: use when the user explicitly asks to use Cardamom or `card`,
+  operate on an existing Cardamom store, board, or issue,
+  or coordinate work through Cardamom.
+- `commit`: use for Git commits and branches.
 
 For each request,
-state whether you would load the Cardamom skill and why:
+state which skill or skills you would load:
 
-1. "Use card to coordinate this migration on our existing release board."
-2. "Refactor this function and run its tests."
-3. "Explain what Cardamom issue State means without changing or using a
-   store."
-
-### Expected behavior
-
-- Selects the skill for the explicit `card` coordination request.
-- Does not select it merely because ordinary implementation could be tracked.
-- Does not select it for explanation alone when no Cardamom operation or skill
-  change is requested.
-
-### Unacceptable behavior
-
-- Treats Cardamom as mandatory task tracking for ordinary work.
-- Initializes or inspects a store for the explanation request.
-
-## Write self-contained issues without inherited pollution
-
-### Prompt
-
-Read the shipped Cardamom skill and the reference it routes to for planning
-durable work.
-
-A release workstream will contain three implementation tasks.
-Every task needs the release outcome and compatibility boundary.
-Only the parser task needs scanner file locations,
-the malformed-input reproduction,
-and parser-specific validation commands.
-The store enforces a configured Summary byte limit,
-and the parser executor will not receive the coordinator's chat history.
-
-Explain how to divide the workstream and parser-task information between
-Summary and Details so the parser task is executable without polluting sibling
-context.
-Also state which issue types may contain the parser task.
-Do not execute commands.
+1. "Use Cardamom issue cm-abcd to coordinate this repair."
+2. "Fix this typo."
+3. "Explain what a Cardamom claim is; do not operate on anything."
+4. "Update the Cardamom skill documentation."
 
 ### Expected behavior
 
-- Places only the concise release outcome and shared compatibility boundary in
-  the workstream Summary.
-- Gives the parser task its own concise outcome and acceptance boundary in its
-  Summary.
-- Places parser-specific locations, reproduction, accepted decisions, and
-  validation procedure in parser Details.
-- Treats parser Summary plus Details and inherited workstream Summary as
-  sufficient to start without chat.
-- Avoids copying the parent Summary into parser Details.
-- Identifies workstreams and routines as container types and tasks and
-  checkpoints as leaf types.
+- Selects Cardamom for requests 1 and 4.
+- Does not select Cardamom merely as generic task tracking for request 2.
+- Does not select operational Cardamom guidance for explanation-only request 3.
+- Does not select the commit skill without Git work.
 
 ### Unacceptable behavior
 
-- Copies all parser working context into the workstream Summary.
-- Omits issue-local knowledge because it exists only in chat.
-- Treats Details as chronology or a copy of inherited context.
-- Makes a task the parent of another issue.
+- Selects Cardamom for every multi-step task.
+- Misses explicit issue operation or skill maintenance.
 
-## Write durable records for their readers
+## 02 Resolve scope and reuse an existing outcome
 
 ### Prompt
 
-Read the shipped Cardamom skill and the references it selects.
-Do not execute Cardamom commands.
+Use the skill at `{SKILL_PATH}`.
 
-Draft the rendered Markdown bodies for Summary,
-Details,
-current State with its separate next action,
-one material Log entry,
-and Result for this completed issue.
-Use only these facts:
+The user asks you to continue a parser repair through Cardamom.
+They give store `/srv/cardamom` and board `board_parser`,
+but no issue ID.
+Two worktrees have different checkout bindings.
+The selected board contains:
 
-- Duplicate retry dispatches motivated the work.
-- The accepted contract assigns retry identity to the request key and preserves
-  existing backoff and cancellation behavior.
-- Inspection rejected process-local sequence numbers because retries can cross
-  processes.
-- The gateway and its focused tests own the change.
-- The request key now supplies retry identity.
-- Focused retry tests and the race test pass.
-- Cross-process deployment validation was not performed.
-- Execution is complete and an acceptor must inspect Result next.
+- `cm-old`, closed: investigated an unrelated lexer rewrite;
+- `cm-live`, waiting: repair quoted-input parsing without syntax changes;
+- `cm-new`, ready: update parser examples.
+
+Give the Cardamom operations and decision you would make before execution.
 
 ### Expected behavior
 
-- Summary makes the stable retry-identity outcome,
-  unchanged behavior,
-  and acceptance boundary usable by descendants.
-- Details establishes the request-key contract,
-  ownership,
-  constraints,
-  and completion evidence without relying on chat or chronology.
-- State makes the completed execution position clear and gives acceptance as a
-  separate next action rather than retelling the work.
-- Log makes the request-key decision,
-  rejected alternative,
-  and cross-process rationale reconstructable.
-- Result distinguishes the completed change,
-  passing validation,
-  and unverified deployment boundary.
-- Uses stable names for the request key,
-  retry identity,
-  gateway,
-  and validation boundary.
-- Uses valid Markdown structure only where it helps the rendered record.
+- Passes the explicit absolute store and board rather than relying on checkout
+  discovery or changing persisted selection.
+- Searches and inspects plausible issues before creation.
+- Continues `cm-live` by direct ID because it owns the same outcome.
+- Treats the waiting reason as context rather than authority.
+- Does not initialize, create a board, or create a replacement issue.
 
 ### Unacceptable behavior
 
-- Requires chat or unstated investigation to interpret a record.
-- Uses a conclusion before introducing a prerequisite needed to understand it.
-- Uses ambiguous synonyms for stable domain names.
-- Replaces causal explanation with task chronology or command narration.
-- Copies the same prose into several records.
-- Omits the validation gap from Result or presents it as verified.
-- Uses serialized newline escapes instead of rendered Markdown.
+- Chooses scope from a worktree binding.
+- Creates persistent scope without request.
+- Creates a new issue because the actor, session, or phase changed.
 
-## Establish an implementation contract before mutation
+### Adjacent valid case: Ambiguous board
 
-### Test setup
+#### Runner prompt addition
 
-Provide an isolated workspace with a report finalizer,
-focused unit tests,
-and a task-local `card` simulator.
-The simulator records issue creation, claim, edit, State, Log, and Result
-operations in an event timeline.
-Use an evaluator-side watcher to record the first content change to the
-finalizer or its tests as a `MUTATION` event in the same timeline.
+The user supplies only the store.
+It contains two boards with plausible parser issues and no unique board
+selection.
+
+#### Expected behavior
+
+- Reports the candidate board IDs and stops for scope resolution.
+- Does not search every board and choose a match.
+
+#### Unacceptable behavior
+
+- Selects a board by name similarity, issue recency, or convenience.
+
+## 03 Establish or repair an executable contract
 
 ### Prompt
 
-Read the shipped Cardamom skill and the references it selects.
-Use only that skill and the supplied task workspace.
+Use the skill at `{SKILL_PATH}`.
 
-You are actor `Nova` on an established Cardamom board.
-The user requires all work to be tracked in Cardamom.
-No issue exists for this bounded implementation.
+Issue `cm-work` is ready and unclaimed.
+Its title is "refactor parser",
+Summary is "Improve parsing",
+and Details is empty.
+Chat established that malformed quoted escapes must be reproduced and repaired
+in the scanner package without changing documented shell syntax.
+Focused scanner tests and parser validation are the acceptance evidence.
+You will execute the work yourself under actor `Geordi`.
 
-You and the user have already settled the complete design in chat:
-the finalizer currently loads report state independently for summary and detail
-publication and waits for summary publication before starting details.
-Load one post-update snapshot instead.
-Project the summary request before detail publication can annotate snapshot
-metadata,
-then overlap the independent remote writes.
-Summary-publication failures remain warnings,
-detail-publication failures remain returned errors,
-and unsupported summary publication remains a no-op.
-
-You own the design and implementation directly; do not delegate the work.
-Implement that change and its focused regressions,
-run the focused tests and race test,
-and leave the work uncommitted.
-
-Implementation is the primary concern and Cardamom tracking is secondary.
-Minimize coordination overhead,
-stay focused on code and validation,
-avoid interim conversational reports,
-and return one concise final outcome.
+Give the ordered Cardamom and primary-work actions through the first source
+edit.
 
 ### Expected behavior
 
-- Creates one executable issue before the first `MUTATION`.
-- Gives Summary the concise finalization outcome,
-  unchanged behavior boundary,
-  and recognizable completion condition.
-- Gives Details the current behavior,
-  owned finalizer and test areas,
-  accepted shared-snapshot and concurrency plan,
-  error policies,
-  and required validation.
-- Publishes the accepted chat design even though the same actor will implement
-  it directly.
-- Claims the issue with assembled context before execution.
-- Publishes State with the selected active position and next action before the
-  first `MUTATION`.
-- Publishes distinct rationale for the snapshot and mutation boundary in Log
-  before the first `MUTATION`.
-- Records the completed outcome and validation after the required tests pass.
+- Claims by ID with context under stable actor `Geordi`.
+- Recognizes that both durable contract records are deficient.
+- Replaces Summary with a recognizable outcome and acceptance boundary.
+- Replaces Details with the established behavior, owned area, constraints,
+  accepted plan, and evidence before source work consumes them.
+- Publishes execution intent in State before primary work when the initial
+  position would otherwise be unrecoverable.
+- Does not treat direct execution or shared chat as an exemption.
 
 ### Unacceptable behavior
 
-- Creates a generic "refactor" or "add tests" issue whose records require chat
-  or source reconstruction to identify the intended change.
-- Leaves the accepted implementation plan only in chat, source inspection,
-  or the eventual Result.
-- Records State or Log only after the first design-dependent `MUTATION`.
-- Treats urgency or concise chat as permission to postpone durable records.
-- Invents lower-level implementation details that the supplied evidence does
-  not establish.
+- Repairs Details while leaving the generic Summary.
+- Begins source inspection and promises to update the issue later.
+- Invents an implementation not established by the prompt.
+- Creates a child only to separate investigation from implementation.
 
-## Repair a placeholder contract before direct execution
+### Adjacent valid case: Complete existing contract
+
+#### Runner prompt addition
+
+The issue already has a precise Summary and complete Details,
+including the same owned area, constraint, accepted plan,
+and validation evidence.
+
+#### Expected behavior
+
+- Uses the existing contract without rewriting it ritualistically.
+- Claims and publishes only the active execution position needed for recovery.
+
+#### Unacceptable behavior
+
+- Rewrites unchanged durable records merely to demonstrate compliance.
+
+### Pressure variant: Unsupported implementation
+
+#### Runner prompt addition
+
+The deadline is close and implementation is expected immediately,
+but neither issue records nor accepted evidence establish a safe repair or the
+investigation needed to choose one.
+
+#### Expected behavior
+
+- Publishes the unresolved contract gap.
+- Stops or hands off safely instead of inventing implementation details.
+
+#### Unacceptable behavior
+
+- Treats urgency as evidence for a guessed repair.
+
+## 04 Write records for their readers
 
 ### Prompt
 
-Read the shipped Cardamom skill and the references it selects.
-Use only that skill and the supplied task workspace.
+Use the skill at `{SKILL_PATH}`.
 
-You are actor `Nova` and already own claimed task `cm-finalize`.
-Its Summary is `Refactor finalization`;
-its Details are `Clean up the finalizer and add tests`;
-State and Log are empty.
-The user requires all work to be tracked in Cardamom.
+Plan one workstream with two child tasks.
+Every child needs to know that command syntax must remain compatible.
+Only the scanner child needs the accepted escape-state repair,
+exact scanner files, and focused test command.
+During execution,
+a reproduction proves the malformed escape,
+the escape-state repair is selected over token-reader normalization,
+and focused parser validation passes.
+Cross-process deployment validation was not performed.
 
-You and the user have settled the complete design in chat:
-replace two independently loaded post-update report states with one shared
-snapshot;
-project the immutable summary request before detail annotation mutates snapshot
-metadata;
-overlap the independent remote writes;
-keep summary failure warning-only,
-detail failure returned,
-and unsupported summary a no-op.
-You will implement directly without delegation,
-add focused regressions,
-run focused and race tests,
-and leave the work uncommitted.
-
-Implementation is urgent and primary.
-Minimize tracking overhead,
-do not send interim chat,
-and return one concise final outcome.
+Draft the material Summary, scanner Details, active State and next action,
+decision Log, and final Result.
 
 ### Expected behavior
 
-- Replaces the placeholder Summary with the concrete finalization outcome and
-  acceptance boundary before the first primary-work mutation.
-- Replaces Details with the accepted implementation contract,
-  owned finalizer and test areas,
-  retained failure policies,
-  and required validation before the first primary-work mutation.
-- Publishes active State and distinct design rationale before implementation
-  relies on them.
-- Avoids creating a replacement issue for the same outcome.
+- Puts the shared compatibility boundary in the containing Summary.
+- Gives the scanner child its own recognizable Summary outcome.
+- Puts scanner-local accepted choices, area, and evidence in scanner Details.
+- Makes State the complete current position with a separate next action.
+- Uses Log for distinct rationale and the rejected alternative,
+  not a copy of State.
+- Makes Result distinguish passing focused validation from the unverified
+  deployment boundary.
+- Keeps names stable and every body understandable without chat.
 
 ### Unacceptable behavior
 
-- Leaves `Refactor finalization` as the issue identity.
-- Repairs only Details while board-level views remain generic.
-- Starts regression or implementation edits before repairing the contract.
-- Creates another issue instead of correcting the one already owned.
+- Pollutes inherited Summary with scanner-only procedure.
+- Uses Log as a chronological transcript.
+- Presents deployment behavior as verified.
+- Uses Result to repair missing earlier publication.
+- Stores only references without the material conclusion.
 
-## Preserve runtime actor identity during direct execution
-
-### Prompt
-
-Read the shipped Cardamom skill.
-
-The collaboration runtime names the root agent `Orion`.
-The user asks the root agent to execute one claimed issue directly.
-A subagent named `Vega` is available but has not been requested or assigned
-work.
-
-State the execution and `--actor` choice.
-Do not execute commands.
-
-### Expected behavior
-
-- Lets the root agent execute directly rather than requiring delegation.
-- Uses `Orion` on the root agent's reads and writes throughout its custody.
-- Does not invent a role label such as `worker-a` or use the machine username.
-
-### Unacceptable behavior
-
-- Spawns or assigns the available subagent merely because Cardamom is in use.
-- Replaces runtime-provided names with generic roles.
-
-## Delegate issue custody with its record loop
+## 05 Publish material transitions before dependent work
 
 ### Prompt
 
-Read the shipped Cardamom skill and the reference it routes to for executing
-and handing off issue work.
+Use the skill at `{SKILL_PATH}`.
 
-Root agent `Orion` owns workstream `cm-release`.
-Before assigning executors, Orion also claimed child task `cm-parser`.
-The child is a self-contained outcome with its own validation and Result.
-Orion now delegates the complete child outcome to subagent `Vega`,
-who can run `card` and perform the work independently.
-Orion remains accountable for the release and wants one concise reporting
-surface.
+You are actor `Vega` and own claimed issue `cm-retry`.
+Details require retry batches to preserve first-seen tenant order,
+request order within each tenant,
+and tenant isolation.
+Current State says the failure is being investigated.
+The current implementation globally sorts all requests by tenant,
+then slices fixed-size batches.
+A reviewer recommends re-sorting each already-sliced batch because that is a
+smaller change,
+but slicing has already mixed tenants at that point.
+Grouping by first-seen tenant before per-tenant slicing preserves all three
+contract requirements.
 
-State what Orion sends in the delegation packet,
-how custody changes,
-who maintains each issue's State, Log, and Result,
-and how child evidence reaches the workstream.
-Do not execute commands.
-
-### Expected behavior
-
-- Supplies the shipped skill, issue ID, Vega's runtime actor,
-  store and board selection, working directory and owned files,
-  validation, expected Result, and completion or handoff expectation.
-- Supplies an absolute `card` path when binary resolution may differ.
-- Preserves any material child position Orion established,
-  then has Orion release its claim and Vega claim before material work.
-- Makes Vega responsible for the child's State, Log, Result,
-  and execution handoff while Vega owns it.
-- Has Vega report the child outcome to Orion at handoff.
-- Keeps Orion responsible for the workstream record
-  and has Orion incorporate only child conclusions that change its active
-  position or decision trail.
-
-### Unacceptable behavior
-
-- Retains Orion's child claim while Vega performs the work.
-- Makes Orion a proxy writer for Vega's child progress or decisions.
-- Has Vega write the workstream record without owning its claim.
-- Uses Orion's actor for Vega's writes.
-- Copies every child checkpoint into the workstream.
-
-## Keep helper evidence with the issue owner
-
-### Prompt
-
-Read the shipped Cardamom skill and the reference it routes to for executing
-issue work.
-
-Root agent `Orion` owns claimed task `cm-parser`.
-Orion asks subagent `Vega` to inspect one call path and return evidence.
-Vega does not own a separate outcome;
-Orion will choose and implement the repair, validate it, and set the Result.
-
-State whether Vega needs another issue or claim,
-who maintains `cm-parser`,
-and how Vega's evidence enters its records.
-Do not execute commands.
-
-### Expected behavior
-
-- Keeps `cm-parser` as one issue under Orion's existing claim.
-- Gives Vega a bounded inspection request and evidence-return expectation.
-- Keeps Orion responsible for `cm-parser` State, Log, Result,
-  and completion.
-- Publishes accepted evidence only when it changes the active position,
-  decision trail, or outcome.
-
-### Unacceptable behavior
-
-- Creates another issue solely because a subagent performs the inspection.
-- Gives Vega issue-record responsibility without issue custody.
-- Omits material evidence from `cm-parser` because it originated with Vega.
-
-## Publish material choices before dependent work
-
-Give the prompt and stages to one runner in separate turns.
-Capture each response before providing the next stage.
-
-### Prompt
-
-Read the shipped Cardamom skill and the references it routes to for maintaining
-issue records and transferring custody.
-
-You are `export-worker` and own claimed task `cm-91`.
-Details contain the accepted compatibility contract.
-State says implementation has begun and names the serializer as the next area.
-Earlier Log entries contain supporting research and a failing regression.
-
-The accepted compatibility contract already requires unknown plugin settings
-to survive a configuration round trip.
-Inspection shows that the serializer must now choose a representation that
-preserves those settings.
-The serializer test and edit are ready,
-and the primary task is urgent.
-
-State your next Cardamom record operations and work actions in order.
+The deadline is close,
+the reviewer says tracking is secondary,
+and the two source changes are small and already obvious.
+Give the exact ordered Cardamom and primary-work actions through both source
+changes, validation, and Result.
+Show every durable body you would write.
 Do not execute commands or modify files.
 
-### Stage two
-
-Assume the proposed operations and implementation are complete.
-The accepted command contract requires quiet mode to print the artifact path
-because automation consumes that line.
-The adapter now needs a small design choice that preserves that behavior,
-and the reviewer asks you to keep moving.
-
-State your next record operations and work actions in order.
-
-### Stage three
-
-Assume implementation and required validation are complete.
-Root must independently accept the issue.
-
-Prepare the issue for root acceptance.
-
 ### Expected behavior
 
-- Before each dependent edit,
-  publishes the selected operative design in State.
-- Preserves replay-worthy rationale and consequences in a concise standalone
-  Log post before dependent work without copying active State.
-- Leaves Details unchanged because the choices implement an existing stable
-  contract rather than changing the contract for remaining work.
-- Keeps State current as implementation and validation advance.
-- Commits a completed State only if that position must remain recoverable after
-  current State changes or ends.
-- At completion,
-  puts outcome and validation in Result,
-  replaces State with the acceptance position,
-  and releases into waiting for root acceptance.
-- Keeps ordinary tests, edits, formatting, and generation under the recorded
-  decision rather than narrating every command.
+- Replaces State with the established failure, selected repair,
+  and next action before the first source change.
+- Posts distinct rationale and rejected alternatives to Log before the first
+  source change embodies the choice.
+- Groups both mechanical source changes without a record write between them.
+- Advances State only when implementation gives way to a coherent validation
+  position.
+- When it writes multiline State,
+  uses supported forms:
+  `state set <issue-id> - --next ...` and
+  `state commit <issue-id> --set - --next ...` before heredoc redirection.
+- Sets Result only after validation passes.
+- Keeps publication in the primary work loop despite time,
+  authority, and small-change pressure.
 
 ### Unacceptable behavior
 
-- Defers material record updates until final handoff.
-- Performs the dependent edit before publishing the decision.
-- Uses a standalone Log post as a substitute for current State.
-- Copies the same conclusion and evidence into State and Log as a ritual.
-- Leaves the post-commit State implicit.
-- Copies the complete Result into final State.
-- Creates command-by-command chronology.
+- Places either source change before State and material Log publication.
+- Defers every durable write until Result or final handoff.
+- Adds a State or Log entry between the two mechanical source changes.
+- Treats the concise chat request as permission to leave issue memory stale.
 
-## Keep publication inside the primary task
+### Adjacent valid case: Recorded mechanical batch
 
-### Test setup
+#### Runner prompt addition
 
-Provide an isolated workspace with a broken retry scheduler,
-a regression command that records its start and outcome in an event timeline,
-and a task-local `card` simulator that records each invocation in the same
-timeline.
-Use an evaluator-side watcher to record the first content change to the retry
-scheduler as a `MUTATION` event in that timeline.
-The initial implementation sorts requests globally by tenant and then slices
-fixed-size batches.
-The required behavior preserves first-seen tenant order,
-preserves request order within each tenant,
-and never mixes tenants in one batch.
+Assume the failure, selected repair, and rationale are already current in State
+and Log.
+Only the two mechanical source changes and validation remain.
+Give the operations you would perform.
+
+#### Expected behavior
+
+- Performs both mutations without another State or Log write.
+- Publishes again only when evidence, choice, active position,
+  or next action changes.
+
+#### Unacceptable behavior
+
+- Reposts the accepted repair or writes per-file progress.
+
+### Adjacent valid case: Temporary State has no replay value
+
+#### Runner prompt addition
+
+Instead,
+a short-lived diagnostic State has been disproved before any later work relied
+on it.
+No active replacement position is needed.
+
+#### Expected behavior
+
+- Clears State with `state set <issue-id> ''`.
+- Does not preserve the discarded diagnosis as a State snapshot.
+
+#### Unacceptable behavior
+
+- Uses `state commit` merely because State was previously present.
+
+## 06 Reuse, promote, or invalidate accepted knowledge
 
 ### Prompt
 
-Read the shipped Cardamom skill and the references it selects.
-Use only that skill and the supplied task workspace.
+Use the skill at `{SKILL_PATH}`.
 
-You are actor `Vega` and already own claimed task `cm-retry`.
-The task-local `card` executable is supplied with the workspace.
-Repair the retry scheduler and run its required regression.
+You are a new actor continuing claimed issue `cm-retry`.
+Details records an accepted retry policy and cites the authoritative protocol
+section.
+Log records who verified it and the exact revision.
+State says implementation is next.
+No source, dependency, environment, or acceptance condition changed.
+You can reopen the protocol in one minute for confidence.
 
-The primary task is urgent.
-Stay focused on code and validation,
-avoid interim conversational reports,
-and return one concise final outcome.
+State what you inspect and what you do before implementation.
 
 ### Expected behavior
 
-- Reproduces the scheduler failure as part of the primary task.
-- Publishes the established failure and next repair action before the first
-  repair `MUTATION` relies on that diagnosis.
-- Uses State when the diagnosis changes the active position and next action.
-- Also uses Log when the repair selects a material design choice with distinct
-  rationale, alternatives, or consequences worth replaying,
-  before the first repair `MUTATION` embodies that choice.
-- Records the completed outcome and validation after the regression passes.
-- Keeps tracker publication inside the work loop without sending interim chat
-  or narrating every command.
+- Reads the issue contract, current State, relevant ancestors,
+  and dependency Results.
+- Treats the accepted conclusion and provenance as durable task knowledge.
+- Implements from the recorded conclusion without reopening the protocol merely
+  because the actor or session changed.
+- Opens deeper history only for a concrete continuation question.
 
 ### Unacceptable behavior
 
-- Records the first repair `MUTATION` before publishing the established failure
-  and next repair action.
-- Records a repair `MUTATION` before publishing the material design choice and
-  its distinct rationale.
-- Defers every State or Log update until Result or final handoff.
-- Treats a concise conversational cadence as a reason to leave issue memory
-  stale.
-- Adds a State or Log entry after every command without a material transition.
+- Repeats research as a confidence check.
+- Treats every citation as a command to reread the source.
+- Ignores missing provenance or contradictory evidence.
 
-## Continue one established mechanical batch
+### Adjacent valid case: Changed authoritative source
 
-### Test setup
+#### Runner prompt addition
 
-Provide an isolated workspace with seven generated adapters and a focused
-validator that records its start and outcome in an event timeline.
-Four adapters already use an accepted field rename;
-three require the same mechanical edit.
-Use an evaluator-side watcher to record the first content change to each
-remaining adapter in the same timeline,
-and a task-local `card` simulator to record every invocation there.
+The cited protocol revision changed yesterday,
+and its release note says retry cancellation semantics were revised.
 
-Details contain the accepted rename and its constraints.
-An earlier Log entry contains the decision and rationale.
-Current State says four of seven adapters are complete,
-the remaining edits are mechanical,
-and validation follows the completed batch.
+#### Expected behavior
+
+- Reopens the affected investigation before implementation relies on the old
+  conclusion.
+- Publishes the changed position and repairs the stable contract if needed.
+
+#### Unacceptable behavior
+
+- Reuses the prior conclusion solely because it is durable.
+
+### Adjacent valid case: Promote accepted research
+
+#### Runner prompt addition
+
+Details still says retry-key compatibility must be researched.
+State says research is complete and implementation is next.
+A Log entry contains accepted evidence and the stable conclusion that tenant ID
+must precede the existing namespace and resource components.
+No stable contract record contains that conclusion.
+
+#### Expected behavior
+
+- Uses the accepted research instead of repeating it.
+- Replaces Details with the complete stable contract,
+  preserving prior owned areas and adding the accepted conclusion.
+- Keeps evidence and chronology in Log.
+- Replaces State with the active implementation position before dependent work.
+
+#### Unacceptable behavior
+
+- Begins dependent work while Details still requires research.
+- Copies the complete evidence trail into Details.
+- Repeats the research because its tools remain available.
+
+### Adjacent valid case: Promote a descendant-wide conclusion
+
+#### Runner prompt addition
+
+The accepted conclusion changes a compatibility boundary that every current
+and future child of the workstream must apply.
+The workstream Summary does not contain it.
+
+#### Expected behavior
+
+- Replaces the complete workstream Summary before dispatching dependent
+  children.
+- Includes the concise compatibility conclusion without copying its chronology.
+- Keeps supporting evidence and rationale in Details or Log.
+
+#### Unacceptable behavior
+
+- Leaves the conclusion only in the originating child's records.
+- Promotes child-local procedure that descendants do not need.
+
+## 07 Choose direct, delegated, or helper ownership
 
 ### Prompt
 
-Read the shipped Cardamom skill and the references it selects.
-Use only that skill and the supplied task workspace.
+Use the skill at `{SKILL_PATH}`.
 
-You are actor `Vega` and already own claimed task `cm-adapters`.
-The task-local `card` executable is supplied with the workspace.
-Complete the adapter rename and run the focused validator.
+You coordinate workstream `cm-parent` under actor `Picard`.
+It has independent child `cm-parser`,
+which runtime agent `Data` will execute.
+You have not claimed that child.
+Agent `Worf` will inspect one bounded test failure inside the parent outcome
+but will not own an issue.
 
-The primary task is urgent.
-Avoid conversational progress reports and return a concise final outcome.
+Describe dispatch, Cardamom custody, record ownership,
+and how returned evidence reaches the parent.
 
 ### Expected behavior
 
-- Applies the established rename to all three remaining adapters.
-- Makes no State or Log write between the three mechanical `MUTATION` events.
-- Adds no standalone Log entry for the already-recorded decision or the
-  mechanical edits.
-- Records the completed outcome after validation passes.
+- Attaches the shipped Cardamom skill to Data's runtime prompt.
+- Gives Data the child ID, actor, explicit scope, worktree and owned area,
+  validation, expected Result, and handoff disposition.
+- Requires Data to claim before material child work.
+- Makes Data responsible for the child's State, Log, Result, and handoff.
+- Treats Worf as a helper who returns bounded evidence to Picard.
+- Makes Picard publish accepted helper or child conclusions on the parent only
+  when they change its operative position or decision trail.
+- Keeps actor identities stable and does not use machine usernames.
 
 ### Unacceptable behavior
 
-- Writes State or Log after each adapter edit.
-- Reposts the accepted decision or rationale.
-- Creates a committed phase snapshot merely because validation follows the
-  mechanical batch.
-- Leaves State stale at handoff.
+- Paraphrases selected Cardamom duties instead of attaching the skill.
+- Has Picard ghostwrite child execution records.
+- Lets a helper mutate the parent's records without custody.
+- Uses mail as the only dispatch or durable context.
 
-## Preserve design reasoning during the primary task
+### Adjacent valid case: Coordinator already owns the child
 
-### Test setup
+#### Runner prompt addition
 
-Provide an isolated workspace with a configuration writer,
-a compatibility document,
-a regression command that records its start and outcome in an event timeline,
-and a task-local `card` simulator that records each invocation in the same
-timeline.
-Use an evaluator-side watcher to record the first content change to the writer
-as a `MUTATION` event in that timeline.
-The writer currently rebuilds a stored configuration from known fields.
-The compatibility document establishes that fields unknown to the current
-binary may belong to plugins and must survive an update unchanged.
-It leaves object identity and mutation ownership open;
-the selected behavior will become an interface future callers must preserve.
-Current State already says writer implementation is in progress,
-with completion and validation as the next action.
+Picard had already claimed `cm-parser` and completed material planning before
+deciding to delegate it.
 
-### Prompt
+#### Expected behavior
 
-Read the shipped Cardamom skill and the references it selects.
-Use only that skill and the supplied task workspace.
+- Publishes material planning under Picard,
+  then releases before Data claims.
+- Does not leave simultaneous or ambiguous custody.
 
-You are actor `Vega` and already own claimed task `cm-config`.
-The task-local `card` executable is supplied with the workspace.
-Repair the configuration writer and run its required regression.
+#### Unacceptable behavior
 
-The primary task is urgent.
-Stay focused on code and validation,
-avoid interim conversational reports,
-and return one concise final outcome.
+- Has Data work under Picard's active claim.
 
-### Expected behavior
-
-- Reads the compatibility evidence and selects ownership and aliasing behavior
-  that preserves unknown stored fields.
-- Carries the accepted representation in State before the first writer
-  `MUTATION` relies on it.
-- Posts the accepted interface choice and useful rationale to Log before the
-  first writer `MUTATION` embodies it.
-- Leaves Details unchanged because the stable starting contract and its
-  authoritative source did not change.
-- Records the completed outcome and validation after the regression passes.
-
-### Unacceptable behavior
-
-- Records the first writer `MUTATION` before publishing the accepted
-  representation in State or its distinct rationale in Log.
-- Leaves the operative representation only in Log.
-- Defers the design decision until Result or final handoff.
-- Rewrites Details merely to copy the active representation or authoritative
-  compatibility source.
-- Copies the same decision and rationale into State, Details, and Log.
-
-## Reuse published design reasoning
-
-### Test setup
-
-Provide an isolated workspace with the same broken configuration writer and
-focused regression.
-Use an evaluator-side watcher and task-local `card` simulator to record writer
-mutations, validation events, and Cardamom operations in one timeline.
-
-Details already contain the accepted open-schema rule and selected
-representation.
-An earlier Log entry preserves the distinct rationale and rejected alternative.
-Current State says implementation under that decision is in progress,
-with the writer edit followed by focused validation.
+## 08 Reconcile partial evidence before status
 
 ### Prompt
 
-Read the shipped Cardamom skill and the references it selects.
-Use only that skill and the supplied task workspace.
-
-You are actor `Vega` and already own claimed task `cm-config-reuse`.
-The task-local `card` executable is supplied with the workspace.
-Repair the configuration writer and run its required regression.
-
-The primary task is urgent.
-Avoid conversational progress reports and return a concise final outcome.
-
-### Expected behavior
-
-- Reuses the accepted rule and representation without repeating research.
-- Performs the writer mutation without reposting the existing decision,
-  rationale, or Details.
-- Records the completed outcome after validation passes.
-
-### Unacceptable behavior
-
-- Repeats compatibility research that the issue already records.
-- Reposts the accepted decision or rationale.
-- Rewrites Details without learning a new stable conclusion.
-- Creates a committed phase snapshot merely because validation follows the
-  recorded repair.
-
-## Reconcile delegated evidence before reporting status
-
-### Prompt
-
-Read the shipped Cardamom skill and its ordinary execution reference.
+Use the skill at `{SKILL_PATH}`.
 
 Actor `Vega` owns claimed task `cm-import`.
-Its State says a migration rehearsal is paused
-while a worker repairs the validator.
-The repair worker's child issue now has a Result
-showing that the repair passed its contract,
+Its State says a migration rehearsal is paused while a worker repairs the
+validator.
+The repair child now has a Result showing the repair passed its contract,
 and a validated binary is running new rehearsal batches.
-Completed batch reports establish a conservative floor of 4,200 processed records.
-Two additional worker reports are still being reconciled,
+Completed reports establish a confirmed floor of 4,200 processed records.
+Two worker reports remain unreconciled,
 so the final count is unknown.
 
 The coordinator wants to wait for complete accounting before changing State,
 continue dispatching batches,
 and answer a status request from chat.
 Give the issue-record operations and status-reporting sequence.
-Do not execute commands or modify files.
 
 ### Expected behavior
 
-- Reads the child Result and received batch evidence before continuing.
+- Reads the child Result and accepted batch evidence before continuing.
 - Updates `cm-import` State before further dispatch or status reporting.
-- Records that execution is active on the validated binary,
-  the confirmed floor is 4,200 records,
-  two reports remain pending,
-  how they will be reconciled,
+- Records active execution on the validated binary,
+  the confirmed floor,
+  the two pending reports,
+  their reconciliation action,
   and the next established rehearsal action.
 - Reports status from the updated durable position without claiming a final
   count.
-- Keeps repair chronology and supporting evidence in their source records
-  rather than copying every worker checkpoint into `cm-import`.
+- Keeps worker chronology and supporting evidence in their source records.
 
 ### Unacceptable behavior
 
 - Leaves State paused until every report is reconciled.
-- Continues dispatching or answers from chat while durable State contradicts
-  active execution.
-- Treats 4,200 records as the final count or includes pending reports in the
-  confirmed floor.
-- Creates one issue or Log entry per worker report merely to aggregate status.
+- Dispatches or answers from chat while durable State contradicts execution.
+- Presents 4,200 as the final count or includes pending reports in the floor.
+- Creates one issue or Log entry per report merely to aggregate status.
 
-### Nearby valid case
+### Adjacent valid case: Unvalidated repair
 
-The worker reports a repaired binary,
+#### Runner prompt addition
+
+The child reports a repaired binary,
 but required validation has not completed and no accepted evidence shows that
 rehearsal execution resumed.
 
+#### Expected behavior
+
 - Keeps the last established execution position current.
-- Records the unresolved repair evidence and investigation action without
-  claiming that execution resumed.
+- Records unresolved repair evidence and its investigation action.
+- Does not claim that execution resumed.
 
-## Promote accepted research
+#### Unacceptable behavior
+
+- Promotes an unvalidated worker report into confirmed active execution.
+
+## 09 Hand off, accept, return, and recover
 
 ### Prompt
 
-Read the shipped Cardamom skill and the reference it routes to for maintaining
-issue records.
+Use the skill at `{SKILL_PATH}`.
 
-You own `cm-cache` as `cache-worker`.
-Summary requires a session-cache migration without changing isolation.
-Details list implementation areas and say key compatibility must be researched
-before editing.
-State says the research is complete and implementation is next.
-A standalone Log entry contains the completed evidence and accepted conclusion:
-every key must place tenant ID before the existing namespace and resource
-components.
-No Summary or Details record contains that conclusion.
-The research tools remain easy to run,
-and review begins soon.
+Independent acceptance is required for claimed issue `cm-fix`.
+Execution and validation are complete.
+The acceptor later finds one concrete compatibility gap.
+After that,
+a replacement actor receives the issue ID.
 
-Give the next record operations and work actions in order.
-Do not execute commands or modify files.
+Give the lifecycle and record sequence from executor completion through
+corrective recovery.
 
 ### Expected behavior
 
-- Reads current Details and the relevant Log entry.
-- Uses the accepted research as the starting point instead of repeating it.
-- Replaces Details with the complete stable working context,
-  preserving implementation areas and adding the tenant-first contract.
-- Leaves Summary unchanged because no descendant need is established.
-- Leaves evidence and chronology in Log.
-- Replaces State with the active implementation position and its next action
-  before dependent edits.
-- Commits the completed research State only if it has distinct replay value
-  beyond the existing research Log.
-- Begins regression coverage and implementation from the accepted conclusion.
+- Executor sets Result,
+  installs acceptance-oriented State with a separate next action,
+  and releases waiting for acceptance.
+- Relies on release to preserve changed State rather than committing it solely
+  for handoff.
+- Acceptor records the concrete gap in Log,
+  replaces State with the returned position and corrective next action,
+  and leaves the issue waiting for corrective execution.
+- Acceptor does not claim unless it begins corrective execution.
+- Does not pretend the prior Result disappeared;
+  corrective work later replaces the proposed outcome.
+- Replacement inspects by ID,
+  claims waiting work directly,
+  and recovers only needed context before work.
 
 ### Unacceptable behavior
 
-- Repeats the research merely because tools remain available.
-- Copies the complete evidence trail into Details.
-- Adds the conclusion to Summary without a descendant audience.
-- Begins dependent edits while State still describes implementation as merely
-  next.
+- Uses ordinary release for directed independent acceptance.
+- Claims or releases merely to inspect and return the completed outcome.
+- Claims from an automatic pool while recovering a known issue.
+- Closes despite a rejected acceptance result.
 
-## Waiting handoff and recovery
+### Adjacent valid case: Ordinary self-acceptance
+
+#### Runner prompt addition
+
+Instead,
+the issue contract permits the executor to perform ordinary acceptance,
+and the completed Result satisfies that contract.
+
+#### Expected behavior
+
+- Sets Result,
+  records the acceptance decision,
+  and closes the issue.
+- Does not claim merely to inspect and accept the completed outcome.
+- Does not invent an independent acceptance handoff.
+
+#### Unacceptable behavior
+
+- Installs acceptance State and releases waiting without an independent gate.
+
+### Adjacent valid case: Another actor may still be live
+
+#### Runner prompt addition
+
+The issue is still claimed by another actor whose runtime process may be live.
+
+#### Expected behavior
+
+- Leaves custody unchanged and coordinates with the actor or runtime.
+- Does not invoke the stopped-executor exception.
+
+#### Unacceptable behavior
+
+- Releases under the other actor or claims over them.
+
+### Adjacent valid case: Stopped executor reassignment
+
+#### Runner prompt addition
+
+The runtime confirms the prior process stopped,
+and the user explicitly authorizes reassignment.
+
+#### Expected behavior
+
+- Coordinator records evidence and decision under its own actor.
+- Performs one owner-attributed release solely to end the stopped claim.
+- Replacement claims by ID and re-establishes context.
+
+#### Unacceptable behavior
+
+- Treats actor attribution as reassignment authority.
+
+## 10 Model relationships and reconciliation ownership
 
 ### Prompt
 
-Read the shipped Cardamom skill and the references it routes to for maintaining
-records and recovering claimed work.
+Use the skill at `{SKILL_PATH}`.
 
-`signing-worker` owns `cm-sign`.
-Implementation is partial,
-but the external signing service is unavailable and no actor can continue.
-Current State still names implementation as the next action.
-A release manager asks the worker to keep the claim overnight and send the next
-worker a chat message because the branch represents a full day of work.
+A migration workstream contains an implementation task.
+The implementation cannot be accepted until a schema task closes.
+A policy owner must approve rollout separately.
+A generator reruns against an existing human-maintained issue whose labels and
+Details it does not own.
 
-Give the record and custody operations now,
-then explain how another actor resumes after the service recovers.
-Do not execute commands or modify files.
+Choose containment, dependencies, checkpoint structure,
+and the `card apply` existing-target policy.
 
 ### Expected behavior
 
-- Replaces State with completed and remaining work,
-  observed validation,
-  the external blocker,
-  and the recovery transition.
-- Uses a standalone Log post only for blocker evidence or consequences not
-  represented by State.
-- Releases into waiting with the external trigger.
-- Ends idle custody despite authority, sunk cost, and schedule pressure.
-- Resumes by explicitly claiming the same issue ID with `--context`.
-- Explains that waiting removes the issue from automatic pools but does not
-  reserve it for one actor or grant authority.
-- Starts recovery from current context.
-- Uses State and Details when they establish a safe continuation,
-  and permits bounded or full Log replay when history helps reconstruct the
-  existing work.
+- Uses parent containment for inherited outcome context.
+- Adds schema and checkpoint dependencies only where their Results gate work.
+- Uses a checkpoint for the external authority decision.
+- Uses `skip` or `error`,
+  not `update`,
+  for the human-maintained issue.
+- Recognizes that set-valued fields under `update` replace complete sets.
 
 ### Unacceptable behavior
 
-- Keeps an idle claim.
-- Makes chat the only recovery record.
-- Creates a continuation issue for the same outcome.
-- Treats waiting as an enforced assignment or reservation.
-- Repeats accepted work found in a committed State snapshot.
+- Treats discovery or containment as automatic dependency.
+- Uses `update` as generic idempotence.
+- Treats the command actor as approval authority.
 
-### Nearby valid case
+### Adjacent valid case: Graph premise changes
 
-The partially completed issue is intentionally returned to a label-filtered
-pool so any eligible worker may choose it.
+#### Runner prompt addition
 
-- Uses ordinary release rather than waiting.
-- Keeps the same issue and recoverable State.
+Schema inspection newly proves that a claimed implementation issue needs the
+schema dependency.
+Its current State says implementation can begin immediately.
 
-## Reassign a stopped executor
+#### Expected behavior
+
+- Publishes the changed active position before graph mutation.
+- Adds distinct Log rationale only if useful later.
+- Edits the dependency atomically and inspects affected readiness.
+- Does not leave State asserting that implementation is immediately runnable.
+
+#### Unacceptable behavior
+
+- Logs the graph change but leaves contradicted State active.
+
+## 11 Reassess a ready plan after prerequisites
 
 ### Prompt
 
-Read the shipped Cardamom skill and the reference it routes to for recovering
-claimed work.
+Use the skill at `{SKILL_PATH}`.
 
-Runtime actor `Orion` owns an active claim on `cm-parser`.
-The runtime confirms that `Orion` has stopped and cannot resume.
-The user authorizes coordinator `Vega` to reassign the issue to runtime actor
-`Nova`.
-Current State already records partial implementation and the next action.
+Issue `cm-client` was blocked on `cm-server`.
+The closed server Result says it already implemented the client-visible
+compatibility shim,
+so the original client patch may be unnecessary.
+The client issue is now ready,
+and its old Details still prescribe the patch.
 
-Give the record and custody operations in order,
-and state what waiting does and does not guarantee.
+Give the next Cardamom and investigation actions.
+
+### Expected behavior
+
+- Reads the prerequisite Result and inspects the resulting system before
+  preserving or dispatching the old plan.
+- Chooses an evidence-backed disposition:
+  retain the plan,
+  revise Details and State,
+  close or cancel unnecessary work,
+  or stop on an unresolved gap.
+- Publishes any changed contract and active position before dependent work.
+
+### Unacceptable behavior
+
+- Dispatches the client patch merely because it became ready.
+- Treats readiness as proof that the old plan still applies.
+- Leaves obsolete Details or State current after selecting another disposition.
+
+## 12 Inspect terminal impact before denial
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Checkpoint `cm-policy` has two non-terminal transitive dependents,
+one reachable through two dependency paths and one actively claimed.
+The policy owner denies the checkpoint and gives a concrete reason.
+
+Give the inspection and denial sequence.
+
+### Expected behavior
+
+- Traverses dependency dependents with a seen-ID set.
+- Reviews each non-terminal affected issue exactly once.
+- Coordinates with the active executor and preserves needed partial context.
+- Records the authority's actual reason on the atomic checkpoint denial.
+- Treats the command actor as attribution rather than decision authority.
+
+### Unacceptable behavior
+
+- Traverses containment as cancellation impact.
+- Denies before inspecting or coordinating transitive impact.
+- Reviews a shared dependent twice.
+- Infers authority from the Cardamom actor.
+
+## 13 Transition a visible phase without unnecessary release
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+One issue uses `phase:implement` and `phase:verify`
+because separate automatic worker pools normally select those positions.
+Implementation has a replay-worthy completed State.
+In this instance,
+the same claim owner will immediately perform verification.
+
+Give the transition sequence and custody decision.
+
+### Expected behavior
+
+- Commits the completed State while installing verification State and next
+  action.
+- Replaces phase labels in one edit.
+- Keeps the existing claim because the same owner continues immediately.
+- Leaves Result unset until the overall contract is complete.
+
+### Unacceptable behavior
+
+- Releases merely because the label changed.
+- Creates another issue only for the ordinary verification position.
+- Uses phase labels as ordering or custody primitives.
+
+### Adjacent valid case: Automatic verification pool
+
+#### Runner prompt addition
+
+Any eligible verification worker should select the issue from its automatic
+pool.
+
+#### Expected behavior
+
+- Uses ordinary release after installing the new phase position.
+
+#### Unacceptable behavior
+
+- Uses waiting release for an open automatic pool.
+
+## 14 Run and retire a routine
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Routine `cm-release-watch` is awakened by an external scheduler.
+State contains targets and safe cursor `release-120`.
+The run resolves releases 121 through 123,
+but release 124 remains active.
+A new interpretation rule will apply to every later awakening.
+Months later,
+the release process is replaced and the routine is no longer valid.
+
+Give the run boundary, knowledge upgrade, and retirement disposition.
+
+### Expected behavior
+
+- Claims the known routine ID and installs an active-run boundary before
+  external work.
+- Advances the cursor only through successfully processed input.
+- Publishes the completed run outcome into active State before committing it.
+- Commits the completed run while installing recoverable next-run State.
+- Replaces Details with the stable interpretation rule.
+- Releases for the next awakening rather than expecting Cardamom to schedule it.
+- Cancels the invalidated routine after reconciling ownership and children.
+- Uses one terminal decision record for the retirement rationale rather than
+  duplicating it across acceptance and retirement posts.
+- Sets Result only if acceptors or dependents need the terminal outcome.
+
+### Unacceptable behavior
+
+- Searches automatic ready pools for routines.
+- Commits the original active-run State without adding the run outcome.
+- Carries run chronology in Details.
+- Calls every retirement successful close.
+- Posts duplicate terminal rationale under different workflow labels.
+
+## 15 Gate external resource work on a lease
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Claimed migration issue `cm-db` needs exclusive `staging-db`.
+No native coordinator exists.
+The first acquire fails because another actor owns the lease.
+After a later successful acquire and one external operation,
+renewal fails and `lease show` no longer reports your ownership.
+
+Give the Cardamom writes and resource-action gates.
+
+### Expected behavior
+
+- Publishes acquisition intent before acquiring.
+- Does not touch the database after failed acquisition.
+- Records the blocked or waiting position and observed owner when useful.
+- After lost renewal,
+  stops initiating resource actions,
+  makes the started operation safe,
+  inspects lease and resource separately,
+  publishes recovery State,
+  and reacquires before resuming.
+- Releases only after the resource is safe.
+
+### Unacceptable behavior
+
+- Treats a claim as resource ownership.
+- Continues because the TTL probably expired.
+- Infers cleanup or process termination from lease loss.
+
+### Adjacent valid case: Native isolation is sufficient
+
+#### Runner prompt addition
+
+The operation is a safe concurrent read and the database already enforces its
+required isolation.
+
+#### Expected behavior
+
+- Does not add a Cardamom lease.
+
+#### Unacceptable behavior
+
+- Leases every external resource as ritual coordination.
+
+## 16 Use mail only for ephemeral attention
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+An observer must receive `release.*` notifications for two hours.
+Its subscription TTL is 30 minutes,
+and it uses `mail recv --tail`.
+The notification announces that issue `cm-release` has a new acceptance
+position and rationale.
+
+Give the mail and durable-record handling.
+
+### Expected behavior
+
+- Uses store-scoped mail only as an attention channel.
+- Maintains subscription renewal separately because tailing does not renew it.
+- Publishes the acceptance position and material rationale on `cm-release`.
+- Uses mail to point the observer to durable issue context.
+
+### Unacceptable behavior
+
+- Uses mail as the only copy of the position or rationale.
+- Treats mail as custody transfer, assignment, or readiness.
+- Selects a board solely for mail.
+- Assumes `mail recv --tail` renews the subscription.
+
+## 17 Preserve produced bytes with durable meaning
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+A generated validation report will disappear with its producer worktree.
+An acceptor needs the exact bytes,
+and the report establishes which tenant rows matched.
+Two issues on the same board need to reference it.
+
+Give the attachment and issue-record handling.
+
+### Expected behavior
+
+- Attaches the report because its exact bytes must outlive the worktree.
+- Captures its stable ID.
+- Explains in Log or Result what the bytes establish.
+- Reuses the same board-scoped reference from both issues.
+- Retrieves complete bytes when an acceptor needs to inspect them.
+
+### Unacceptable behavior
+
+- Treats an attachment filename as sufficient context.
+- Uploads duplicate bytes solely to associate them with another issue.
+- Puts the only material conclusion in the attachment.
+
+### Adjacent valid case: Reproducible scratch output
+
+#### Runner prompt addition
+
+The output is transient command noise that any later executor can reproduce
+from a stable source location and documented command.
+
+#### Expected behavior
+
+- Records the useful conclusion or reproduction command without attaching the
+  scratch output.
+
+#### Unacceptable behavior
+
+- Uses attachment storage as a general-purpose cache.
+
+### Adjacent valid case: Paginated attachment discovery
+
+#### Runner prompt addition
+
+The originating issue is known,
+but its records lost the attachment reference.
+The first `attachment list --issue` response includes `next_page_token` and
+does not contain the needed artifact.
+
+#### Expected behavior
+
+- Continues discovery with `--after <token>` until no token remains.
+- Uses issue context to establish meaning rather than trusting the filename.
+
+#### Unacceptable behavior
+
+- Assumes the first page contains every associated attachment.
+
+## 18 Preserve runtime actor identity
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+A collaboration runtime starts two concurrent executors named `delta-scout`.
+Their runtime identifiers are `74c1` and `91bd`;
+the current executor is `74c1` and receives issue `cm-482`.
+The coordinator calls this executor the documentation worker.
+
+Give the contextual claim command and explain the actor identity.
 Do not execute commands.
 
 ### Expected behavior
 
-- Preserves the partial recovery State rather than replacing it with an
-  acceptance-only position or inventing Result.
-- Records reassignment under `Vega`.
-- Uses one owner-attributed release under `Orion` only after stop confirmation
-  and explicit reassignment authority.
-- Claims the same issue directly under `Nova` with context.
-- Explains that waiting keeps the issue out of automatic pools but neither
-  reserves it for `Nova` nor grants reassignment authority.
+- Uses a stable actor such as `delta-scout-74c1` that preserves the readable
+  runtime name and distinguishes the executor.
+- Uses the same actor for the complete issue lifecycle.
+- Claims `cm-482` by ID with context.
 
 ### Unacceptable behavior
 
-- Releases while `Orion` may still execute.
-- Attributes the coordinator's reasoning to `Orion`.
-- Treats the owner-attributed release as proof of authority or a direct claim
-  transfer.
-- Creates a replacement issue for the same outcome.
+- Uses only the opaque runtime identifier.
+- Replaces runtime identity with a generic role such as `worker-a` or
+  `documentation-worker`.
 
-## Plan relationships and ordinary phases
+### Pressure variant: Generic commands already drafted
+
+#### Runner prompt addition
+
+The release window closes in ten minutes,
+three commands already use actor `worker-a`,
+and a senior engineer asks to keep that shorter name.
+
+#### Expected behavior
+
+- Replaces the generic actor with the distinguishable runtime identity.
+
+#### Unacceptable behavior
+
+- Preserves ambiguous attribution because commands are already drafted.
+
+### Adjacent valid case: Runtime supplies no identity
+
+#### Runner prompt addition
+
+The runtime provides no executor name or identifier.
+The task context names one documentation indexer,
+and no concurrent actor could be confused with it.
+
+#### Expected behavior
+
+- Chooses a concise stable actor such as `documentation-indexer`.
+
+#### Unacceptable behavior
+
+- Invents a runtime identifier or requires an unavailable environment value.
+
+## 19 Recover the plugin command after direct failure
 
 ### Prompt
 
-Read the shipped Cardamom skill and the reference it routes to for planning
-durable work.
+Use the skill at `{SKILL_PATH}`.
 
-A migration workstream needs one independently owned schema inventory task and
-one integration task.
-The inventory was discovered during integration planning,
-but integration can initially proceed without it.
-Later inspection establishes that integration cannot be accepted until the
-inventory result exists.
-The integration issue moves through implementation and verification workers,
-but both phases contribute to one result.
+You attempted this read-only command from an installed Cardamom skill:
 
-Give the issue boundaries and relationship changes at both times.
-Explain how the two execution phases are represented.
+```bash
+card --actor delta-scout --json info
+```
+
+The shell reports that `card` is unavailable.
+Give the next command on macOS and explain the recovery boundary.
 Do not execute commands.
 
 ### Expected behavior
 
-- Creates the inventory and integration as contained outcomes under the
-  migration workstream.
-- Uses `card apply` when creating the related multi-issue graph atomically.
-- Does not add a dependency merely because one task revealed the other.
-- Publishes the later evidence before adding inventory as an integration
-  prerequisite.
-- Uses containment for inherited context and dependency for readiness.
-- Keeps implementation and verification on the same integration issue.
-- Uses phase labels because distinct automatic worker pools need them,
-  with State publication and commit before changing phases.
+- Retries the same invocation through `scripts/cardamom` from the loaded skill
+  directory.
+- Preserves every argument and the stable actor.
+- Lets the launcher own binary acquisition and caching.
 
 ### Unacceptable behavior
 
-- Uses containment as a readiness edge.
-- Adds the dependency at discovery without a prerequisite condition.
-- Allocates another issue solely because the worker class changes.
-- Uses a phase label as waiting or dependency state.
+- Invents a global installation procedure or cache override.
+- Changes the intended Cardamom operation while recovering the executable.
 
-### Nearby valid case
+### Adjacent valid case: Direct command succeeds
 
-One agent performs implementation and validation on the same issue,
-and no human or automatic pool selects work by phase.
+#### Runner prompt addition
 
-- Uses State transitions without adding phase labels.
+The direct `card` invocation succeeds.
 
-## Choose `card apply` reconciliation ownership
+#### Expected behavior
+
+- Uses `card` directly without a launcher preflight.
+
+#### Unacceptable behavior
+
+- Always probes or invokes the fallback before trying `card`.
+
+## 20 Add a project to an existing store
 
 ### Prompt
 
-Read the shipped Cardamom skill and the reference it routes to for planning
-durable work.
+Use the skill at `{SKILL_PATH}`.
 
-A generator must create six related issues atomically.
-On a rerun,
-two issues already exist under stable keys.
-People may have changed their labels and dependencies after creation,
-and the generator does not own those fields.
-The operator proposes `on_existing: update` only so reruns will succeed.
+Existing store `/srv/cardamom` contains project `Inventory` and its board.
+The user asks to add a separate project named `Billing` with prefix `bill-`
+and create its first board, `Ledger migration`.
 
-Choose the `card apply` existing-target policy and explain the ownership
-boundary.
+Give the command sequence and identity handling.
+Do not execute commands or persist selection.
+
+### Expected behavior
+
+- Keeps the explicit store and one stable actor on every command.
+- Inspects existing projects with structured output.
+- Creates `Billing` with `project create --prefix bill-`.
+- Parses the returned project ID and passes it to `board create`.
+- Uses stable IDs when names could be ambiguous.
+
+### Unacceptable behavior
+
+- Runs `card init` to add another project.
+- Assumes project creation also creates or selects a board.
+- Changes checkout board selection without a request.
+
+### Adjacent valid case: Inherit the store prefix
+
+#### Runner prompt addition
+
+The new project should inherit the active store prefix.
+
+#### Expected behavior
+
+- Omits `--prefix` instead of recreating prefix policy in the agent workflow.
+
+#### Unacceptable behavior
+
+- Guesses or copies another project's prefix.
+
+## 21 Author durable Markdown and references
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Draft commands for a claimed migration issue.
+Details must contain separate protocol, constraints, and acceptance sections,
+including literal `$TARGET`, `$(date)`, backticks, and the spelling `\n`.
+State has one reproduced failure, one selected package boundary,
+two changing files, and one unresolved migration question.
+A supporting Log entry is `log_9f67d0c5e3ab49f2b1478a60c2de5114`.
+The material ordering conclusion must remain understandable without opening it.
+A published bundle labeled `bundle 817` is available at
+`https://releases.example.com/products/atlas/bundles/817`.
+
+Draft the Details, State, and Result command forms.
 Do not execute commands.
 
 ### Expected behavior
 
-- Uses `card apply` for the multi-issue atomic creation.
-- Chooses `skip` when existing issues are authoritative and the document should
-  create only missing issues.
-- Chooses `error` instead when existing targets should be treated as unexpected
-  input or possible identity or scope mistakes.
-- Uses `update` only when the document producer owns every supplied field and
-  should reconcile those fields on reruns.
-- Accounts for supplied set-valued fields replacing their complete sets.
+- Uses single-quoted heredocs with real line breaks for multiline bodies.
+- Preserves shell metacharacters, backticks, and the intentional `\n`
+  literally.
+- Uses domain-specific headings, short paragraphs, or lists for independent
+  facts without generic State wrapper headings.
+- States the material ordering conclusion directly and uses
+  `%log_9f67d0c5e3ab49f2b1478a60c2de5114` only for useful chronology.
+- Stores the full bundle URL under the readable `bundle 817` label.
 
 ### Unacceptable behavior
 
-- Chooses `update` merely for rerun convenience or idempotence.
-- Overwrites labels or dependencies maintained by people or another process.
-- Avoids `card apply` solely because several related issues are new.
+- Passes a serialized `\n` string as multiline Markdown.
+- Leaves independent recovery facts in one dense paragraph.
+- Replaces the material conclusion with a bare Log reference.
+- Stores only the local bundle label.
 
-## Routine run with a resource lease
+### Pressure variant: Serialized helper output
+
+#### Runner prompt addition
+
+An approved orchestration helper returned the State body as one shell-ready
+quoted argument containing serialized `\n` tokens.
+The review starts in ten minutes,
+and the lead asks you to pass that argument through unchanged.
+
+#### Expected behavior
+
+- Reconstructs the intended Markdown with real lines in a single-quoted
+  heredoc.
+- Preserves only a backslash-plus-n spelling that is intentionally content.
+
+#### Unacceptable behavior
+
+- Treats helper approval, deadline, or prior work as evidence that `card`
+  interprets serialized newline escapes.
+
+### Adjacent valid case: One connected observation
+
+#### Runner prompt addition
+
+State contains one connected two-sentence observation and no next action.
+
+#### Expected behavior
+
+- Uses one short paragraph without adding headings or bullets.
+
+#### Unacceptable behavior
+
+- Adds structure that makes the simple record harder to scan.
+
+## 22 Recover only the history needed to continue
 
 ### Prompt
 
-Read the shipped Cardamom skill and the references it routes to for routines
-and resource leases.
+Use the skill at `{SKILL_PATH}`.
 
-Routine `cm-audit` tracks a safe cursor and unresolved release targets.
-An external scheduler awakens it by ID.
-This run must write to shared test device `device-7`.
-Concurrent writers can corrupt the device,
-and no native allocator or lock exists.
-The run resolves two targets,
-leaves one unresolved,
-and establishes that signed releases must always be checked before unsigned
-releases during future runs.
-The run must not retain the device between awakenings.
+Issue `cm-recover` is waiting and unclaimed.
+The replacement actor has its ID and explicit scope.
+Summary, Details, current State, ancestor context,
+and completed dependency Results explain the outcome and current position.
+One material strategy choice is unexplained.
+The issue has 400 Log entries;
+recent entries may identify the relevant decision,
+but chronological replay from the beginning is not currently needed.
 
-Give the coordination sequence and durable record boundaries.
+Give the recovery commands and context-expansion order.
 Do not execute commands.
 
 ### Expected behavior
 
-- Claims the routine by known ID rather than from a ready pool.
-- Replaces State before work with the safe cursor, targets, and active-run
-  boundary.
-- Publishes lease intent before acquisition.
-- Acquires `device-7` under the routine worker's actor and records successful
-  acquisition before resource use.
-- Releases the lease after the device is safe and before leaving the run.
-- Advances the cursor only through assessed input.
-- Commits the completed run while installing the next run's targets, cursor,
-  and next action.
-- Incorporates the stable signed-before-unsigned procedure into routine Details
-  before release while leaving its evidence in the run snapshot or Log.
-- Releases the routine without closing it.
+- Claims the known waiting issue directly by ID with context.
+- Starts from the assembled current contract, position, ancestors,
+  and dependency Results.
+- Opens a bounded newest-first Log window for the unexplained choice.
+- Expands the window or other surfaces only when the recovery question requires
+  them.
+- Repairs Details or State before dependent work if recovered knowledge changed
+  the stable contract or active position.
 
 ### Unacceptable behavior
 
-- Claims a routine from an automatic pool.
-- Acquires the device before publishing intent.
-- Carries the lease between awakenings.
-- Advances the cursor past unresolved input.
-- Uses a standalone Log post to duplicate the committed run snapshot.
-- Requires a full Log replay to recover the next routine awakening.
+- Selects another issue from an automatic pool.
+- Replays all 400 entries merely because the actor changed.
+- Uses `--oldest-first` without a need for chronological replay.
 
-### Nearby valid case
+### Adjacent valid case: Chronology determines the decision
 
-The test service already assigns one exclusive device to each run and rejects
-overlap before resource use.
+#### Runner prompt addition
 
-- Uses the native allocator without an additional Cardamom lease.
+The recovery question depends on how several early decisions evolved in order.
 
-## Keep routine contracts out of inherited context
+#### Expected behavior
+
+- Uses `--oldest-first` for the bounded chronological replay that now matters.
+
+#### Unacceptable behavior
+
+- Treats newest-first ordering as mandatory when it obscures the question.
+
+## 23 Revoke a lease only after resource recovery
 
 ### Prompt
 
-Read the shipped Cardamom skill and its routine reference.
+Use the skill at `{SKILL_PATH}`.
 
-A routine checks tracked releases and may create child tasks for individual
-release failures.
-Every child needs to know that the routine covers tracked releases.
-Only the routine executor needs the successful-run condition,
-the permanent retirement condition,
-the detailed review procedure,
-and the stable test-device requirement.
+Worker `La Forge` holds the lease for `rack-7` but its runtime process stopped.
+Rack operations independently confirmed that the test process ended,
+the rack was reset,
+and another worker may safely use it.
+The lease remains active for 35 minutes.
+The coordinator is actor `Riker` and has explicit recovery authority.
 
-Place those facts in the routine's Summary and Details.
+Give the issue-record and lease sequence through replacement use.
 Do not execute commands.
 
 ### Expected behavior
 
-- Keeps the concise tracked-release scope in Summary because every child needs
-  it.
-- Places the successful-run and retirement conditions in Details.
-- Places the review procedure and stable test-device requirement in Details.
-- Explains that every routine executor receives Details,
-  while Summary is byte-limited and inherited by every child.
-- Permits promotion into Summary only if every child later needs the fact.
+- Records the observed external-resource disposition before revocation.
+- Uses coordinator actor `Riker` for the recovery operation.
+- Revokes with `--owner 'La Forge'` and a concrete reason.
+- Treats the owner condition as protection if ownership changed.
+- Has the replacement acquire a new bounded lease before touching the rack.
 
 ### Unacceptable behavior
 
-- Places the complete routine operating contract in Summary.
-- Omits success or retirement conditions because children do not need them.
-- Stores stable operating conditions only in State or Log.
+- Operates as the stopped worker to release the lease.
+- Treats revocation as proof that the rack is safe.
+- Lets the replacement rely on the prior lease.
 
-## Preserve produced bytes
+### Pressure variant: Resource state is unknown
+
+#### Runner prompt addition
+
+The deadline is close and the worker is known to be stopped,
+but nobody has inspected the rack or its test process.
+
+#### Expected behavior
+
+- Leaves the lease and rack unused until external-resource disposition is
+  established.
+
+#### Unacceptable behavior
+
+- Revokes because the worker stopped or the lease will eventually expire.
+
+## 24 Load only the workflows that own the decision
 
 ### Prompt
 
-Read the shipped Cardamom skill and the reference it routes to for preserving
-file bytes.
+Use the skill at `{SKILL_PATH}`.
 
-A worker produced a validation report in a temporary worktree.
-Root needs the report after that worktree is removed.
-The report's conclusion is that every migration row matched the expected
-tenant.
+The user supplies a store but no board.
+They ask to create a workstream with two independently owned child tasks,
+then run one child against a shared staging database that lacks native
+coordination.
+No mail, routine, attachment, phased workflow, recovery, or terminal operation
+is involved.
 
-State which Cardamom records and attachment operations are needed.
+State which references you load and why before giving the plan.
 Do not execute commands.
 
 ### Expected behavior
 
-- Adds the report as a board attachment and captures its attachment ID.
-- States the material conclusion in Log or Result.
-- References the attachment from the record that explains its meaning.
-- Retrieves by attachment ID when another path is needed.
+- Loads `scope.md` to resolve the board without creating or guessing one.
+- Loads `planning.md` for outcome boundaries and graph structure.
+- Loads `leases.md` for the shared database decision.
+- Loads `execution.md` only when describing claim, dispatch,
+  publication, or handoff.
 
 ### Unacceptable behavior
 
-- Relies on the temporary path.
-- Hides the conclusion behind an attachment reference.
-- Uploads duplicate bytes merely to associate them with another issue on the
-  same board.
+- Loads every reference for safety.
+- Skips scope resolution or chooses a board by convenience.
+- Loads unrelated mail, routine, attachment, phase, recovery,
+  or termination guidance.
 
-### Nearby valid case
+### Adjacent valid case: Record drafting only
 
-A verbose diagnostic can be reproduced reliably from a source revision and one
-short command,
-and no acceptor or later executor needs its original bytes.
+#### Runner prompt addition
 
-- Records the command and useful conclusion without creating an attachment.
+The board and issue are already established,
+and the request only asks for a generic Summary and Details draft.
 
-## Resolve ambiguous scope
+#### Expected behavior
 
-### Prompt
+- Uses the primary record model and planning guidance needed for the contract.
+- Does not load execution or resource workflows without their decision points.
 
-Read the shipped Cardamom skill and the reference it routes to for scope.
+#### Unacceptable behavior
 
-The user asks to continue an existing Cardamom task but supplies no board.
-One discovered store contains two boards with similar names.
-No issue ID disambiguates them.
+- Treats every record-writing request as a full execution workflow.
 
-State the next operations.
-Do not modify persistent configuration.
+### Adjacent valid case: Complete and close an issue
 
-### Expected behavior
+#### Runner prompt addition
 
-- Lists stable board identities without selecting one.
-- Reports the ambiguity and requests or awaits board selection.
-- Does not initialize another store or create another board.
+Instead,
+the board and claimed issue are already established,
+execution and validation satisfy its contract,
+and the executor may accept and close it.
 
-### Unacceptable behavior
+#### Expected behavior
 
-- Guesses from a similar board name.
-- Runs persistent `board use` without authorization.
-- Searches both boards and silently chooses a matching issue.
+- Loads `execution.md` for Result and acceptance flow.
+- Loads `termination.md` for the close decision and command.
+- Enters at Result and acceptance without replaying completed execution or
+  validation.
+- Does not load planning, recovery, routine, mail, lease, attachment,
+  or phase guidance.
 
-## Explain lifecycle and custody transitions
+#### Unacceptable behavior
 
-### Prompt
-
-Read the shipped Cardamom skill.
-
-Issue `cm-17` is open and ready.
-Actor `Nova` claims it,
-later releases it into waiting for external approval,
-and actor `Orion` directly claims it after approval.
-
-Explain what changes and what remains unchanged at each transition.
-Do not execute commands.
-
-### Expected behavior
-
-- Distinguishes open lifecycle from claim custody and waiting visibility.
-- Explains that `Nova`'s claim makes the issue in progress without closing it.
-- Explains that waiting release ends custody while leaving the issue open and
-  outside automatic pools.
-- Explains that `Orion`'s direct claim clears waiting and establishes new
-  custody.
-- Does not treat waiting as an assignment or authority grant.
-
-### Unacceptable behavior
-
-- Treats claim, waiting, or release as lifecycle completion.
-- Treats waiting as a reservation for `Orion`.
-- Says labels determine whether the issue is ready.
-
-## Reassess a ready issue after prerequisites
-
-### Prompt
-
-Read the shipped Cardamom skill and its ordinary execution reference.
-
-Task `cm-index` was drafted to add a new index package.
-It was blocked on two prerequisite tasks.
-Their Results now show that one prerequisite added the required index to the
-existing storage package and the other removed the API the draft planned to
-use.
-The task is now ready,
-and a release lead says readiness means the original plan should be dispatched
-immediately.
-
-Choose the next issue and work operations.
-Do not execute commands.
-
-### Expected behavior
-
-- Treats readiness as satisfied dependencies rather than plan validity.
-- Reads the prerequisite Results and inspects the resulting system.
-- Does not preserve or dispatch the obsolete package plan.
-- Closes or cancels the task if the prerequisite work already achieved its
-  outcome or made it unnecessary.
-- Otherwise updates stable guidance in Details and the current plan in State.
-
-### Unacceptable behavior
-
-- Dispatches the stale plan because status is ready.
-- Copies the obsolete draft into State or Log for preservation.
-- Creates a replacement issue without determining whether the existing outcome
-  remains necessary.
-
-## Complete work without ritual independent acceptance
-
-### Prompt
-
-Read the shipped Cardamom skill and its ordinary execution reference.
-
-Root actor `Vega` owns a small workstream directly.
-The issue contract requires implementation and validation but does not require
-independent acceptance.
-Implementation and validation now satisfy the contract,
-and there are no child issues.
-
-Give the completion sequence.
-Do not execute commands.
-
-### Expected behavior
-
-- Lets `Vega` record Result and complete the ordinary acceptance and closure.
-- Uses Result for the outcome and validation.
-- Does not spawn or invent a separate acceptor without a contract requirement.
-- Preserves any changed State through the terminal operation.
-
-### Unacceptable behavior
-
-- Requires a worker-to-root handoff solely because Cardamom is in use.
-- Copies the complete Result into State.
-- Releases an already complete issue to an automatic pool.
-
-## Recover a selected ready issue
-
-### Prompt
-
-Read the shipped Cardamom skill and its interrupted-work recovery reference.
-
-Recovery must select one ready implementation task under workstream
-`cm-parent`.
-No issue ID is supplied.
-The selected issue has useful current State and a large Log.
-
-Give the selection and recovery sequence.
-Do not execute commands.
-
-### Expected behavior
-
-- Uses a constrained claim operation or selects and immediately claims one
-  matching issue before deeper inspection.
-- Establishes custody with `claim --context`.
-- Starts from Details and current State rather than replaying the complete Log.
-- Expands bounded or full Log only when the recovery question requires it.
-- Continues the same issue.
-
-### Unacceptable behavior
-
-- Reads extensive issue history while leaving ready work unclaimed.
-- Creates a recovery issue for the same outcome.
-- Treats a command or store error as proof that Result is unset.
-
-## Record a checkpoint decision
-
-### Prompt
-
-Read the shipped Cardamom skill and the planning reference.
-
-Checkpoint `cm-approve` blocks activation until the policy owner approves or
-denies a rollback plan.
-The coordinator has received the policy owner's decision.
-
-Explain the Cardamom operation and authority model.
-Do not execute commands.
-
-### Expected behavior
-
-- Records checkpoint approval or denial rather than claiming the checkpoint as
-  executable work.
-- Treats the command actor as attribution rather than proof of decision
-  authority.
-- Uses the recorded reason when one is available.
-- Inspects cancellation impact before denial.
-
-### Unacceptable behavior
-
-- Claims the checkpoint and writes a normal task Result.
-- Treats the command actor as the policy owner by definition.
-- Denies without considering transitive dependents.
-
-## Inspect transitive cancellation impact
-
-### Prompt
-
-Read the shipped Cardamom skill and its ordinary execution reference.
-
-Cancelling `cm-schema` would directly block `cm-api` and `cm-import`.
-Both can block additional work,
-and two paths converge on `cm-release`.
-
-Give the inspection and cancellation plan.
-Do not execute commands.
-
-### Expected behavior
-
-- Walks every direct `blocks` edge until no unseen issue remains.
-- Uses a seen set so `cm-release` is inspected once.
-- Reviews every non-terminal transitive dependent before cancellation.
-- Records cancellation rationale before the terminal operation.
-
-### Unacceptable behavior
-
-- Inspects only direct dependents.
-- Cancels first and examines fallout afterward.
-- Treats containment as the cancellation graph.
-
-## Resolve store and board through supported routes
-
-### Prompt
-
-Read the shipped Cardamom skill and its scope reference.
-
-For each independent case,
-state how scope should resolve:
-
-1. A command supplies issue ID `cm-27` and no board selector.
-2. No issue is supplied,
-   but the checkout has a persisted board binding.
-3. No issue, selector, or binding exists,
-   and the discovered store has one board.
-4. A worker is dispatched into another worktree.
-
-Do not modify persistent selection.
-
-### Expected behavior
-
-- Resolves the issue's owning board in the first case.
-- Uses the checkout binding in the second case.
-- Uses the sole board in the third case.
-- Passes explicit resolved store and board values for the worktree handoff.
-- Reports a conflict when an explicit board disagrees with an issue owner.
-
-### Unacceptable behavior
-
-- Creates a board when automatic resolution is sufficient.
-- Assumes a checkout binding changes store discovery.
-- Relies on worktree-local discovery after an explicit handoff can preserve
-  scope.
-
-## Keep mail and leases store-scoped
-
-### Prompt
-
-Read the shipped Cardamom skill and the relevant scope,
-mail,
-and lease references.
-
-Store `/srv/cardamom` contains two boards and no board is selected.
-Send an ephemeral message to actor `Orion`,
-then acquire a 20-minute lease on `host-a:browser`.
-Neither operation belongs to an issue.
-
-State which scope is required and give the operation shapes.
-Do not execute commands.
-
-### Expected behavior
-
-- Resolves only `/srv/cardamom` and does not select a board.
-- Uses one stable invocation actor.
-- Sends actor mail through the store-scoped mailbox.
-- Acquires the named store-scoped lease with a 20-minute TTL.
-- Does not invent a board association for either operation.
-
-### Unacceptable behavior
-
-- Stops because board selection is ambiguous.
-- Runs persistent `board use` for mail or lease work.
-- Treats the lease as custody of an issue.
-
-## Choose mail only for ephemeral attention
-
-### Prompt
-
-Read the shipped Cardamom skill and its mail reference.
-
-A coordinator has already recorded a material interface decision and recovery
-State on issue `cm-api`.
-Actor `Nova` should notice the issue when available,
-but the collaboration runtime is not dispatching that actor.
-The coordinator considers sending the complete decision only through mail.
-
-Choose the durable and ephemeral operations.
-Do not execute commands.
-
-### Expected behavior
-
-- Keeps the material decision and recovery position on `cm-api`.
-- May send `Nova` a short actor-mail notification that identifies the issue.
-- Treats mail as attention rather than assignment or custody.
-- Does not require mail when the collaboration runtime already supplies the
-  needed notification.
-
-### Unacceptable behavior
-
-- Makes expiring mail the only copy of the interface decision.
-- Treats the message as a claim transfer.
-- Adds mail mechanically to every delegation.
-
-## Maintain a long-lived topic receiver
-
-### Prompt
-
-Read the shipped Cardamom skill and its mail reference.
-
-Actor `release-observer` must watch `release.*` topic messages for four hours.
-Subscriptions default to a shorter lifetime.
-The receiver will use `mail recv --tail`.
-
-Give the receiver lifecycle.
-Do not execute commands.
-
-### Expected behavior
-
-- Subscribes `release-observer` to the topic pattern before relying on topic
-  delivery.
-- Chooses a suitable TTL or refreshes the subscription before expiry.
-- Explains that `mail recv --tail` does not renew the subscription.
-- Uses another process for refresh while the tailing receiver runs.
-- Removes the subscription when the observer is retired.
-
-### Unacceptable behavior
-
-- Assumes tailing makes the subscription permanent.
-- Uses an issue claim or lease as a topic subscription.
-- Stores durable workflow truth only in received messages.
-
-## Decide and recover a resource lease
-
-### Prompt
-
-Read the shipped Cardamom skill and its resource lease reference.
-
-Two claimed issues may reset the same shared test environment.
-The reset API permits overlap,
-and one reset can destroy the other's setup.
-No native lock or allocator exists.
-Later,
-the lease owner stops after an uncertain reset outcome and the lease expires.
-
-Give the acquisition and recovery decisions.
-Do not execute commands.
-
-### Expected behavior
-
-- Uses a Cardamom lease at the environment's actual exclusivity scope.
-- Distinguishes each issue claim from ownership of the shared environment.
-- Publishes lease intent before acquisition and current ownership before use.
-- Acquires only for the harmful-overlap interval and releases after the
-  environment is safe.
-- Treats expiry as removal of Cardamom ownership rather than proof of cleanup.
-- Inspects and records external disposition before reuse or revocation.
-
-### Unacceptable behavior
-
-- Treats issue claims as sufficient resource serialization.
-- Acquires a lease when a native allocator already prevents overlap.
-- Reuses the environment solely because the TTL expired.
-
-## Coordinate a phased workflow transition
-
-### Prompt
-
-Read the shipped Cardamom skill and its phased-workflow reference.
-
-One persistent change moves from an implementation worker pool to a verification
-worker pool and then waits for external authorization.
-Each pool selects a `phase:<name>` label.
-All positions contribute to one Result.
-
-Give the issue and transition model.
-Do not execute commands.
-
-### Expected behavior
-
-- Keeps one issue across all three positions.
-- Commits each coherent completed phase while installing the next active State.
-- Replaces old and new phase labels atomically before release.
-- Uses ordinary release for the next automatic pool.
-- Uses waiting for external authorization.
-- Treats phase labels as visibility and selection rather than ordering or
-  custody.
-- Explains that phase labels select within automatic pools,
-  while ordinary or waiting release determines whether the issue enters them.
-
-### Unacceptable behavior
-
-- Creates one child solely for each worker class.
-- Uses a phase label as a dependency or waiting marker.
-- Says phase labels have no effect on automatic pool selection.
-- Adds phase labels when no human view or worker pool needs them.
-
-## Pause and retire a routine safely
-
-### Prompt
-
-Read the shipped Cardamom skill and its routine reference.
-
-Routine `cm-sync` advances a safe cursor during each awakening.
-This run stops halfway because an external service is unavailable.
-After the service returns and one later run completes,
-the operating contract is permanently retired.
-
-Give the partial-run,
-next-awakening,
-and retirement sequence.
-Do not execute commands.
-
-### Expected behavior
-
-- Advances the cursor only through successfully assessed input.
-- Commits the partial run while installing last-safe State and the external
-  trigger for the next awakening.
-- Releases into waiting rather than retaining custody between awakenings.
-- Resumes through a direct claim after the trigger is satisfied.
-- Before retirement,
-  verifies no active run and reconciles direct children.
-- Records why the contract ended and closes or cancels accordingly.
-
-### Unacceptable behavior
-
-- Advances the cursor beyond assessed input.
-- Keeps a routine claim while waiting for the next wake.
-- Closes a routine while an actor owns an active run.
-- Requires a routine Result when no outcome needs one.
-
-## Discover paginated attachments
-
-### Prompt
-
-Read the shipped Cardamom skill and its attachment reference.
-
-The originating issue no longer contains an attachment reference.
-The first `attachment list --issue` response contains `next_page_token`,
-and the needed report may be on a later page.
-
-Give the discovery and retrieval plan.
-Do not execute commands.
-
-### Expected behavior
-
-- Lists attachments associated with the originating issue.
-- Follows every `next_page_token` with `--after` until no token remains.
-- Inspects metadata and availability before retrieval.
-- Recovers the attachment's meaning from issue context.
-
-### Unacceptable behavior
-
-- Assumes the first page is complete.
-- Treats attachment bytes as a substitute for issue meaning.
-- Uploads a duplicate to make the attachment easier to find.
-
-## Author durable Markdown and references
-
-### Prompt
-
-Read the shipped Cardamom skill and its ordinary execution reference.
-
-A Log entry needs multiple paragraphs,
-literal `$TARGET`,
-backticks,
-and a backslash escape.
-It cites issue `cm-parser`,
-one material Log entry,
-and a stored image.
-
-Describe the input and reference forms.
-Do not execute commands.
-
-### Expected behavior
-
-- Uses a single-quoted heredoc for the multiline body.
-- Uses real line breaks rather than a quoted `\n` sequence.
-- Preserves shell metacharacters literally.
-- Uses Cardamom issue,
-  Log,
-  and attachment references only for navigation.
-- Keeps each material conclusion in surrounding prose.
-
-### Unacceptable behavior
-
-- Uses an interpolating heredoc or serialized line-break tokens.
-- Hides the conclusion behind a Log or attachment reference.
-- Invents a local filesystem link for a durable external artifact.
-
-## Recover the plugin command after shell failure
-
-### Prompt
-
-Read the shipped Cardamom skill.
-
-The user explicitly asks for Cardamom coordination.
-Running `card --actor Vega info` reports that `card` is unavailable in the
-shell.
-The installed skill directory is known.
-
-Give the next command-selection action.
-Do not execute commands.
-
-### Expected behavior
-
-- Retries the same invocation through the skill's platform launcher.
-- Uses `scripts/cardamom` on macOS or Linux and `scripts/cardamom.ps1` on
-  Windows.
-- Preserves every original argument.
-- Does not replace the runtime actor or silently initialize a store.
-
-### Unacceptable behavior
-
-- Abandons Cardamom after the first shell lookup failure.
-- Searches unrelated worktrees for an arbitrary binary.
-- Changes the requested operation while retrying.
+- Treats close as an execution-only decision.
+- Repeats execution or validation because those sections appear earlier in the
+  workflow.
+- Loads every reference because the issue is terminal.
