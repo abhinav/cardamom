@@ -71,6 +71,189 @@ Do not execute commands.
 - Treats Details as chronology or a copy of inherited context.
 - Makes a task the parent of another issue.
 
+## Write durable records for their readers
+
+### Prompt
+
+Read the shipped Cardamom skill and the references it selects.
+Do not execute Cardamom commands.
+
+Draft the rendered Markdown bodies for Summary,
+Details,
+current State with its separate next action,
+one material Log entry,
+and Result for this completed issue.
+Use only these facts:
+
+- Duplicate retry dispatches motivated the work.
+- The accepted contract assigns retry identity to the request key and preserves
+  existing backoff and cancellation behavior.
+- Inspection rejected process-local sequence numbers because retries can cross
+  processes.
+- The gateway and its focused tests own the change.
+- The request key now supplies retry identity.
+- Focused retry tests and the race test pass.
+- Cross-process deployment validation was not performed.
+- Execution is complete and an acceptor must inspect Result next.
+
+### Expected behavior
+
+- Summary makes the stable retry-identity outcome,
+  unchanged behavior,
+  and acceptance boundary usable by descendants.
+- Details establishes the request-key contract,
+  ownership,
+  constraints,
+  and completion evidence without relying on chat or chronology.
+- State makes the completed execution position clear and gives acceptance as a
+  separate next action rather than retelling the work.
+- Log makes the request-key decision,
+  rejected alternative,
+  and cross-process rationale reconstructable.
+- Result distinguishes the completed change,
+  passing validation,
+  and unverified deployment boundary.
+- Uses stable names for the request key,
+  retry identity,
+  gateway,
+  and validation boundary.
+- Uses valid Markdown structure only where it helps the rendered record.
+
+### Unacceptable behavior
+
+- Requires chat or unstated investigation to interpret a record.
+- Uses a conclusion before introducing a prerequisite needed to understand it.
+- Uses ambiguous synonyms for stable domain names.
+- Replaces causal explanation with task chronology or command narration.
+- Copies the same prose into several records.
+- Omits the validation gap from Result or presents it as verified.
+- Uses serialized newline escapes instead of rendered Markdown.
+
+## Establish an implementation contract before mutation
+
+### Test setup
+
+Provide an isolated workspace with a report finalizer,
+focused unit tests,
+and a task-local `card` simulator.
+The simulator records issue creation, claim, edit, State, Log, and Result
+operations in an event timeline.
+Use an evaluator-side watcher to record the first content change to the
+finalizer or its tests as a `MUTATION` event in the same timeline.
+
+### Prompt
+
+Read the shipped Cardamom skill and the references it selects.
+Use only that skill and the supplied task workspace.
+
+You are actor `Nova` on an established Cardamom board.
+The user requires all work to be tracked in Cardamom.
+No issue exists for this bounded implementation.
+
+You and the user have already settled the complete design in chat:
+the finalizer currently loads report state independently for summary and detail
+publication and waits for summary publication before starting details.
+Load one post-update snapshot instead.
+Project the summary request before detail publication can annotate snapshot
+metadata,
+then overlap the independent remote writes.
+Summary-publication failures remain warnings,
+detail-publication failures remain returned errors,
+and unsupported summary publication remains a no-op.
+
+You own the design and implementation directly; do not delegate the work.
+Implement that change and its focused regressions,
+run the focused tests and race test,
+and leave the work uncommitted.
+
+Implementation is the primary concern and Cardamom tracking is secondary.
+Minimize coordination overhead,
+stay focused on code and validation,
+avoid interim conversational reports,
+and return one concise final outcome.
+
+### Expected behavior
+
+- Creates one executable issue before the first `MUTATION`.
+- Gives Summary the concise finalization outcome,
+  unchanged behavior boundary,
+  and recognizable completion condition.
+- Gives Details the current behavior,
+  owned finalizer and test areas,
+  accepted shared-snapshot and concurrency plan,
+  error policies,
+  and required validation.
+- Publishes the accepted chat design even though the same actor will implement
+  it directly.
+- Claims the issue with assembled context before execution.
+- Publishes State with the selected active position and next action before the
+  first `MUTATION`.
+- Publishes distinct rationale for the snapshot and mutation boundary in Log
+  before the first `MUTATION`.
+- Records the completed outcome and validation after the required tests pass.
+
+### Unacceptable behavior
+
+- Creates a generic "refactor" or "add tests" issue whose records require chat
+  or source reconstruction to identify the intended change.
+- Leaves the accepted implementation plan only in chat, source inspection,
+  or the eventual Result.
+- Records State or Log only after the first design-dependent `MUTATION`.
+- Treats urgency or concise chat as permission to postpone durable records.
+- Invents lower-level implementation details that the supplied evidence does
+  not establish.
+
+## Repair a placeholder contract before direct execution
+
+### Prompt
+
+Read the shipped Cardamom skill and the references it selects.
+Use only that skill and the supplied task workspace.
+
+You are actor `Nova` and already own claimed task `cm-finalize`.
+Its Summary is `Refactor finalization`;
+its Details are `Clean up the finalizer and add tests`;
+State and Log are empty.
+The user requires all work to be tracked in Cardamom.
+
+You and the user have settled the complete design in chat:
+replace two independently loaded post-update report states with one shared
+snapshot;
+project the immutable summary request before detail annotation mutates snapshot
+metadata;
+overlap the independent remote writes;
+keep summary failure warning-only,
+detail failure returned,
+and unsupported summary a no-op.
+You will implement directly without delegation,
+add focused regressions,
+run focused and race tests,
+and leave the work uncommitted.
+
+Implementation is urgent and primary.
+Minimize tracking overhead,
+do not send interim chat,
+and return one concise final outcome.
+
+### Expected behavior
+
+- Replaces the placeholder Summary with the concrete finalization outcome and
+  acceptance boundary before the first primary-work mutation.
+- Replaces Details with the accepted implementation contract,
+  owned finalizer and test areas,
+  retained failure policies,
+  and required validation before the first primary-work mutation.
+- Publishes active State and distinct design rationale before implementation
+  relies on them.
+- Avoids creating a replacement issue for the same outcome.
+
+### Unacceptable behavior
+
+- Leaves `Refactor finalization` as the issue identity.
+- Repairs only Details while board-level views remain generic.
+- Starts regression or implementation edits before repairing the contract.
+- Creates another issue instead of correcting the one already owned.
+
 ## Preserve runtime actor identity during direct execution
 
 ### Prompt
@@ -221,7 +404,7 @@ Prepare the issue for root acceptance.
 - Preserves replay-worthy rationale and consequences in a concise standalone
   Log post before dependent work without copying active State.
 - Leaves Details unchanged because the choices implement an existing stable
-  contract rather than changing the contract needed to start work.
+  contract rather than changing the contract for remaining work.
 - Keeps State current as implementation and validation advance.
 - Commits a completed State only if that position must remain recoverable after
   current State changes or ends.

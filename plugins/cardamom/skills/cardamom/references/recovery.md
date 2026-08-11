@@ -54,8 +54,8 @@ or earlier Results when their deeper context affects continuation.
 
 After recovery,
 replace Details only when a conclusion changes the stable issue-local contract
-needed to start work.
-Keep a conclusion needed only to continue active work in State;
+that remaining execution or review must rely on.
+Keep an immediate next action or transient working tactic in State;
 Log retains the expanded history.
 Replace State when recovered evidence changes the active position or next
 action.

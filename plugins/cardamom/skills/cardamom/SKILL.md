@@ -37,7 +37,7 @@ compare the issue records with what the action assumes:
 - State must contain the complete current premise and next action.
 - Log must already contain a newly selected material design, strategy, policy,
   or behavior choice and its useful rationale.
-- If the stable contract needed to start the issue changed,
+- If accepted knowledge changes the stable contract for remaining work,
   Details must contain the complete new contract.
 
 One transition may affect several records,
@@ -127,36 +127,48 @@ A resource lease, when needed, owns one external resource.
 Importance determines whether knowledge must be durable.
 Its future reader and lifetime determine the record:
 
-| Record | Reader question |
-| --- | --- |
-| Title | How is this outcome identified in lists, routing, and commands? |
-| Summary | What stable context must every descendant inherit? |
-| Details | What stable issue-local contract must an executor know to begin? |
-| State | What is true now, and what established action comes next? |
-| Log | Which earlier positions or decisions may deeper recovery need to replay? |
-| Result | What completed outcome and validation do acceptors and dependents consume? |
+Title identifies the outcome in lists, routing, and commands.
+Summary, Details, State, Log, and Result are Markdown bodies.
+Write each body as a durable reference for its reader.
+Include the prerequisites needed to understand the record,
+keep names stable,
+make material causes and boundaries visible,
+and distinguish evidence from inference or remaining uncertainty.
+Omit context that does not help the reader use the record.
+
+| Record | Reader | What the body establishes |
+| --- | --- | --- |
+| Summary | Descendants and reviewers | Stable outcome, inherited constraints, and acceptance boundary |
+| Details | Executors and reviewers | Operative issue-local contract, current behavior, owned area, accepted decisions, and evidence requirements |
+| State | Active execution and recovery | Current position, operative facts and uncertainty, and a separate next action |
+| Log | Deeper recovery | Material decision or completed position with rationale, evidence, alternatives, and consequences |
+| Result | Acceptors and dependents | Completed outcome, validation, material scope, and remaining gaps |
 
 Summary and Details establish what work means.
-Every ancestor Summary enters descendant context and each Summary has a
-configured byte limit,
-so Summary carries only the outcome, constraints, acceptance boundary,
-and conclusions that the issue contract or an actual child plan establishes
-every descendant needs.
-Details carry stable issue-local procedure, locations, accepted contract
-decisions,
-and evidence requirements without spending sibling or descendant context.
+Before primary work begins,
+the issue contract and inherited context must let an executor act and a reviewer
+assess the outcome without chat or reconstructing the intended change from
+source.
+Unknown implementation choices remain explicit investigation rather than
+plausible detail.
+Use [planning.md](references/planning.md) before creating or materially
+revising executable issues.
 
-State establishes where active work is now.
+Every ancestor Summary enters descendant context and each Summary has a
+configured byte limit.
+Details keep issue-local contract material out of sibling and descendant
+context.
+
 The current issue and each ancestor contribute State to contextual output.
 `state set` replaces the active State body and optional next action,
 so every replacement retains the facts that remain operative.
+The next action is a separate Markdown field,
+not a closing sentence buried in State.
 
-Log explains how the work reached an earlier position.
-It preserves committed State snapshots and reasoning or evidence needed to
-reconstruct decisions;
+Log preserves committed State snapshots and material decision context;
 finite-work recovery may replay it completely.
-Result owns the completed outcome and validation rather than active recovery
-context or decision history.
+Result is completion evidence rather than active recovery context or decision
+history.
 
 Progressively disclose context according to the executor's question:
 

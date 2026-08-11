@@ -28,8 +28,18 @@ Use a negative label only for a real exclusion from a shared pool.
 
 Before material work, confirm that the current Summary and Details,
 inherited ancestor Summaries, completed dependency Results,
-and execution environment establish the outcome, constraints,
-and acceptance boundary without chat history.
+and execution environment establish the concrete intended change,
+owned work area, constraints, and acceptance evidence without chat history.
+Source inspection may supply execution evidence;
+it must not be the only place that identifies what the issue means.
+If the existing Summary names only a generic activity,
+replace it with the concise outcome and acceptance boundary before primary
+work begins.
+If an accepted implementation plan from conversation or inspection is absent
+from Details,
+publish the stable plan before State, Log, or dependent work relies on it.
+This gate applies when the claim owner will implement the work directly;
+it does not depend on a delegation or handoff boundary.
 When the contract cannot support execution, publish the gap and stop.
 Retain custody only when the same actor owns the correction;
 otherwise leave recoverable State and release the issue.
@@ -74,8 +84,8 @@ read their Results and inspect the resulting system before continuing.
 
 Use the new evidence to choose the current outcome:
 
-- Incorporate a conclusion into Details only when it changes the stable
-  issue-local contract needed to start work.
+- Incorporate a conclusion into Details when it changes the stable
+  issue-local contract that remaining execution or review must rely on.
 - Put the current execution position and next established transition in State.
 - Preserve a changed or rejected approach in Log when its reasoning will matter
   later.
@@ -85,15 +95,16 @@ Use the new evidence to choose the current outcome:
 Do not preserve a superseded draft merely because work was previously planned.
 
 Do not put every accepted conclusion in Details.
-If an issue begins under-specified and accepted research establishes the
-approach a new executor needs to begin,
+If accepted research or inspection establishes an implementation plan that
+future execution or review must retain,
 replace Details with the complete stable working contract.
 Keep the research evidence and alternatives in Log,
 then replace State with the active execution position and next action.
 Commit the completed research State first only when that distinct position has
 replay value beyond the existing research Log.
-If a conclusion changes only the continuation of work already in progress,
-leave Details unchanged and carry the accepted approach in State.
+If a conclusion changes only the immediate next action or a transient working
+tactic,
+leave Details unchanged and carry it in State.
 
 ## Keep active State current
 
@@ -177,7 +188,18 @@ rather than accumulating history.
 
 ## Author durable records
 
-Write records for their rendered meaning.
+Write each rendered record for the decision or continuation its reader owns.
+Account for context the reader receives from the issue graph,
+but do not rely on chat or unstated investigation.
+Introduce prerequisites before claims that depend on them,
+reuse stable names,
+and make material scope, causes, evidence, and uncertainty explicit.
+Omit command narration and background that does not help the reader use the
+record.
+Use headings and lists when they expose real structure;
+do not add them around a single clear sentence.
+Keep chronology only in records that own history.
+
 Use a single-quoted scalar for a simple one-line body
 and a single-quoted heredoc for multiline or Markdown-rich input:
 
