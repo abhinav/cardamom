@@ -117,8 +117,10 @@ Workstreams and routines may contain children.
 Tasks and checkpoints are leaf outcomes.
 Containment does not establish readiness,
 and labels do not replace lifecycle, dependency, custody, or waiting state.
-A claim owns work;
-a resource lease, when needed, owns one external resource.
+The claim owner owns issue execution
+and maintains its durable records and handoff.
+An assisting actor without issue custody returns evidence to the claim owner.
+A resource lease, when needed, owns one external resource.
 
 ## Model the parts of an issue
 
