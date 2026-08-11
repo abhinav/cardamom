@@ -12,22 +12,22 @@
   },
   "dependencies": {
     "@bufbuild/protobuf": "^2.13.0",
-    "@connectrpc/connect": "^2.1.1",
-    "@connectrpc/connect-query": "^2.2.0",
-    "@connectrpc/connect-web": "^2.1.1",
+    "@connectrpc/connect": "^2.1.2",
+    "@connectrpc/connect-query": "^2.3.1",
+    "@connectrpc/connect-web": "^2.1.2",
     "@tanstack/react-query": "^5.101.4",
-    "lucide-react": "^1.25.0",
+    "lucide-react": "^1.31.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-router": "^8.3.0"
   },
   "devDependencies": {
     "@bufbuild/protoc-gen-es": "2.13.0",
-    "@types/react": "^19.2.17",
-    "@types/react-dom": "^19.2.3",
-    "@vitejs/plugin-react": "^6.0.3",
-    "typescript": "^5.9.3",
-    "vite": "^8.1.5",
-    "vitest": "^4.0.18"
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.4",
+    "@vitejs/plugin-react": "^6.0.5",
+    "typescript": "^7.0.2",
+    "vite": "^8.2.1",
+    "vitest": "^4.1.10"
   }
 }
