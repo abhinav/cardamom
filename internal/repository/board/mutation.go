@@ -36,6 +36,9 @@ type mutation struct {
 	reservation store.RevisionReservation
 }
 
+// beginMutation opens the common issue writer boundary. Reading lifecycle and
+// revision through that immediate transaction ensures an archive transition
+// cannot interleave with an accepted issue mutation.
 func (r *Repository) beginMutation(
 	ctx context.Context,
 ) (*mutation, error) {
@@ -43,13 +46,18 @@ func (r *Repository) beginMutation(
 	if err != nil {
 		return nil, err
 	}
-	current, err := query.New(change).BoardGetRevision(ctx, r.boardID.String())
+	row, err := query.New(change).BoardGetRevision(ctx, r.boardID.String())
 	if err != nil {
 		return nil, errors.Join(err, change.Done())
 	}
+	// Explicit reads use separate paths and remain available for archived boards;
+	// only the writer boundary enforces lifecycle policy.
+	if row.ArchivedAt != nil {
+		return nil, errors.Join(domainboard.ErrArchived, change.Done())
+	}
 	return &mutation{
 		repository: r, change: change, reservedIssueIDs: make(map[issue.ID]struct{}),
-		current: domainboard.Revision(current), occurredAt: r.clock.Now(),
+		current: domainboard.Revision(row.Revision), occurredAt: r.clock.Now(),
 	}, nil
 }
 

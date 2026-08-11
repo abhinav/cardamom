@@ -1,5 +1,7 @@
 -- name: BoardGetRevision :one
-SELECT revision
+-- Issue writers read lifecycle and revision together through their immediate
+-- transaction, preventing archive and mutation acceptance from interleaving.
+SELECT revision, archived_at
 FROM boards
 WHERE id = sqlc.arg(id);
 

@@ -652,6 +652,30 @@ func (f *fakeProjectCatalog) EditBoardSettings(
 	return f.edited, nil
 }
 
+func (f *fakeProjectCatalog) ArchiveBoard(
+	_ context.Context,
+	invocation board.Invocation,
+	request board.ArchiveRequest,
+) (board.ArchiveResult, error) {
+	state, err := f.Board(context.Background(), request.BoardID)
+	if err != nil {
+		return board.ArchiveResult{}, err
+	}
+	changed, err := state.ArchiveBoard(invocation.Actor(), time.Unix(40, 0).UTC(), request.Reason)
+	return board.ArchiveResult{Board: state, Changed: changed}, err
+}
+
+func (f *fakeProjectCatalog) UnarchiveBoard(
+	_ context.Context,
+	id board.ID,
+) (*board.State, bool, error) {
+	state, err := f.Board(context.Background(), id)
+	if err != nil {
+		return nil, false, err
+	}
+	return state, state.Unarchive(), nil
+}
+
 type fakeBoardBinding struct {
 	selected board.ID
 	written  board.ID

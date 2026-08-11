@@ -46,6 +46,22 @@ message BoardSummary {
 
   // source identifies the server that supplied this board in aggregate mode.
   optional SourceRef source = 4;
+
+  // archived is present for an archived board and absent for an active board.
+  optional BoardArchive archived = 5;
+}
+
+// BoardArchive is the board's current logical archive state. Unarchiving clears
+// this metadata; it is not a lifecycle history.
+message BoardArchive {
+  // actor identifies the invocation that archived the board.
+  string actor = 1;
+
+  // at is the time at which the archive transition committed.
+  google.protobuf.Timestamp at = 2;
+
+  // reason is the optional normalized explanation supplied by the actor.
+  optional string reason = 3;
 }
 
 // Board contains browser-visible board settings and rendered context.
@@ -67,6 +83,9 @@ message Board {
 
   // source identifies the server that supplied this board in aggregate mode.
   optional SourceRef source = 6;
+
+  // archived is present for an archived board and absent for an active board.
+  optional BoardArchive archived = 7;
 }
 
 // ListProjectsRequest requests every project in catalog order.
@@ -207,6 +226,70 @@ message UpdateBoardResponse {
   Board board = 1;
 }
 
+// ArchiveBoardRequest selects a board for logical archival.
+message ArchiveBoardRequest {
+  // board_id identifies the board explicitly; archived boards remain addressable.
+  string board_id = 1;
+
+  // reason optionally records a non-empty explanation for the transition.
+  optional string reason = 2;
+
+  // context supplies attribution for the archive transition.
+  MutationContext context = 3;
+}
+
+// ArchiveBoardResponse reports the committed lifecycle state and issue snapshot.
+message ArchiveBoardResponse {
+  // board is the authoritative current board record.
+  Board board = 1;
+
+  // changed is true only when this invocation performed the transition.
+  bool changed = 2;
+
+  // issues is the status population observed by the archive writer.
+  BoardArchiveIssueCounts issues = 3;
+}
+
+// BoardArchiveIssueCounts is the effective status partition observed in the
+// same transaction as an archive attempt. Status counts sum to total.
+message BoardArchiveIssueCounts {
+  // total is the number of issues in the board.
+  uint64 total = 1;
+
+  // ready is the number of issues whose effective status is ready.
+  uint64 ready = 2;
+
+  // blocked is the number of issues whose effective status is blocked.
+  uint64 blocked = 3;
+
+  // in_progress is the number of issues whose effective status is in progress.
+  uint64 in_progress = 4;
+
+  // waiting is the number of issues whose effective status is waiting.
+  uint64 waiting = 5;
+
+  // closed is the number of issues whose effective status is closed.
+  uint64 closed = 6;
+
+  // cancelled is the number of issues whose effective status is cancelled.
+  uint64 cancelled = 7;
+}
+
+// UnarchiveBoardRequest selects a board to restore to active service.
+message UnarchiveBoardRequest {
+  // board_id identifies the board explicitly.
+  string board_id = 1;
+}
+
+// UnarchiveBoardResponse reports the committed lifecycle state.
+message UnarchiveBoardResponse {
+  // board is the authoritative active board record.
+  Board board = 1;
+
+  // changed is true only when this invocation cleared archive metadata.
+  bool changed = 2;
+}
+
 // ProjectService exposes startup catalog reads and project-owned board
 // settings on the browser transport.
 service ProjectService {
@@ -238,4 +321,12 @@ service ProjectService {
 
   // UpdateBoard replaces the supplied settings for one board.
   rpc UpdateBoard(UpdateBoardRequest) returns (UpdateBoardResponse);
+
+  // ArchiveBoard logically archives a board that has no active claim and
+  // reports its effective issue population.
+  rpc ArchiveBoard(ArchiveBoardRequest) returns (ArchiveBoardResponse);
+
+  // UnarchiveBoard restores an archived board to active mutation service and
+  // succeeds unchanged for an already active board.
+  rpc UnarchiveBoard(UnarchiveBoardRequest) returns (UnarchiveBoardResponse);
 }

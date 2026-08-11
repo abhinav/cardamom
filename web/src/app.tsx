@@ -245,6 +245,19 @@ interface ApplicationShellProps {
   version: string;
 }
 
+/**
+ * boardSettingsOpener exposes settings for boards owned by the writable local
+ * server. Scope selection does not limit availability because aggregate scope
+ * has no selected board and each selector row supplies its own board ID.
+ */
+export function boardSettingsOpener(
+  aggregateMode: boolean,
+  canMutateServer: boolean,
+  open: (boardId: string) => void,
+): ((boardId: string) => void) | undefined {
+  return !aggregateMode && canMutateServer ? open : undefined;
+}
+
 function ApplicationShell({
   attachmentClient,
   aggregateMode,
@@ -264,13 +277,17 @@ function ApplicationShell({
   const navigate = useNavigate();
   const location = useLocation();
   const collectionRoute = isCollectionRoute(location.pathname);
-  const [boardSettingsOpen, setBoardSettingsOpen] = useState(false);
+  const [boardSettingsBoardId, setBoardSettingsBoardId] = useState<string>();
   const selectionIdentity = scopeKey(selection);
-  useEffect(() => setBoardSettingsOpen(false), [selectionIdentity]);
+  useEffect(() => setBoardSettingsBoardId(undefined), [selectionIdentity]);
   const selectedBoard =
     selection.kind === "board"
       ? boards.find((board) => board.id === selection.boardId)
       : undefined;
+  // Archived boards remain explicit read targets, but the shell must not offer
+  // mutations that the repository lifecycle guard will reject.
+  const canMutateSelection = canMutateServer &&
+    (selection.kind !== "board" || selectedBoard?.archived === undefined);
   const boardName =
     selection.kind === "unresolved"
       ? "Boards"
@@ -333,11 +350,11 @@ function ApplicationShell({
             sources={sources}
             projects={projects}
             selection={selection}
-            onOpenBoardSettings={
-              !aggregateMode && canMutateServer && selectedBoard !== undefined
-                ? () => setBoardSettingsOpen(true)
-                : undefined
-            }
+            onOpenBoardSettings={boardSettingsOpener(
+              aggregateMode,
+              serverCanMutate,
+              setBoardSettingsBoardId,
+            )}
             onSelectScope={(nextSelection) =>
               navigate(
                 boardScopeHref(
@@ -410,7 +427,7 @@ function ApplicationShell({
           <RouteContent
             attachmentClient={attachmentClient}
             boards={boards}
-            canMutateServer={canMutateServer}
+            canMutateServer={canMutateSelection}
             aggregateMode={aggregateMode}
             preferences={preferences}
             projects={projects}
@@ -422,13 +439,13 @@ function ApplicationShell({
           />
         </main>
         <Suspense fallback={null}>
-          {!aggregateMode && canMutateServer && boardSettingsOpen && selectedBoard !== undefined && (
+          {!aggregateMode && canMutateServer && boardSettingsBoardId !== undefined && (
             <BoardSettingsDialog
-              key={selectedBoard.id}
+              key={boardSettingsBoardId}
               actor={preferences.actor}
-              boardId={selectedBoard.id}
-              onDismiss={() => setBoardSettingsOpen(false)}
-              onSaved={() => setBoardSettingsOpen(false)}
+              boardId={boardSettingsBoardId}
+              onDismiss={() => setBoardSettingsBoardId(undefined)}
+              onSaved={() => setBoardSettingsBoardId(undefined)}
             />
           )}
         </Suspense>

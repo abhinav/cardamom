@@ -13,7 +13,9 @@ import (
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
-// CommitUpload publishes one attachment or returns its existing receipt.
+// CommitUpload publishes one attachment or returns its existing receipt. It
+// returns board.ErrArchived without publishing when the upload's board is
+// archived.
 func (r *Repository) CommitUpload(
 	ctx context.Context,
 	request domainattachment.CommitUploadRequest,
@@ -25,6 +27,9 @@ func (r *Repository) CommitUpload(
 	defer func() { err = errors.Join(err, change.Done()) }()
 	upload, err := r.loadUpload(ctx, change, request.UploadID)
 	if err != nil {
+		return domainattachment.Attachment{}, err
+	}
+	if err := requireMutableBoard(ctx, query.New(change), upload.Association.BoardID()); err != nil {
 		return domainattachment.Attachment{}, err
 	}
 	if err := requireUploadActor(upload, request.Invocation.Actor()); err != nil {
@@ -101,7 +106,9 @@ func (r *Repository) CommitUpload(
 	return attachment, r.blobs.removeStaging(upload.ID)
 }
 
-// AbortUpload abandons an active upload or returns its existing receipt.
+// AbortUpload abandons an active upload or returns its existing receipt. It
+// returns board.ErrArchived without changing the receipt when the upload's
+// board is archived.
 func (r *Repository) AbortUpload(
 	ctx context.Context,
 	request domainattachment.AbortUploadRequest,
@@ -113,6 +120,9 @@ func (r *Repository) AbortUpload(
 	defer func() { err = errors.Join(err, change.Done()) }()
 	upload, err := r.loadUpload(ctx, change, request.UploadID)
 	if err != nil {
+		return domainattachment.Upload{}, err
+	}
+	if err := requireMutableBoard(ctx, query.New(change), upload.Association.BoardID()); err != nil {
 		return domainattachment.Upload{}, err
 	}
 	if err := requireUploadActor(upload, request.Invocation.Actor()); err != nil {

@@ -41,7 +41,9 @@ func New(catalog Catalog, issues IssueLocator) *Resolver {
 	return &Resolver{catalog: catalog, issues: issues}
 }
 
-// Boards validates scope and returns its current catalog boards.
+// Boards validates scope and returns its catalog boards. Explicit identity
+// scopes include archived boards for reading; all-board scopes include only
+// active boards.
 func (r *Resolver) Boards(ctx context.Context, scope *privatev1.BoardScope) ([]*board.State, error) {
 	if scope == nil || scope.Selection == nil {
 		return nil, errkind.Errorf(errkind.InvalidInput, "invalid input: board scope is required")
@@ -61,13 +63,24 @@ func (r *Resolver) Boards(ctx context.Context, scope *privatev1.BoardScope) ([]*
 		if selection.AllBoards == nil {
 			return nil, errkind.Errorf(errkind.InvalidInput, "invalid input: all-boards scope is required")
 		}
-		return r.catalog.List(ctx)
+		states, err := r.catalog.List(ctx)
+		if err != nil {
+			return nil, err
+		}
+		active := make([]*board.State, 0, len(states))
+		for _, state := range states {
+			if state.Archived() == nil {
+				active = append(active, state)
+			}
+		}
+		return active, nil
 	default:
 		return nil, errkind.Errorf(errkind.InvalidInput, "invalid input: unknown board scope")
 	}
 }
 
-// BoardForIssue validates issueID and returns its current catalog board.
+// BoardForIssue validates issueID and returns its owning board regardless of
+// lifecycle state.
 func (r *Resolver) BoardForIssue(ctx context.Context, issueID string) (*board.State, error) {
 	if _, err := issue.NewID(issueID); err != nil {
 		return nil, err

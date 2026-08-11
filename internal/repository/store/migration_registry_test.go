@@ -244,13 +244,22 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 	require.NoError(t, err)
 	_, err = legacyProvider.Up(t.Context())
 	require.NoError(t, err)
+	// The legacy Go migration marks the baseline version without creating its
+	// schema. Supply the columns required by later migrations while preserving
+	// the test's cross-source version-identity boundary.
+	_, err = db.ExecContext(
+		t.Context(),
+		`CREATE TABLE boards (id TEXT, project_id TEXT, name TEXT)`,
+	)
+	require.NoError(t, err)
 
 	provider, err := newStoreMigrationProvider(db)
 	require.NoError(t, err)
 	results, err := provider.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, results, 1)
+	require.Len(t, results, 2)
 	assert.Equal(t, int64(20260729090000), results[0].Source.Version)
+	assert.Equal(t, int64(20260811090000), results[1].Source.Version)
 
 	var appliedVersions int
 	require.NoError(t, db.QueryRow(`
@@ -261,10 +270,11 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 				20260723150000,
 				20260726143816,
 				20260726181403,
-				20260729090000
+				20260729090000,
+				20260811090000
 			)
 	`).Scan(&appliedVersions))
-	assert.Equal(t, 4, appliedVersions)
+	assert.Equal(t, 5, appliedVersions)
 }
 
 func TestBoardCopyMigrationPreservesBaselineStore(t *testing.T) {
@@ -290,7 +300,9 @@ VALUES ('board-existing', 'project-existing', 'Existing board', 1000)`)
 	require.NoError(t, err)
 	results, err := current.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, results, 1)
+	require.Len(t, results, 2)
+	assert.Equal(t, int64(20260729090000), results[0].Source.Version)
+	assert.Equal(t, int64(20260811090000), results[1].Source.Version)
 
 	var projectName, boardName, lineage string
 	require.NoError(t, db.QueryRowContext(t.Context(), `

@@ -10,6 +10,8 @@ import (
 )
 
 // BeginUpload establishes durable staging before publishing upload metadata.
+// It returns board.ErrArchived without creating staging when the target board
+// is archived.
 func (r *Repository) BeginUpload(
 	ctx context.Context,
 	admission domainattachment.BeginUploadAdmission,
@@ -22,6 +24,9 @@ func (r *Repository) BeginUpload(
 	defer func() { err = errors.Join(err, change.Done()) }()
 
 	queries := query.New(change)
+	if err := requireMutableBoard(ctx, queries, request.Association.BoardID()); err != nil {
+		return domainattachment.Upload{}, err
+	}
 	if err := validateUploadTarget(ctx, queries, request.Association); err != nil {
 		return domainattachment.Upload{}, err
 	}

@@ -165,7 +165,7 @@ func TestOpenDeclaresAllPersistedInstantsAsTimestamps(t *testing.T) {
 		wantColumns []string
 	}{
 		{name: "Projects", table: "projects", wantColumns: []string{"created_at"}},
-		{name: "Boards", table: "boards", wantColumns: []string{"created_at"}},
+		{name: "Boards", table: "boards", wantColumns: []string{"created_at", "archived_at"}},
 		{name: "Issues", table: "issues", wantColumns: []string{
 			"created_at", "updated_at", "closed_at", "waiting_since",
 		}},

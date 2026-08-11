@@ -10,6 +10,32 @@ import (
 	"time"
 )
 
+const projectArchiveBoard = `-- name: ProjectArchiveBoard :exec
+UPDATE boards
+SET archived_at = ?1,
+    archived_by = ?2,
+    archive_reason = ?3
+WHERE id = ?4
+`
+
+type ProjectArchiveBoardParams struct {
+	ArchivedAt    *time.Time
+	ArchivedBy    *string
+	ArchiveReason *string
+	ID            string
+}
+
+// Archive metadata is one logical value protected by the table invariant.
+func (q *Queries) ProjectArchiveBoard(ctx context.Context, arg ProjectArchiveBoardParams) error {
+	_, err := q.db.ExecContext(ctx, projectArchiveBoard,
+		arg.ArchivedAt,
+		arg.ArchivedBy,
+		arg.ArchiveReason,
+		arg.ID,
+	)
+	return err
+}
+
 const projectCreateBoard = `-- name: ProjectCreateBoard :exec
 INSERT INTO boards (
     id,
@@ -58,6 +84,18 @@ func (q *Queries) ProjectExists(ctx context.Context, id string) (bool, error) {
 	var project_exists bool
 	err := row.Scan(&project_exists)
 	return project_exists, err
+}
+
+const projectUnarchiveBoard = `-- name: ProjectUnarchiveBoard :exec
+UPDATE boards
+SET archived_at = NULL, archived_by = NULL, archive_reason = NULL
+WHERE id = ?1
+`
+
+// Clearing all archive columns restores the active representation.
+func (q *Queries) ProjectUnarchiveBoard(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, projectUnarchiveBoard, id)
+	return err
 }
 
 const projectUpdateBoardSettings = `-- name: ProjectUpdateBoardSettings :exec

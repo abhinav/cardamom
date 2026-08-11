@@ -53,6 +53,12 @@ const (
 	// ProjectServiceUpdateBoardProcedure is the fully-qualified name of the ProjectService's
 	// UpdateBoard RPC.
 	ProjectServiceUpdateBoardProcedure = "/cardamom.private.v1.ProjectService/UpdateBoard"
+	// ProjectServiceArchiveBoardProcedure is the fully-qualified name of the ProjectService's
+	// ArchiveBoard RPC.
+	ProjectServiceArchiveBoardProcedure = "/cardamom.private.v1.ProjectService/ArchiveBoard"
+	// ProjectServiceUnarchiveBoardProcedure is the fully-qualified name of the ProjectService's
+	// UnarchiveBoard RPC.
+	ProjectServiceUnarchiveBoardProcedure = "/cardamom.private.v1.ProjectService/UnarchiveBoard"
 )
 
 // ProjectServiceClient is a client for the cardamom.private.v1.ProjectService service.
@@ -71,6 +77,12 @@ type ProjectServiceClient interface {
 	CreateBoard(context.Context, *connect.Request[v1.CreateBoardRequest]) (*connect.Response[v1.CreateBoardResponse], error)
 	// UpdateBoard replaces the supplied settings for one board.
 	UpdateBoard(context.Context, *connect.Request[v1.UpdateBoardRequest]) (*connect.Response[v1.UpdateBoardResponse], error)
+	// ArchiveBoard logically archives a board that has no active claim and
+	// reports its effective issue population.
+	ArchiveBoard(context.Context, *connect.Request[v1.ArchiveBoardRequest]) (*connect.Response[v1.ArchiveBoardResponse], error)
+	// UnarchiveBoard restores an archived board to active mutation service and
+	// succeeds unchanged for an already active board.
+	UnarchiveBoard(context.Context, *connect.Request[v1.UnarchiveBoardRequest]) (*connect.Response[v1.UnarchiveBoardResponse], error)
 }
 
 // NewProjectServiceClient constructs a client for the cardamom.private.v1.ProjectService service.
@@ -130,18 +142,32 @@ func NewProjectServiceClient(httpClient connect.HTTPClient, baseURL string, opts
 			connect.WithSchema(projectServiceMethods.ByName("UpdateBoard")),
 			connect.WithClientOptions(opts...),
 		),
+		archiveBoard: connect.NewClient[v1.ArchiveBoardRequest, v1.ArchiveBoardResponse](
+			httpClient,
+			baseURL+ProjectServiceArchiveBoardProcedure,
+			connect.WithSchema(projectServiceMethods.ByName("ArchiveBoard")),
+			connect.WithClientOptions(opts...),
+		),
+		unarchiveBoard: connect.NewClient[v1.UnarchiveBoardRequest, v1.UnarchiveBoardResponse](
+			httpClient,
+			baseURL+ProjectServiceUnarchiveBoardProcedure,
+			connect.WithSchema(projectServiceMethods.ByName("UnarchiveBoard")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // projectServiceClient implements ProjectServiceClient.
 type projectServiceClient struct {
-	listProjects  *connect.Client[v1.ListProjectsRequest, v1.ListProjectsResponse]
-	listBoards    *connect.Client[v1.ListBoardsRequest, v1.ListBoardsResponse]
-	getBootstrap  *connect.Client[v1.GetBootstrapRequest, v1.GetBootstrapResponse]
-	getBoard      *connect.Client[v1.GetBoardRequest, v1.GetBoardResponse]
-	createProject *connect.Client[v1.CreateProjectRequest, v1.CreateProjectResponse]
-	createBoard   *connect.Client[v1.CreateBoardRequest, v1.CreateBoardResponse]
-	updateBoard   *connect.Client[v1.UpdateBoardRequest, v1.UpdateBoardResponse]
+	listProjects   *connect.Client[v1.ListProjectsRequest, v1.ListProjectsResponse]
+	listBoards     *connect.Client[v1.ListBoardsRequest, v1.ListBoardsResponse]
+	getBootstrap   *connect.Client[v1.GetBootstrapRequest, v1.GetBootstrapResponse]
+	getBoard       *connect.Client[v1.GetBoardRequest, v1.GetBoardResponse]
+	createProject  *connect.Client[v1.CreateProjectRequest, v1.CreateProjectResponse]
+	createBoard    *connect.Client[v1.CreateBoardRequest, v1.CreateBoardResponse]
+	updateBoard    *connect.Client[v1.UpdateBoardRequest, v1.UpdateBoardResponse]
+	archiveBoard   *connect.Client[v1.ArchiveBoardRequest, v1.ArchiveBoardResponse]
+	unarchiveBoard *connect.Client[v1.UnarchiveBoardRequest, v1.UnarchiveBoardResponse]
 }
 
 // ListProjects calls cardamom.private.v1.ProjectService.ListProjects.
@@ -179,6 +205,16 @@ func (c *projectServiceClient) UpdateBoard(ctx context.Context, req *connect.Req
 	return c.updateBoard.CallUnary(ctx, req)
 }
 
+// ArchiveBoard calls cardamom.private.v1.ProjectService.ArchiveBoard.
+func (c *projectServiceClient) ArchiveBoard(ctx context.Context, req *connect.Request[v1.ArchiveBoardRequest]) (*connect.Response[v1.ArchiveBoardResponse], error) {
+	return c.archiveBoard.CallUnary(ctx, req)
+}
+
+// UnarchiveBoard calls cardamom.private.v1.ProjectService.UnarchiveBoard.
+func (c *projectServiceClient) UnarchiveBoard(ctx context.Context, req *connect.Request[v1.UnarchiveBoardRequest]) (*connect.Response[v1.UnarchiveBoardResponse], error) {
+	return c.unarchiveBoard.CallUnary(ctx, req)
+}
+
 // ProjectServiceHandler is an implementation of the cardamom.private.v1.ProjectService service.
 type ProjectServiceHandler interface {
 	// ListProjects returns every project in catalog order.
@@ -195,6 +231,12 @@ type ProjectServiceHandler interface {
 	CreateBoard(context.Context, *connect.Request[v1.CreateBoardRequest]) (*connect.Response[v1.CreateBoardResponse], error)
 	// UpdateBoard replaces the supplied settings for one board.
 	UpdateBoard(context.Context, *connect.Request[v1.UpdateBoardRequest]) (*connect.Response[v1.UpdateBoardResponse], error)
+	// ArchiveBoard logically archives a board that has no active claim and
+	// reports its effective issue population.
+	ArchiveBoard(context.Context, *connect.Request[v1.ArchiveBoardRequest]) (*connect.Response[v1.ArchiveBoardResponse], error)
+	// UnarchiveBoard restores an archived board to active mutation service and
+	// succeeds unchanged for an already active board.
+	UnarchiveBoard(context.Context, *connect.Request[v1.UnarchiveBoardRequest]) (*connect.Response[v1.UnarchiveBoardResponse], error)
 }
 
 // NewProjectServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -250,6 +292,18 @@ func NewProjectServiceHandler(svc ProjectServiceHandler, opts ...connect.Handler
 		connect.WithSchema(projectServiceMethods.ByName("UpdateBoard")),
 		connect.WithHandlerOptions(opts...),
 	)
+	projectServiceArchiveBoardHandler := connect.NewUnaryHandler(
+		ProjectServiceArchiveBoardProcedure,
+		svc.ArchiveBoard,
+		connect.WithSchema(projectServiceMethods.ByName("ArchiveBoard")),
+		connect.WithHandlerOptions(opts...),
+	)
+	projectServiceUnarchiveBoardHandler := connect.NewUnaryHandler(
+		ProjectServiceUnarchiveBoardProcedure,
+		svc.UnarchiveBoard,
+		connect.WithSchema(projectServiceMethods.ByName("UnarchiveBoard")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/cardamom.private.v1.ProjectService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ProjectServiceListProjectsProcedure:
@@ -266,6 +320,10 @@ func NewProjectServiceHandler(svc ProjectServiceHandler, opts ...connect.Handler
 			projectServiceCreateBoardHandler.ServeHTTP(w, r)
 		case ProjectServiceUpdateBoardProcedure:
 			projectServiceUpdateBoardHandler.ServeHTTP(w, r)
+		case ProjectServiceArchiveBoardProcedure:
+			projectServiceArchiveBoardHandler.ServeHTTP(w, r)
+		case ProjectServiceUnarchiveBoardProcedure:
+			projectServiceUnarchiveBoardHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -301,4 +359,12 @@ func (UnimplementedProjectServiceHandler) CreateBoard(context.Context, *connect.
 
 func (UnimplementedProjectServiceHandler) UpdateBoard(context.Context, *connect.Request[v1.UpdateBoardRequest]) (*connect.Response[v1.UpdateBoardResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.ProjectService.UpdateBoard is not implemented"))
+}
+
+func (UnimplementedProjectServiceHandler) ArchiveBoard(context.Context, *connect.Request[v1.ArchiveBoardRequest]) (*connect.Response[v1.ArchiveBoardResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.ProjectService.ArchiveBoard is not implemented"))
+}
+
+func (UnimplementedProjectServiceHandler) UnarchiveBoard(context.Context, *connect.Request[v1.UnarchiveBoardRequest]) (*connect.Response[v1.UnarchiveBoardResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.ProjectService.UnarchiveBoard is not implemented"))
 }

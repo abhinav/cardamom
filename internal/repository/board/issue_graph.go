@@ -148,6 +148,8 @@ func (r *Repository) ApplyDocument(
 	return out, nil
 }
 
+// dryRunDocument reads archived boards because a dry run produces no mutation;
+// beginMutation owns the corresponding lifecycle guard for committed applies.
 func (r *Repository) dryRunDocument(
 	ctx context.Context,
 	document planning.ApplyDocument,
@@ -164,7 +166,7 @@ func (r *Repository) dryRunDocument(
 	snapshot, err := r.applySnapshot(
 		ctx,
 		view,
-		domainboard.Revision(current),
+		domainboard.Revision(current.Revision),
 		document.ReferencedIssueIDs(),
 	)
 	if err != nil {

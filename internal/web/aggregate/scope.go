@@ -62,12 +62,18 @@ func (s *Server) targets(scope *v1.BoardScope) ([]readTarget, error) {
 	}
 }
 
+// projectTargets expands a project aggregate to active boards. Explicit board
+// routes are resolved elsewhere and continue to admit archived boards for reads.
 func (s *Server) projectTargets(value *source, projectID string) []readTarget {
 	var result []readTarget
 	for _, board := range s.boardList {
-		if board.GetSource().GetSourceId() == value.config.Alias && board.GetProjectId() == projectID {
-			result = append(result, readTarget{source: value, boardID: board.GetId()})
+		if board.GetArchived() != nil {
+			continue
 		}
+		if board.GetSource().GetSourceId() != value.config.Alias || board.GetProjectId() != projectID {
+			continue
+		}
+		result = append(result, readTarget{source: value, boardID: board.GetId()})
 	}
 	return result
 }

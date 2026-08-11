@@ -34,6 +34,8 @@ interface AvailableBoard {
   projectId: string;
   name: string;
   source?: BoardSummary["source"];
+  /** archived is present when the board is readable but omitted from active discovery. */
+  archived?: BoardSummary["archived"];
 }
 
 interface AvailableSource {
@@ -68,7 +70,9 @@ export function BoardPickerRoute({
   sources = [],
 }: BoardPickerRouteProps) {
   const [query, setQuery] = useState("");
-  const units = visibleProjectUnits(projects, boards, query);
+  const [showArchived, setShowArchived] = useState(false);
+  const visibleBoards = catalogBoards(boards, showArchived);
+  const units = visibleProjectUnits(projects, visibleBoards, query);
 
   return (
     <section className="board-picker" aria-labelledby="board-picker-title">
@@ -82,16 +86,26 @@ export function BoardPickerRoute({
           <span>{catalogSummary(projects.length, boards.length)}</span>
         </Link>
       </header>
-      <label className="board-picker-search">
-        <Search aria-hidden="true" />
-        <span className="sr-only">Search boards and projects</span>
-        <input
-          type="search"
-          value={query}
-          placeholder="Find a board or project"
-          onChange={(event) => setQuery(event.currentTarget.value)}
-        />
-      </label>
+      <div className="board-picker-filters">
+        <label className="board-picker-search">
+          <Search aria-hidden="true" />
+          <span className="sr-only">Search boards and projects</span>
+          <input
+            type="search"
+            value={query}
+            placeholder="Find a board or project"
+            onChange={(event) => setQuery(event.currentTarget.value)}
+          />
+        </label>
+        <label className="board-picker-archived">
+          <input
+            type="checkbox"
+            checked={showArchived}
+            onChange={(event) => setShowArchived(event.currentTarget.checked)}
+          />
+          <span>Show archived</span>
+        </label>
+      </div>
       <div className="board-picker-projects">
         {aggregate && <SourceHeadings sources={sources} />}
         {units.map((unit) => (
@@ -113,7 +127,7 @@ export function BoardPickerRoute({
               {unit.boards.map((board) => (
                 <Link key={board.id} to={boardScopePath({ kind: "board", boardId: board.id })}>
                   <span>{board.name}</span>
-                  <span>{board.id}</span>
+                  <span>{board.archived === undefined ? board.id : `${board.id} · Archived`}</span>
                 </Link>
               ))}
             </div>
@@ -127,6 +141,17 @@ export function BoardPickerRoute({
       </div>
     </section>
   );
+}
+
+/**
+ * catalogBoards defaults the Boards page to active discovery. Opting in
+ * preserves the complete catalog so an archived board remains navigable.
+ */
+export function catalogBoards(
+  boards: readonly AvailableBoard[],
+  showArchived: boolean,
+): readonly AvailableBoard[] {
+  return showArchived ? boards : boards.filter((board) => board.archived === undefined);
 }
 
 export function BoardSelector({
@@ -244,9 +269,17 @@ export function BoardSelectorView({
     sources,
     selection,
   );
-  const units = visibleProjectUnits(projects, boards, query);
+  // The selector's labels use the full catalog so an explicitly selected
+  // archived board remains identified, while quick switching stays active-only.
+  const activeBoards = boards.filter((board) => board.archived === undefined);
+  const selectedArchivedBoard = selection.kind === "board"
+    ? boards.find(
+        (board) => board.id === selection.boardId && board.archived !== undefined,
+      )
+    : undefined;
+  const units = visibleProjectUnits(projects, activeBoards, query);
   const allBoardsSelected = selection.kind === "all";
-  const storeSummary = catalogSummary(projects.length, boards.length);
+  const storeSummary = catalogSummary(projects.length, activeBoards.length);
 
   return (
     <div
@@ -390,6 +423,18 @@ export function BoardSelectorView({
               </p>
             )}
           </div>
+          {selectedArchivedBoard !== undefined && onOpenBoardSettings !== undefined && (
+            <button
+              type="button"
+              className="board-selector-catalog-link"
+              onClick={() => onOpenBoardSettings(selectedArchivedBoard.id)}
+            >
+              Board settings
+            </button>
+          )}
+          <a className="board-selector-catalog-link" href="/" onClick={onDismiss}>
+            View all boards
+          </a>
         </section>
       )}
     </div>
@@ -412,6 +457,10 @@ export function BoardSelectorBoardRow({
   onSelectScope,
 }: BoardSelectorBoardRowProps) {
   const selected = board.id === selectedBoardId;
+  // Without a concrete board scope, each row owns the settings entry point for
+  // its board. Concrete scope keeps that action on the selected row alone.
+  const showSettings = onOpenBoardSettings !== undefined &&
+    (selectedBoardId === undefined || selected);
   return (
     <div className="board-selector-row">
       <button
@@ -431,9 +480,7 @@ export function BoardSelectorBoardRow({
           </span>
         </span>
       </button>
-      {onOpenBoardSettings === undefined || !selected ? (
-        <span className="board-selector-action-space" aria-hidden="true" />
-      ) : (
+      {showSettings ? (
         <button
           type="button"
           className="board-selector-action"
@@ -443,6 +490,8 @@ export function BoardSelectorBoardRow({
         >
           <Settings aria-hidden="true" />
         </button>
+      ) : (
+        <span className="board-selector-action-space" aria-hidden="true" />
       )}
     </div>
   );
@@ -668,7 +717,8 @@ function selectedScopeLabels(
         project.id === board.projectId &&
         project.source?.sourceId === board.source?.sourceId,
       )?.name ??
-      board.projectId)
+      board.projectId) +
+      (board.archived === undefined ? "" : " · Archived")
   };
 }
 

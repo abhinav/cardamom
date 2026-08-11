@@ -290,6 +290,30 @@ func (c *testCatalog) EditBoardSettings(
 	return nil, errkind.Errorf(errkind.NotFound, "board not found")
 }
 
+func (c *testCatalog) ArchiveBoard(
+	_ context.Context,
+	invocation board.Invocation,
+	request board.ArchiveRequest,
+) (board.ArchiveResult, error) {
+	state, err := c.Board(context.Background(), request.BoardID)
+	if err != nil {
+		return board.ArchiveResult{}, err
+	}
+	changed, err := state.ArchiveBoard(invocation.Actor(), time.Unix(4, 0).UTC(), request.Reason)
+	return board.ArchiveResult{Board: state, Changed: changed}, err
+}
+
+func (c *testCatalog) UnarchiveBoard(
+	_ context.Context,
+	id board.ID,
+) (*board.State, bool, error) {
+	state, err := c.Board(context.Background(), id)
+	if err != nil {
+		return nil, false, err
+	}
+	return state, state.Unarchive(), nil
+}
+
 func testProject(t *testing.T, id, name string) *project.State {
 	t.Helper()
 	value, err := project.Load(project.Snapshot{

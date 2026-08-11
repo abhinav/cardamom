@@ -1,6 +1,7 @@
 package board
 
 import (
+	"errors"
 	"testing"
 	"time"
 
@@ -8,6 +9,45 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/errkind"
 )
+
+func TestStateArchiveLifecycleIsIdempotent(t *testing.T) {
+	state := testBoardState(t, Snapshot{
+		ID: testBoardID(t, "board-one"), ProjectID: "project-one",
+		Name: "Development", Created: time.Unix(10, 0).UTC(),
+	})
+	reason := "Retired context"
+
+	changed, err := state.ArchiveBoard("  captain  ", time.Unix(20, 0).UTC(), &reason)
+	require.NoError(t, err)
+	assert.True(t, changed)
+	assert.Equal(t, &Archive{Actor: "captain", At: time.Unix(20, 0).UTC(), Reason: &reason}, state.Archived())
+	assert.ErrorIs(t, state.RequireMutable(), ErrArchived)
+
+	replacement := "Replacement"
+	changed, err = state.ArchiveBoard("other", time.Unix(30, 0).UTC(), &replacement)
+	require.NoError(t, err)
+	assert.False(t, changed)
+	assert.Equal(t, &reason, state.Archived().Reason)
+
+	assert.True(t, state.Unarchive())
+	assert.Nil(t, state.Archived())
+	assert.NoError(t, state.RequireMutable())
+	assert.False(t, state.Unarchive())
+}
+
+func TestStateArchivedRejectsSettingsMutation(t *testing.T) {
+	state := testBoardState(t, Snapshot{
+		ID: testBoardID(t, "board-one"), ProjectID: "project-one",
+		Name: "Development", Created: time.Unix(10, 0).UTC(),
+		Archived: &Archive{Actor: "captain", At: time.Unix(20, 0).UTC()},
+	})
+	name := "Replacement"
+
+	_, err := state.EditSettings(SettingsEdit{Name: &name})
+
+	assert.True(t, errors.Is(err, ErrArchived))
+	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+}
 
 func TestStateEditSettings(t *testing.T) {
 	current := "Shared context"

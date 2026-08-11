@@ -180,6 +180,45 @@ func (m *MockChanges) EXPECT() *MockChangesMockRecorder {
 	return m.recorder
 }
 
+// ArchiveBoard mocks base method.
+func (m *MockChanges) ArchiveBoard(arg0 context.Context, arg1 Invocation, arg2 ArchiveRequest) (ArchiveResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ArchiveBoard", arg0, arg1, arg2)
+	ret0, _ := ret[0].(ArchiveResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ArchiveBoard indicates an expected call of ArchiveBoard.
+func (mr *MockChangesMockRecorder) ArchiveBoard(arg0, arg1, arg2 any) *MockChangesArchiveBoardCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ArchiveBoard", reflect.TypeOf((*MockChanges)(nil).ArchiveBoard), arg0, arg1, arg2)
+	return &MockChangesArchiveBoardCall{Call: call}
+}
+
+// MockChangesArchiveBoardCall wrap *gomock.Call
+type MockChangesArchiveBoardCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockChangesArchiveBoardCall) Return(arg0 ArchiveResult, arg1 error) *MockChangesArchiveBoardCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockChangesArchiveBoardCall) Do(f func(context.Context, Invocation, ArchiveRequest) (ArchiveResult, error)) *MockChangesArchiveBoardCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockChangesArchiveBoardCall) DoAndReturn(f func(context.Context, Invocation, ArchiveRequest) (ArchiveResult, error)) *MockChangesArchiveBoardCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // CreateBoard mocks base method.
 func (m *MockChanges) CreateBoard(arg0 context.Context, arg1 CreateRequest) (*State, error) {
 	m.ctrl.T.Helper()
@@ -254,6 +293,46 @@ func (c *MockChangesEditBoardSettingsCall) Do(f func(context.Context, EditReques
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
 func (c *MockChangesEditBoardSettingsCall) DoAndReturn(f func(context.Context, EditRequest) (*State, error)) *MockChangesEditBoardSettingsCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
+// UnarchiveBoard mocks base method.
+func (m *MockChanges) UnarchiveBoard(arg0 context.Context, arg1 ID) (*State, bool, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "UnarchiveBoard", arg0, arg1)
+	ret0, _ := ret[0].(*State)
+	ret1, _ := ret[1].(bool)
+	ret2, _ := ret[2].(error)
+	return ret0, ret1, ret2
+}
+
+// UnarchiveBoard indicates an expected call of UnarchiveBoard.
+func (mr *MockChangesMockRecorder) UnarchiveBoard(arg0, arg1 any) *MockChangesUnarchiveBoardCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "UnarchiveBoard", reflect.TypeOf((*MockChanges)(nil).UnarchiveBoard), arg0, arg1)
+	return &MockChangesUnarchiveBoardCall{Call: call}
+}
+
+// MockChangesUnarchiveBoardCall wrap *gomock.Call
+type MockChangesUnarchiveBoardCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockChangesUnarchiveBoardCall) Return(arg0 *State, arg1 bool, arg2 error) *MockChangesUnarchiveBoardCall {
+	c.Call = c.Call.Return(arg0, arg1, arg2)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockChangesUnarchiveBoardCall) Do(f func(context.Context, ID) (*State, bool, error)) *MockChangesUnarchiveBoardCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockChangesUnarchiveBoardCall) DoAndReturn(f func(context.Context, ID) (*State, bool, error)) *MockChangesUnarchiveBoardCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
