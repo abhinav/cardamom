@@ -107,7 +107,7 @@ completed="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" \
 "$CARDAMOM_BIN" --actor worker-a claim "$completed"
 "$CARDAMOM_BIN" --actor worker-a state set "$completed" \
   'The bounded phase is complete.'
-"$CARDAMOM_BIN" --actor worker-a state commit "$completed" --set ''
+"$CARDAMOM_BIN" --actor worker-a state commit "$completed"
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json state show "$completed" \
   | jq -e '.body == null'
 "$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" --json log show "$completed" \
@@ -117,7 +117,7 @@ completed="$("$CARDAMOM_BIN" --actor "$CARDAMOM_ACTOR" \
 ```
 
 Verify empty `state set` discards temporary State without history,
-while `state commit --set ''` snapshots and clears it.
+while bare `state commit` snapshots and clears it.
 
 ## Progressive context
 

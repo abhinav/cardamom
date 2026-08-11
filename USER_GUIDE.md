@@ -242,7 +242,7 @@ card --actor worker-a state commit "$issue" \
 The commit preserves the verified-archive State in Log
 and makes publication the current working position.
 When a coherent phase ends with no remaining active work,
-commit it with `--set ''` to snapshot and clear State.
+use bare `state commit` to snapshot and clear State.
 Use `log post` only for additional replay-worthy reasoning or evidence
 that the State snapshot does not represent.
 
@@ -263,7 +263,7 @@ Choose the transition that matches the next reader:
 | Situation                                             | Operation                                                                             |
 |-------------------------------------------------------|---------------------------------------------------------------------------------------|
 | A coherent phase ends and another begins              | Commit current State while installing the next State with `state commit --set`.       |
-| A coherent phase ends without another active position | Commit current State and clear it with `state commit --set ''`.                       |
+| A coherent phase ends without another active position | Commit current State and clear it with bare `state commit`.                           |
 | Work is complete under the current actor              | Set a result when useful, keep final State current, then `close`.                     |
 | Any eligible worker may continue                      | Keep State and its optional next action current, then ordinary `release`.             |
 | A named acceptor or external event acts next          | Set a useful result or current working position, then `release --waiting "<reason>"`. |
@@ -531,7 +531,8 @@ flowchart LR
 
 During execution,
 State holds current recovery truth and an optional `--next` transition.
-Workers commit State at durable checkpoints.
+Workers commit a completed position when it must remain recoverable after
+State changes or ends.
 Release and terminal lifecycle operations preserve changed State automatically;
 standalone Log posts hold only additional replay-worthy material.
 
@@ -618,7 +619,8 @@ Claim issue <issue-id> by ID with inherited context.
 Complete the assigned release task.
 Keep State aligned with current recovery truth
 and put an optional planned transition in `--next`.
-Commit State at durable checkpoints.
+Commit a completed position when it must remain recoverable after State changes
+or ends; use `--set` when another active position follows.
 Use standalone Log posts only for replay-worthy material
 that State snapshots do not represent.
 Set a useful result and release the task waiting for coordinator acceptance.
@@ -705,7 +707,8 @@ Find the Migration backlog workstream and atomically claim one ready task under
 it with the implementation label and inherited context.
 Carry out the claimed task and keep State aligned with current recovery truth.
 Put an optional planned transition in `--next`
-and commit State at durable checkpoints.
+and commit a completed position when it must remain recoverable after State
+changes or ends; use `--set` when another active position follows.
 Use standalone Log posts only for replay-worthy material
 that State snapshots do not represent.
 If any migration worker may resume unfinished work, release it to the pool.
@@ -798,7 +801,8 @@ Claim issue <issue-id> by ID with inherited context.
 Define the public request and response contract.
 Keep State aligned with current recovery truth
 and put an optional planned transition in `--next`.
-Commit State at durable checkpoints.
+Commit a completed position when it must remain recoverable after State changes
+or ends; use `--set` when another active position follows.
 Use standalone Log posts only for replay-worthy material
 that State snapshots do not represent.
 Set the design result and release the task waiting for api-coordinator
@@ -822,7 +826,8 @@ Claim issue <issue-id> by ID with inherited context.
 Implement the accepted API contract and its contract tests.
 Keep State aligned with current recovery truth
 and put an optional planned transition in `--next`.
-Commit State at durable checkpoints.
+Commit a completed position when it must remain recoverable after State changes
+or ends; use `--set` when another active position follows.
 Use standalone Log posts only for replay-worthy material
 that State snapshots do not represent.
 Set the implementation result and release the task waiting for api-coordinator

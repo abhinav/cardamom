@@ -511,6 +511,28 @@ func TestStateCommandsKeepMutableStateSeparateFromLogEntries(t *testing.T) {
 		assert.Empty(t, stderr.String())
 	})
 
+	t.Run("CommitDefaultClear", func(t *testing.T) {
+		request := record.CommitStateRequest{
+			IssueID: "an-1", Disposition: record.CommitStateClear,
+		}
+		result := record.CommitStateResult{Issue: issue.Issue{ID: "an-1"}}
+		operations := NewMockStateCommitOperations(gomock.NewController(t))
+		operations.EXPECT().CommitState(
+			gomock.Any(),
+			issue.NewInvocation("tester"),
+			request,
+		).Return(result, nil)
+		stdout, stderr, app := executionTestApplication(t, strings.NewReader(""), true,
+			kong.BindTo(operations, (*StateCommitOperations)(nil)),
+		)
+
+		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{
+			"state", "commit", "an-1",
+		}))
+		assert.Equal(t, "Committed state on an-1; no new snapshot.\n", stdout.String())
+		assert.Empty(t, stderr.String())
+	})
+
 	t.Run("CommitSetFromDash", func(t *testing.T) {
 		request := record.CommitStateRequest{
 			IssueID: "an-1", Disposition: record.CommitStateReplace,

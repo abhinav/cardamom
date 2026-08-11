@@ -210,7 +210,6 @@ using them in parallel.
   card state set <task-id> \
     "The release inputs are identified." \
     --next "Add checksum publication."
-  card state commit <task-id>
   ```
 
 - The worker records the task's result and releases it to the coordinator.

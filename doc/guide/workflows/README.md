@@ -31,7 +31,8 @@ flowchart LR
 
 During execution,
 State holds current recovery truth and an optional `--next` transition.
-Workers commit State at durable checkpoints.
+Workers commit a completed position when it must remain recoverable after
+State changes or ends.
 Release and terminal lifecycle operations preserve changed State automatically;
 standalone Log posts hold only additional replay-worthy material.
 

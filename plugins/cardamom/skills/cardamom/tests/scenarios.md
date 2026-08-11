@@ -224,7 +224,7 @@ Prepare the issue for root acceptance.
   contract rather than changing the contract needed to start work.
 - Keeps State current as implementation and validation advance.
 - Commits a completed State only if that position must remain recoverable after
-  current State moves on.
+  current State changes or ends.
 - At completion,
   puts outcome and validation in Result,
   replaces State with the acceptance position,
