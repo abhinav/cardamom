@@ -42,6 +42,9 @@ message Configuration {
 
   // attachment contains attachment admission policy.
   ConfigurationAttachment attachment = 2;
+
+  // board contains board-scoped coordination policy.
+  ConfigurationBoard board = 3;
 }
 
 // ConfigurationIssue contains fully resolved issue policy.
@@ -74,6 +77,18 @@ message ConfigurationAttachment {
   uint64 max_bytes = 1;
 }
 
+// ConfigurationBoard contains fully resolved board policy.
+message ConfigurationBoard {
+  // pins controls the ordered pinned-issue collection.
+  ConfigurationPins pins = 1;
+}
+
+// ConfigurationPins contains fully resolved board pin policy.
+message ConfigurationPins {
+  // max_count is the largest admitted pinned-issue collection.
+  uint64 max_count = 1;
+}
+
 // ConfigurationOverrides contains one nested layer of optional values.
 message ConfigurationOverrides {
   // issue contains optional issue policy values.
@@ -81,6 +96,9 @@ message ConfigurationOverrides {
 
   // attachment contains optional attachment policy values.
   ConfigurationAttachmentOverrides attachment = 2;
+
+  // board contains optional board policy values.
+  ConfigurationBoardOverrides board = 3;
 }
 
 // ConfigurationIssueOverrides contains optional issue policy values.
@@ -113,6 +131,18 @@ message ConfigurationAttachmentOverrides {
   optional uint64 max_bytes = 1;
 }
 
+// ConfigurationBoardOverrides contains optional board policy values.
+message ConfigurationBoardOverrides {
+  // pins contains optional pinned-issue policy values.
+  ConfigurationPinsOverrides pins = 1;
+}
+
+// ConfigurationPinsOverrides contains optional pinned-issue policy values.
+message ConfigurationPinsOverrides {
+  // max_count overrides the inherited pin limit when present.
+  optional uint64 max_count = 1;
+}
+
 // ConfigurationSource identifies a concrete configuration layer.
 message ConfigurationSource {
   // scope identifies the source layer.
@@ -138,6 +168,9 @@ message ConfigurationOrigins {
 
   // attachment contains origins for attachment policy.
   ConfigurationAttachmentOrigins attachment = 2;
+
+  // board contains origins for board policy.
+  ConfigurationBoardOrigins board = 3;
 }
 
 // ConfigurationIssueOrigins contains origins for issue policy.
@@ -168,6 +201,18 @@ message ConfigurationSummaryOrigins {
 message ConfigurationAttachmentOrigins {
   // max_bytes identifies the effective attachment-limit source.
   ConfigurationSource max_bytes = 1;
+}
+
+// ConfigurationBoardOrigins contains origins for board policy.
+message ConfigurationBoardOrigins {
+  // pins contains origins for pinned-issue policy.
+  ConfigurationPinsOrigins pins = 1;
+}
+
+// ConfigurationPinsOrigins contains origins for pinned-issue policy.
+message ConfigurationPinsOrigins {
+  // max_count identifies the effective pin-limit source.
+  ConfigurationSource max_count = 1;
 }
 
 // ConfigurationView contains all layers and their resolved result.

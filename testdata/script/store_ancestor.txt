@@ -33,5 +33,8 @@ Automatic local exclusion failed. Add these patterns to .gitignore:
 #     max_bytes: 2048
 # attachment:
 #   max_bytes: 104857600
+# board:
+#   pins:
+#     max_count: 8
 -- golden/create.txt --
 ancestor-1

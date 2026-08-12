@@ -52,6 +52,9 @@ This checkout now excludes Cardamom's local database and attachment blob files. 
 #     max_bytes: 2048
 # attachment:
 #   max_bytes: 104857600
+# board:
+#   pins:
+#     max_count: 8
 -- golden/git-exclude.txt --
 # git ls-files --others --exclude-from=.git/info/exclude
 # Lines that start with '#' are comments.

@@ -987,6 +987,61 @@ func (x *DependencyResultContext) GetResult() *MarkdownContent {
 	return nil
 }
 
+// PinnedIssueContext identifies one issue in the board's pin order.
+type PinnedIssueContext struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// id is the pinned issue's stable identity.
+	Id string `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	// title is the pinned issue's current title.
+	Title         string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PinnedIssueContext) Reset() {
+	*x = PinnedIssueContext{}
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PinnedIssueContext) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PinnedIssueContext) ProtoMessage() {}
+
+func (x *PinnedIssueContext) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PinnedIssueContext.ProtoReflect.Descriptor instead.
+func (*PinnedIssueContext) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *PinnedIssueContext) GetId() string {
+	if x != nil {
+		return x.Id
+	}
+	return ""
+}
+
+func (x *PinnedIssueContext) GetTitle() string {
+	if x != nil {
+		return x.Title
+	}
+	return ""
+}
+
 // IssueContext contains inherited stable context in presentation order.
 type IssueContext struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -996,13 +1051,15 @@ type IssueContext struct {
 	Ancestors []*AncestorContext `protobuf:"bytes,2,rep,name=ancestors,proto3" json:"ancestors,omitempty"`
 	// dependency_results lists completed prerequisite outcomes.
 	DependencyResults []*DependencyResultContext `protobuf:"bytes,3,rep,name=dependency_results,json=dependencyResults,proto3" json:"dependency_results,omitempty"`
-	unknownFields     protoimpl.UnknownFields
-	sizeCache         protoimpl.SizeCache
+	// pins lists board pins in insertion order.
+	Pins          []*PinnedIssueContext `protobuf:"bytes,4,rep,name=pins,proto3" json:"pins,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *IssueContext) Reset() {
 	*x = IssueContext{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[7]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1014,7 +1071,7 @@ func (x *IssueContext) String() string {
 func (*IssueContext) ProtoMessage() {}
 
 func (x *IssueContext) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[7]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1027,7 +1084,7 @@ func (x *IssueContext) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IssueContext.ProtoReflect.Descriptor instead.
 func (*IssueContext) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{7}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *IssueContext) GetBoardDescription() *MarkdownContent {
@@ -1051,6 +1108,13 @@ func (x *IssueContext) GetDependencyResults() []*DependencyResultContext {
 	return nil
 }
 
+func (x *IssueContext) GetPins() []*PinnedIssueContext {
+	if x != nil {
+		return x.Pins
+	}
+	return nil
+}
+
 // HierarchyNode is one row in a preordered containment projection.
 type HierarchyNode struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -1068,7 +1132,7 @@ type HierarchyNode struct {
 
 func (x *HierarchyNode) Reset() {
 	*x = HierarchyNode{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[8]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1080,7 +1144,7 @@ func (x *HierarchyNode) String() string {
 func (*HierarchyNode) ProtoMessage() {}
 
 func (x *HierarchyNode) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[8]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1093,7 +1157,7 @@ func (x *HierarchyNode) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use HierarchyNode.ProtoReflect.Descriptor instead.
 func (*HierarchyNode) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{8}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *HierarchyNode) GetIssue() *RelatedIssue {
@@ -1135,7 +1199,7 @@ type ContainmentProjection struct {
 
 func (x *ContainmentProjection) Reset() {
 	*x = ContainmentProjection{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[9]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1147,7 +1211,7 @@ func (x *ContainmentProjection) String() string {
 func (*ContainmentProjection) ProtoMessage() {}
 
 func (x *ContainmentProjection) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[9]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1160,7 +1224,7 @@ func (x *ContainmentProjection) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ContainmentProjection.ProtoReflect.Descriptor instead.
 func (*ContainmentProjection) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{9}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ContainmentProjection) GetNodes() []*HierarchyNode {
@@ -1207,7 +1271,7 @@ type IssueDetail struct {
 
 func (x *IssueDetail) Reset() {
 	*x = IssueDetail{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[10]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1219,7 +1283,7 @@ func (x *IssueDetail) String() string {
 func (*IssueDetail) ProtoMessage() {}
 
 func (x *IssueDetail) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[10]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1232,7 +1296,7 @@ func (x *IssueDetail) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use IssueDetail.ProtoReflect.Descriptor instead.
 func (*IssueDetail) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{10}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *IssueDetail) GetIssue() *IssueSummary {
@@ -1346,7 +1410,7 @@ type LabelFacet struct {
 
 func (x *LabelFacet) Reset() {
 	*x = LabelFacet{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[11]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[12]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1358,7 +1422,7 @@ func (x *LabelFacet) String() string {
 func (*LabelFacet) ProtoMessage() {}
 
 func (x *LabelFacet) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[11]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[12]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1371,7 +1435,7 @@ func (x *LabelFacet) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use LabelFacet.ProtoReflect.Descriptor instead.
 func (*LabelFacet) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{11}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{12}
 }
 
 func (x *LabelFacet) GetLabel() string {
@@ -1425,7 +1489,7 @@ type ListIssuesRequest struct {
 
 func (x *ListIssuesRequest) Reset() {
 	*x = ListIssuesRequest{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[12]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[13]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1437,7 +1501,7 @@ func (x *ListIssuesRequest) String() string {
 func (*ListIssuesRequest) ProtoMessage() {}
 
 func (x *ListIssuesRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[12]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[13]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1450,7 +1514,7 @@ func (x *ListIssuesRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIssuesRequest.ProtoReflect.Descriptor instead.
 func (*ListIssuesRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{12}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{13}
 }
 
 func (x *ListIssuesRequest) GetScope() *BoardScope {
@@ -1572,7 +1636,7 @@ type ListIssuesResponse struct {
 
 func (x *ListIssuesResponse) Reset() {
 	*x = ListIssuesResponse{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[13]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1584,7 +1648,7 @@ func (x *ListIssuesResponse) String() string {
 func (*ListIssuesResponse) ProtoMessage() {}
 
 func (x *ListIssuesResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[13]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1597,7 +1661,7 @@ func (x *ListIssuesResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ListIssuesResponse.ProtoReflect.Descriptor instead.
 func (*ListIssuesResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{13}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ListIssuesResponse) GetIssues() []*IssueSummary {
@@ -1659,7 +1723,7 @@ type GetIssueRequest struct {
 
 func (x *GetIssueRequest) Reset() {
 	*x = GetIssueRequest{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[14]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1671,7 +1735,7 @@ func (x *GetIssueRequest) String() string {
 func (*GetIssueRequest) ProtoMessage() {}
 
 func (x *GetIssueRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[14]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1684,7 +1748,7 @@ func (x *GetIssueRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIssueRequest.ProtoReflect.Descriptor instead.
 func (*GetIssueRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{14}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *GetIssueRequest) GetIssueId() string {
@@ -1726,7 +1790,7 @@ type GetIssueResponse struct {
 
 func (x *GetIssueResponse) Reset() {
 	*x = GetIssueResponse{}
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[15]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1738,7 +1802,7 @@ func (x *GetIssueResponse) String() string {
 func (*GetIssueResponse) ProtoMessage() {}
 
 func (x *GetIssueResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_issue_proto_msgTypes[15]
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1751,7 +1815,7 @@ func (x *GetIssueResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetIssueResponse.ProtoReflect.Descriptor instead.
 func (*GetIssueResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{15}
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *GetIssueResponse) GetIssue() *IssueDetail {
@@ -1761,11 +1825,323 @@ func (x *GetIssueResponse) GetIssue() *IssueDetail {
 	return nil
 }
 
+// ListBoardPinsRequest identifies one board's ordered pin collection.
+type ListBoardPinsRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// board_id identifies the board whose pins are read.
+	BoardId       string `protobuf:"bytes,1,opt,name=board_id,json=boardId,proto3" json:"board_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBoardPinsRequest) Reset() {
+	*x = ListBoardPinsRequest{}
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[17]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBoardPinsRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBoardPinsRequest) ProtoMessage() {}
+
+func (x *ListBoardPinsRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[17]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBoardPinsRequest.ProtoReflect.Descriptor instead.
+func (*ListBoardPinsRequest) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{17}
+}
+
+func (x *ListBoardPinsRequest) GetBoardId() string {
+	if x != nil {
+		return x.BoardId
+	}
+	return ""
+}
+
+// ListBoardPinsResponse contains current issues in board pin order.
+type ListBoardPinsResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// issues contains current issue references in insertion order.
+	Issues        []*RelatedIssue `protobuf:"bytes,1,rep,name=issues,proto3" json:"issues,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ListBoardPinsResponse) Reset() {
+	*x = ListBoardPinsResponse{}
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[18]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ListBoardPinsResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ListBoardPinsResponse) ProtoMessage() {}
+
+func (x *ListBoardPinsResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[18]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ListBoardPinsResponse.ProtoReflect.Descriptor instead.
+func (*ListBoardPinsResponse) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{18}
+}
+
+func (x *ListBoardPinsResponse) GetIssues() []*RelatedIssue {
+	if x != nil {
+		return x.Issues
+	}
+	return nil
+}
+
+// PinBoardIssueRequest pins one issue to its owning board.
+type PinBoardIssueRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// issue_id identifies the issue to pin.
+	IssueId string `protobuf:"bytes,1,opt,name=issue_id,json=issueId,proto3" json:"issue_id,omitempty"`
+	// context supplies mutation attribution.
+	Context       *MutationContext `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PinBoardIssueRequest) Reset() {
+	*x = PinBoardIssueRequest{}
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[19]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PinBoardIssueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PinBoardIssueRequest) ProtoMessage() {}
+
+func (x *PinBoardIssueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[19]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PinBoardIssueRequest.ProtoReflect.Descriptor instead.
+func (*PinBoardIssueRequest) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{19}
+}
+
+func (x *PinBoardIssueRequest) GetIssueId() string {
+	if x != nil {
+		return x.IssueId
+	}
+	return ""
+}
+
+func (x *PinBoardIssueRequest) GetContext() *MutationContext {
+	if x != nil {
+		return x.Context
+	}
+	return nil
+}
+
+// PinBoardIssueResponse reports the idempotent pin outcome.
+type PinBoardIssueResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// issue is the current pinned issue summary.
+	Issue *RelatedIssue `protobuf:"bytes,1,opt,name=issue,proto3" json:"issue,omitempty"`
+	// changed reports whether this invocation added the pin.
+	Changed       bool `protobuf:"varint,2,opt,name=changed,proto3" json:"changed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *PinBoardIssueResponse) Reset() {
+	*x = PinBoardIssueResponse{}
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *PinBoardIssueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*PinBoardIssueResponse) ProtoMessage() {}
+
+func (x *PinBoardIssueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use PinBoardIssueResponse.ProtoReflect.Descriptor instead.
+func (*PinBoardIssueResponse) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *PinBoardIssueResponse) GetIssue() *RelatedIssue {
+	if x != nil {
+		return x.Issue
+	}
+	return nil
+}
+
+func (x *PinBoardIssueResponse) GetChanged() bool {
+	if x != nil {
+		return x.Changed
+	}
+	return false
+}
+
+// UnpinBoardIssueRequest removes one issue from its owning board's pins.
+type UnpinBoardIssueRequest struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// issue_id identifies the issue to unpin.
+	IssueId string `protobuf:"bytes,1,opt,name=issue_id,json=issueId,proto3" json:"issue_id,omitempty"`
+	// context supplies mutation attribution.
+	Context       *MutationContext `protobuf:"bytes,2,opt,name=context,proto3" json:"context,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnpinBoardIssueRequest) Reset() {
+	*x = UnpinBoardIssueRequest{}
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnpinBoardIssueRequest) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnpinBoardIssueRequest) ProtoMessage() {}
+
+func (x *UnpinBoardIssueRequest) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnpinBoardIssueRequest.ProtoReflect.Descriptor instead.
+func (*UnpinBoardIssueRequest) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *UnpinBoardIssueRequest) GetIssueId() string {
+	if x != nil {
+		return x.IssueId
+	}
+	return ""
+}
+
+func (x *UnpinBoardIssueRequest) GetContext() *MutationContext {
+	if x != nil {
+		return x.Context
+	}
+	return nil
+}
+
+// UnpinBoardIssueResponse reports the idempotent unpin outcome.
+type UnpinBoardIssueResponse struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// issue is the current unpinned issue summary.
+	Issue *RelatedIssue `protobuf:"bytes,1,opt,name=issue,proto3" json:"issue,omitempty"`
+	// changed reports whether this invocation removed the pin.
+	Changed       bool `protobuf:"varint,2,opt,name=changed,proto3" json:"changed,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *UnpinBoardIssueResponse) Reset() {
+	*x = UnpinBoardIssueResponse{}
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *UnpinBoardIssueResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*UnpinBoardIssueResponse) ProtoMessage() {}
+
+func (x *UnpinBoardIssueResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_issue_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use UnpinBoardIssueResponse.ProtoReflect.Descriptor instead.
+func (*UnpinBoardIssueResponse) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_issue_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *UnpinBoardIssueResponse) GetIssue() *RelatedIssue {
+	if x != nil {
+		return x.Issue
+	}
+	return nil
+}
+
+func (x *UnpinBoardIssueResponse) GetChanged() bool {
+	if x != nil {
+		return x.Changed
+	}
+	return false
+}
+
 var File_cardamom_private_v1_issue_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\n" +
-	"\x1fcardamom/private/v1/issue.proto\x12\x13cardamom.private.v1\x1a!cardamom/private/v1/content.proto\x1a\x1fcardamom/private/v1/scope.proto\x1a cardamom/private/v1/source.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
+	"\x1fcardamom/private/v1/issue.proto\x12\x13cardamom.private.v1\x1a!cardamom/private/v1/content.proto\x1a\"cardamom/private/v1/mutation.proto\x1a\x1fcardamom/private/v1/scope.proto\x1a cardamom/private/v1/source.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
 	"\vActiveClaim\x12\x14\n" +
 	"\x05actor\x18\x01 \x01(\tR\x05actor\x129\n" +
 	"\n" +
@@ -1827,11 +2203,15 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\f_next_action\"\x90\x01\n" +
 	"\x17DependencyResultContext\x127\n" +
 	"\x05issue\x18\x01 \x01(\v2!.cardamom.private.v1.RelatedIssueR\x05issue\x12<\n" +
-	"\x06result\x18\x02 \x01(\v2$.cardamom.private.v1.MarkdownContentR\x06result\"\x9d\x02\n" +
+	"\x06result\x18\x02 \x01(\v2$.cardamom.private.v1.MarkdownContentR\x06result\":\n" +
+	"\x12PinnedIssueContext\x12\x0e\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
+	"\x05title\x18\x02 \x01(\tR\x05title\"\xda\x02\n" +
 	"\fIssueContext\x12V\n" +
 	"\x11board_description\x18\x01 \x01(\v2$.cardamom.private.v1.MarkdownContentH\x00R\x10boardDescription\x88\x01\x01\x12B\n" +
 	"\tancestors\x18\x02 \x03(\v2$.cardamom.private.v1.AncestorContextR\tancestors\x12[\n" +
-	"\x12dependency_results\x18\x03 \x03(\v2,.cardamom.private.v1.DependencyResultContextR\x11dependencyResultsB\x14\n" +
+	"\x12dependency_results\x18\x03 \x03(\v2,.cardamom.private.v1.DependencyResultContextR\x11dependencyResults\x12;\n" +
+	"\x04pins\x18\x04 \x03(\v2'.cardamom.private.v1.PinnedIssueContextR\x04pinsB\x14\n" +
 	"\x12_board_description\"\xb3\x01\n" +
 	"\rHierarchyNode\x127\n" +
 	"\x05issue\x18\x01 \x01(\v2!.cardamom.private.v1.RelatedIssueR\x05issue\x12 \n" +
@@ -1921,7 +2301,23 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\t_board_idB\x0f\n" +
 	"\r_presentation\"J\n" +
 	"\x10GetIssueResponse\x126\n" +
-	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue*\x8a\x01\n" +
+	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue\"1\n" +
+	"\x14ListBoardPinsRequest\x12\x19\n" +
+	"\bboard_id\x18\x01 \x01(\tR\aboardId\"R\n" +
+	"\x15ListBoardPinsResponse\x129\n" +
+	"\x06issues\x18\x01 \x03(\v2!.cardamom.private.v1.RelatedIssueR\x06issues\"q\n" +
+	"\x14PinBoardIssueRequest\x12\x19\n" +
+	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12>\n" +
+	"\acontext\x18\x02 \x01(\v2$.cardamom.private.v1.MutationContextR\acontext\"j\n" +
+	"\x15PinBoardIssueResponse\x127\n" +
+	"\x05issue\x18\x01 \x01(\v2!.cardamom.private.v1.RelatedIssueR\x05issue\x12\x18\n" +
+	"\achanged\x18\x02 \x01(\bR\achanged\"s\n" +
+	"\x16UnpinBoardIssueRequest\x12\x19\n" +
+	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12>\n" +
+	"\acontext\x18\x02 \x01(\v2$.cardamom.private.v1.MutationContextR\acontext\"l\n" +
+	"\x17UnpinBoardIssueResponse\x127\n" +
+	"\x05issue\x18\x01 \x01(\v2!.cardamom.private.v1.RelatedIssueR\x05issue\x12\x18\n" +
+	"\achanged\x18\x02 \x01(\bR\achanged*\x8a\x01\n" +
 	"\tIssueType\x12\x1a\n" +
 	"\x16ISSUE_TYPE_UNSPECIFIED\x10\x00\x12\x19\n" +
 	"\x15ISSUE_TYPE_WORKSTREAM\x10\x01\x12\x13\n" +
@@ -1954,11 +2350,14 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\x11CheckpointOutcome\x12\"\n" +
 	"\x1eCHECKPOINT_OUTCOME_UNSPECIFIED\x10\x00\x12\x1f\n" +
 	"\x1bCHECKPOINT_OUTCOME_APPROVED\x10\x01\x12\x1d\n" +
-	"\x19CHECKPOINT_OUTCOME_DENIED\x10\x022\xd0\x01\n" +
+	"\x19CHECKPOINT_OUTCOME_DENIED\x10\x022\x93\x04\n" +
 	"\fIssueService\x12b\n" +
 	"\n" +
 	"ListIssues\x12&.cardamom.private.v1.ListIssuesRequest\x1a'.cardamom.private.v1.ListIssuesResponse\"\x03\x90\x02\x01\x12\\\n" +
-	"\bGetIssue\x12$.cardamom.private.v1.GetIssueRequest\x1a%.cardamom.private.v1.GetIssueResponse\"\x03\x90\x02\x01B\xd6\x01\n" +
+	"\bGetIssue\x12$.cardamom.private.v1.GetIssueRequest\x1a%.cardamom.private.v1.GetIssueResponse\"\x03\x90\x02\x01\x12k\n" +
+	"\rListBoardPins\x12).cardamom.private.v1.ListBoardPinsRequest\x1a*.cardamom.private.v1.ListBoardPinsResponse\"\x03\x90\x02\x01\x12f\n" +
+	"\rPinBoardIssue\x12).cardamom.private.v1.PinBoardIssueRequest\x1a*.cardamom.private.v1.PinBoardIssueResponse\x12l\n" +
+	"\x0fUnpinBoardIssue\x12+.cardamom.private.v1.UnpinBoardIssueRequest\x1a,.cardamom.private.v1.UnpinBoardIssueResponseB\xd6\x01\n" +
 	"\x17com.cardamom.private.v1B\n" +
 	"IssueProtoP\x01Z?go.abhg.dev/cardamom/internal/gen/cardamom/private/v1;privatev1\xa2\x02\x03CPX\xaa\x02\x13Cardamom.Private.V1\xca\x02\x14Cardamom\\Private_\\V1\xe2\x02 Cardamom\\Private_\\V1\\GPBMetadata\xea\x02\x15Cardamom::Private::V1b\x06proto3"
 
@@ -1975,7 +2374,7 @@ func file_cardamom_private_v1_issue_proto_rawDescGZIP() []byte {
 }
 
 var file_cardamom_private_v1_issue_proto_enumTypes = make([]protoimpl.EnumInfo, 6)
-var file_cardamom_private_v1_issue_proto_msgTypes = make([]protoimpl.MessageInfo, 16)
+var file_cardamom_private_v1_issue_proto_msgTypes = make([]protoimpl.MessageInfo, 23)
 var file_cardamom_private_v1_issue_proto_goTypes = []any{
 	(IssueType)(0),                  // 0: cardamom.private.v1.IssueType
 	(IssueLifecycle)(0),             // 1: cardamom.private.v1.IssueLifecycle
@@ -1990,84 +2389,104 @@ var file_cardamom_private_v1_issue_proto_goTypes = []any{
 	(*RelatedIssue)(nil),            // 10: cardamom.private.v1.RelatedIssue
 	(*AncestorContext)(nil),         // 11: cardamom.private.v1.AncestorContext
 	(*DependencyResultContext)(nil), // 12: cardamom.private.v1.DependencyResultContext
-	(*IssueContext)(nil),            // 13: cardamom.private.v1.IssueContext
-	(*HierarchyNode)(nil),           // 14: cardamom.private.v1.HierarchyNode
-	(*ContainmentProjection)(nil),   // 15: cardamom.private.v1.ContainmentProjection
-	(*IssueDetail)(nil),             // 16: cardamom.private.v1.IssueDetail
-	(*LabelFacet)(nil),              // 17: cardamom.private.v1.LabelFacet
-	(*ListIssuesRequest)(nil),       // 18: cardamom.private.v1.ListIssuesRequest
-	(*ListIssuesResponse)(nil),      // 19: cardamom.private.v1.ListIssuesResponse
-	(*GetIssueRequest)(nil),         // 20: cardamom.private.v1.GetIssueRequest
-	(*GetIssueResponse)(nil),        // 21: cardamom.private.v1.GetIssueResponse
-	(*timestamppb.Timestamp)(nil),   // 22: google.protobuf.Timestamp
-	(*MarkdownContent)(nil),         // 23: cardamom.private.v1.MarkdownContent
-	(*SourceRef)(nil),               // 24: cardamom.private.v1.SourceRef
-	(*BoardScope)(nil),              // 25: cardamom.private.v1.BoardScope
-	(*AggregateStatus)(nil),         // 26: cardamom.private.v1.AggregateStatus
-	(*PresentationContext)(nil),     // 27: cardamom.private.v1.PresentationContext
+	(*PinnedIssueContext)(nil),      // 13: cardamom.private.v1.PinnedIssueContext
+	(*IssueContext)(nil),            // 14: cardamom.private.v1.IssueContext
+	(*HierarchyNode)(nil),           // 15: cardamom.private.v1.HierarchyNode
+	(*ContainmentProjection)(nil),   // 16: cardamom.private.v1.ContainmentProjection
+	(*IssueDetail)(nil),             // 17: cardamom.private.v1.IssueDetail
+	(*LabelFacet)(nil),              // 18: cardamom.private.v1.LabelFacet
+	(*ListIssuesRequest)(nil),       // 19: cardamom.private.v1.ListIssuesRequest
+	(*ListIssuesResponse)(nil),      // 20: cardamom.private.v1.ListIssuesResponse
+	(*GetIssueRequest)(nil),         // 21: cardamom.private.v1.GetIssueRequest
+	(*GetIssueResponse)(nil),        // 22: cardamom.private.v1.GetIssueResponse
+	(*ListBoardPinsRequest)(nil),    // 23: cardamom.private.v1.ListBoardPinsRequest
+	(*ListBoardPinsResponse)(nil),   // 24: cardamom.private.v1.ListBoardPinsResponse
+	(*PinBoardIssueRequest)(nil),    // 25: cardamom.private.v1.PinBoardIssueRequest
+	(*PinBoardIssueResponse)(nil),   // 26: cardamom.private.v1.PinBoardIssueResponse
+	(*UnpinBoardIssueRequest)(nil),  // 27: cardamom.private.v1.UnpinBoardIssueRequest
+	(*UnpinBoardIssueResponse)(nil), // 28: cardamom.private.v1.UnpinBoardIssueResponse
+	(*timestamppb.Timestamp)(nil),   // 29: google.protobuf.Timestamp
+	(*MarkdownContent)(nil),         // 30: cardamom.private.v1.MarkdownContent
+	(*SourceRef)(nil),               // 31: cardamom.private.v1.SourceRef
+	(*BoardScope)(nil),              // 32: cardamom.private.v1.BoardScope
+	(*AggregateStatus)(nil),         // 33: cardamom.private.v1.AggregateStatus
+	(*PresentationContext)(nil),     // 34: cardamom.private.v1.PresentationContext
+	(*MutationContext)(nil),         // 35: cardamom.private.v1.MutationContext
 }
 var file_cardamom_private_v1_issue_proto_depIdxs = []int32{
-	22, // 0: cardamom.private.v1.ActiveClaim.started_at:type_name -> google.protobuf.Timestamp
-	22, // 1: cardamom.private.v1.WaitingState.since:type_name -> google.protobuf.Timestamp
+	29, // 0: cardamom.private.v1.ActiveClaim.started_at:type_name -> google.protobuf.Timestamp
+	29, // 1: cardamom.private.v1.WaitingState.since:type_name -> google.protobuf.Timestamp
 	5,  // 2: cardamom.private.v1.CheckpointDecision.outcome:type_name -> cardamom.private.v1.CheckpointOutcome
-	23, // 3: cardamom.private.v1.CheckpointDecision.reason:type_name -> cardamom.private.v1.MarkdownContent
-	22, // 4: cardamom.private.v1.CheckpointDecision.decided_at:type_name -> google.protobuf.Timestamp
+	30, // 3: cardamom.private.v1.CheckpointDecision.reason:type_name -> cardamom.private.v1.MarkdownContent
+	29, // 4: cardamom.private.v1.CheckpointDecision.decided_at:type_name -> google.protobuf.Timestamp
 	0,  // 5: cardamom.private.v1.IssueSummary.type:type_name -> cardamom.private.v1.IssueType
 	1,  // 6: cardamom.private.v1.IssueSummary.lifecycle:type_name -> cardamom.private.v1.IssueLifecycle
 	2,  // 7: cardamom.private.v1.IssueSummary.status:type_name -> cardamom.private.v1.IssueStatus
 	6,  // 8: cardamom.private.v1.IssueSummary.active_claim:type_name -> cardamom.private.v1.ActiveClaim
-	22, // 9: cardamom.private.v1.IssueSummary.created_at:type_name -> google.protobuf.Timestamp
-	22, // 10: cardamom.private.v1.IssueSummary.updated_at:type_name -> google.protobuf.Timestamp
-	22, // 11: cardamom.private.v1.IssueSummary.started_at:type_name -> google.protobuf.Timestamp
-	22, // 12: cardamom.private.v1.IssueSummary.closed_at:type_name -> google.protobuf.Timestamp
+	29, // 9: cardamom.private.v1.IssueSummary.created_at:type_name -> google.protobuf.Timestamp
+	29, // 10: cardamom.private.v1.IssueSummary.updated_at:type_name -> google.protobuf.Timestamp
+	29, // 11: cardamom.private.v1.IssueSummary.started_at:type_name -> google.protobuf.Timestamp
+	29, // 12: cardamom.private.v1.IssueSummary.closed_at:type_name -> google.protobuf.Timestamp
 	7,  // 13: cardamom.private.v1.IssueSummary.waiting:type_name -> cardamom.private.v1.WaitingState
-	24, // 14: cardamom.private.v1.IssueSummary.source:type_name -> cardamom.private.v1.SourceRef
+	31, // 14: cardamom.private.v1.IssueSummary.source:type_name -> cardamom.private.v1.SourceRef
 	0,  // 15: cardamom.private.v1.RelatedIssue.type:type_name -> cardamom.private.v1.IssueType
 	2,  // 16: cardamom.private.v1.RelatedIssue.status:type_name -> cardamom.private.v1.IssueStatus
-	24, // 17: cardamom.private.v1.RelatedIssue.source:type_name -> cardamom.private.v1.SourceRef
+	31, // 17: cardamom.private.v1.RelatedIssue.source:type_name -> cardamom.private.v1.SourceRef
 	10, // 18: cardamom.private.v1.AncestorContext.issue:type_name -> cardamom.private.v1.RelatedIssue
-	23, // 19: cardamom.private.v1.AncestorContext.summary:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 20: cardamom.private.v1.AncestorContext.state:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 21: cardamom.private.v1.AncestorContext.next_action:type_name -> cardamom.private.v1.MarkdownContent
+	30, // 19: cardamom.private.v1.AncestorContext.summary:type_name -> cardamom.private.v1.MarkdownContent
+	30, // 20: cardamom.private.v1.AncestorContext.state:type_name -> cardamom.private.v1.MarkdownContent
+	30, // 21: cardamom.private.v1.AncestorContext.next_action:type_name -> cardamom.private.v1.MarkdownContent
 	10, // 22: cardamom.private.v1.DependencyResultContext.issue:type_name -> cardamom.private.v1.RelatedIssue
-	23, // 23: cardamom.private.v1.DependencyResultContext.result:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 24: cardamom.private.v1.IssueContext.board_description:type_name -> cardamom.private.v1.MarkdownContent
+	30, // 23: cardamom.private.v1.DependencyResultContext.result:type_name -> cardamom.private.v1.MarkdownContent
+	30, // 24: cardamom.private.v1.IssueContext.board_description:type_name -> cardamom.private.v1.MarkdownContent
 	11, // 25: cardamom.private.v1.IssueContext.ancestors:type_name -> cardamom.private.v1.AncestorContext
 	12, // 26: cardamom.private.v1.IssueContext.dependency_results:type_name -> cardamom.private.v1.DependencyResultContext
-	10, // 27: cardamom.private.v1.HierarchyNode.issue:type_name -> cardamom.private.v1.RelatedIssue
-	14, // 28: cardamom.private.v1.ContainmentProjection.nodes:type_name -> cardamom.private.v1.HierarchyNode
-	9,  // 29: cardamom.private.v1.IssueDetail.issue:type_name -> cardamom.private.v1.IssueSummary
-	23, // 30: cardamom.private.v1.IssueDetail.summary:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 31: cardamom.private.v1.IssueDetail.state:type_name -> cardamom.private.v1.MarkdownContent
-	23, // 32: cardamom.private.v1.IssueDetail.result:type_name -> cardamom.private.v1.MarkdownContent
-	13, // 33: cardamom.private.v1.IssueDetail.context:type_name -> cardamom.private.v1.IssueContext
-	15, // 34: cardamom.private.v1.IssueDetail.containment:type_name -> cardamom.private.v1.ContainmentProjection
-	10, // 35: cardamom.private.v1.IssueDetail.prerequisites:type_name -> cardamom.private.v1.RelatedIssue
-	10, // 36: cardamom.private.v1.IssueDetail.dependents:type_name -> cardamom.private.v1.RelatedIssue
-	23, // 37: cardamom.private.v1.IssueDetail.details:type_name -> cardamom.private.v1.MarkdownContent
-	8,  // 38: cardamom.private.v1.IssueDetail.checkpoint_decision:type_name -> cardamom.private.v1.CheckpointDecision
-	23, // 39: cardamom.private.v1.IssueDetail.next_action:type_name -> cardamom.private.v1.MarkdownContent
-	25, // 40: cardamom.private.v1.ListIssuesRequest.scope:type_name -> cardamom.private.v1.BoardScope
-	1,  // 41: cardamom.private.v1.ListIssuesRequest.lifecycles:type_name -> cardamom.private.v1.IssueLifecycle
-	2,  // 42: cardamom.private.v1.ListIssuesRequest.statuses:type_name -> cardamom.private.v1.IssueStatus
-	0,  // 43: cardamom.private.v1.ListIssuesRequest.types:type_name -> cardamom.private.v1.IssueType
-	3,  // 44: cardamom.private.v1.ListIssuesRequest.sort:type_name -> cardamom.private.v1.IssueSort
-	4,  // 45: cardamom.private.v1.ListIssuesRequest.direction:type_name -> cardamom.private.v1.SortDirection
-	9,  // 46: cardamom.private.v1.ListIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
-	17, // 47: cardamom.private.v1.ListIssuesResponse.label_facets:type_name -> cardamom.private.v1.LabelFacet
-	26, // 48: cardamom.private.v1.ListIssuesResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
-	24, // 49: cardamom.private.v1.GetIssueRequest.source:type_name -> cardamom.private.v1.SourceRef
-	27, // 50: cardamom.private.v1.GetIssueRequest.presentation:type_name -> cardamom.private.v1.PresentationContext
-	16, // 51: cardamom.private.v1.GetIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
-	18, // 52: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest
-	20, // 53: cardamom.private.v1.IssueService.GetIssue:input_type -> cardamom.private.v1.GetIssueRequest
-	19, // 54: cardamom.private.v1.IssueService.ListIssues:output_type -> cardamom.private.v1.ListIssuesResponse
-	21, // 55: cardamom.private.v1.IssueService.GetIssue:output_type -> cardamom.private.v1.GetIssueResponse
-	54, // [54:56] is the sub-list for method output_type
-	52, // [52:54] is the sub-list for method input_type
-	52, // [52:52] is the sub-list for extension type_name
-	52, // [52:52] is the sub-list for extension extendee
-	0,  // [0:52] is the sub-list for field type_name
+	13, // 27: cardamom.private.v1.IssueContext.pins:type_name -> cardamom.private.v1.PinnedIssueContext
+	10, // 28: cardamom.private.v1.HierarchyNode.issue:type_name -> cardamom.private.v1.RelatedIssue
+	15, // 29: cardamom.private.v1.ContainmentProjection.nodes:type_name -> cardamom.private.v1.HierarchyNode
+	9,  // 30: cardamom.private.v1.IssueDetail.issue:type_name -> cardamom.private.v1.IssueSummary
+	30, // 31: cardamom.private.v1.IssueDetail.summary:type_name -> cardamom.private.v1.MarkdownContent
+	30, // 32: cardamom.private.v1.IssueDetail.state:type_name -> cardamom.private.v1.MarkdownContent
+	30, // 33: cardamom.private.v1.IssueDetail.result:type_name -> cardamom.private.v1.MarkdownContent
+	14, // 34: cardamom.private.v1.IssueDetail.context:type_name -> cardamom.private.v1.IssueContext
+	16, // 35: cardamom.private.v1.IssueDetail.containment:type_name -> cardamom.private.v1.ContainmentProjection
+	10, // 36: cardamom.private.v1.IssueDetail.prerequisites:type_name -> cardamom.private.v1.RelatedIssue
+	10, // 37: cardamom.private.v1.IssueDetail.dependents:type_name -> cardamom.private.v1.RelatedIssue
+	30, // 38: cardamom.private.v1.IssueDetail.details:type_name -> cardamom.private.v1.MarkdownContent
+	8,  // 39: cardamom.private.v1.IssueDetail.checkpoint_decision:type_name -> cardamom.private.v1.CheckpointDecision
+	30, // 40: cardamom.private.v1.IssueDetail.next_action:type_name -> cardamom.private.v1.MarkdownContent
+	32, // 41: cardamom.private.v1.ListIssuesRequest.scope:type_name -> cardamom.private.v1.BoardScope
+	1,  // 42: cardamom.private.v1.ListIssuesRequest.lifecycles:type_name -> cardamom.private.v1.IssueLifecycle
+	2,  // 43: cardamom.private.v1.ListIssuesRequest.statuses:type_name -> cardamom.private.v1.IssueStatus
+	0,  // 44: cardamom.private.v1.ListIssuesRequest.types:type_name -> cardamom.private.v1.IssueType
+	3,  // 45: cardamom.private.v1.ListIssuesRequest.sort:type_name -> cardamom.private.v1.IssueSort
+	4,  // 46: cardamom.private.v1.ListIssuesRequest.direction:type_name -> cardamom.private.v1.SortDirection
+	9,  // 47: cardamom.private.v1.ListIssuesResponse.issues:type_name -> cardamom.private.v1.IssueSummary
+	18, // 48: cardamom.private.v1.ListIssuesResponse.label_facets:type_name -> cardamom.private.v1.LabelFacet
+	33, // 49: cardamom.private.v1.ListIssuesResponse.aggregate_status:type_name -> cardamom.private.v1.AggregateStatus
+	31, // 50: cardamom.private.v1.GetIssueRequest.source:type_name -> cardamom.private.v1.SourceRef
+	34, // 51: cardamom.private.v1.GetIssueRequest.presentation:type_name -> cardamom.private.v1.PresentationContext
+	17, // 52: cardamom.private.v1.GetIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
+	10, // 53: cardamom.private.v1.ListBoardPinsResponse.issues:type_name -> cardamom.private.v1.RelatedIssue
+	35, // 54: cardamom.private.v1.PinBoardIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
+	10, // 55: cardamom.private.v1.PinBoardIssueResponse.issue:type_name -> cardamom.private.v1.RelatedIssue
+	35, // 56: cardamom.private.v1.UnpinBoardIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
+	10, // 57: cardamom.private.v1.UnpinBoardIssueResponse.issue:type_name -> cardamom.private.v1.RelatedIssue
+	19, // 58: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest
+	21, // 59: cardamom.private.v1.IssueService.GetIssue:input_type -> cardamom.private.v1.GetIssueRequest
+	23, // 60: cardamom.private.v1.IssueService.ListBoardPins:input_type -> cardamom.private.v1.ListBoardPinsRequest
+	25, // 61: cardamom.private.v1.IssueService.PinBoardIssue:input_type -> cardamom.private.v1.PinBoardIssueRequest
+	27, // 62: cardamom.private.v1.IssueService.UnpinBoardIssue:input_type -> cardamom.private.v1.UnpinBoardIssueRequest
+	20, // 63: cardamom.private.v1.IssueService.ListIssues:output_type -> cardamom.private.v1.ListIssuesResponse
+	22, // 64: cardamom.private.v1.IssueService.GetIssue:output_type -> cardamom.private.v1.GetIssueResponse
+	24, // 65: cardamom.private.v1.IssueService.ListBoardPins:output_type -> cardamom.private.v1.ListBoardPinsResponse
+	26, // 66: cardamom.private.v1.IssueService.PinBoardIssue:output_type -> cardamom.private.v1.PinBoardIssueResponse
+	28, // 67: cardamom.private.v1.IssueService.UnpinBoardIssue:output_type -> cardamom.private.v1.UnpinBoardIssueResponse
+	63, // [63:68] is the sub-list for method output_type
+	58, // [58:63] is the sub-list for method input_type
+	58, // [58:58] is the sub-list for extension type_name
+	58, // [58:58] is the sub-list for extension extendee
+	0,  // [0:58] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_issue_proto_init() }
@@ -2076,24 +2495,25 @@ func file_cardamom_private_v1_issue_proto_init() {
 		return
 	}
 	file_cardamom_private_v1_content_proto_init()
+	file_cardamom_private_v1_mutation_proto_init()
 	file_cardamom_private_v1_scope_proto_init()
 	file_cardamom_private_v1_source_proto_init()
 	file_cardamom_private_v1_issue_proto_msgTypes[3].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[4].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[5].OneofWrappers = []any{}
-	file_cardamom_private_v1_issue_proto_msgTypes[7].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[8].OneofWrappers = []any{}
-	file_cardamom_private_v1_issue_proto_msgTypes[10].OneofWrappers = []any{}
-	file_cardamom_private_v1_issue_proto_msgTypes[12].OneofWrappers = []any{}
+	file_cardamom_private_v1_issue_proto_msgTypes[9].OneofWrappers = []any{}
+	file_cardamom_private_v1_issue_proto_msgTypes[11].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[13].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[14].OneofWrappers = []any{}
+	file_cardamom_private_v1_issue_proto_msgTypes[15].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_v1_issue_proto_rawDesc), len(file_cardamom_private_v1_issue_proto_rawDesc)),
 			NumEnums:      6,
-			NumMessages:   16,
+			NumMessages:   23,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

@@ -224,6 +224,16 @@ type Context struct {
 	Board             BoardDescription
 	Ancestors         []ContextEntry
 	DependencyResults []DependencyResult
+	Pins              []PinnedIssue
+}
+
+// PinnedIssue is one board pin exposed through inherited issue context.
+type PinnedIssue struct {
+	// ID is the pinned issue's stable identity.
+	ID string
+
+	// Title is the pinned issue's current title.
+	Title string
 }
 
 // ContextEntry is one ancestor issue and metadata about authored log entries.

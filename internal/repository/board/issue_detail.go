@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"slices"
 
 	"go.abhg.dev/cardamom/internal/errkind"
@@ -403,8 +404,20 @@ func (r *Repository) readIssueContext(
 			})
 		}
 	}
+	pinIDs, err := query.New(scope).BoardListPinIDs(ctx, r.boardID.String())
+	if err != nil {
+		return nil, err
+	}
+	pins := make([]issue.PinnedIssue, 0, len(pinIDs))
+	for _, value := range pinIDs {
+		pinned, ok := index.states[issue.ID(value)]
+		if !ok {
+			return nil, fmt.Errorf("pinned issue %q is absent from board snapshot", value)
+		}
+		pins = append(pins, issue.PinnedIssue{ID: value, Title: pinned.state.Title()})
+	}
 	return &issue.Context{
 		Board:     issue.BoardDescription{Description: description},
-		Ancestors: entries, DependencyResults: results,
+		Ancestors: entries, DependencyResults: results, Pins: pins,
 	}, nil
 }

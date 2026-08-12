@@ -16,6 +16,7 @@ SELECT
     issue_id_strategy,
     issue_summary_max_bytes,
     attachment_max_bytes,
+    board_pins_max_count,
     archived_at
 FROM boards
 WHERE id = ?1
@@ -26,6 +27,7 @@ type ProjectGetBoardConfigurationRow struct {
 	IssueIDStrategy      *string
 	IssueSummaryMaxBytes *int64
 	AttachmentMaxBytes   *int64
+	BoardPinsMaxCount    *int64
 	ArchivedAt           *time.Time
 }
 
@@ -39,6 +41,7 @@ func (q *Queries) ProjectGetBoardConfiguration(ctx context.Context, id string) (
 		&i.IssueIDStrategy,
 		&i.IssueSummaryMaxBytes,
 		&i.AttachmentMaxBytes,
+		&i.BoardPinsMaxCount,
 		&i.ArchivedAt,
 	)
 	return i, err
@@ -51,10 +54,12 @@ SELECT
     p.issue_id_strategy AS project_issue_id_strategy,
     p.issue_summary_max_bytes AS project_issue_summary_max_bytes,
     p.attachment_max_bytes AS project_attachment_max_bytes,
+    p.board_pins_max_count AS project_board_pins_max_count,
     b.issue_id_prefix AS board_issue_id_prefix,
     b.issue_id_strategy AS board_issue_id_strategy,
     b.issue_summary_max_bytes AS board_issue_summary_max_bytes,
-    b.attachment_max_bytes AS board_attachment_max_bytes
+    b.attachment_max_bytes AS board_attachment_max_bytes,
+    b.board_pins_max_count AS board_board_pins_max_count
 FROM boards AS b
 JOIN projects AS p ON p.id = b.project_id
 WHERE b.id = ?1
@@ -66,10 +71,12 @@ type ProjectGetConfigurationLayersRow struct {
 	ProjectIssueIDStrategy      *string
 	ProjectIssueSummaryMaxBytes *int64
 	ProjectAttachmentMaxBytes   *int64
+	ProjectBoardPinsMaxCount    *int64
 	BoardIssueIDPrefix          *string
 	BoardIssueIDStrategy        *string
 	BoardIssueSummaryMaxBytes   *int64
 	BoardAttachmentMaxBytes     *int64
+	BoardBoardPinsMaxCount      *int64
 }
 
 func (q *Queries) ProjectGetConfigurationLayers(ctx context.Context, boardID string) (ProjectGetConfigurationLayersRow, error) {
@@ -81,10 +88,12 @@ func (q *Queries) ProjectGetConfigurationLayers(ctx context.Context, boardID str
 		&i.ProjectIssueIDStrategy,
 		&i.ProjectIssueSummaryMaxBytes,
 		&i.ProjectAttachmentMaxBytes,
+		&i.ProjectBoardPinsMaxCount,
 		&i.BoardIssueIDPrefix,
 		&i.BoardIssueIDStrategy,
 		&i.BoardIssueSummaryMaxBytes,
 		&i.BoardAttachmentMaxBytes,
+		&i.BoardBoardPinsMaxCount,
 	)
 	return i, err
 }
@@ -94,7 +103,8 @@ SELECT
     issue_id_prefix,
     issue_id_strategy,
     issue_summary_max_bytes,
-    attachment_max_bytes
+    attachment_max_bytes,
+    board_pins_max_count
 FROM projects
 WHERE id = ?1
 `
@@ -104,6 +114,7 @@ type ProjectGetProjectConfigurationRow struct {
 	IssueIDStrategy      *string
 	IssueSummaryMaxBytes *int64
 	AttachmentMaxBytes   *int64
+	BoardPinsMaxCount    *int64
 }
 
 func (q *Queries) ProjectGetProjectConfiguration(ctx context.Context, id string) (ProjectGetProjectConfigurationRow, error) {
@@ -114,6 +125,7 @@ func (q *Queries) ProjectGetProjectConfiguration(ctx context.Context, id string)
 		&i.IssueIDStrategy,
 		&i.IssueSummaryMaxBytes,
 		&i.AttachmentMaxBytes,
+		&i.BoardPinsMaxCount,
 	)
 	return i, err
 }
@@ -123,8 +135,9 @@ UPDATE boards
 SET issue_id_prefix = ?1,
     issue_id_strategy = ?2,
     issue_summary_max_bytes = ?3,
-    attachment_max_bytes = ?4
-WHERE id = ?5
+    attachment_max_bytes = ?4,
+    board_pins_max_count = ?5
+WHERE id = ?6
 `
 
 type ProjectUpdateBoardConfigurationParams struct {
@@ -132,6 +145,7 @@ type ProjectUpdateBoardConfigurationParams struct {
 	IssueIDStrategy      *string
 	IssueSummaryMaxBytes *int64
 	AttachmentMaxBytes   *int64
+	BoardPinsMaxCount    *int64
 	ID                   string
 }
 
@@ -141,6 +155,7 @@ func (q *Queries) ProjectUpdateBoardConfiguration(ctx context.Context, arg Proje
 		arg.IssueIDStrategy,
 		arg.IssueSummaryMaxBytes,
 		arg.AttachmentMaxBytes,
+		arg.BoardPinsMaxCount,
 		arg.ID,
 	)
 	return err
@@ -151,8 +166,9 @@ UPDATE projects
 SET issue_id_prefix = ?1,
     issue_id_strategy = ?2,
     issue_summary_max_bytes = ?3,
-    attachment_max_bytes = ?4
-WHERE id = ?5
+    attachment_max_bytes = ?4,
+    board_pins_max_count = ?5
+WHERE id = ?6
 `
 
 type ProjectUpdateProjectConfigurationParams struct {
@@ -160,6 +176,7 @@ type ProjectUpdateProjectConfigurationParams struct {
 	IssueIDStrategy      *string
 	IssueSummaryMaxBytes *int64
 	AttachmentMaxBytes   *int64
+	BoardPinsMaxCount    *int64
 	ID                   string
 }
 
@@ -169,6 +186,7 @@ func (q *Queries) ProjectUpdateProjectConfiguration(ctx context.Context, arg Pro
 		arg.IssueIDStrategy,
 		arg.IssueSummaryMaxBytes,
 		arg.AttachmentMaxBytes,
+		arg.BoardPinsMaxCount,
 		arg.ID,
 	)
 	return err

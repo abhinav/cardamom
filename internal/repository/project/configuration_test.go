@@ -7,6 +7,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
@@ -27,6 +28,10 @@ func TestRepositoryPersistsProjectAndBoardConfiguration(t *testing.T) {
 	require.NoError(t, err)
 	boardMaximum, err := configuration.NewByteLimit(4096)
 	require.NoError(t, err)
+	projectPinMaximum, err := board.NewPinLimit(6)
+	require.NoError(t, err)
+	boardPinMaximum, err := board.NewPinLimit(3)
+	require.NoError(t, err)
 
 	_, err = service.Update(
 		t.Context(),
@@ -34,10 +39,16 @@ func TestRepositoryPersistsProjectAndBoardConfiguration(t *testing.T) {
 		configuration.UpdateRequest{
 			BoardID: namespace.Board.ID(), Scope: configuration.ScopeProject,
 			Patch: configuration.Patch{
-				Fields: []configuration.Field{configuration.FieldIssueIDPrefix},
+				Fields: []configuration.Field{
+					configuration.FieldIssueIDPrefix,
+					configuration.FieldBoardPinsMaxCount,
+				},
 				Overrides: configuration.Overrides{
 					Issue: configuration.IssueOverrides{
 						ID: configuration.IssueIDOverrides{Prefix: &projectPrefix},
+					},
+					Board: configuration.BoardOverrides{
+						Pins: configuration.PinOverrides{MaxCount: &projectPinMaximum},
 					},
 				},
 			},
@@ -66,9 +77,15 @@ func TestRepositoryPersistsProjectAndBoardConfiguration(t *testing.T) {
 		configuration.UpdateRequest{
 			BoardID: namespace.Board.ID(), Scope: configuration.ScopeBoard,
 			Patch: configuration.Patch{
-				Fields: []configuration.Field{configuration.FieldAttachmentMaxBytes},
+				Fields: []configuration.Field{
+					configuration.FieldAttachmentMaxBytes,
+					configuration.FieldBoardPinsMaxCount,
+				},
 				Overrides: configuration.Overrides{
 					Attachment: configuration.AttachmentOverrides{MaxBytes: &boardMaximum},
+					Board: configuration.BoardOverrides{
+						Pins: configuration.PinOverrides{MaxCount: &boardPinMaximum},
+					},
 				},
 			},
 		},
@@ -80,8 +97,10 @@ func TestRepositoryPersistsProjectAndBoardConfiguration(t *testing.T) {
 	assert.Equal(t, namespace.Project.ID(), layers.ProjectID)
 	assert.Equal(t, projectPrefix, *layers.Project.Issue.ID.Prefix)
 	assert.Nil(t, layers.Project.Attachment.MaxBytes)
+	assert.Equal(t, projectPinMaximum, *layers.Project.Board.Pins.MaxCount)
 	assert.Nil(t, layers.Board.Issue.ID.Prefix)
 	assert.Equal(t, boardMaximum, *layers.Board.Attachment.MaxBytes)
+	assert.Equal(t, boardPinMaximum, *layers.Board.Board.Pins.MaxCount)
 	assert.Equal(t, int64(3), canonicalRevision(t, persistence))
 }
 

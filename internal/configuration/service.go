@@ -61,6 +61,9 @@ type Origins struct {
 
 	// Attachment contains origins for attachment policy.
 	Attachment AttachmentOrigins
+
+	// Board contains origins for board policy.
+	Board BoardOrigins
 }
 
 // IssueOrigins contains origins for issue policy.
@@ -91,6 +94,18 @@ type SummaryOrigins struct {
 type AttachmentOrigins struct {
 	// MaxBytes identifies the effective attachment-limit source.
 	MaxBytes Source
+}
+
+// BoardOrigins contains origins for board policy.
+type BoardOrigins struct {
+	// Pins contains origins for pinned-issue policy.
+	Pins PinOrigins
+}
+
+// PinOrigins contains origins for pinned-issue policy.
+type PinOrigins struct {
+	// MaxCount identifies the effective pin-limit source.
+	MaxCount Source
 }
 
 // Layer is one optional configuration layer and its concrete identity.
@@ -319,6 +334,18 @@ func (s *Service) ResolveConfiguration(
 	return view.Effective, err
 }
 
+// ResolveBoardPinLimit returns the current effective pin admission limit.
+func (s *Service) ResolveBoardPinLimit(
+	ctx context.Context,
+	boardID board.ID,
+) (board.PinLimit, error) {
+	resolved, err := s.ResolveConfiguration(ctx, boardID)
+	if err != nil {
+		return 0, err
+	}
+	return resolved.Board.Pins.MaxCount, nil
+}
+
 // Update atomically applies one finite layer patch and returns the resulting view.
 func (s *Service) Update(
 	ctx context.Context,
@@ -429,6 +456,9 @@ func resolveLayers(
 			Summary: SummaryOrigins{MaxBytes: builtInSource},
 		},
 		Attachment: AttachmentOrigins{MaxBytes: builtInSource},
+		Board: BoardOrigins{
+			Pins: PinOrigins{MaxCount: builtInSource},
+		},
 	}
 	for _, layer := range layers {
 		applyLayer(&effective, &origins, layer)
@@ -456,5 +486,9 @@ func applyLayer(
 	if value := layer.Overrides.Attachment.MaxBytes; value != nil {
 		effective.Attachment.MaxBytes = *value
 		origins.Attachment.MaxBytes = layer.Source
+	}
+	if value := layer.Overrides.Board.Pins.MaxCount; value != nil {
+		effective.Board.Pins.MaxCount = *value
+		origins.Board.Pins.MaxCount = layer.Source
 	}
 }

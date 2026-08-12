@@ -116,6 +116,11 @@ func configurationMessage(
 		Attachment: &privatev1.ConfigurationAttachment{
 			MaxBytes: value.Attachment.MaxBytes.Uint64(),
 		},
+		Board: &privatev1.ConfigurationBoard{
+			Pins: &privatev1.ConfigurationPins{
+				MaxCount: value.Board.Pins.MaxCount.Uint64(),
+			},
+		},
 	}
 }
 

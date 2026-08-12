@@ -84,6 +84,7 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 		},
 		Context: &issue.Context{
 			Board: issue.BoardDescription{Description: &boardDescription},
+			Pins:  []issue.PinnedIssue{{ID: "an-pinned", Title: "Pinned issue"}},
 			Ancestors: []issue.ContextEntry{{Issue: issue.Issue{
 				ID: "an-root", Title: "Root", Type: "workstream",
 				Lifecycle: "open", Status: "ready", Priority: 1,
@@ -115,6 +116,9 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 		view.GetContext().GetAncestors()[0].GetNextAction().GetSource(),
 	)
 	assert.Equal(t, "Ready.", view.GetContext().GetDependencyResults()[0].GetResult().GetSource())
+	require.Len(t, view.GetContext().GetPins(), 1)
+	assert.Equal(t, "an-pinned", view.GetContext().GetPins()[0].GetId())
+	assert.Equal(t, "Pinned issue", view.GetContext().GetPins()[0].GetTitle())
 }
 
 func TestEncoderLogEntriesRenderInOneBoardBatch(t *testing.T) {

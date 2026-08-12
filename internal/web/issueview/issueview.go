@@ -175,6 +175,7 @@ func (e *Encoder) context(
 	result := &privatev1.IssueContext{
 		Ancestors:         make([]*privatev1.AncestorContext, 0),
 		DependencyResults: make([]*privatev1.DependencyResultContext, 0),
+		Pins:              make([]*privatev1.PinnedIssueContext, 0),
 	}
 	if value == nil {
 		return result, nil
@@ -208,6 +209,11 @@ func (e *Encoder) context(
 			result.DependencyResults,
 			&privatev1.DependencyResultContext{Issue: reference, Result: body},
 		)
+	}
+	for _, pin := range value.Pins {
+		result.Pins = append(result.Pins, &privatev1.PinnedIssueContext{
+			Id: pin.ID, Title: pin.Title,
+		})
 	}
 	return result, nil
 }

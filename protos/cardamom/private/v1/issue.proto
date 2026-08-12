@@ -3,6 +3,7 @@ syntax = "proto3";
 package cardamom.private.v1;
 
 import "cardamom/private/v1/content.proto";
+import "cardamom/private/v1/mutation.proto";
 import "cardamom/private/v1/scope.proto";
 import "cardamom/private/v1/source.proto";
 import "google/protobuf/timestamp.proto";
@@ -245,6 +246,15 @@ message DependencyResultContext {
   MarkdownContent result = 2;
 }
 
+// PinnedIssueContext identifies one issue in the board's pin order.
+message PinnedIssueContext {
+  // id is the pinned issue's stable identity.
+  string id = 1;
+
+  // title is the pinned issue's current title.
+  string title = 2;
+}
+
 // IssueContext contains inherited stable context in presentation order.
 message IssueContext {
   // board_description is the selected board's shared context.
@@ -255,6 +265,9 @@ message IssueContext {
 
   // dependency_results lists completed prerequisite outcomes.
   repeated DependencyResultContext dependency_results = 3;
+
+  // pins lists board pins in insertion order.
+  repeated PinnedIssueContext pins = 4;
 }
 
 // HierarchyNode is one row in a preordered containment projection.
@@ -419,6 +432,54 @@ message GetIssueResponse {
   IssueDetail issue = 1;
 }
 
+// ListBoardPinsRequest identifies one board's ordered pin collection.
+message ListBoardPinsRequest {
+  // board_id identifies the board whose pins are read.
+  string board_id = 1;
+}
+
+// ListBoardPinsResponse contains current issues in board pin order.
+message ListBoardPinsResponse {
+  // issues contains current issue references in insertion order.
+  repeated RelatedIssue issues = 1;
+}
+
+// PinBoardIssueRequest pins one issue to its owning board.
+message PinBoardIssueRequest {
+  // issue_id identifies the issue to pin.
+  string issue_id = 1;
+
+  // context supplies mutation attribution.
+  MutationContext context = 2;
+}
+
+// PinBoardIssueResponse reports the idempotent pin outcome.
+message PinBoardIssueResponse {
+  // issue is the current pinned issue summary.
+  RelatedIssue issue = 1;
+
+  // changed reports whether this invocation added the pin.
+  bool changed = 2;
+}
+
+// UnpinBoardIssueRequest removes one issue from its owning board's pins.
+message UnpinBoardIssueRequest {
+  // issue_id identifies the issue to unpin.
+  string issue_id = 1;
+
+  // context supplies mutation attribution.
+  MutationContext context = 2;
+}
+
+// UnpinBoardIssueResponse reports the idempotent unpin outcome.
+message UnpinBoardIssueResponse {
+  // issue is the current unpinned issue summary.
+  RelatedIssue issue = 1;
+
+  // changed reports whether this invocation removed the pin.
+  bool changed = 2;
+}
+
 // IssueService exposes issue collection and detail reads.
 service IssueService {
   // ListIssues returns one stable page from a selected issue collection.
@@ -430,4 +491,15 @@ service IssueService {
   rpc GetIssue(GetIssueRequest) returns (GetIssueResponse) {
     option idempotency_level = NO_SIDE_EFFECTS;
   }
+
+  // ListBoardPins returns current issues in one board's pin order.
+  rpc ListBoardPins(ListBoardPinsRequest) returns (ListBoardPinsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+
+  // PinBoardIssue adds one issue to its owning board's pin order.
+  rpc PinBoardIssue(PinBoardIssueRequest) returns (PinBoardIssueResponse);
+
+  // UnpinBoardIssue removes one issue from its owning board's pin order.
+  rpc UnpinBoardIssue(UnpinBoardIssueRequest) returns (UnpinBoardIssueResponse);
 }

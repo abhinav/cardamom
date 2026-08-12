@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/configuration.proto.
  */
 export const file_cardamom_private_v1_configuration: GenFile = /*@__PURE__*/
-  fileDesc("CidjYXJkYW1vbS9wcml2YXRlL3YxL2NvbmZpZ3VyYXRpb24ucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiiQEKDUNvbmZpZ3VyYXRpb24SNgoFaXNzdWUYASABKAsyJy5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZRJACgphdHRhY2htZW50GAIgASgLMiwuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uQXR0YWNobWVudCKHAQoSQ29uZmlndXJhdGlvbklzc3VlEjUKAmlkGAEgASgLMikuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uSXNzdWVJRBI6CgdzdW1tYXJ5GAIgASgLMikuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uU3VtbWFyeSJrChRDb25maWd1cmF0aW9uSXNzdWVJRBIOCgZwcmVmaXgYASABKAkSQwoIc3RyYXRlZ3kYAiABKA4yMS5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZUlEU3RyYXRlZ3kiKQoUQ29uZmlndXJhdGlvblN1bW1hcnkSEQoJbWF4X2J5dGVzGAEgASgEIiwKF0NvbmZpZ3VyYXRpb25BdHRhY2htZW50EhEKCW1heF9ieXRlcxgBIAEoBCKkAQoWQ29uZmlndXJhdGlvbk92ZXJyaWRlcxI/CgVpc3N1ZRgBIAEoCzIwLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbklzc3VlT3ZlcnJpZGVzEkkKCmF0dGFjaG1lbnQYAiABKAsyNS5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25BdHRhY2htZW50T3ZlcnJpZGVzIqIBChtDb25maWd1cmF0aW9uSXNzdWVPdmVycmlkZXMSPgoCaWQYASABKAsyMi5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZUlET3ZlcnJpZGVzEkMKB3N1bW1hcnkYAiABKAsyMi5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25TdW1tYXJ5T3ZlcnJpZGVzIpYBCh1Db25maWd1cmF0aW9uSXNzdWVJRE92ZXJyaWRlcxITCgZwcmVmaXgYASABKAlIAIgBARJICghzdHJhdGVneRgCIAEoDjIxLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbklzc3VlSURTdHJhdGVneUgBiAEBQgkKB19wcmVmaXhCCwoJX3N0cmF0ZWd5IkUKHUNvbmZpZ3VyYXRpb25TdW1tYXJ5T3ZlcnJpZGVzEhYKCW1heF9ieXRlcxgBIAEoBEgAiAEBQgwKCl9tYXhfYnl0ZXMiSAogQ29uZmlndXJhdGlvbkF0dGFjaG1lbnRPdmVycmlkZXMSFgoJbWF4X2J5dGVzGAEgASgESACIAQFCDAoKX21heF9ieXRlcyJfChNDb25maWd1cmF0aW9uU291cmNlEjYKBXNjb3BlGAEgASgOMicuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uU2NvcGUSEAoIaWRlbnRpdHkYAiABKAkijgEKEkNvbmZpZ3VyYXRpb25MYXllchI4CgZzb3VyY2UYASABKAsyKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Tb3VyY2USPgoJb3ZlcnJpZGVzGAIgASgLMisuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uT3ZlcnJpZGVzIp4BChRDb25maWd1cmF0aW9uT3JpZ2lucxI9CgVpc3N1ZRgBIAEoCzIuLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbklzc3VlT3JpZ2lucxJHCgphdHRhY2htZW50GAIgASgLMjMuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uQXR0YWNobWVudE9yaWdpbnMinAEKGUNvbmZpZ3VyYXRpb25Jc3N1ZU9yaWdpbnMSPAoCaWQYASABKAsyMC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZUlET3JpZ2lucxJBCgdzdW1tYXJ5GAIgASgLMjAuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uU3VtbWFyeU9yaWdpbnMikwEKG0NvbmZpZ3VyYXRpb25Jc3N1ZUlET3JpZ2lucxI4CgZwcmVmaXgYASABKAsyKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Tb3VyY2USOgoIc3RyYXRlZ3kYAiABKAsyKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Tb3VyY2UiWgobQ29uZmlndXJhdGlvblN1bW1hcnlPcmlnaW5zEjsKCW1heF9ieXRlcxgBIAEoCzIoLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvblNvdXJjZSJdCh5Db25maWd1cmF0aW9uQXR0YWNobWVudE9yaWdpbnMSOwoJbWF4X2J5dGVzGAEgASgLMiguY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uU291cmNlIr8BChFDb25maWd1cmF0aW9uVmlldxI3CgZsYXllcnMYASADKAsyJy5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25MYXllchI1CgllZmZlY3RpdmUYAiABKAsyIi5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb24SOgoHb3JpZ2lucxgDIAEoCzIpLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbk9yaWdpbnMiKwoXR2V0Q29uZmlndXJhdGlvblJlcXVlc3QSEAoIYm9hcmRfaWQYASABKAkiUAoYR2V0Q29uZmlndXJhdGlvblJlc3BvbnNlEjQKBHZpZXcYASABKAsyJi5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25WaWV3Io4CChpVcGRhdGVDb25maWd1cmF0aW9uUmVxdWVzdBIQCghib2FyZF9pZBgBIAEoCRI2CgVzY29wZRgCIAEoDjInLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvblNjb3BlEj4KCW92ZXJyaWRlcxgDIAEoCzIrLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbk92ZXJyaWRlcxIvCgt1cGRhdGVfbWFzaxgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5GaWVsZE1hc2sSNQoHY29udGV4dBgFIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTXV0YXRpb25Db250ZXh0IlMKG1VwZGF0ZUNvbmZpZ3VyYXRpb25SZXNwb25zZRI0CgR2aWV3GAEgASgLMiYuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uVmlldyq6AQoSQ29uZmlndXJhdGlvblNjb3BlEiMKH0NPTkZJR1VSQVRJT05fU0NPUEVfVU5TUEVDSUZJRUQQABIgChxDT05GSUdVUkFUSU9OX1NDT1BFX0JVSUxUX0lOEAESHQoZQ09ORklHVVJBVElPTl9TQ09QRV9TVE9SRRACEh8KG0NPTkZJR1VSQVRJT05fU0NPUEVfUFJPSkVDVBADEh0KGUNPTkZJR1VSQVRJT05fU0NPUEVfQk9BUkQQBCqrAQocQ29uZmlndXJhdGlvbklzc3VlSURTdHJhdGVneRIvCitDT05GSUdVUkFUSU9OX0lTU1VFX0lEX1NUUkFURUdZX1VOU1BFQ0lGSUVEEAASKgomQ09ORklHVVJBVElPTl9JU1NVRV9JRF9TVFJBVEVHWV9SQU5ET00QARIuCipDT05GSUdVUkFUSU9OX0lTU1VFX0lEX1NUUkFURUdZX1NFUVVFTlRJQUwQAjKGAgoUQ29uZmlndXJhdGlvblNlcnZpY2USdAoQR2V0Q29uZmlndXJhdGlvbhIsLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Q29uZmlndXJhdGlvblJlcXVlc3QaLS5jYXJkYW1vbS5wcml2YXRlLnYxLkdldENvbmZpZ3VyYXRpb25SZXNwb25zZSIDkAIBEngKE1VwZGF0ZUNvbmZpZ3VyYXRpb24SLy5jYXJkYW1vbS5wcml2YXRlLnYxLlVwZGF0ZUNvbmZpZ3VyYXRpb25SZXF1ZXN0GjAuY2FyZGFtb20ucHJpdmF0ZS52MS5VcGRhdGVDb25maWd1cmF0aW9uUmVzcG9uc2VC3gEKF2NvbS5jYXJkYW1vbS5wcml2YXRlLnYxQhJDb25maWd1cmF0aW9uUHJvdG9QAVo/Z28uYWJoZy5kZXYvY2FyZGFtb20vaW50ZXJuYWwvZ2VuL2NhcmRhbW9tL3ByaXZhdGUvdjE7cHJpdmF0ZXYxogIDQ1BYqgITQ2FyZGFtb20uUHJpdmF0ZS5WMcoCFENhcmRhbW9tXFByaXZhdGVfXFYx4gIgQ2FyZGFtb21cUHJpdmF0ZV9cVjFcR1BCTWV0YWRhdGHqAhVDYXJkYW1vbTo6UHJpdmF0ZTo6VjFiBnByb3RvMw", [file_cardamom_private_v1_mutation, file_google_protobuf_field_mask]);
+  fileDesc("CidjYXJkYW1vbS9wcml2YXRlL3YxL2NvbmZpZ3VyYXRpb24ucHJvdG8SE2NhcmRhbW9tLnByaXZhdGUudjEiwQEKDUNvbmZpZ3VyYXRpb24SNgoFaXNzdWUYASABKAsyJy5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZRJACgphdHRhY2htZW50GAIgASgLMiwuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uQXR0YWNobWVudBI2CgVib2FyZBgDIAEoCzInLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbkJvYXJkIocBChJDb25maWd1cmF0aW9uSXNzdWUSNQoCaWQYASABKAsyKS5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZUlEEjoKB3N1bW1hcnkYAiABKAsyKS5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25TdW1tYXJ5ImsKFENvbmZpZ3VyYXRpb25Jc3N1ZUlEEg4KBnByZWZpeBgBIAEoCRJDCghzdHJhdGVneRgCIAEoDjIxLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbklzc3VlSURTdHJhdGVneSIpChRDb25maWd1cmF0aW9uU3VtbWFyeRIRCgltYXhfYnl0ZXMYASABKAQiLAoXQ29uZmlndXJhdGlvbkF0dGFjaG1lbnQSEQoJbWF4X2J5dGVzGAEgASgEIkoKEkNvbmZpZ3VyYXRpb25Cb2FyZBI0CgRwaW5zGAEgASgLMiYuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uUGlucyImChFDb25maWd1cmF0aW9uUGlucxIRCgltYXhfY291bnQYASABKAQi5QEKFkNvbmZpZ3VyYXRpb25PdmVycmlkZXMSPwoFaXNzdWUYASABKAsyMC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZU92ZXJyaWRlcxJJCgphdHRhY2htZW50GAIgASgLMjUuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uQXR0YWNobWVudE92ZXJyaWRlcxI/CgVib2FyZBgDIAEoCzIwLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbkJvYXJkT3ZlcnJpZGVzIqIBChtDb25maWd1cmF0aW9uSXNzdWVPdmVycmlkZXMSPgoCaWQYASABKAsyMi5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZUlET3ZlcnJpZGVzEkMKB3N1bW1hcnkYAiABKAsyMi5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25TdW1tYXJ5T3ZlcnJpZGVzIpYBCh1Db25maWd1cmF0aW9uSXNzdWVJRE92ZXJyaWRlcxITCgZwcmVmaXgYASABKAlIAIgBARJICghzdHJhdGVneRgCIAEoDjIxLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbklzc3VlSURTdHJhdGVneUgBiAEBQgkKB19wcmVmaXhCCwoJX3N0cmF0ZWd5IkUKHUNvbmZpZ3VyYXRpb25TdW1tYXJ5T3ZlcnJpZGVzEhYKCW1heF9ieXRlcxgBIAEoBEgAiAEBQgwKCl9tYXhfYnl0ZXMiSAogQ29uZmlndXJhdGlvbkF0dGFjaG1lbnRPdmVycmlkZXMSFgoJbWF4X2J5dGVzGAEgASgESACIAQFCDAoKX21heF9ieXRlcyJcChtDb25maWd1cmF0aW9uQm9hcmRPdmVycmlkZXMSPQoEcGlucxgBIAEoCzIvLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvblBpbnNPdmVycmlkZXMiQgoaQ29uZmlndXJhdGlvblBpbnNPdmVycmlkZXMSFgoJbWF4X2NvdW50GAEgASgESACIAQFCDAoKX21heF9jb3VudCJfChNDb25maWd1cmF0aW9uU291cmNlEjYKBXNjb3BlGAEgASgOMicuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uU2NvcGUSEAoIaWRlbnRpdHkYAiABKAkijgEKEkNvbmZpZ3VyYXRpb25MYXllchI4CgZzb3VyY2UYASABKAsyKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Tb3VyY2USPgoJb3ZlcnJpZGVzGAIgASgLMisuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uT3ZlcnJpZGVzIt0BChRDb25maWd1cmF0aW9uT3JpZ2lucxI9CgVpc3N1ZRgBIAEoCzIuLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbklzc3VlT3JpZ2lucxJHCgphdHRhY2htZW50GAIgASgLMjMuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uQXR0YWNobWVudE9yaWdpbnMSPQoFYm9hcmQYAyABKAsyLi5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Cb2FyZE9yaWdpbnMinAEKGUNvbmZpZ3VyYXRpb25Jc3N1ZU9yaWdpbnMSPAoCaWQYASABKAsyMC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Jc3N1ZUlET3JpZ2lucxJBCgdzdW1tYXJ5GAIgASgLMjAuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uU3VtbWFyeU9yaWdpbnMikwEKG0NvbmZpZ3VyYXRpb25Jc3N1ZUlET3JpZ2lucxI4CgZwcmVmaXgYASABKAsyKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Tb3VyY2USOgoIc3RyYXRlZ3kYAiABKAsyKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Tb3VyY2UiWgobQ29uZmlndXJhdGlvblN1bW1hcnlPcmlnaW5zEjsKCW1heF9ieXRlcxgBIAEoCzIoLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvblNvdXJjZSJdCh5Db25maWd1cmF0aW9uQXR0YWNobWVudE9yaWdpbnMSOwoJbWF4X2J5dGVzGAEgASgLMiguY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uU291cmNlIlgKGUNvbmZpZ3VyYXRpb25Cb2FyZE9yaWdpbnMSOwoEcGlucxgBIAEoCzItLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvblBpbnNPcmlnaW5zIlcKGENvbmZpZ3VyYXRpb25QaW5zT3JpZ2lucxI7CgltYXhfY291bnQYASABKAsyKC5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25Tb3VyY2UivwEKEUNvbmZpZ3VyYXRpb25WaWV3EjcKBmxheWVycxgBIAMoCzInLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbkxheWVyEjUKCWVmZmVjdGl2ZRgCIAEoCzIiLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvbhI6CgdvcmlnaW5zGAMgASgLMikuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uT3JpZ2lucyIrChdHZXRDb25maWd1cmF0aW9uUmVxdWVzdBIQCghib2FyZF9pZBgBIAEoCSJQChhHZXRDb25maWd1cmF0aW9uUmVzcG9uc2USNAoEdmlldxgBIAEoCzImLmNhcmRhbW9tLnByaXZhdGUudjEuQ29uZmlndXJhdGlvblZpZXcijgIKGlVwZGF0ZUNvbmZpZ3VyYXRpb25SZXF1ZXN0EhAKCGJvYXJkX2lkGAEgASgJEjYKBXNjb3BlGAIgASgOMicuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uU2NvcGUSPgoJb3ZlcnJpZGVzGAMgASgLMisuY2FyZGFtb20ucHJpdmF0ZS52MS5Db25maWd1cmF0aW9uT3ZlcnJpZGVzEi8KC3VwZGF0ZV9tYXNrGAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLkZpZWxkTWFzaxI1Cgdjb250ZXh0GAUgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NdXRhdGlvbkNvbnRleHQiUwobVXBkYXRlQ29uZmlndXJhdGlvblJlc3BvbnNlEjQKBHZpZXcYASABKAsyJi5jYXJkYW1vbS5wcml2YXRlLnYxLkNvbmZpZ3VyYXRpb25WaWV3KroBChJDb25maWd1cmF0aW9uU2NvcGUSIwofQ09ORklHVVJBVElPTl9TQ09QRV9VTlNQRUNJRklFRBAAEiAKHENPTkZJR1VSQVRJT05fU0NPUEVfQlVJTFRfSU4QARIdChlDT05GSUdVUkFUSU9OX1NDT1BFX1NUT1JFEAISHwobQ09ORklHVVJBVElPTl9TQ09QRV9QUk9KRUNUEAMSHQoZQ09ORklHVVJBVElPTl9TQ09QRV9CT0FSRBAEKqsBChxDb25maWd1cmF0aW9uSXNzdWVJRFN0cmF0ZWd5Ei8KK0NPTkZJR1VSQVRJT05fSVNTVUVfSURfU1RSQVRFR1lfVU5TUEVDSUZJRUQQABIqCiZDT05GSUdVUkFUSU9OX0lTU1VFX0lEX1NUUkFURUdZX1JBTkRPTRABEi4KKkNPTkZJR1VSQVRJT05fSVNTVUVfSURfU1RSQVRFR1lfU0VRVUVOVElBTBACMoYCChRDb25maWd1cmF0aW9uU2VydmljZRJ0ChBHZXRDb25maWd1cmF0aW9uEiwuY2FyZGFtb20ucHJpdmF0ZS52MS5HZXRDb25maWd1cmF0aW9uUmVxdWVzdBotLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0Q29uZmlndXJhdGlvblJlc3BvbnNlIgOQAgESeAoTVXBkYXRlQ29uZmlndXJhdGlvbhIvLmNhcmRhbW9tLnByaXZhdGUudjEuVXBkYXRlQ29uZmlndXJhdGlvblJlcXVlc3QaMC5jYXJkYW1vbS5wcml2YXRlLnYxLlVwZGF0ZUNvbmZpZ3VyYXRpb25SZXNwb25zZULeAQoXY29tLmNhcmRhbW9tLnByaXZhdGUudjFCEkNvbmZpZ3VyYXRpb25Qcm90b1ABWj9nby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS92MTtwcml2YXRldjGiAgNDUFiqAhNDYXJkYW1vbS5Qcml2YXRlLlYxygIUQ2FyZGFtb21cUHJpdmF0ZV9cVjHiAiBDYXJkYW1vbVxQcml2YXRlX1xWMVxHUEJNZXRhZGF0YeoCFUNhcmRhbW9tOjpQcml2YXRlOjpWMWIGcHJvdG8z", [file_cardamom_private_v1_mutation, file_google_protobuf_field_mask]);
 
 /**
  * Configuration contains one fully resolved nested configuration.
@@ -35,6 +35,13 @@ export type Configuration = Message<"cardamom.private.v1.Configuration"> & {
    * @generated from field: cardamom.private.v1.ConfigurationAttachment attachment = 2;
    */
   attachment?: ConfigurationAttachment | undefined;
+
+  /**
+   * board contains board-scoped coordination policy.
+   *
+   * @generated from field: cardamom.private.v1.ConfigurationBoard board = 3;
+   */
+  board?: ConfigurationBoard | undefined;
 };
 
 /**
@@ -143,6 +150,48 @@ export const ConfigurationAttachmentSchema: GenMessage<ConfigurationAttachment> 
   messageDesc(file_cardamom_private_v1_configuration, 4);
 
 /**
+ * ConfigurationBoard contains fully resolved board policy.
+ *
+ * @generated from message cardamom.private.v1.ConfigurationBoard
+ */
+export type ConfigurationBoard = Message<"cardamom.private.v1.ConfigurationBoard"> & {
+  /**
+   * pins controls the ordered pinned-issue collection.
+   *
+   * @generated from field: cardamom.private.v1.ConfigurationPins pins = 1;
+   */
+  pins?: ConfigurationPins | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.ConfigurationBoard.
+ * Use `create(ConfigurationBoardSchema)` to create a new message.
+ */
+export const ConfigurationBoardSchema: GenMessage<ConfigurationBoard> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_configuration, 5);
+
+/**
+ * ConfigurationPins contains fully resolved board pin policy.
+ *
+ * @generated from message cardamom.private.v1.ConfigurationPins
+ */
+export type ConfigurationPins = Message<"cardamom.private.v1.ConfigurationPins"> & {
+  /**
+   * max_count is the largest admitted pinned-issue collection.
+   *
+   * @generated from field: uint64 max_count = 1;
+   */
+  maxCount: bigint;
+};
+
+/**
+ * Describes the message cardamom.private.v1.ConfigurationPins.
+ * Use `create(ConfigurationPinsSchema)` to create a new message.
+ */
+export const ConfigurationPinsSchema: GenMessage<ConfigurationPins> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_configuration, 6);
+
+/**
  * ConfigurationOverrides contains one nested layer of optional values.
  *
  * @generated from message cardamom.private.v1.ConfigurationOverrides
@@ -161,6 +210,13 @@ export type ConfigurationOverrides = Message<"cardamom.private.v1.ConfigurationO
    * @generated from field: cardamom.private.v1.ConfigurationAttachmentOverrides attachment = 2;
    */
   attachment?: ConfigurationAttachmentOverrides | undefined;
+
+  /**
+   * board contains optional board policy values.
+   *
+   * @generated from field: cardamom.private.v1.ConfigurationBoardOverrides board = 3;
+   */
+  board?: ConfigurationBoardOverrides | undefined;
 };
 
 /**
@@ -168,7 +224,7 @@ export type ConfigurationOverrides = Message<"cardamom.private.v1.ConfigurationO
  * Use `create(ConfigurationOverridesSchema)` to create a new message.
  */
 export const ConfigurationOverridesSchema: GenMessage<ConfigurationOverrides> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 5);
+  messageDesc(file_cardamom_private_v1_configuration, 7);
 
 /**
  * ConfigurationIssueOverrides contains optional issue policy values.
@@ -196,7 +252,7 @@ export type ConfigurationIssueOverrides = Message<"cardamom.private.v1.Configura
  * Use `create(ConfigurationIssueOverridesSchema)` to create a new message.
  */
 export const ConfigurationIssueOverridesSchema: GenMessage<ConfigurationIssueOverrides> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 6);
+  messageDesc(file_cardamom_private_v1_configuration, 8);
 
 /**
  * ConfigurationIssueIDOverrides contains optional identity values.
@@ -224,7 +280,7 @@ export type ConfigurationIssueIDOverrides = Message<"cardamom.private.v1.Configu
  * Use `create(ConfigurationIssueIDOverridesSchema)` to create a new message.
  */
 export const ConfigurationIssueIDOverridesSchema: GenMessage<ConfigurationIssueIDOverrides> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 7);
+  messageDesc(file_cardamom_private_v1_configuration, 9);
 
 /**
  * ConfigurationSummaryOverrides contains optional summary policy values.
@@ -245,7 +301,7 @@ export type ConfigurationSummaryOverrides = Message<"cardamom.private.v1.Configu
  * Use `create(ConfigurationSummaryOverridesSchema)` to create a new message.
  */
 export const ConfigurationSummaryOverridesSchema: GenMessage<ConfigurationSummaryOverrides> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 8);
+  messageDesc(file_cardamom_private_v1_configuration, 10);
 
 /**
  * ConfigurationAttachmentOverrides contains optional attachment policy values.
@@ -266,7 +322,49 @@ export type ConfigurationAttachmentOverrides = Message<"cardamom.private.v1.Conf
  * Use `create(ConfigurationAttachmentOverridesSchema)` to create a new message.
  */
 export const ConfigurationAttachmentOverridesSchema: GenMessage<ConfigurationAttachmentOverrides> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 9);
+  messageDesc(file_cardamom_private_v1_configuration, 11);
+
+/**
+ * ConfigurationBoardOverrides contains optional board policy values.
+ *
+ * @generated from message cardamom.private.v1.ConfigurationBoardOverrides
+ */
+export type ConfigurationBoardOverrides = Message<"cardamom.private.v1.ConfigurationBoardOverrides"> & {
+  /**
+   * pins contains optional pinned-issue policy values.
+   *
+   * @generated from field: cardamom.private.v1.ConfigurationPinsOverrides pins = 1;
+   */
+  pins?: ConfigurationPinsOverrides | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.ConfigurationBoardOverrides.
+ * Use `create(ConfigurationBoardOverridesSchema)` to create a new message.
+ */
+export const ConfigurationBoardOverridesSchema: GenMessage<ConfigurationBoardOverrides> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_configuration, 12);
+
+/**
+ * ConfigurationPinsOverrides contains optional pinned-issue policy values.
+ *
+ * @generated from message cardamom.private.v1.ConfigurationPinsOverrides
+ */
+export type ConfigurationPinsOverrides = Message<"cardamom.private.v1.ConfigurationPinsOverrides"> & {
+  /**
+   * max_count overrides the inherited pin limit when present.
+   *
+   * @generated from field: optional uint64 max_count = 1;
+   */
+  maxCount?: bigint | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.ConfigurationPinsOverrides.
+ * Use `create(ConfigurationPinsOverridesSchema)` to create a new message.
+ */
+export const ConfigurationPinsOverridesSchema: GenMessage<ConfigurationPinsOverrides> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_configuration, 13);
 
 /**
  * ConfigurationSource identifies a concrete configuration layer.
@@ -294,7 +392,7 @@ export type ConfigurationSource = Message<"cardamom.private.v1.ConfigurationSour
  * Use `create(ConfigurationSourceSchema)` to create a new message.
  */
 export const ConfigurationSourceSchema: GenMessage<ConfigurationSource> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 10);
+  messageDesc(file_cardamom_private_v1_configuration, 14);
 
 /**
  * ConfigurationLayer contains one layer in precedence order.
@@ -322,7 +420,7 @@ export type ConfigurationLayer = Message<"cardamom.private.v1.ConfigurationLayer
  * Use `create(ConfigurationLayerSchema)` to create a new message.
  */
 export const ConfigurationLayerSchema: GenMessage<ConfigurationLayer> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 11);
+  messageDesc(file_cardamom_private_v1_configuration, 15);
 
 /**
  * ConfigurationOrigins identifies the source of every effective field.
@@ -343,6 +441,13 @@ export type ConfigurationOrigins = Message<"cardamom.private.v1.ConfigurationOri
    * @generated from field: cardamom.private.v1.ConfigurationAttachmentOrigins attachment = 2;
    */
   attachment?: ConfigurationAttachmentOrigins | undefined;
+
+  /**
+   * board contains origins for board policy.
+   *
+   * @generated from field: cardamom.private.v1.ConfigurationBoardOrigins board = 3;
+   */
+  board?: ConfigurationBoardOrigins | undefined;
 };
 
 /**
@@ -350,7 +455,7 @@ export type ConfigurationOrigins = Message<"cardamom.private.v1.ConfigurationOri
  * Use `create(ConfigurationOriginsSchema)` to create a new message.
  */
 export const ConfigurationOriginsSchema: GenMessage<ConfigurationOrigins> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 12);
+  messageDesc(file_cardamom_private_v1_configuration, 16);
 
 /**
  * ConfigurationIssueOrigins contains origins for issue policy.
@@ -378,7 +483,7 @@ export type ConfigurationIssueOrigins = Message<"cardamom.private.v1.Configurati
  * Use `create(ConfigurationIssueOriginsSchema)` to create a new message.
  */
 export const ConfigurationIssueOriginsSchema: GenMessage<ConfigurationIssueOrigins> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 13);
+  messageDesc(file_cardamom_private_v1_configuration, 17);
 
 /**
  * ConfigurationIssueIDOrigins contains origins for identity policy.
@@ -406,7 +511,7 @@ export type ConfigurationIssueIDOrigins = Message<"cardamom.private.v1.Configura
  * Use `create(ConfigurationIssueIDOriginsSchema)` to create a new message.
  */
 export const ConfigurationIssueIDOriginsSchema: GenMessage<ConfigurationIssueIDOrigins> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 14);
+  messageDesc(file_cardamom_private_v1_configuration, 18);
 
 /**
  * ConfigurationSummaryOrigins contains origins for summary policy.
@@ -427,7 +532,7 @@ export type ConfigurationSummaryOrigins = Message<"cardamom.private.v1.Configura
  * Use `create(ConfigurationSummaryOriginsSchema)` to create a new message.
  */
 export const ConfigurationSummaryOriginsSchema: GenMessage<ConfigurationSummaryOrigins> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 15);
+  messageDesc(file_cardamom_private_v1_configuration, 19);
 
 /**
  * ConfigurationAttachmentOrigins contains origins for attachment policy.
@@ -448,7 +553,49 @@ export type ConfigurationAttachmentOrigins = Message<"cardamom.private.v1.Config
  * Use `create(ConfigurationAttachmentOriginsSchema)` to create a new message.
  */
 export const ConfigurationAttachmentOriginsSchema: GenMessage<ConfigurationAttachmentOrigins> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 16);
+  messageDesc(file_cardamom_private_v1_configuration, 20);
+
+/**
+ * ConfigurationBoardOrigins contains origins for board policy.
+ *
+ * @generated from message cardamom.private.v1.ConfigurationBoardOrigins
+ */
+export type ConfigurationBoardOrigins = Message<"cardamom.private.v1.ConfigurationBoardOrigins"> & {
+  /**
+   * pins contains origins for pinned-issue policy.
+   *
+   * @generated from field: cardamom.private.v1.ConfigurationPinsOrigins pins = 1;
+   */
+  pins?: ConfigurationPinsOrigins | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.ConfigurationBoardOrigins.
+ * Use `create(ConfigurationBoardOriginsSchema)` to create a new message.
+ */
+export const ConfigurationBoardOriginsSchema: GenMessage<ConfigurationBoardOrigins> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_configuration, 21);
+
+/**
+ * ConfigurationPinsOrigins contains origins for pinned-issue policy.
+ *
+ * @generated from message cardamom.private.v1.ConfigurationPinsOrigins
+ */
+export type ConfigurationPinsOrigins = Message<"cardamom.private.v1.ConfigurationPinsOrigins"> & {
+  /**
+   * max_count identifies the effective pin-limit source.
+   *
+   * @generated from field: cardamom.private.v1.ConfigurationSource max_count = 1;
+   */
+  maxCount?: ConfigurationSource | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.ConfigurationPinsOrigins.
+ * Use `create(ConfigurationPinsOriginsSchema)` to create a new message.
+ */
+export const ConfigurationPinsOriginsSchema: GenMessage<ConfigurationPinsOrigins> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_configuration, 22);
 
 /**
  * ConfigurationView contains all layers and their resolved result.
@@ -483,7 +630,7 @@ export type ConfigurationView = Message<"cardamom.private.v1.ConfigurationView">
  * Use `create(ConfigurationViewSchema)` to create a new message.
  */
 export const ConfigurationViewSchema: GenMessage<ConfigurationView> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 17);
+  messageDesc(file_cardamom_private_v1_configuration, 23);
 
 /**
  * GetConfigurationRequest identifies the board whose configuration is read.
@@ -504,7 +651,7 @@ export type GetConfigurationRequest = Message<"cardamom.private.v1.GetConfigurat
  * Use `create(GetConfigurationRequestSchema)` to create a new message.
  */
 export const GetConfigurationRequestSchema: GenMessage<GetConfigurationRequest> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 18);
+  messageDesc(file_cardamom_private_v1_configuration, 24);
 
 /**
  * GetConfigurationResponse contains the current resolved configuration view.
@@ -525,7 +672,7 @@ export type GetConfigurationResponse = Message<"cardamom.private.v1.GetConfigura
  * Use `create(GetConfigurationResponseSchema)` to create a new message.
  */
 export const GetConfigurationResponseSchema: GenMessage<GetConfigurationResponse> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 19);
+  messageDesc(file_cardamom_private_v1_configuration, 25);
 
 /**
  * UpdateConfigurationRequest applies one typed patch to one mutable layer.
@@ -575,7 +722,7 @@ export type UpdateConfigurationRequest = Message<"cardamom.private.v1.UpdateConf
  * Use `create(UpdateConfigurationRequestSchema)` to create a new message.
  */
 export const UpdateConfigurationRequestSchema: GenMessage<UpdateConfigurationRequest> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 20);
+  messageDesc(file_cardamom_private_v1_configuration, 26);
 
 /**
  * UpdateConfigurationResponse contains the resolved post-update view.
@@ -596,7 +743,7 @@ export type UpdateConfigurationResponse = Message<"cardamom.private.v1.UpdateCon
  * Use `create(UpdateConfigurationResponseSchema)` to create a new message.
  */
 export const UpdateConfigurationResponseSchema: GenMessage<UpdateConfigurationResponse> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_configuration, 21);
+  messageDesc(file_cardamom_private_v1_configuration, 27);
 
 /**
  * ConfigurationScope identifies one layer in the configuration hierarchy.

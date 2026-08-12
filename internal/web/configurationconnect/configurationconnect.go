@@ -146,6 +146,14 @@ func configurationPatch(
 		}
 		patch.Overrides.Attachment.MaxBytes = &value
 	}
+	pins := overrides.GetBoard().GetPins()
+	if pins != nil && pins.MaxCount != nil {
+		value, err := board.NewPinLimit(pins.GetMaxCount())
+		if err != nil {
+			return configuration.Patch{}, invalidInput(err)
+		}
+		patch.Overrides.Board.Pins.MaxCount = &value
+	}
 	if err := patch.Validate(); err != nil {
 		return configuration.Patch{}, invalidInput(err)
 	}
@@ -162,6 +170,8 @@ func configurationField(path string) (configuration.Field, error) {
 		return configuration.FieldIssueSummaryMaxBytes, nil
 	case "attachment.max_bytes":
 		return configuration.FieldAttachmentMaxBytes, nil
+	case "board.pins.max_count":
+		return configuration.FieldBoardPinsMaxCount, nil
 	default:
 		return 0, errkind.Errorf(
 			errkind.InvalidInput,
@@ -246,6 +256,11 @@ func configurationValues(
 		Attachment: &privatev1.ConfigurationAttachment{
 			MaxBytes: value.Attachment.MaxBytes.Uint64(),
 		},
+		Board: &privatev1.ConfigurationBoard{
+			Pins: &privatev1.ConfigurationPins{
+				MaxCount: value.Board.Pins.MaxCount.Uint64(),
+			},
+		},
 	}
 }
 
@@ -256,6 +271,7 @@ func configurationOverridesFromValues(
 	strategy := configurationIssueIDStrategy(value.Issue.ID.Strategy)
 	summaryMaxBytes := value.Issue.Summary.MaxBytes.Uint64()
 	attachmentMaxBytes := value.Attachment.MaxBytes.Uint64()
+	pinMaxCount := value.Board.Pins.MaxCount.Uint64()
 	return &privatev1.ConfigurationOverrides{
 		Issue: &privatev1.ConfigurationIssueOverrides{
 			Id: &privatev1.ConfigurationIssueIDOverrides{
@@ -267,6 +283,9 @@ func configurationOverridesFromValues(
 		},
 		Attachment: &privatev1.ConfigurationAttachmentOverrides{
 			MaxBytes: &attachmentMaxBytes,
+		},
+		Board: &privatev1.ConfigurationBoardOverrides{
+			Pins: &privatev1.ConfigurationPinsOverrides{MaxCount: &pinMaxCount},
 		},
 	}
 }
@@ -280,6 +299,9 @@ func configurationOverrides(
 			Summary: &privatev1.ConfigurationSummaryOverrides{},
 		},
 		Attachment: &privatev1.ConfigurationAttachmentOverrides{},
+		Board: &privatev1.ConfigurationBoardOverrides{
+			Pins: &privatev1.ConfigurationPinsOverrides{},
+		},
 	}
 	if value.Issue.ID.Prefix != nil {
 		result.Issue.Id.Prefix = new(value.Issue.ID.Prefix.String())
@@ -296,6 +318,9 @@ func configurationOverrides(
 	}
 	if value.Attachment.MaxBytes != nil {
 		result.Attachment.MaxBytes = new(value.Attachment.MaxBytes.Uint64())
+	}
+	if value.Board.Pins.MaxCount != nil {
+		result.Board.Pins.MaxCount = new(value.Board.Pins.MaxCount.Uint64())
 	}
 	return result
 }
@@ -315,6 +340,11 @@ func configurationOrigins(
 		},
 		Attachment: &privatev1.ConfigurationAttachmentOrigins{
 			MaxBytes: configurationSource(value.Attachment.MaxBytes),
+		},
+		Board: &privatev1.ConfigurationBoardOrigins{
+			Pins: &privatev1.ConfigurationPinsOrigins{
+				MaxCount: configurationSource(value.Board.Pins.MaxCount),
+			},
 		},
 	}
 }

@@ -74,6 +74,73 @@ func TestServiceListIssuesAppliesOneGlobalOrderAndLimit(t *testing.T) {
 	}
 }
 
+func TestServiceListBoardPinsPreservesInsertionOrder(t *testing.T) {
+	projectOne := testProject(t, "project-1", "Project One")
+	boardOne := testBoard(t, "board-1", projectOne.ID(), "Board One", nil)
+	pins := &testBoardPins{values: []issue.Reference{
+		{ID: "issue-b", Title: "Second", Type: "task", Status: "ready", Priority: 1},
+		{ID: "issue-a", Title: "First", Type: "routine", Status: "waiting", Priority: 2},
+	}}
+	client := newTestClient(t, testConfig{
+		Catalog:      &testCatalog{boards: []*board.State{boardOne}},
+		IssueBoards:  testIssueLocator{},
+		BoardReaders: &emptyBoardReaderFactory{},
+		BoardPins:    testBoardPinsFactory{boardOne.ID(): pins},
+		Markdown:     markdown.New(),
+	})
+
+	response, err := client.ListBoardPins(
+		t.Context(),
+		connect.NewRequest(&privatev1.ListBoardPinsRequest{BoardId: "board-1"}),
+	)
+	require.NoError(t, err)
+	require.Len(t, response.Msg.GetIssues(), 2)
+	assert.Equal(t, "issue-b", response.Msg.GetIssues()[0].GetId())
+	assert.Equal(t, "Second", response.Msg.GetIssues()[0].GetTitle())
+	assert.Equal(t, "issue-a", response.Msg.GetIssues()[1].GetId())
+	assert.Equal(t, privatev1.IssueType_ISSUE_TYPE_ROUTINE, response.Msg.GetIssues()[1].GetType())
+}
+
+func TestServiceMutatesBoardPinsThroughIssueOwnership(t *testing.T) {
+	projectOne := testProject(t, "project-1", "Project One")
+	boardOne := testBoard(t, "board-1", projectOne.ID(), "Board One", nil)
+	reference := issue.Reference{
+		ID: "issue-a", Title: "Pinned", Type: "task", Status: "ready", Priority: 1,
+	}
+	pins := &testBoardPins{
+		pinResult:   board.PinMutation{Issue: reference, Changed: true},
+		unpinResult: board.PinMutation{Issue: reference},
+	}
+	client := newTestClient(t, testConfig{
+		Catalog:      &testCatalog{boards: []*board.State{boardOne}},
+		IssueBoards:  testIssueLocator{"issue-a": boardOne.ID()},
+		BoardReaders: &emptyBoardReaderFactory{},
+		BoardPins:    testBoardPinsFactory{boardOne.ID(): pins},
+		Markdown:     markdown.New(),
+	})
+	context := &privatev1.MutationContext{Actor: new("engineer")}
+
+	pinned, err := client.PinBoardIssue(
+		t.Context(),
+		connect.NewRequest(&privatev1.PinBoardIssueRequest{
+			IssueId: "issue-a", Context: context,
+		}),
+	)
+	require.NoError(t, err)
+	assert.True(t, pinned.Msg.GetChanged())
+	assert.Equal(t, "issue-a", pinned.Msg.GetIssue().GetId())
+
+	unpinned, err := client.UnpinBoardIssue(
+		t.Context(),
+		connect.NewRequest(&privatev1.UnpinBoardIssueRequest{
+			IssueId: "issue-a", Context: context,
+		}),
+	)
+	require.NoError(t, err)
+	assert.False(t, unpinned.Msg.GetChanged())
+	assert.Equal(t, []string{"pin:issue-a:engineer", "unpin:issue-a:engineer"}, pins.calls)
+}
+
 func TestListIssueRequestMapsLabelSelectors(t *testing.T) {
 	t.Parallel()
 
@@ -407,14 +474,19 @@ type testConfig struct {
 	Catalog      boardscope.Catalog
 	IssueBoards  boardscope.IssueLocator
 	BoardReaders BoardReaderFactory
+	BoardPins    BoardPinsFactory
 	Markdown     issueview.MarkdownRenderer
 }
 
 func newTestService(t *testing.T, cfg testConfig) *Service {
 	t.Helper()
+	if cfg.BoardPins == nil {
+		cfg.BoardPins = testBoardPinsFactory{}
+	}
 	return New(Config{
 		Scope:   boardscope.New(cfg.Catalog, cfg.IssueBoards),
-		Readers: cfg.BoardReaders, Views: issueview.New(cfg.Markdown),
+		Readers: cfg.BoardReaders, Pins: cfg.BoardPins,
+		Views: issueview.New(cfg.Markdown),
 	})
 }
 
@@ -475,6 +547,51 @@ func (l testIssueLocator) BoardForIssue(_ context.Context, issueID string) (boar
 		return "", selection.ErrIssueNotFound
 	}
 	return boardID, nil
+}
+
+type emptyBoardReaderFactory struct{}
+
+func (*emptyBoardReaderFactory) Reader(board.ID) (BoardReader, error) {
+	return &testBoardReader{}, nil
+}
+
+type testBoardPinsFactory map[board.ID]*testBoardPins
+
+func (f testBoardPinsFactory) Pins(boardID board.ID) (BoardPins, error) {
+	operations, ok := f[boardID]
+	if !ok {
+		return nil, errkind.Errorf(errkind.NotFound, "board pins not found")
+	}
+	return operations, nil
+}
+
+type testBoardPins struct {
+	values      []issue.Reference
+	pinResult   board.PinMutation
+	unpinResult board.PinMutation
+	calls       []string
+}
+
+func (p *testBoardPins) List(context.Context) ([]issue.Reference, error) {
+	return p.values, nil
+}
+
+func (p *testBoardPins) Pin(
+	_ context.Context,
+	invocation board.Invocation,
+	issueID string,
+) (board.PinMutation, error) {
+	p.calls = append(p.calls, "pin:"+issueID+":"+invocation.Actor())
+	return p.pinResult, nil
+}
+
+func (p *testBoardPins) Unpin(
+	_ context.Context,
+	invocation board.Invocation,
+	issueID string,
+) (board.PinMutation, error) {
+	p.calls = append(p.calls, "unpin:"+issueID+":"+invocation.Actor())
+	return p.unpinResult, nil
 }
 
 type testBoardReader struct {

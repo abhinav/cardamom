@@ -6,6 +6,8 @@ import type { GenEnum, GenFile, GenMessage, GenService } from "@bufbuild/protobu
 import { enumDesc, fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { MarkdownContent, PresentationContext } from "./content_pb";
 import { file_cardamom_private_v1_content } from "./content_pb";
+import type { MutationContext } from "./mutation_pb";
+import { file_cardamom_private_v1_mutation } from "./mutation_pb";
 import type { BoardScope } from "./scope_pb";
 import { file_cardamom_private_v1_scope } from "./scope_pb";
 import type { AggregateStatus, SourceRef } from "./source_pb";
@@ -18,7 +20,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cardamom/private/v1/issue.proto.
  */
 export const file_cardamom_private_v1_issue: GenFile = /*@__PURE__*/
-  fileDesc("Ch9jYXJkYW1vbS9wcml2YXRlL3YxL2lzc3VlLnByb3RvEhNjYXJkYW1vbS5wcml2YXRlLnYxIkwKC0FjdGl2ZUNsYWltEg0KBWFjdG9yGAEgASgJEi4KCnN0YXJ0ZWRfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkkKDFdhaXRpbmdTdGF0ZRIOCgZyZWFzb24YASABKAkSKQoFc2luY2UYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIsUBChJDaGVja3BvaW50RGVjaXNpb24SNwoHb3V0Y29tZRgBIAEoDjImLmNhcmRhbW9tLnByaXZhdGUudjEuQ2hlY2twb2ludE91dGNvbWUSNAoGcmVhc29uGAIgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnQSLgoKZGVjaWRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIcmV2aXNpb24YBCABKAMimAUKDElzc3VlU3VtbWFyeRIKCgJpZBgBIAEoCRIQCghib2FyZF9pZBgCIAEoCRINCgV0aXRsZRgDIAEoCRIsCgR0eXBlGAQgASgOMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZVR5cGUSNgoJbGlmZWN5Y2xlGAUgASgOMiMuY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZUxpZmVjeWNsZRIwCgZzdGF0dXMYBiABKA4yIC5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlU3RhdHVzEhAKCHByaW9yaXR5GAcgASgFEjsKDGFjdGl2ZV9jbGFpbRgIIAEoCzIgLmNhcmRhbW9tLnByaXZhdGUudjEuQWN0aXZlQ2xhaW1IAIgBARIuCgpjcmVhdGVkX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpzdGFydGVkX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBItCgljbG9zZWRfYXQYDCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjcKB3dhaXRpbmcYDSABKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLldhaXRpbmdTdGF0ZUgBiAEBEg4KBmxhYmVscxgOIAMoCRIPCgdibG9ja2VkGA8gASgIEjMKBnNvdXJjZRgQIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSAKIAQFCDwoNX2FjdGl2ZV9jbGFpbUIKCghfd2FpdGluZ0IJCgdfc291cmNlIu0BCgxSZWxhdGVkSXNzdWUSCgoCaWQYASABKAkSEAoIYm9hcmRfaWQYAiABKAkSDQoFdGl0bGUYAyABKAkSLAoEdHlwZRgEIAEoDjIeLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVUeXBlEjAKBnN0YXR1cxgFIAEoDjIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdGF0dXMSEAoIcHJpb3JpdHkYBiABKAUSMwoGc291cmNlGAcgASgLMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VSZWZIAIgBAUIJCgdfc291cmNlIskCCg9BbmNlc3RvckNvbnRleHQSMAoFaXNzdWUYASABKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLlJlbGF0ZWRJc3N1ZRI6CgdzdW1tYXJ5GAIgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnRIAIgBARI4CgVzdGF0ZRgDIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SAGIAQESEQoJbG9nX2NvdW50GAQgASgNEhUKDWRldGFpbHNfYnl0ZXMYBSABKAQSPgoLbmV4dF9hY3Rpb24YBiABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk1hcmtkb3duQ29udGVudEgCiAEBQgoKCF9zdW1tYXJ5QggKBl9zdGF0ZUIOCgxfbmV4dF9hY3Rpb24igQEKF0RlcGVuZGVuY3lSZXN1bHRDb250ZXh0EjAKBWlzc3VlGAEgASgLMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5SZWxhdGVkSXNzdWUSNAoGcmVzdWx0GAIgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnQi7QEKDElzc3VlQ29udGV4dBJEChFib2FyZF9kZXNjcmlwdGlvbhgBIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SACIAQESNwoJYW5jZXN0b3JzGAIgAygLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5BbmNlc3RvckNvbnRleHQSSAoSZGVwZW5kZW5jeV9yZXN1bHRzGAMgAygLMiwuY2FyZGFtb20ucHJpdmF0ZS52MS5EZXBlbmRlbmN5UmVzdWx0Q29udGV4dEIUChJfYm9hcmRfZGVzY3JpcHRpb24ijQEKDUhpZXJhcmNoeU5vZGUSMAoFaXNzdWUYASABKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLlJlbGF0ZWRJc3N1ZRIWCglwYXJlbnRfaWQYAiABKAlIAIgBARINCgVkZXB0aBgDIAEoDRIVCg1zZWxlY3RlZF9wYXRoGAQgASgIQgwKCl9wYXJlbnRfaWQiSgoVQ29udGFpbm1lbnRQcm9qZWN0aW9uEjEKBW5vZGVzGAEgAygLMiIuY2FyZGFtb20ucHJpdmF0ZS52MS5IaWVyYXJjaHlOb2RlIsoGCgtJc3N1ZURldGFpbBIwCgVpc3N1ZRgBIAEoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdW1tYXJ5EjoKB3N1bW1hcnkYAiABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk1hcmtkb3duQ29udGVudEgAiAEBEjgKBXN0YXRlGAMgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnRIAYgBARI5CgZyZXN1bHQYBCABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk1hcmtkb3duQ29udGVudEgCiAEBEjIKB2NvbnRleHQYBSABKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlQ29udGV4dBI/Cgtjb250YWlubWVudBgGIAEoCzIqLmNhcmRhbW9tLnByaXZhdGUudjEuQ29udGFpbm1lbnRQcm9qZWN0aW9uEjgKDXByZXJlcXVpc2l0ZXMYByADKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLlJlbGF0ZWRJc3N1ZRI1CgpkZXBlbmRlbnRzGAggAygLMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5SZWxhdGVkSXNzdWUSEQoJbG9nX2NvdW50GAkgASgNEhoKDWxhdGVzdF9sb2dfaWQYCiABKAlIA4gBARI6CgdkZXRhaWxzGAsgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnRIBIgBARJJChNjaGVja3BvaW50X2RlY2lzaW9uGAwgASgLMicuY2FyZGFtb20ucHJpdmF0ZS52MS5DaGVja3BvaW50RGVjaXNpb25IBYgBARI+CgtuZXh0X2FjdGlvbhgNIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SAaIAQESFQoNZXh0ZXJuYWxfa2V5cxgOIAMoCUIKCghfc3VtbWFyeUIICgZfc3RhdGVCCQoHX3Jlc3VsdEIQCg5fbGF0ZXN0X2xvZ19pZEIKCghfZGV0YWlsc0IWChRfY2hlY2twb2ludF9kZWNpc2lvbkIOCgxfbmV4dF9hY3Rpb24iMAoKTGFiZWxGYWNldBINCgVsYWJlbBgBIAEoCRITCgtpc3N1ZV9jb3VudBgCIAEoDSKqBAoRTGlzdElzc3Vlc1JlcXVlc3QSLgoFc2NvcGUYASABKAsyHy5jYXJkYW1vbS5wcml2YXRlLnYxLkJvYXJkU2NvcGUSGAoLYW5jZXN0b3JfaWQYAiABKAlIAIgBARI3CgpsaWZlY3ljbGVzGAMgAygOMiMuY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZUxpZmVjeWNsZRIyCghzdGF0dXNlcxgEIAMoDjIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdGF0dXMSLQoFdHlwZXMYBSADKA4yHi5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlVHlwZRISCgVhY3RvchgGIAEoCUgBiAEBEhIKCmxhYmVsc19hbGwYByADKAkSEgoKbGFiZWxzX2FueRgNIAMoCRITCgtsYWJlbHNfbm9uZRgOIAMoCRIYCgt0aXRsZV9xdWVyeRgIIAEoCUgCiAEBEiwKBHNvcnQYCSABKA4yHi5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlU29ydBI1CglkaXJlY3Rpb24YCiABKA4yIi5jYXJkYW1vbS5wcml2YXRlLnYxLlNvcnREaXJlY3Rpb24SDQoFbGltaXQYCyABKA0SFwoKcGFnZV90b2tlbhgMIAEoCUgDiAEBQg4KDF9hbmNlc3Rvcl9pZEIICgZfYWN0b3JCDgoMX3RpdGxlX3F1ZXJ5Qg0KC19wYWdlX3Rva2VuIpgCChJMaXN0SXNzdWVzUmVzcG9uc2USMQoGaXNzdWVzGAEgAygLMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZVN1bW1hcnkSNQoMbGFiZWxfZmFjZXRzGAIgAygLMh8uY2FyZGFtb20ucHJpdmF0ZS52MS5MYWJlbEZhY2V0EhEKCXRydW5jYXRlZBgDIAEoCBIcCg9uZXh0X3BhZ2VfdG9rZW4YBCABKAlIAIgBARITCgt0b3RhbF9jb3VudBgFIAEoDRI+ChBhZ2dyZWdhdGVfc3RhdHVzGAYgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5BZ2dyZWdhdGVTdGF0dXNCEgoQX25leHRfcGFnZV90b2tlbiLdAQoPR2V0SXNzdWVSZXF1ZXN0EhAKCGlzc3VlX2lkGAEgASgJEjMKBnNvdXJjZRgCIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSACIAQESFQoIYm9hcmRfaWQYAyABKAlIAYgBARJDCgxwcmVzZW50YXRpb24YBCABKAsyKC5jYXJkYW1vbS5wcml2YXRlLnYxLlByZXNlbnRhdGlvbkNvbnRleHRIAogBAUIJCgdfc291cmNlQgsKCV9ib2FyZF9pZEIPCg1fcHJlc2VudGF0aW9uIkMKEEdldElzc3VlUmVzcG9uc2USLwoFaXNzdWUYASABKAsyIC5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlRGV0YWlsKooBCglJc3N1ZVR5cGUSGgoWSVNTVUVfVFlQRV9VTlNQRUNJRklFRBAAEhkKFUlTU1VFX1RZUEVfV09SS1NUUkVBTRABEhMKD0lTU1VFX1RZUEVfVEFTSxACEhkKFUlTU1VFX1RZUEVfQ0hFQ0tQT0lOVBADEhYKEklTU1VFX1RZUEVfUk9VVElORRAEKoYBCg5Jc3N1ZUxpZmVjeWNsZRIfChtJU1NVRV9MSUZFQ1lDTEVfVU5TUEVDSUZJRUQQABIYChRJU1NVRV9MSUZFQ1lDTEVfT1BFThABEhoKFklTU1VFX0xJRkVDWUNMRV9DTE9TRUQQAhIdChlJU1NVRV9MSUZFQ1lDTEVfQ0FOQ0VMTEVEEAMqygEKC0lzc3VlU3RhdHVzEhwKGElTU1VFX1NUQVRVU19VTlNQRUNJRklFRBAAEhYKEklTU1VFX1NUQVRVU19SRUFEWRABEhgKFElTU1VFX1NUQVRVU19CTE9DS0VEEAISHAoYSVNTVUVfU1RBVFVTX0lOX1BST0dSRVNTEAMSGAoUSVNTVUVfU1RBVFVTX1dBSVRJTkcQBBIXChNJU1NVRV9TVEFUVVNfQ0xPU0VEEAUSGgoWSVNTVUVfU1RBVFVTX0NBTkNFTExFRBAGKowBCglJc3N1ZVNvcnQSGgoWSVNTVUVfU09SVF9VTlNQRUNJRklFRBAAEhcKE0lTU1VFX1NPUlRfUFJJT1JJVFkQARIZChVJU1NVRV9TT1JUX1VQREFURURfQVQQAhIZChVJU1NVRV9TT1JUX0NSRUFURURfQVQQAxIUChBJU1NVRV9TT1JUX1RJVExFEAQqbAoNU29ydERpcmVjdGlvbhIeChpTT1JUX0RJUkVDVElPTl9VTlNQRUNJRklFRBAAEhwKGFNPUlRfRElSRUNUSU9OX0FTQ0VORElORxABEh0KGVNPUlRfRElSRUNUSU9OX0RFU0NFTkRJTkcQAip3ChFDaGVja3BvaW50T3V0Y29tZRIiCh5DSEVDS1BPSU5UX09VVENPTUVfVU5TUEVDSUZJRUQQABIfChtDSEVDS1BPSU5UX09VVENPTUVfQVBQUk9WRUQQARIdChlDSEVDS1BPSU5UX09VVENPTUVfREVOSUVEEAIy0AEKDElzc3VlU2VydmljZRJiCgpMaXN0SXNzdWVzEiYuY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0SXNzdWVzUmVxdWVzdBonLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdElzc3Vlc1Jlc3BvbnNlIgOQAgESXAoIR2V0SXNzdWUSJC5jYXJkYW1vbS5wcml2YXRlLnYxLkdldElzc3VlUmVxdWVzdBolLmNhcmRhbW9tLnByaXZhdGUudjEuR2V0SXNzdWVSZXNwb25zZSIDkAIBQtYBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUIKSXNzdWVQcm90b1ABWj9nby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS92MTtwcml2YXRldjGiAgNDUFiqAhNDYXJkYW1vbS5Qcml2YXRlLlYxygIUQ2FyZGFtb21cUHJpdmF0ZV9cVjHiAiBDYXJkYW1vbVxQcml2YXRlX1xWMVxHUEJNZXRhZGF0YeoCFUNhcmRhbW9tOjpQcml2YXRlOjpWMWIGcHJvdG8z", [file_cardamom_private_v1_content, file_cardamom_private_v1_scope, file_cardamom_private_v1_source, file_google_protobuf_timestamp]);
+  fileDesc("Ch9jYXJkYW1vbS9wcml2YXRlL3YxL2lzc3VlLnByb3RvEhNjYXJkYW1vbS5wcml2YXRlLnYxIkwKC0FjdGl2ZUNsYWltEg0KBWFjdG9yGAEgASgJEi4KCnN0YXJ0ZWRfYXQYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIkkKDFdhaXRpbmdTdGF0ZRIOCgZyZWFzb24YASABKAkSKQoFc2luY2UYAiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIsUBChJDaGVja3BvaW50RGVjaXNpb24SNwoHb3V0Y29tZRgBIAEoDjImLmNhcmRhbW9tLnByaXZhdGUudjEuQ2hlY2twb2ludE91dGNvbWUSNAoGcmVhc29uGAIgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnQSLgoKZGVjaWRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASEAoIcmV2aXNpb24YBCABKAMimAUKDElzc3VlU3VtbWFyeRIKCgJpZBgBIAEoCRIQCghib2FyZF9pZBgCIAEoCRINCgV0aXRsZRgDIAEoCRIsCgR0eXBlGAQgASgOMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZVR5cGUSNgoJbGlmZWN5Y2xlGAUgASgOMiMuY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZUxpZmVjeWNsZRIwCgZzdGF0dXMYBiABKA4yIC5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlU3RhdHVzEhAKCHByaW9yaXR5GAcgASgFEjsKDGFjdGl2ZV9jbGFpbRgIIAEoCzIgLmNhcmRhbW9tLnByaXZhdGUudjEuQWN0aXZlQ2xhaW1IAIgBARIuCgpjcmVhdGVkX2F0GAkgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgp1cGRhdGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIuCgpzdGFydGVkX2F0GAsgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBItCgljbG9zZWRfYXQYDCABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjcKB3dhaXRpbmcYDSABKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLldhaXRpbmdTdGF0ZUgBiAEBEg4KBmxhYmVscxgOIAMoCRIPCgdibG9ja2VkGA8gASgIEjMKBnNvdXJjZRgQIAEoCzIeLmNhcmRhbW9tLnByaXZhdGUudjEuU291cmNlUmVmSAKIAQFCDwoNX2FjdGl2ZV9jbGFpbUIKCghfd2FpdGluZ0IJCgdfc291cmNlIu0BCgxSZWxhdGVkSXNzdWUSCgoCaWQYASABKAkSEAoIYm9hcmRfaWQYAiABKAkSDQoFdGl0bGUYAyABKAkSLAoEdHlwZRgEIAEoDjIeLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVUeXBlEjAKBnN0YXR1cxgFIAEoDjIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTdGF0dXMSEAoIcHJpb3JpdHkYBiABKAUSMwoGc291cmNlGAcgASgLMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VSZWZIAIgBAUIJCgdfc291cmNlIskCCg9BbmNlc3RvckNvbnRleHQSMAoFaXNzdWUYASABKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLlJlbGF0ZWRJc3N1ZRI6CgdzdW1tYXJ5GAIgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnRIAIgBARI4CgVzdGF0ZRgDIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SAGIAQESEQoJbG9nX2NvdW50GAQgASgNEhUKDWRldGFpbHNfYnl0ZXMYBSABKAQSPgoLbmV4dF9hY3Rpb24YBiABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk1hcmtkb3duQ29udGVudEgCiAEBQgoKCF9zdW1tYXJ5QggKBl9zdGF0ZUIOCgxfbmV4dF9hY3Rpb24igQEKF0RlcGVuZGVuY3lSZXN1bHRDb250ZXh0EjAKBWlzc3VlGAEgASgLMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5SZWxhdGVkSXNzdWUSNAoGcmVzdWx0GAIgASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnQiLwoSUGlubmVkSXNzdWVDb250ZXh0EgoKAmlkGAEgASgJEg0KBXRpdGxlGAIgASgJIqQCCgxJc3N1ZUNvbnRleHQSRAoRYm9hcmRfZGVzY3JpcHRpb24YASABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk1hcmtkb3duQ29udGVudEgAiAEBEjcKCWFuY2VzdG9ycxgCIAMoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuQW5jZXN0b3JDb250ZXh0EkgKEmRlcGVuZGVuY3lfcmVzdWx0cxgDIAMoCzIsLmNhcmRhbW9tLnByaXZhdGUudjEuRGVwZW5kZW5jeVJlc3VsdENvbnRleHQSNQoEcGlucxgEIAMoCzInLmNhcmRhbW9tLnByaXZhdGUudjEuUGlubmVkSXNzdWVDb250ZXh0QhQKEl9ib2FyZF9kZXNjcmlwdGlvbiKNAQoNSGllcmFyY2h5Tm9kZRIwCgVpc3N1ZRgBIAEoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuUmVsYXRlZElzc3VlEhYKCXBhcmVudF9pZBgCIAEoCUgAiAEBEg0KBWRlcHRoGAMgASgNEhUKDXNlbGVjdGVkX3BhdGgYBCABKAhCDAoKX3BhcmVudF9pZCJKChVDb250YWlubWVudFByb2plY3Rpb24SMQoFbm9kZXMYASADKAsyIi5jYXJkYW1vbS5wcml2YXRlLnYxLkhpZXJhcmNoeU5vZGUiygYKC0lzc3VlRGV0YWlsEjAKBWlzc3VlGAEgASgLMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZVN1bW1hcnkSOgoHc3VtbWFyeRgCIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SACIAQESOAoFc3RhdGUYAyABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk1hcmtkb3duQ29udGVudEgBiAEBEjkKBnJlc3VsdBgEIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTWFya2Rvd25Db250ZW50SAKIAQESMgoHY29udGV4dBgFIAEoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVDb250ZXh0Ej8KC2NvbnRhaW5tZW50GAYgASgLMiouY2FyZGFtb20ucHJpdmF0ZS52MS5Db250YWlubWVudFByb2plY3Rpb24SOAoNcHJlcmVxdWlzaXRlcxgHIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuUmVsYXRlZElzc3VlEjUKCmRlcGVuZGVudHMYCCADKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLlJlbGF0ZWRJc3N1ZRIRCglsb2dfY291bnQYCSABKA0SGgoNbGF0ZXN0X2xvZ19pZBgKIAEoCUgDiAEBEjoKB2RldGFpbHMYCyABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk1hcmtkb3duQ29udGVudEgEiAEBEkkKE2NoZWNrcG9pbnRfZGVjaXNpb24YDCABKAsyJy5jYXJkYW1vbS5wcml2YXRlLnYxLkNoZWNrcG9pbnREZWNpc2lvbkgFiAEBEj4KC25leHRfYWN0aW9uGA0gASgLMiQuY2FyZGFtb20ucHJpdmF0ZS52MS5NYXJrZG93bkNvbnRlbnRIBogBARIVCg1leHRlcm5hbF9rZXlzGA4gAygJQgoKCF9zdW1tYXJ5QggKBl9zdGF0ZUIJCgdfcmVzdWx0QhAKDl9sYXRlc3RfbG9nX2lkQgoKCF9kZXRhaWxzQhYKFF9jaGVja3BvaW50X2RlY2lzaW9uQg4KDF9uZXh0X2FjdGlvbiIwCgpMYWJlbEZhY2V0Eg0KBWxhYmVsGAEgASgJEhMKC2lzc3VlX2NvdW50GAIgASgNIqoEChFMaXN0SXNzdWVzUmVxdWVzdBIuCgVzY29wZRgBIAEoCzIfLmNhcmRhbW9tLnByaXZhdGUudjEuQm9hcmRTY29wZRIYCgthbmNlc3Rvcl9pZBgCIAEoCUgAiAEBEjcKCmxpZmVjeWNsZXMYAyADKA4yIy5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlTGlmZWN5Y2xlEjIKCHN0YXR1c2VzGAQgAygOMiAuY2FyZGFtb20ucHJpdmF0ZS52MS5Jc3N1ZVN0YXR1cxItCgV0eXBlcxgFIAMoDjIeLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVUeXBlEhIKBWFjdG9yGAYgASgJSAGIAQESEgoKbGFiZWxzX2FsbBgHIAMoCRISCgpsYWJlbHNfYW55GA0gAygJEhMKC2xhYmVsc19ub25lGA4gAygJEhgKC3RpdGxlX3F1ZXJ5GAggASgJSAKIAQESLAoEc29ydBgJIAEoDjIeLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVTb3J0EjUKCWRpcmVjdGlvbhgKIAEoDjIiLmNhcmRhbW9tLnByaXZhdGUudjEuU29ydERpcmVjdGlvbhINCgVsaW1pdBgLIAEoDRIXCgpwYWdlX3Rva2VuGAwgASgJSAOIAQFCDgoMX2FuY2VzdG9yX2lkQggKBl9hY3RvckIOCgxfdGl0bGVfcXVlcnlCDQoLX3BhZ2VfdG9rZW4imAIKEkxpc3RJc3N1ZXNSZXNwb25zZRIxCgZpc3N1ZXMYASADKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLklzc3VlU3VtbWFyeRI1CgxsYWJlbF9mYWNldHMYAiADKAsyHy5jYXJkYW1vbS5wcml2YXRlLnYxLkxhYmVsRmFjZXQSEQoJdHJ1bmNhdGVkGAMgASgIEhwKD25leHRfcGFnZV90b2tlbhgEIAEoCUgAiAEBEhMKC3RvdGFsX2NvdW50GAUgASgNEj4KEGFnZ3JlZ2F0ZV9zdGF0dXMYBiABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLkFnZ3JlZ2F0ZVN0YXR1c0ISChBfbmV4dF9wYWdlX3Rva2VuIt0BCg9HZXRJc3N1ZVJlcXVlc3QSEAoIaXNzdWVfaWQYASABKAkSMwoGc291cmNlGAIgASgLMh4uY2FyZGFtb20ucHJpdmF0ZS52MS5Tb3VyY2VSZWZIAIgBARIVCghib2FyZF9pZBgDIAEoCUgBiAEBEkMKDHByZXNlbnRhdGlvbhgEIAEoCzIoLmNhcmRhbW9tLnByaXZhdGUudjEuUHJlc2VudGF0aW9uQ29udGV4dEgCiAEBQgkKB19zb3VyY2VCCwoJX2JvYXJkX2lkQg8KDV9wcmVzZW50YXRpb24iQwoQR2V0SXNzdWVSZXNwb25zZRIvCgVpc3N1ZRgBIAEoCzIgLmNhcmRhbW9tLnByaXZhdGUudjEuSXNzdWVEZXRhaWwiKAoUTGlzdEJvYXJkUGluc1JlcXVlc3QSEAoIYm9hcmRfaWQYASABKAkiSgoVTGlzdEJvYXJkUGluc1Jlc3BvbnNlEjEKBmlzc3VlcxgBIAMoCzIhLmNhcmRhbW9tLnByaXZhdGUudjEuUmVsYXRlZElzc3VlIl8KFFBpbkJvYXJkSXNzdWVSZXF1ZXN0EhAKCGlzc3VlX2lkGAEgASgJEjUKB2NvbnRleHQYAiABKAsyJC5jYXJkYW1vbS5wcml2YXRlLnYxLk11dGF0aW9uQ29udGV4dCJaChVQaW5Cb2FyZElzc3VlUmVzcG9uc2USMAoFaXNzdWUYASABKAsyIS5jYXJkYW1vbS5wcml2YXRlLnYxLlJlbGF0ZWRJc3N1ZRIPCgdjaGFuZ2VkGAIgASgIImEKFlVucGluQm9hcmRJc3N1ZVJlcXVlc3QSEAoIaXNzdWVfaWQYASABKAkSNQoHY29udGV4dBgCIAEoCzIkLmNhcmRhbW9tLnByaXZhdGUudjEuTXV0YXRpb25Db250ZXh0IlwKF1VucGluQm9hcmRJc3N1ZVJlc3BvbnNlEjAKBWlzc3VlGAEgASgLMiEuY2FyZGFtb20ucHJpdmF0ZS52MS5SZWxhdGVkSXNzdWUSDwoHY2hhbmdlZBgCIAEoCCqKAQoJSXNzdWVUeXBlEhoKFklTU1VFX1RZUEVfVU5TUEVDSUZJRUQQABIZChVJU1NVRV9UWVBFX1dPUktTVFJFQU0QARITCg9JU1NVRV9UWVBFX1RBU0sQAhIZChVJU1NVRV9UWVBFX0NIRUNLUE9JTlQQAxIWChJJU1NVRV9UWVBFX1JPVVRJTkUQBCqGAQoOSXNzdWVMaWZlY3ljbGUSHwobSVNTVUVfTElGRUNZQ0xFX1VOU1BFQ0lGSUVEEAASGAoUSVNTVUVfTElGRUNZQ0xFX09QRU4QARIaChZJU1NVRV9MSUZFQ1lDTEVfQ0xPU0VEEAISHQoZSVNTVUVfTElGRUNZQ0xFX0NBTkNFTExFRBADKsoBCgtJc3N1ZVN0YXR1cxIcChhJU1NVRV9TVEFUVVNfVU5TUEVDSUZJRUQQABIWChJJU1NVRV9TVEFUVVNfUkVBRFkQARIYChRJU1NVRV9TVEFUVVNfQkxPQ0tFRBACEhwKGElTU1VFX1NUQVRVU19JTl9QUk9HUkVTUxADEhgKFElTU1VFX1NUQVRVU19XQUlUSU5HEAQSFwoTSVNTVUVfU1RBVFVTX0NMT1NFRBAFEhoKFklTU1VFX1NUQVRVU19DQU5DRUxMRUQQBiqMAQoJSXNzdWVTb3J0EhoKFklTU1VFX1NPUlRfVU5TUEVDSUZJRUQQABIXChNJU1NVRV9TT1JUX1BSSU9SSVRZEAESGQoVSVNTVUVfU09SVF9VUERBVEVEX0FUEAISGQoVSVNTVUVfU09SVF9DUkVBVEVEX0FUEAMSFAoQSVNTVUVfU09SVF9USVRMRRAEKmwKDVNvcnREaXJlY3Rpb24SHgoaU09SVF9ESVJFQ1RJT05fVU5TUEVDSUZJRUQQABIcChhTT1JUX0RJUkVDVElPTl9BU0NFTkRJTkcQARIdChlTT1JUX0RJUkVDVElPTl9ERVNDRU5ESU5HEAIqdwoRQ2hlY2twb2ludE91dGNvbWUSIgoeQ0hFQ0tQT0lOVF9PVVRDT01FX1VOU1BFQ0lGSUVEEAASHwobQ0hFQ0tQT0lOVF9PVVRDT01FX0FQUFJPVkVEEAESHQoZQ0hFQ0tQT0lOVF9PVVRDT01FX0RFTklFRBACMpMECgxJc3N1ZVNlcnZpY2USYgoKTGlzdElzc3VlcxImLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdElzc3Vlc1JlcXVlc3QaJy5jYXJkYW1vbS5wcml2YXRlLnYxLkxpc3RJc3N1ZXNSZXNwb25zZSIDkAIBElwKCEdldElzc3VlEiQuY2FyZGFtb20ucHJpdmF0ZS52MS5HZXRJc3N1ZVJlcXVlc3QaJS5jYXJkYW1vbS5wcml2YXRlLnYxLkdldElzc3VlUmVzcG9uc2UiA5ACARJrCg1MaXN0Qm9hcmRQaW5zEikuY2FyZGFtb20ucHJpdmF0ZS52MS5MaXN0Qm9hcmRQaW5zUmVxdWVzdBoqLmNhcmRhbW9tLnByaXZhdGUudjEuTGlzdEJvYXJkUGluc1Jlc3BvbnNlIgOQAgESZgoNUGluQm9hcmRJc3N1ZRIpLmNhcmRhbW9tLnByaXZhdGUudjEuUGluQm9hcmRJc3N1ZVJlcXVlc3QaKi5jYXJkYW1vbS5wcml2YXRlLnYxLlBpbkJvYXJkSXNzdWVSZXNwb25zZRJsCg9VbnBpbkJvYXJkSXNzdWUSKy5jYXJkYW1vbS5wcml2YXRlLnYxLlVucGluQm9hcmRJc3N1ZVJlcXVlc3QaLC5jYXJkYW1vbS5wcml2YXRlLnYxLlVucGluQm9hcmRJc3N1ZVJlc3BvbnNlQtYBChdjb20uY2FyZGFtb20ucHJpdmF0ZS52MUIKSXNzdWVQcm90b1ABWj9nby5hYmhnLmRldi9jYXJkYW1vbS9pbnRlcm5hbC9nZW4vY2FyZGFtb20vcHJpdmF0ZS92MTtwcml2YXRldjGiAgNDUFiqAhNDYXJkYW1vbS5Qcml2YXRlLlYxygIUQ2FyZGFtb21cUHJpdmF0ZV9cVjHiAiBDYXJkYW1vbVxQcml2YXRlX1xWMVxHUEJNZXRhZGF0YeoCFUNhcmRhbW9tOjpQcml2YXRlOjpWMWIGcHJvdG8z", [file_cardamom_private_v1_content, file_cardamom_private_v1_mutation, file_cardamom_private_v1_scope, file_cardamom_private_v1_source, file_google_protobuf_timestamp]);
 
 /**
  * ActiveClaim describes current issue custody.
@@ -393,6 +395,34 @@ export const DependencyResultContextSchema: GenMessage<DependencyResultContext> 
   messageDesc(file_cardamom_private_v1_issue, 6);
 
 /**
+ * PinnedIssueContext identifies one issue in the board's pin order.
+ *
+ * @generated from message cardamom.private.v1.PinnedIssueContext
+ */
+export type PinnedIssueContext = Message<"cardamom.private.v1.PinnedIssueContext"> & {
+  /**
+   * id is the pinned issue's stable identity.
+   *
+   * @generated from field: string id = 1;
+   */
+  id: string;
+
+  /**
+   * title is the pinned issue's current title.
+   *
+   * @generated from field: string title = 2;
+   */
+  title: string;
+};
+
+/**
+ * Describes the message cardamom.private.v1.PinnedIssueContext.
+ * Use `create(PinnedIssueContextSchema)` to create a new message.
+ */
+export const PinnedIssueContextSchema: GenMessage<PinnedIssueContext> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_issue, 7);
+
+/**
  * IssueContext contains inherited stable context in presentation order.
  *
  * @generated from message cardamom.private.v1.IssueContext
@@ -418,6 +448,13 @@ export type IssueContext = Message<"cardamom.private.v1.IssueContext"> & {
    * @generated from field: repeated cardamom.private.v1.DependencyResultContext dependency_results = 3;
    */
   dependencyResults: DependencyResultContext[];
+
+  /**
+   * pins lists board pins in insertion order.
+   *
+   * @generated from field: repeated cardamom.private.v1.PinnedIssueContext pins = 4;
+   */
+  pins: PinnedIssueContext[];
 };
 
 /**
@@ -425,7 +462,7 @@ export type IssueContext = Message<"cardamom.private.v1.IssueContext"> & {
  * Use `create(IssueContextSchema)` to create a new message.
  */
 export const IssueContextSchema: GenMessage<IssueContext> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 7);
+  messageDesc(file_cardamom_private_v1_issue, 8);
 
 /**
  * HierarchyNode is one row in a preordered containment projection.
@@ -467,7 +504,7 @@ export type HierarchyNode = Message<"cardamom.private.v1.HierarchyNode"> & {
  * Use `create(HierarchyNodeSchema)` to create a new message.
  */
 export const HierarchyNodeSchema: GenMessage<HierarchyNode> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 8);
+  messageDesc(file_cardamom_private_v1_issue, 9);
 
 /**
  * ContainmentProjection supports the semantic tree and its decorative rail.
@@ -488,7 +525,7 @@ export type ContainmentProjection = Message<"cardamom.private.v1.ContainmentProj
  * Use `create(ContainmentProjectionSchema)` to create a new message.
  */
 export const ContainmentProjectionSchema: GenMessage<ContainmentProjection> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 9);
+  messageDesc(file_cardamom_private_v1_issue, 10);
 
 /**
  * IssueDetail contains the primary issue and independently loaded context.
@@ -600,7 +637,7 @@ export type IssueDetail = Message<"cardamom.private.v1.IssueDetail"> & {
  * Use `create(IssueDetailSchema)` to create a new message.
  */
 export const IssueDetailSchema: GenMessage<IssueDetail> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 10);
+  messageDesc(file_cardamom_private_v1_issue, 11);
 
 /**
  * LabelFacet reports one label available in the complete selected scope.
@@ -628,7 +665,7 @@ export type LabelFacet = Message<"cardamom.private.v1.LabelFacet"> & {
  * Use `create(LabelFacetSchema)` to create a new message.
  */
 export const LabelFacetSchema: GenMessage<LabelFacet> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 11);
+  messageDesc(file_cardamom_private_v1_issue, 12);
 
 /**
  * ListIssuesRequest selects and orders one browser issue collection.
@@ -740,7 +777,7 @@ export type ListIssuesRequest = Message<"cardamom.private.v1.ListIssuesRequest">
  * Use `create(ListIssuesRequestSchema)` to create a new message.
  */
 export const ListIssuesRequestSchema: GenMessage<ListIssuesRequest> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 12);
+  messageDesc(file_cardamom_private_v1_issue, 13);
 
 /**
  * ListIssuesResponse contains ordered issues and scope-wide label facets.
@@ -796,7 +833,7 @@ export type ListIssuesResponse = Message<"cardamom.private.v1.ListIssuesResponse
  * Use `create(ListIssuesResponseSchema)` to create a new message.
  */
 export const ListIssuesResponseSchema: GenMessage<ListIssuesResponse> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 13);
+  messageDesc(file_cardamom_private_v1_issue, 14);
 
 /**
  * GetIssueRequest identifies one issue by stable ID.
@@ -838,7 +875,7 @@ export type GetIssueRequest = Message<"cardamom.private.v1.GetIssueRequest"> & {
  * Use `create(GetIssueRequestSchema)` to create a new message.
  */
 export const GetIssueRequestSchema: GenMessage<GetIssueRequest> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 14);
+  messageDesc(file_cardamom_private_v1_issue, 15);
 
 /**
  * GetIssueResponse contains the primary issue detail record.
@@ -859,7 +896,161 @@ export type GetIssueResponse = Message<"cardamom.private.v1.GetIssueResponse"> &
  * Use `create(GetIssueResponseSchema)` to create a new message.
  */
 export const GetIssueResponseSchema: GenMessage<GetIssueResponse> = /*@__PURE__*/
-  messageDesc(file_cardamom_private_v1_issue, 15);
+  messageDesc(file_cardamom_private_v1_issue, 16);
+
+/**
+ * ListBoardPinsRequest identifies one board's ordered pin collection.
+ *
+ * @generated from message cardamom.private.v1.ListBoardPinsRequest
+ */
+export type ListBoardPinsRequest = Message<"cardamom.private.v1.ListBoardPinsRequest"> & {
+  /**
+   * board_id identifies the board whose pins are read.
+   *
+   * @generated from field: string board_id = 1;
+   */
+  boardId: string;
+};
+
+/**
+ * Describes the message cardamom.private.v1.ListBoardPinsRequest.
+ * Use `create(ListBoardPinsRequestSchema)` to create a new message.
+ */
+export const ListBoardPinsRequestSchema: GenMessage<ListBoardPinsRequest> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_issue, 17);
+
+/**
+ * ListBoardPinsResponse contains current issues in board pin order.
+ *
+ * @generated from message cardamom.private.v1.ListBoardPinsResponse
+ */
+export type ListBoardPinsResponse = Message<"cardamom.private.v1.ListBoardPinsResponse"> & {
+  /**
+   * issues contains current issue references in insertion order.
+   *
+   * @generated from field: repeated cardamom.private.v1.RelatedIssue issues = 1;
+   */
+  issues: RelatedIssue[];
+};
+
+/**
+ * Describes the message cardamom.private.v1.ListBoardPinsResponse.
+ * Use `create(ListBoardPinsResponseSchema)` to create a new message.
+ */
+export const ListBoardPinsResponseSchema: GenMessage<ListBoardPinsResponse> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_issue, 18);
+
+/**
+ * PinBoardIssueRequest pins one issue to its owning board.
+ *
+ * @generated from message cardamom.private.v1.PinBoardIssueRequest
+ */
+export type PinBoardIssueRequest = Message<"cardamom.private.v1.PinBoardIssueRequest"> & {
+  /**
+   * issue_id identifies the issue to pin.
+   *
+   * @generated from field: string issue_id = 1;
+   */
+  issueId: string;
+
+  /**
+   * context supplies mutation attribution.
+   *
+   * @generated from field: cardamom.private.v1.MutationContext context = 2;
+   */
+  context?: MutationContext | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.PinBoardIssueRequest.
+ * Use `create(PinBoardIssueRequestSchema)` to create a new message.
+ */
+export const PinBoardIssueRequestSchema: GenMessage<PinBoardIssueRequest> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_issue, 19);
+
+/**
+ * PinBoardIssueResponse reports the idempotent pin outcome.
+ *
+ * @generated from message cardamom.private.v1.PinBoardIssueResponse
+ */
+export type PinBoardIssueResponse = Message<"cardamom.private.v1.PinBoardIssueResponse"> & {
+  /**
+   * issue is the current pinned issue summary.
+   *
+   * @generated from field: cardamom.private.v1.RelatedIssue issue = 1;
+   */
+  issue?: RelatedIssue | undefined;
+
+  /**
+   * changed reports whether this invocation added the pin.
+   *
+   * @generated from field: bool changed = 2;
+   */
+  changed: boolean;
+};
+
+/**
+ * Describes the message cardamom.private.v1.PinBoardIssueResponse.
+ * Use `create(PinBoardIssueResponseSchema)` to create a new message.
+ */
+export const PinBoardIssueResponseSchema: GenMessage<PinBoardIssueResponse> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_issue, 20);
+
+/**
+ * UnpinBoardIssueRequest removes one issue from its owning board's pins.
+ *
+ * @generated from message cardamom.private.v1.UnpinBoardIssueRequest
+ */
+export type UnpinBoardIssueRequest = Message<"cardamom.private.v1.UnpinBoardIssueRequest"> & {
+  /**
+   * issue_id identifies the issue to unpin.
+   *
+   * @generated from field: string issue_id = 1;
+   */
+  issueId: string;
+
+  /**
+   * context supplies mutation attribution.
+   *
+   * @generated from field: cardamom.private.v1.MutationContext context = 2;
+   */
+  context?: MutationContext | undefined;
+};
+
+/**
+ * Describes the message cardamom.private.v1.UnpinBoardIssueRequest.
+ * Use `create(UnpinBoardIssueRequestSchema)` to create a new message.
+ */
+export const UnpinBoardIssueRequestSchema: GenMessage<UnpinBoardIssueRequest> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_issue, 21);
+
+/**
+ * UnpinBoardIssueResponse reports the idempotent unpin outcome.
+ *
+ * @generated from message cardamom.private.v1.UnpinBoardIssueResponse
+ */
+export type UnpinBoardIssueResponse = Message<"cardamom.private.v1.UnpinBoardIssueResponse"> & {
+  /**
+   * issue is the current unpinned issue summary.
+   *
+   * @generated from field: cardamom.private.v1.RelatedIssue issue = 1;
+   */
+  issue?: RelatedIssue | undefined;
+
+  /**
+   * changed reports whether this invocation removed the pin.
+   *
+   * @generated from field: bool changed = 2;
+   */
+  changed: boolean;
+};
+
+/**
+ * Describes the message cardamom.private.v1.UnpinBoardIssueResponse.
+ * Use `create(UnpinBoardIssueResponseSchema)` to create a new message.
+ */
+export const UnpinBoardIssueResponseSchema: GenMessage<UnpinBoardIssueResponse> = /*@__PURE__*/
+  messageDesc(file_cardamom_private_v1_issue, 22);
 
 /**
  * IssueType identifies the workflow role of an issue.
@@ -1153,6 +1344,36 @@ export const IssueService: GenService<{
     methodKind: "unary";
     input: typeof GetIssueRequestSchema;
     output: typeof GetIssueResponseSchema;
+  },
+  /**
+   * ListBoardPins returns current issues in one board's pin order.
+   *
+   * @generated from rpc cardamom.private.v1.IssueService.ListBoardPins
+   */
+  listBoardPins: {
+    methodKind: "unary";
+    input: typeof ListBoardPinsRequestSchema;
+    output: typeof ListBoardPinsResponseSchema;
+  },
+  /**
+   * PinBoardIssue adds one issue to its owning board's pin order.
+   *
+   * @generated from rpc cardamom.private.v1.IssueService.PinBoardIssue
+   */
+  pinBoardIssue: {
+    methodKind: "unary";
+    input: typeof PinBoardIssueRequestSchema;
+    output: typeof PinBoardIssueResponseSchema;
+  },
+  /**
+   * UnpinBoardIssue removes one issue from its owning board's pin order.
+   *
+   * @generated from rpc cardamom.private.v1.IssueService.UnpinBoardIssue
+   */
+  unpinBoardIssue: {
+    methodKind: "unary";
+    input: typeof UnpinBoardIssueRequestSchema;
+    output: typeof UnpinBoardIssueResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_cardamom_private_v1_issue, 0);

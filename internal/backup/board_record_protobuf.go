@@ -8,6 +8,7 @@ import (
 	"math"
 
 	"go.abhg.dev/cardamom/internal/attachment"
+	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
 	backupv1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/backup/v1"
@@ -257,6 +258,7 @@ func boardHeaderToProto(value boardcopy.RecordHeader) (*backupv1.BoardHeader, er
 			IssueIdStrategy:      value.Configuration.Issue.ID.Strategy.String(),
 			IssueSummaryMaxBytes: value.Configuration.Issue.Summary.MaxBytes.Uint64(),
 			AttachmentMaxBytes:   value.Configuration.Attachment.MaxBytes.Uint64(),
+			BoardPinsMaxCount:    value.Configuration.Board.Pins.MaxCount.Uint64(),
 		},
 	}, nil
 }
@@ -496,6 +498,10 @@ func configurationFromProto(
 	if err != nil {
 		return configuration.Configuration{}, err
 	}
+	pinMaxCount, err := board.NewPinLimit(encoded.GetBoardPinsMaxCount())
+	if err != nil {
+		return configuration.Configuration{}, err
+	}
 	return configuration.Configuration{
 		Issue: configuration.IssueConfiguration{
 			ID: configuration.IssueIDConfiguration{
@@ -504,6 +510,9 @@ func configurationFromProto(
 			Summary: configuration.SummaryConfiguration{MaxBytes: summaryMaxBytes},
 		},
 		Attachment: configuration.AttachmentConfiguration{MaxBytes: attachmentMaxBytes},
+		Board: configuration.BoardConfiguration{
+			Pins: configuration.PinConfiguration{MaxCount: pinMaxCount},
+		},
 	}, nil
 }
 

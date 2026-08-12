@@ -209,6 +209,9 @@ message Configuration {
 
   // attachment_max_bytes is the attachment body admission limit in bytes.
   uint64 attachment_max_bytes = 4;
+
+  // board_pins_max_count limits new pinned-issue admissions.
+  uint64 board_pins_max_count = 5;
 }
 
 // Issue preserves one source issue and the source IDs referenced by related
