@@ -440,14 +440,21 @@ func mustBoardID(t *testing.T, value string) domainboard.ID {
 
 func openBoardRepository(t *testing.T, cfg Config) *Repository {
 	t.Helper()
+	return openBoardRepositories(t, cfg, 1)[0]
+}
 
-	persistence, err := store.Open(t.Context(), store.Config{
-		Path: filepath.Join(t.TempDir(), "board.sqlite3"),
+func openBoardRepositories(t *testing.T, cfg Config, count int) []*Repository {
+	t.Helper()
+	require.Positive(t, count)
+
+	path := filepath.Join(t.TempDir(), "board.sqlite3")
+	firstStore, err := store.Open(t.Context(), store.Config{
+		Path: path,
 	})
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+	t.Cleanup(func() { assert.NoError(t, firstStore.Close()) })
 
-	change, err := persistence.Change(t.Context())
+	change, err := firstStore.Change(t.Context())
 	require.NoError(t, err)
 	defer func() { assert.NoError(t, change.Done()) }()
 	_, err = change.ExecContext(t.Context(), `
@@ -463,9 +470,19 @@ func openBoardRepository(t *testing.T, cfg Config) *Repository {
 	require.NoError(t, change.Commit())
 
 	cfg.Clock = fixedClock{now: time.Unix(1_700_000_000, 0).UTC()}
-	repository, err := New(persistence, cfg)
+	repositories := make([]*Repository, 0, count)
+	repository, err := New(firstStore, cfg)
 	require.NoError(t, err)
-	return repository
+	repositories = append(repositories, repository)
+	for range count - 1 {
+		persistence, err := store.OpenExisting(t.Context(), store.Config{Path: path})
+		require.NoError(t, err)
+		t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+		repository, err := New(persistence, cfg)
+		require.NoError(t, err)
+		repositories = append(repositories, repository)
+	}
+	return repositories
 }
 
 // fixedClock keeps operation timestamps deterministic in repository tests.

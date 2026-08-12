@@ -14,9 +14,10 @@ import (
 )
 
 func TestRepositoryPinsEnforceLimitAcrossConcurrentAdmissions(t *testing.T) {
-	repository := openBoardRepository(t, Config{
+	repositories := openBoardRepositories(t, Config{
 		BoardID: mustBoardID(t, "board-test"), IDPrefix: "task-", IDStrategy: "sequential",
-	})
+	}, 2)
+	repository := repositories[0]
 	planner := planning.NewPlanner(repository, repository, nil)
 	for _, title := range []string{"First", "Second"} {
 		_, err := planner.CreateIssue(
@@ -32,10 +33,10 @@ func TestRepositoryPinsEnforceLimitAcrossConcurrentAdmissions(t *testing.T) {
 	start := make(chan struct{})
 	errs := make(chan error, 2)
 	var workers sync.WaitGroup
-	for _, id := range []issue.ID{"task-1", "task-2"} {
+	for i, id := range []issue.ID{"task-1", "task-2"} {
 		workers.Go(func() {
 			<-start
-			_, err := repository.PinIssue(t.Context(), id, limit)
+			_, err := repositories[i].PinIssue(t.Context(), id, limit)
 			errs <- err
 		})
 	}
