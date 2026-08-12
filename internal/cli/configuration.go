@@ -7,6 +7,7 @@ import (
 	"strconv"
 	"text/tabwriter"
 
+	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/project"
 )
@@ -130,7 +131,7 @@ func (c *configurationShowCommand) Run(
 type configurationSetCommand struct {
 	Scope   string `name:"scope" required:"" enum:"store,project,board" placeholder:"SCOPE" help:"Layer to update: store, project, or board."`
 	Project string `name:"project" predictor:"projects" placeholder:"PROJECT" help:"Project ID or exact name. Requires --scope project and conflicts with root --board."`
-	Key     string `arg:"" name:"key" enum:"issue.id.prefix,issue.id.strategy,issue.summary.max_bytes,attachment.max_bytes" help:"Typed configuration key."`
+	Key     string `arg:"" name:"key" enum:"issue.id.prefix,issue.id.strategy,issue.summary.max_bytes,attachment.max_bytes,board.pins.max_count" help:"Typed configuration key."`
 	Value   string `arg:"" name:"value" help:"Replacement value."`
 }
 
@@ -146,11 +147,13 @@ Keys:
   issue.id.strategy
   issue.summary.max_bytes
   attachment.max_bytes
+  board.pins.max_count
 
 Issue ID prefixes start with a lowercase letter or digit, contain lowercase
 letters, digits, or dashes, end in a dash, and are at most 16 characters.
 
-Byte limits accept a positive decimal byte count.`
+Byte limits accept a positive decimal byte count.
+Pin limits accept a non-negative decimal count.`
 }
 
 // Run parses one typed replacement and renders the resulting effective view.
@@ -210,7 +213,7 @@ func (c *configurationSetCommand) Run(
 type configurationUnsetCommand struct {
 	Scope   string `name:"scope" required:"" enum:"store,project,board" placeholder:"SCOPE" help:"Layer to update: store, project, or board."`
 	Project string `name:"project" predictor:"projects" placeholder:"PROJECT" help:"Project ID or exact name. Requires --scope project and conflicts with root --board."`
-	Key     string `arg:"" name:"key" enum:"issue.id.prefix,issue.id.strategy,issue.summary.max_bytes,attachment.max_bytes" help:"Typed configuration key."`
+	Key     string `arg:"" name:"key" enum:"issue.id.prefix,issue.id.strategy,issue.summary.max_bytes,attachment.max_bytes,board.pins.max_count" help:"Typed configuration key."`
 }
 
 // Help explains inheritance restoration and lists the finite key vocabulary.
@@ -225,7 +228,8 @@ Keys:
   issue.id.prefix
   issue.id.strategy
   issue.summary.max_bytes
-  attachment.max_bytes`
+  attachment.max_bytes
+  board.pins.max_count`
 }
 
 // Run clears one typed override and renders the resulting effective view.
@@ -327,6 +331,8 @@ func parseConfigurationField(value string) (configuration.Field, error) {
 		return configuration.FieldIssueSummaryMaxBytes, nil
 	case "attachment.max_bytes":
 		return configuration.FieldAttachmentMaxBytes, nil
+	case "board.pins.max_count":
+		return configuration.FieldBoardPinsMaxCount, nil
 	default:
 		return 0, fmt.Errorf("unsupported configuration key %q", value)
 	}
@@ -363,8 +369,22 @@ func newConfigurationSetPatch(key, value string) (configuration.Patch, error) {
 			return configuration.Patch{}, err
 		}
 		patch.Overrides.Attachment.MaxBytes = &parsed
+	case configuration.FieldBoardPinsMaxCount:
+		parsed, err := parseConfigurationPinLimit(value)
+		if err != nil {
+			return configuration.Patch{}, err
+		}
+		patch.Overrides.Board.Pins.MaxCount = &parsed
 	}
 	return patch, nil
+}
+
+func parseConfigurationPinLimit(value string) (board.PinLimit, error) {
+	count, err := strconv.ParseUint(value, 10, 64)
+	if err != nil {
+		return 0, fmt.Errorf("pin limit %q: non-negative decimal count required", value)
+	}
+	return board.NewPinLimit(count)
 }
 
 func parseConfigurationByteLimit(value string) (configuration.ByteLimit, error) {
@@ -391,6 +411,7 @@ type configurationOut struct {
 type configurationValuesOut struct {
 	Issue      configurationIssueValuesOut      `json:"issue"`
 	Attachment configurationAttachmentValuesOut `json:"attachment"`
+	Board      configurationBoardValuesOut      `json:"board"`
 }
 
 type configurationIssueValuesOut struct {
@@ -411,11 +432,20 @@ type configurationAttachmentValuesOut struct {
 	MaxBytes *uint64 `json:"max_bytes"`
 }
 
+type configurationBoardValuesOut struct {
+	Pins configurationPinValuesOut `json:"pins"`
+}
+
+type configurationPinValuesOut struct {
+	MaxCount *uint64 `json:"max_count"`
+}
+
 // configurationOriginsOut mirrors configurationValuesOut with one source for
 // each value that the rendered view supplies explicitly.
 type configurationOriginsOut struct {
 	Issue      configurationIssueOriginsOut      `json:"issue"`
 	Attachment configurationAttachmentOriginsOut `json:"attachment"`
+	Board      configurationBoardOriginsOut      `json:"board"`
 }
 
 type configurationIssueOriginsOut struct {
@@ -434,6 +464,14 @@ type configurationSummaryOriginsOut struct {
 
 type configurationAttachmentOriginsOut struct {
 	MaxBytes *configurationSourceOut `json:"max_bytes"`
+}
+
+type configurationBoardOriginsOut struct {
+	Pins configurationPinOriginsOut `json:"pins"`
+}
+
+type configurationPinOriginsOut struct {
+	MaxCount *configurationSourceOut `json:"max_count"`
 }
 
 // configurationSourceOut identifies the layer and concrete namespace that
@@ -493,6 +531,9 @@ func newEffectiveConfigurationOutForTarget(
 			Attachment: configurationAttachmentValuesOut{
 				MaxBytes: new(effective.Attachment.MaxBytes.Uint64()),
 			},
+			Board: configurationBoardValuesOut{Pins: configurationPinValuesOut{
+				MaxCount: new(effective.Board.Pins.MaxCount.Uint64()),
+			}},
 		},
 		Origins: newEffectiveConfigurationOriginsOut(origins),
 	}
@@ -514,6 +555,9 @@ func newEffectiveConfigurationOriginsOut(
 		Attachment: configurationAttachmentOriginsOut{
 			MaxBytes: newConfigurationSourceOut(origins.Attachment.MaxBytes),
 		},
+		Board: configurationBoardOriginsOut{Pins: configurationPinOriginsOut{
+			MaxCount: newConfigurationSourceOut(origins.Board.Pins.MaxCount),
+		}},
 	}
 }
 
@@ -568,6 +612,9 @@ func newLayerConfigurationValuesOut(
 	if value := overrides.Attachment.MaxBytes; value != nil {
 		values.Attachment.MaxBytes = new(value.Uint64())
 	}
+	if value := overrides.Board.Pins.MaxCount; value != nil {
+		values.Board.Pins.MaxCount = new(value.Uint64())
+	}
 	return values
 }
 
@@ -586,6 +633,9 @@ func newLayerConfigurationOriginsOut(
 	}
 	if layer.Overrides.Attachment.MaxBytes != nil {
 		origins.Attachment.MaxBytes = newConfigurationSourceOut(layer.Source)
+	}
+	if layer.Overrides.Board.Pins.MaxCount != nil {
+		origins.Board.Pins.MaxCount = newConfigurationSourceOut(layer.Source)
 	}
 	return origins
 }
@@ -629,6 +679,11 @@ func renderConfiguration(output *Output, value configurationOut) error {
 		writer, "attachment.max_bytes",
 		formatConfigurationValue(value.Values.Attachment.MaxBytes),
 		value.Origins.Attachment.MaxBytes,
+	)
+	writeConfigurationRow(
+		writer, "board.pins.max_count",
+		formatConfigurationValue(value.Values.Board.Pins.MaxCount),
+		value.Origins.Board.Pins.MaxCount,
 	)
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("write configuration output: %w", err)

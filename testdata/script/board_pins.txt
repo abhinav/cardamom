@@ -1,0 +1,109 @@
+exec git init -b main
+at 2026-08-12T12:00:00Z
+env TZ=UTC
+exec card init --prefix pin-
+exec card config set --scope store issue.id.strategy sequential
+exec card config set --scope store board.pins.max_count 4
+exec card config set --scope project board.pins.max_count 3
+exec card config set --scope board board.pins.max_count 2
+
+exec card create --key source:first 'First issue'
+cmp stdout $WORK/golden/first-id.txt
+exec card create --key source:second --summary 'Second issue summary.' 'Second issue'
+cmp stdout $WORK/golden/second-id.txt
+exec card create --summary 'Third issue summary.' 'Third issue'
+cmp stdout $WORK/golden/third-id.txt
+
+# Pinning is ordered and idempotent, including exact producer-key lookup.
+exec card board pin pin-1
+cmp stdout $WORK/golden/pinned-first.txt
+exec card board pin --key source:first
+cmp stdout $WORK/golden/already-pinned-first.txt
+exec card board pin --key source:second
+cmp stdout $WORK/golden/pinned-second.txt
+exec card board pins
+cmp stdout $WORK/golden/pins.txt
+exec card --json board pins
+cmp stdout $WORK/golden/pins.jsonl
+
+# The configured limit rejects only a new admission.
+! exec card board pin pin-3
+! stdout .
+stderr 'board pin limit reached: maximum 2'
+exec card board pin pin-2
+cmp stdout $WORK/golden/already-pinned-second.txt
+
+# Clearing the board override restores the project limit and admits another pin.
+exec card config unset --scope board board.pins.max_count
+exec card board pin pin-3
+cmp stdout $WORK/golden/pinned-third.txt
+
+# Unpinning is idempotent and key-aware.
+exec card board unpin --key source:first
+cmp stdout $WORK/golden/unpinned-first.txt
+exec card board unpin pin-1
+cmp stdout $WORK/golden/not-pinned-first.txt
+
+# Requested inherited context appends only pinned IDs and titles.
+exec card show --context pin-1
+cmp stdout $WORK/golden/show-context.txt
+exec card --actor hooke claim --context pin-1
+cmp stdout $WORK/golden/claim-context.txt
+
+-- golden/first-id.txt --
+pin-1
+-- golden/second-id.txt --
+pin-2
+-- golden/third-id.txt --
+pin-3
+-- golden/pinned-first.txt --
+pinned pin-1: First issue
+-- golden/already-pinned-first.txt --
+pin-1 is already pinned: First issue
+-- golden/pinned-second.txt --
+pinned pin-2: Second issue
+-- golden/pins.txt --
+ID     PRI  STATUS  TYPE  TITLE
+pin-1  2    ready   task  First issue
+pin-2  2    ready   task  Second issue
+-- golden/pins.jsonl --
+{"id":"pin-1","title":"First issue","type":"task","status":"ready","priority":2}
+{"id":"pin-2","title":"Second issue","type":"task","status":"ready","priority":2}
+-- golden/already-pinned-second.txt --
+pin-2 is already pinned: Second issue
+-- golden/unpinned-first.txt --
+unpinned pin-1: First issue
+-- golden/not-pinned-first.txt --
+pin-1 is not pinned: First issue
+-- golden/pinned-third.txt --
+pinned pin-3: Third issue
+-- golden/show-context.txt --
+Pinned issues:
+- pin-2: Second issue
+- pin-3: Third issue
+
+ID: pin-1
+Title: First issue
+Type: task
+Status: ready
+Priority: 2
+Assignee: -
+Parent: -
+Keys: source:first
+Labels: -
+Depends on: -
+Blocks: -
+Log entries: 0
+Attachments: -
+-- golden/claim-context.txt --
+Claimed pin-1 as hooke.
+Pinned issues:
+- pin-2: Second issue
+- pin-3: Third issue
+
+Issue pin-1
+Title: First issue
+Type: task
+Status: in_progress
+Priority: 2
+Assignee: hooke

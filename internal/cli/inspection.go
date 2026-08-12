@@ -266,5 +266,18 @@ func writeIssueContext(output *Output, current issue.Context) error {
 			return err
 		}
 	}
+	if len(current.Pins) > 0 {
+		if err := output.WriteString("Pinned issues:\n"); err != nil {
+			return err
+		}
+		for _, pin := range current.Pins {
+			if err := output.WriteString(fmt.Sprintf("- %s: %s\n", pin.ID, pin.Title)); err != nil {
+				return err
+			}
+		}
+		if err := output.WriteString("\n"); err != nil {
+			return err
+		}
+	}
 	return nil
 }

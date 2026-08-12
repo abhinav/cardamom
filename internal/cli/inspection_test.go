@@ -165,6 +165,7 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 			DependencyResults: []issue.DependencyResult{{
 				Issue: issue.Reference{ID: "an-dep", Title: "Dependency"}, Body: "Completed",
 			}},
+			Pins: []issue.PinnedIssue{{ID: "an-pin", Title: "Pinned issue"}},
 		},
 	}
 	request := issue.ReadRequest{IssueID: "an-current", ContextDepth: new(2)}
@@ -194,6 +195,7 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 		"dependency_results":[{
 			"issue_id":"an-dep","title":"Dependency","body":"Completed"
 		}],
+		"pins":[{"id":"an-pin","title":"Pinned issue"}],
 		"issue":{
 			"id":"an-current","title":"Current","type":"task",
 			"lifecycle":"open","status":"ready","priority":2,

@@ -77,6 +77,12 @@ type issueContextOutput struct {
 	Board             boardDescriptionOutput    `json:"board"`
 	Ancestors         []issueContextEntryOutput `json:"context"`
 	DependencyResults []issueResultOutput       `json:"dependency_results"`
+	Pins              []pinnedIssueOutput       `json:"pins"`
+}
+
+type pinnedIssueOutput struct {
+	ID    string `json:"id"`
+	Title string `json:"title"`
 }
 
 type boardDescriptionOutput struct {
@@ -106,10 +112,15 @@ func newIssueViewOutput(view issue.View) issueViewOutput {
 			Body:    result.Body,
 		}
 	}
+	pins := make([]pinnedIssueOutput, len(view.Context.Pins))
+	for index, pin := range view.Context.Pins {
+		pins[index] = pinnedIssueOutput{ID: pin.ID, Title: pin.Title}
+	}
 	output.context = &issueContextOutput{
 		Board:             boardDescriptionOutput{Description: view.Context.Board.Description},
 		Ancestors:         ancestors,
 		DependencyResults: results,
+		Pins:              pins,
 	}
 	return output
 }

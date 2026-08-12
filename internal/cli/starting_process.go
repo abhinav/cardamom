@@ -471,6 +471,9 @@ type boardCommand struct {
 	List      boardListCommand      `cmd:"" help:"List coordination boards."`
 	Create    boardCreateCommand    `cmd:"" help:"Create a coordination board."`
 	Copy      boardCopyCommand      `cmd:"" help:"Copy a board into another store."`
+	Pin       boardPinCommand       `cmd:"" help:"Pin an issue to the selected board."`
+	Unpin     boardUnpinCommand     `cmd:"" help:"Unpin an issue from the selected board."`
+	Pins      boardPinsCommand      `cmd:"" help:"List pinned issues in board order."`
 	Use       boardUseCommand       `cmd:"" help:"Select a board for this checkout."`
 	Show      boardShowCommand      `cmd:"" help:"Show board metadata."`
 	Edit      boardEditCommand      `cmd:"" help:"Edit board metadata."`
