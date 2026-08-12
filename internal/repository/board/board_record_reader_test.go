@@ -161,6 +161,29 @@ func TestRepository_RecordSequenceClosesOwnedViewAfterEarlyStop(t *testing.T) {
 	assert.NoError(t, ctx.Err())
 }
 
+func TestRepository_RecordSequenceClosesOwnedViewAfterPinStop(t *testing.T) {
+	persistence := openCopyTestStore(t, t.TempDir())
+	seedCopySource(t, persistence, copyTestBlobDescriptor(t))
+	repository, err := New(persistence, Config{BoardID: "board-source"})
+	require.NoError(t, err)
+
+	for record, recordErr := range repository.readCopyRecords(
+		t.Context(),
+		"board-source",
+		configuration.Overrides{},
+		1,
+	) {
+		require.NoError(t, recordErr)
+		if boardcopy.RecordTypeOf(record) == boardcopy.RecordTypePin {
+			break
+		}
+	}
+
+	view, err := persistence.View(t.Context())
+	require.NoError(t, err)
+	assert.NoError(t, view.Done())
+}
+
 func TestBackupReader_RecordSequenceBorrowsView(t *testing.T) {
 	persistence := openCopyTestStore(t, t.TempDir())
 	seedCopySource(t, persistence, copyTestBlobDescriptor(t))

@@ -491,6 +491,49 @@ func (q *Queries) BoardListCopyLogEntryPage(ctx context.Context, arg BoardListCo
 	return items, nil
 }
 
+const boardListCopyPinPage = `-- name: BoardListCopyPinPage :many
+SELECT position, issue_id
+FROM board_pins
+WHERE board_id = ?1
+    AND position > ?2
+ORDER BY position
+LIMIT ?3
+`
+
+type BoardListCopyPinPageParams struct {
+	BoardID       string
+	AfterPosition int64
+	PageSize      int64
+}
+
+type BoardListCopyPinPageRow struct {
+	Position int64
+	IssueID  string
+}
+
+func (q *Queries) BoardListCopyPinPage(ctx context.Context, arg BoardListCopyPinPageParams) ([]BoardListCopyPinPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyPinPage, arg.BoardID, arg.AfterPosition, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BoardListCopyPinPageRow
+	for rows.Next() {
+		var i BoardListCopyPinPageRow
+		if err := rows.Scan(&i.Position, &i.IssueID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const boardListCopyResultPage = `-- name: BoardListCopyResultPage :many
 SELECT issue_id, body
 FROM issue_results

@@ -136,3 +136,11 @@ WHERE board_id = sqlc.arg(board_id)
     AND issue_id > sqlc.arg(after_issue_id)
 ORDER BY issue_id
 LIMIT sqlc.arg(page_size);
+
+-- name: BoardListCopyPinPage :many
+SELECT position, issue_id
+FROM board_pins
+WHERE board_id = sqlc.arg(board_id)
+    AND position > sqlc.arg(after_position)
+ORDER BY position
+LIMIT sqlc.arg(page_size);

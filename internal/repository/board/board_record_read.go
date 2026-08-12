@@ -704,19 +704,31 @@ func (p *copyRecordPager) readAttachments(
 func (p *copyRecordPager) readPins(
 	yield func(boardcopy.Record, error) bool,
 ) bool {
-	issueIDs, err := p.queries.BoardListPinIDs(p.ctx, p.boardID)
-	if err != nil {
-		yield(nil, fmt.Errorf("read source board pins: %w", err))
-		return false
-	}
-	for _, issueID := range issueIDs {
-		record := boardcopy.CopyPin{
-			Order: p.counts.Pins, IssueID: issueID,
-		}
-		p.counts.Pins++
-		if !yield(record, nil) {
+	var afterPosition int64
+	for {
+		rows, err := p.queries.BoardListCopyPinPage(
+			p.ctx,
+			query.BoardListCopyPinPageParams{
+				BoardID: p.boardID, AfterPosition: afterPosition,
+				PageSize: p.pageSize,
+			},
+		)
+		if err != nil {
+			yield(nil, fmt.Errorf("read source board pin page: %w", err))
 			return false
 		}
+		if len(rows) == 0 {
+			return true
+		}
+		for _, row := range rows {
+			afterPosition = row.Position
+			record := boardcopy.CopyPin{
+				Order: p.counts.Pins, IssueID: row.IssueID,
+			}
+			p.counts.Pins++
+			if !yield(record, nil) {
+				return false
+			}
+		}
 	}
-	return true
 }
