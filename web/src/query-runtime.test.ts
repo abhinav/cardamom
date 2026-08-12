@@ -338,15 +338,29 @@ describe("route query policy", () => {
 
   it("does not bridge data across scope identities", () => {
     const transport = createRouterTransport(() => {});
-    const options = unaryScopeQueryOptions(
+    const queryClient = new QueryClient();
+    const firstOptions = unaryScopeQueryOptions(
+      ProjectService.method.getBoard,
+      { boardId: "board-1" },
+      transport,
+    );
+    const secondOptions = unaryScopeQueryOptions(
       ProjectService.method.getBoard,
       { boardId: "board-2" },
       transport,
     );
+    queryClient.setQueryData(
+      firstOptions.queryKey,
+      create(GetBoardResponseSchema, {
+        board: { id: "board-1", name: "First" },
+      }),
+    );
+    const observer = new QueryObserver(queryClient, firstOptions);
 
-    expect(options.retry).toBe(false);
-    expect(options.refetchOnReconnect).toBe(false);
-    expect(options.refetchOnWindowFocus).toBe(false);
-    expect(options).not.toHaveProperty("placeholderData");
+    expect(observer.getCurrentResult().data?.board?.id).toBe("board-1");
+
+    observer.setOptions(secondOptions);
+
+    expect(observer.getCurrentResult().data).toBeUndefined();
   });
 });
