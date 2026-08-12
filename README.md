@@ -37,7 +37,7 @@ Use at your own risk.
 
 ## Features
 
-* **Tasks with context**:
+- **Tasks with context**:
   Cardamom models work as a graph of issues.
   Parent issues contribute context to their children,
   so an agent sees all the relevant context of its task.
