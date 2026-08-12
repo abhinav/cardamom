@@ -39,10 +39,14 @@ func (*boardPinCommand) Help() string {
 }
 
 func (c *boardPinCommand) Run(invocation *Invocation, operations BoardPinOperations) error {
+	request, err := newBoardPinRequest(c.Issue, c.Key)
+	if err != nil {
+		return err
+	}
 	result, err := operations.PinBoardIssue(
 		invocation.Context,
 		board.NewInvocation(invocation.Actor),
-		BoardPinRequest{Value: c.Issue, Key: c.Key},
+		request,
 	)
 	if err != nil {
 		return err
@@ -67,15 +71,26 @@ func (*boardUnpinCommand) Help() string {
 }
 
 func (c *boardUnpinCommand) Run(invocation *Invocation, operations BoardPinOperations) error {
+	request, err := newBoardPinRequest(c.Issue, c.Key)
+	if err != nil {
+		return err
+	}
 	result, err := operations.UnpinBoardIssue(
 		invocation.Context,
 		board.NewInvocation(invocation.Actor),
-		BoardPinRequest{Value: c.Issue, Key: c.Key},
+		request,
 	)
 	if err != nil {
 		return err
 	}
 	return renderBoardPinMutation(invocation.Output, "unpin", result)
+}
+
+func newBoardPinRequest(value string, key bool) (BoardPinRequest, error) {
+	if key && value == "" {
+		return BoardPinRequest{}, UsageErrorf("external key must not be empty")
+	}
+	return BoardPinRequest{Value: value, Key: key}, nil
 }
 
 type boardPinsCommand struct{}
@@ -130,12 +145,12 @@ func renderBoardPinMutation(output *Output, operation string, result board.PinMu
 
 	switch {
 	case operation == "pin" && result.Changed:
-		return output.Noticef("pinned %s: %s", result.Issue.ID, result.Issue.Title)
+		return output.Noticef("pinned %s: %s", result.Issue.ID, singleLine(result.Issue.Title))
 	case operation == "pin":
-		return output.Noticef("%s is already pinned: %s", result.Issue.ID, result.Issue.Title)
+		return output.Noticef("%s is already pinned: %s", result.Issue.ID, singleLine(result.Issue.Title))
 	case result.Changed:
-		return output.Noticef("unpinned %s: %s", result.Issue.ID, result.Issue.Title)
+		return output.Noticef("unpinned %s: %s", result.Issue.ID, singleLine(result.Issue.Title))
 	default:
-		return output.Noticef("%s is not pinned: %s", result.Issue.ID, result.Issue.Title)
+		return output.Noticef("%s is not pinned: %s", result.Issue.ID, singleLine(result.Issue.Title))
 	}
 }

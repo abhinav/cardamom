@@ -67,6 +67,18 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
+func TestWriteIssueContextSingleLinesPinnedTitles(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	output := newOutput(&stdout, &stderr, false, false)
+
+	err := writeIssueContext(output, issue.Context{Pins: []issue.PinnedIssue{{
+		ID: "an-pin", Title: "Pinned\nissue\tname",
+	}}})
+	require.NoError(t, err)
+	assert.Equal(t, "Pinned issues:\n- an-pin: Pinned issue name\n\n", stdout.String())
+	assert.Empty(t, stderr.String())
+}
+
 func TestListCommandDefaultsToNonTerminalStatuses(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	request := issue.ListRequest{

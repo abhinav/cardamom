@@ -37,7 +37,8 @@ stderr 'project "Secondary" is ambiguous; use an ID'
       "id": {"prefix": "secondary-", "strategy": "random"},
       "summary": {"max_bytes": 2048}
     },
-    "attachment": {"max_bytes": 104857600}
+    "attachment": {"max_bytes": 104857600},
+    "board": {"pins": {"max_count": 8}}
   },
   "boards": []
 }
@@ -51,7 +52,8 @@ stderr 'project "Secondary" is ambiguous; use an ID'
       "id": {"prefix": "secondary-", "strategy": "random"},
       "summary": {"max_bytes": 2048}
     },
-    "attachment": {"max_bytes": 104857600}
+    "attachment": {"max_bytes": 104857600},
+    "board": {"pins": {"max_count": 8}}
   },
   "boards": [
     {
@@ -83,6 +85,7 @@ Configuration:
   Issue ID strategy:    random
   Summary maximum:      2048 bytes
   Attachment maximum:   104857600 bytes
+  Board pin maximum:     8
 Boards:
   board_22222222222222222222	Alpha
   board_33333333333333333333	Alpha

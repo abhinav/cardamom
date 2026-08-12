@@ -14,6 +14,7 @@ func TestQueriesExposeFiniteIssueReads(t *testing.T) {
 	expectedIssues := []Summary{{Issue: Issue{ID: "an-1"}}}
 	expectedView := View{Detail: Detail{Issue: Issue{ID: "an-1"}}}
 	reader := NewMockQueryReader(gomock.NewController(t))
+	reader.EXPECT().ResolveExternalKey(gomock.Any(), "source:one").Return(ID("an-1"), nil)
 	reader.EXPECT().ListIssues(gomock.Any(), ListRequest{
 		LabelsAll: []string{"protocol"},
 	}).Return(expectedIssues, nil)
@@ -22,6 +23,10 @@ func TestQueriesExposeFiniteIssueReads(t *testing.T) {
 	)
 	reader.EXPECT().ReadIssue(gomock.Any(), ReadRequest{IssueID: "an-1"}).Return(expectedView, nil)
 	queries := NewQueries(reader)
+
+	resolved, err := queries.ResolveExternalKey(t.Context(), "source:one")
+	require.NoError(t, err)
+	assert.Equal(t, ID("an-1"), resolved)
 
 	issues, err := queries.ListIssues(t.Context(), ListRequest{LabelsAll: []string{"protocol"}})
 	require.NoError(t, err)

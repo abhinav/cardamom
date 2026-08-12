@@ -78,6 +78,9 @@ func (o *infoOperation) Read(
 			Attachment: cli.InfoAttachmentConfiguration{
 				MaxBytes: report.Configuration.Attachment.MaxBytes.Uint64(),
 			},
+			Board: cli.InfoBoardConfiguration{Pins: cli.InfoPinConfiguration{
+				MaxCount: report.Configuration.Board.Pins.MaxCount.Uint64(),
+			}},
 		},
 		Revision: cli.InfoRevision{Current: report.Revision.Current},
 		Issues: cli.InfoIssueInventory{

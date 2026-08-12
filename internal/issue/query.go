@@ -12,6 +12,9 @@ import (
 
 // QueryReader supplies the coherent board snapshots used by issue queries.
 type QueryReader interface {
+	// ResolveExternalKey returns the issue identified by one exact producer key.
+	ResolveExternalKey(context.Context, string) (ID, error)
+
 	// ListIssues reads issue summaries from one coherent board snapshot.
 	ListIssues(context.Context, ListRequest) ([]Summary, error)
 
@@ -32,6 +35,11 @@ type Queries struct {
 func NewQueries(reader QueryReader) *Queries {
 	must.NotBeNilf(reader, "issue QueryReader is required")
 	return &Queries{reader: reader}
+}
+
+// ResolveExternalKey returns the issue identified by one exact producer key.
+func (q *Queries) ResolveExternalKey(ctx context.Context, key string) (ID, error) {
+	return q.reader.ResolveExternalKey(ctx, key)
 }
 
 // ListIssues returns issue summaries matching one board-scoped query.

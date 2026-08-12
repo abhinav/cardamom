@@ -67,9 +67,9 @@ func (o *boardPinOperations) resolveIssueID(
 	if !request.Key {
 		return request.Value, nil
 	}
-	view, err := o.issues.ReadIssue(ctx, issue.ReadRequest{Key: request.Value})
+	id, err := o.issues.ResolveExternalKey(ctx, request.Value)
 	if err != nil {
 		return "", err
 	}
-	return view.Detail.Issue.ID, nil
+	return id.String(), nil
 }

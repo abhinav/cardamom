@@ -267,6 +267,7 @@ func (c *projectShowCommand) Run(
 			"  Issue ID strategy:    %s\n"+
 			"  Summary maximum:      %d bytes\n"+
 			"  Attachment maximum:   %d bytes\n"+
+			"  Board pin maximum:     %d\n"+
 			"Boards:\n",
 		record.ID,
 		record.Name,
@@ -275,6 +276,7 @@ func (c *projectShowCommand) Run(
 		record.Configuration.Issue.ID.Strategy,
 		record.Configuration.Issue.Summary.MaxBytes,
 		record.Configuration.Attachment.MaxBytes,
+		record.Configuration.Board.Pins.MaxCount,
 	)); err != nil {
 		return err
 	}
@@ -462,6 +464,9 @@ func newProjectDetailOut(detail projectinspection.Detail) projectDetailOut {
 			Attachment: InfoAttachmentConfiguration{
 				MaxBytes: effective.Attachment.MaxBytes.Uint64(),
 			},
+			Board: InfoBoardConfiguration{Pins: InfoPinConfiguration{
+				MaxCount: effective.Board.Pins.MaxCount.Uint64(),
+			}},
 		},
 		Boards: boards,
 	}
@@ -950,6 +955,21 @@ type InfoConfiguration struct {
 
 	// Attachment contains effective attachment policy.
 	Attachment InfoAttachmentConfiguration `json:"attachment"`
+
+	// Board contains effective board policy.
+	Board InfoBoardConfiguration `json:"board"`
+}
+
+// InfoBoardConfiguration contains effective board policy.
+type InfoBoardConfiguration struct {
+	// Pins contains the effective pin admission limit.
+	Pins InfoPinConfiguration `json:"pins"`
+}
+
+// InfoPinConfiguration contains the effective pin admission limit.
+type InfoPinConfiguration struct {
+	// MaxCount is the largest admitted pin collection.
+	MaxCount uint64 `json:"max_count"`
 }
 
 // InfoIssueConfiguration contains effective issue policy.
@@ -1031,6 +1051,7 @@ func (*infoCommand) Run(invocation *Invocation, operation InfoOperation) error {
 		"  Issue ID strategy:    %s\n" +
 		"  Summary maximum:      %d bytes\n" +
 		"  Attachment maximum:   %d bytes\n" +
+		"  Board pin maximum:     %d\n" +
 		"Revision:\n  Current: %d\nIssues:\n  Total: %d\n"
 	if err := invocation.Output.WriteString(fmt.Sprintf(
 		humanSummary,
@@ -1042,6 +1063,7 @@ func (*infoCommand) Run(invocation *Invocation, operation InfoOperation) error {
 		result.Configuration.Issue.ID.Strategy,
 		result.Configuration.Issue.Summary.MaxBytes,
 		result.Configuration.Attachment.MaxBytes,
+		result.Configuration.Board.Pins.MaxCount,
 		result.Revision.Current, result.Issues.Total,
 	)); err != nil {
 		return err

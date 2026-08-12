@@ -155,3 +155,42 @@ func (c *MockQueryReaderReadIssueCall) DoAndReturn(f func(context.Context, ReadR
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// ResolveExternalKey mocks base method.
+func (m *MockQueryReader) ResolveExternalKey(arg0 context.Context, arg1 string) (ID, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ResolveExternalKey", arg0, arg1)
+	ret0, _ := ret[0].(ID)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ResolveExternalKey indicates an expected call of ResolveExternalKey.
+func (mr *MockQueryReaderMockRecorder) ResolveExternalKey(arg0, arg1 any) *MockQueryReaderResolveExternalKeyCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ResolveExternalKey", reflect.TypeOf((*MockQueryReader)(nil).ResolveExternalKey), arg0, arg1)
+	return &MockQueryReaderResolveExternalKeyCall{Call: call}
+}
+
+// MockQueryReaderResolveExternalKeyCall wrap *gomock.Call
+type MockQueryReaderResolveExternalKeyCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockQueryReaderResolveExternalKeyCall) Return(arg0 ID, arg1 error) *MockQueryReaderResolveExternalKeyCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockQueryReaderResolveExternalKeyCall) Do(f func(context.Context, string) (ID, error)) *MockQueryReaderResolveExternalKeyCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockQueryReaderResolveExternalKeyCall) DoAndReturn(f func(context.Context, string) (ID, error)) *MockQueryReaderResolveExternalKeyCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

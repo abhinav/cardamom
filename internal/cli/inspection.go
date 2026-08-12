@@ -271,7 +271,7 @@ func writeIssueContext(output *Output, current issue.Context) error {
 			return err
 		}
 		for _, pin := range current.Pins {
-			if err := output.WriteString(fmt.Sprintf("- %s: %s\n", pin.ID, pin.Title)); err != nil {
+			if err := output.WriteString(fmt.Sprintf("- %s: %s\n", pin.ID, singleLine(pin.Title))); err != nil {
 				return err
 			}
 		}

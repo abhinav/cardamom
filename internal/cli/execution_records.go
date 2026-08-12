@@ -1032,7 +1032,7 @@ func formatIssueView(view issue.View) string {
 		if len(view.Context.Pins) > 0 {
 			output.WriteString("Pinned issues:\n")
 			for _, pin := range view.Context.Pins {
-				fmt.Fprintf(&output, "- %s: %s\n", pin.ID, pin.Title)
+				fmt.Fprintf(&output, "- %s: %s\n", pin.ID, singleLine(pin.Title))
 			}
 			output.WriteByte('\n')
 		}

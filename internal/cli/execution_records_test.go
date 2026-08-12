@@ -69,6 +69,19 @@ func TestClaimCommand_directIssueIncludesActorAndContext(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
+func TestFormatIssueViewSingleLinesPinnedTitles(t *testing.T) {
+	view := testIssueView("an-task", "task", "ready")
+	view.Context.Pins = []issue.PinnedIssue{{
+		ID: "an-pin", Title: "Pinned\nissue\tname",
+	}}
+
+	assert.Contains(
+		t,
+		formatIssueView(view),
+		"Pinned issues:\n- an-pin: Pinned issue name\n",
+	)
+}
+
 func TestClaimCommand_automaticSelectionPassesPoolFilters(t *testing.T) {
 	request := execution.ClaimNextRequest{
 		UnderID:    "an-parent",
