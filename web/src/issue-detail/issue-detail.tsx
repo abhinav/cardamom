@@ -6,7 +6,7 @@ import {
 } from "@bufbuild/protobuf";
 import { useMutation, useTransport } from "@connectrpc/connect-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Pencil } from "lucide-react";
+import { ChevronRight, Pencil, Pin, PinOff } from "lucide-react";
 import type { FormEvent } from "react";
 import {
   createContext,
@@ -184,6 +184,17 @@ interface LifecycleMutations {
   >;
 }
 
+interface PinMutations {
+  pin: Mutation<
+    typeof IssueService.method.pinBoardIssue.input,
+    typeof IssueService.method.pinBoardIssue.output
+  >;
+  unpin: Mutation<
+    typeof IssueService.method.unpinBoardIssue.input,
+    typeof IssueService.method.unpinBoardIssue.output
+  >;
+}
+
 /** changeIssueLifecycle dispatches one browser control to its product operation. */
 export async function changeIssueLifecycle(
   mutations: LifecycleMutations,
@@ -238,6 +249,24 @@ export async function changeIssueLifecycle(
       );
     }
   }
+}
+
+/** changeIssuePin applies one actor-attributed board pin mutation. */
+export async function changeIssuePin(
+  mutations: PinMutations,
+  issueId: string,
+  actor: string,
+  pinned: boolean,
+): Promise<string> {
+  const context = mutationContext(actor);
+  if (pinned) {
+    const response = await mutations.unpin({ issueId, context });
+    const id = response.issue?.id ?? issueId;
+    return response.changed ? `Unpinned ${id}.` : `${id} was already unpinned.`;
+  }
+  const response = await mutations.pin({ issueId, context });
+  const id = response.issue?.id ?? issueId;
+  return response.changed ? `Pinned ${id}.` : `${id} was already pinned.`;
 }
 
 /** DependencyEdit selects one atomic planning relationship edit. */
@@ -337,6 +366,10 @@ export function IssueDetailPage({
     close: useMutation(ExecutionService.method.closeIssues).mutateAsync,
     release: useMutation(ExecutionService.method.releaseIssue).mutateAsync,
     reopen: useMutation(ExecutionService.method.reopenIssues).mutateAsync,
+  };
+  const pinMutations: PinMutations = {
+    pin: useMutation(IssueService.method.pinBoardIssue).mutateAsync,
+    unpin: useMutation(IssueService.method.unpinBoardIssue).mutateAsync,
   };
   const resolveCheckpoint = useMutation(
     CheckpointService.method.resolveCheckpoint,
@@ -472,6 +505,11 @@ export function IssueDetailPage({
     runMutation([WatchResource.ISSUES, WatchResource.APPROVALS], () =>
       changeIssueLifecycle(lifecycleMutations, issueId, actor, action),
     );
+  const pinned = detail.context?.pins.some((pin) => pin.id === issueId) ?? false;
+  const changePin = () =>
+    runMutation([WatchResource.ISSUES], () =>
+      changeIssuePin(pinMutations, issueId, actor, pinned),
+    );
   const changeDependency = (
     prerequisiteId: string,
     edit: DependencyEdit,
@@ -566,7 +604,9 @@ export function IssueDetailPage({
         {canMutateServer && (
           <IssueActions
             actor={actor}
+            changePin={() => void changePin()}
             pending={mutation.status === "pending"}
+            pinned={pinned}
             summary={issue}
             changeLifecycle={(action) => void changeLifecycle(action)}
             edit={openMetadataEditor}
@@ -849,18 +889,23 @@ export function PrimaryRecord({
 /** IssueActions keeps mutations inside one collapsed header disclosure. */
 export function IssueActions({
   actor,
+  changePin,
   changeLifecycle,
   edit,
   pending,
+  pinned,
   summary,
 }: {
   actor: string;
+  changePin: () => void;
   changeLifecycle: (action: LifecycleActionValue) => void;
   edit: () => void;
   pending: boolean;
+  pinned: boolean;
   summary: IssueSummary;
 }) {
   const actions = availableLifecycleActions(summary, actor);
+  const actorMissing = actor.trim() === "";
   return (
     <details className="issue-actions">
       <summary>Issue actions</summary>
@@ -873,6 +918,19 @@ export function IssueActions({
         >
           <Pencil aria-hidden="true" size={14} strokeWidth={2} />
           Edit issue
+        </button>
+        <button
+          type="button"
+          className="issue-action-quiet"
+          disabled={pending || actorMissing}
+          onClick={changePin}
+        >
+          {pinned ? (
+            <PinOff aria-hidden="true" size={14} strokeWidth={2} />
+          ) : (
+            <Pin aria-hidden="true" size={14} strokeWidth={2} />
+          )}
+          {pinned ? "Unpin from board" : "Pin to board"}
         </button>
         {actions.map((action) => (
           <button

@@ -1,6 +1,8 @@
+import { useTransport } from "@connectrpc/connect-query";
+import { useQuery } from "@tanstack/react-query";
+import { ListFilter, Plus, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ListFilter, Plus, SlidersHorizontal } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 
 import type { AttachmentClient } from "./api.ts";
@@ -18,7 +20,9 @@ import {
 } from "./create-issue.tsx";
 import {
   IssueStatus,
+  IssueService,
   IssueType,
+  type RelatedIssue,
   type IssueSummary,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import type { BoardSummary } from "./gen/cardamom/private/v1/project_pb.ts";
@@ -39,6 +43,7 @@ import { IssueLabel, type SelectLabel } from "./issue-label.tsx";
 import { IssueStatusBadge } from "./issue-status.tsx";
 import { IssueWaitingReason } from "./issue-waiting.tsx";
 import { issueIdentity, visibleIssueProvenance } from "./provenance.ts";
+import { unaryRouteQueryOptions } from "./query-runtime.ts";
 import {
   buildIssueStreams,
   issueLoadControl,
@@ -218,6 +223,7 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
   const [creating, setCreating] = useState(false);
   const creationBoardId = issueCreationBoardId(props.selection);
   const canCreateIssue = props.canMutateServer && creationBoardId !== undefined;
+  const pinsBoardId = boardPinsBoardId(props.mode, props.selection);
   const loadedIssues = issuePageIssues(props.pages);
   const totalIssues = props.pages.streams.reduce(
     (total, stream) => total + stream.totalCount,
@@ -246,19 +252,22 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
       </header>
 
       {props.mode === "board" ? (
-        <KanbanBoard
-          boards={props.boards}
-          projects={props.projects}
-          grouping={props.grouping ?? "status"}
-          streams={props.pages.streams}
-          loadMore={props.loadMore}
-          selectLabel={props.selectLabel}
-          showBoard={props.selection.kind === "all"}
-          scope={props.selection}
-          canCreateIssue={canCreateIssue}
-          showCreationGuidance={props.canMutateServer}
-          showEmptyColumns={props.showEmptyColumns}
-        />
+        <div className="kanban-surface">
+          {pinsBoardId !== undefined && <BoardPins boardId={pinsBoardId} />}
+          <KanbanBoard
+            boards={props.boards}
+            projects={props.projects}
+            grouping={props.grouping ?? "status"}
+            streams={props.pages.streams}
+            loadMore={props.loadMore}
+            selectLabel={props.selectLabel}
+            showBoard={props.selection.kind === "all"}
+            scope={props.selection}
+            canCreateIssue={canCreateIssue}
+            showCreationGuidance={props.canMutateServer}
+            showEmptyColumns={props.showEmptyColumns}
+          />
+        </div>
       ) : (
         <IssueList
           boards={props.boards}
@@ -283,6 +292,74 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
           onDismiss={() => setCreating(false)}
         />
       )}
+    </section>
+  );
+}
+
+/** boardPinsBoardId selects the one collection scope that owns a pin row. */
+export function boardPinsBoardId(
+  mode: "board" | "list",
+  selection: BoardScopeSelection,
+): string | undefined {
+  return mode === "board" && selection.kind === "board"
+    ? selection.boardId
+    : undefined;
+}
+
+function BoardPins({ boardId }: { boardId: string }) {
+  const transport = useTransport();
+  const request = useQuery({
+    ...unaryRouteQueryOptions(
+      IssueService.method.listBoardPins,
+      { boardId },
+      transport,
+    ),
+    select: (response) => response.issues,
+  });
+  if (request.isError) {
+    return (
+      <p className="board-pins-error" role="alert">
+        Pinned issues could not be loaded.
+      </p>
+    );
+  }
+  return <BoardPinCarousel boardId={boardId} issues={request.data ?? []} />;
+}
+
+/** BoardPinCarousel renders one board's nonempty ordered pin collection. */
+export function BoardPinCarousel({
+  boardId,
+  issues,
+}: {
+  boardId: string;
+  issues: readonly RelatedIssue[];
+}) {
+  if (issues.length === 0) {
+    return null;
+  }
+  return (
+    <section className="board-pins" aria-labelledby="board-pins-title">
+      <header>
+        <h2 id="board-pins-title">Pinned</h2>
+        <span>{issues.length}</span>
+      </header>
+      <div className="board-pins-scroll" tabIndex={0} aria-label="Pinned issues">
+        <div className="board-pins-track">
+          {issues.map((issue) => (
+            <article className="board-pin-card" key={issue.id}>
+              <div className="board-pin-card-heading">
+                <Link className="issue-id" to={issuePath(boardId, issue.id)}>
+                  {issue.id}
+                </Link>
+                <IssueStatusBadge status={issue.status} />
+              </div>
+              <h3>
+                <Link to={issuePath(boardId, issue.id)}>{issue.title}</Link>
+              </h3>
+            </article>
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

@@ -47,6 +47,7 @@ import { unaryRouteQueryOptions } from "../query-runtime.ts";
 import { ServerAccessProvider } from "../server-access.tsx";
 import {
   addIssueLogEntryInput,
+  changeIssuePin,
   changeIssueLifecycle,
   dependencyCandidates,
   dependencySearchInput,
@@ -869,9 +870,11 @@ describe("issue detail RPC boundaries", () => {
     const markup = renderToStaticMarkup(
       IssueActions({
         actor: "issue-detail-worker",
+        changePin: vi.fn(),
         changeLifecycle: vi.fn(),
         edit: vi.fn(),
         pending: false,
+        pinned: false,
         summary: create(IssueSummarySchema, {
           id: "cm-task",
           lifecycle: IssueLifecycle.OPEN,
@@ -885,10 +888,52 @@ describe("issue detail RPC boundaries", () => {
       '<details class="issue-actions"><summary>Issue actions</summary>',
     );
     expect(markup).toContain("Edit issue");
+    expect(markup).toContain("Pin to board");
     expect(markup).toContain("Claim");
     expect(markup).toContain("Mark done");
     expect(markup).toContain("Cancel");
     expect(markup).not.toContain('open=""');
+  });
+
+  it("attributes pin and unpin mutations and reports idempotent outcomes", async () => {
+    const pin = vi.fn().mockResolvedValue({
+      issue: create(RelatedIssueSchema, { id: "cm-task" }),
+      changed: true,
+    });
+    const unpin = vi.fn().mockResolvedValue({
+      issue: create(RelatedIssueSchema, { id: "cm-task" }),
+      changed: false,
+    });
+
+    await expect(
+      changeIssuePin({ pin, unpin }, "cm-task", "  Rawls  ", false),
+    ).resolves.toBe("Pinned cm-task.");
+    expect(pin).toHaveBeenCalledWith({
+      issueId: "cm-task",
+      context: expect.objectContaining({ actor: "Rawls" }),
+    });
+
+    await expect(
+      changeIssuePin({ pin, unpin }, "cm-task", "Rawls", true),
+    ).resolves.toBe("cm-task was already unpinned.");
+    expect(unpin).toHaveBeenCalledWith({
+      issueId: "cm-task",
+      context: expect.objectContaining({ actor: "Rawls" }),
+    });
+
+    const actorlessMarkup = renderToStaticMarkup(
+      IssueActions({
+        actor: " ",
+        changePin: vi.fn(),
+        changeLifecycle: vi.fn(),
+        edit: vi.fn(),
+        pending: false,
+        pinned: true,
+        summary: create(IssueSummarySchema, { id: "cm-task" }),
+      }),
+    );
+    expect(actorlessMarkup).toContain("Unpin from board");
+    expect(actorlessMarkup).toMatch(/disabled=""[^>]*>.*Unpin from board/s);
   });
 
   it("searches the current board and excludes existing relationships", () => {

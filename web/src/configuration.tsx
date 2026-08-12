@@ -23,7 +23,7 @@ import { unaryRouteQueryOptions } from "./query-runtime.ts";
 
 import "./configuration.css";
 
-const maxByteLimit = 9_223_372_036_854_775_807n;
+const maxIntegerLimit = 9_223_372_036_854_775_807n;
 
 const configurationFields = [
   {
@@ -45,6 +45,11 @@ const configurationFields = [
     path: "attachment.max_bytes",
     label: "Attachment limit",
     input: "bytes",
+  },
+  {
+    path: "board.pins.max_count",
+    label: "Pinned issue limit",
+    input: "count",
   },
 ] as const;
 
@@ -495,6 +500,7 @@ function ConfigurationFieldInput({
   validation: string | undefined;
 }) {
   const errorId = "configuration-field-error";
+  const numeric = field.input === "bytes" || field.input === "count";
   return (
     <label className="form-field form-field-wide">
       <span>{field.label}</span>
@@ -510,10 +516,12 @@ function ConfigurationFieldInput({
       ) : (
         <input
           autoFocus
-          type={field.input === "bytes" ? "number" : "text"}
-          inputMode={field.input === "bytes" ? "numeric" : "text"}
-          min={field.input === "bytes" ? "1" : undefined}
-          max={field.input === "bytes" ? maxByteLimit.toString() : undefined}
+          type={numeric ? "number" : "text"}
+          inputMode={numeric ? "numeric" : "text"}
+          min={field.input === "bytes"
+            ? "1"
+            : field.input === "count" ? "0" : undefined}
+          max={numeric ? maxIntegerLimit.toString() : undefined}
           value={draft}
           aria-invalid={validation !== undefined}
           aria-describedby={validation === undefined ? undefined : errorId}
@@ -566,6 +574,9 @@ export function configurationUpdateInput(
       case "attachment.max_bytes":
         overrides.attachment = { maxBytes: BigInt(draft) };
         break;
+      case "board.pins.max_count":
+        overrides.board = { pins: { maxCount: BigInt(draft) } };
+        break;
     }
   }
   return {
@@ -595,11 +606,21 @@ export function validateConfigurationDraft(
     case "attachment.max_bytes": {
       try {
         const value = BigInt(draft);
-        return /^\d+$/.test(draft) && value >= 1n && value <= maxByteLimit
+        return /^\d+$/.test(draft) && value >= 1n && value <= maxIntegerLimit
           ? undefined
-          : `Enter a whole number of bytes between 1 and ${maxByteLimit}.`;
+          : `Enter a whole number of bytes between 1 and ${maxIntegerLimit}.`;
       } catch {
-        return `Enter a whole number of bytes between 1 and ${maxByteLimit}.`;
+        return `Enter a whole number of bytes between 1 and ${maxIntegerLimit}.`;
+      }
+    }
+    case "board.pins.max_count": {
+      try {
+        const value = BigInt(draft);
+        return /^\d+$/.test(draft) && value <= maxIntegerLimit
+          ? undefined
+          : `Enter a whole number between 0 and ${maxIntegerLimit}.`;
+      } catch {
+        return `Enter a whole number between 0 and ${maxIntegerLimit}.`;
       }
     }
   }
@@ -614,7 +635,7 @@ export function configurationPreview(
 ): { value: string; source: string } {
   if (
     draft !== undefined &&
-    field.endsWith("max_bytes") &&
+    (field.endsWith("max_bytes") || field.endsWith("max_count")) &&
     validateConfigurationDraft(field, draft) !== undefined
   ) {
     return {
@@ -690,6 +711,8 @@ function fieldValue(
       return configuration?.issue?.summary?.maxBytes.toString() ?? "";
     case "attachment.max_bytes":
       return configuration?.attachment?.maxBytes.toString() ?? "";
+    case "board.pins.max_count":
+      return configuration?.board?.pins?.maxCount.toString() ?? "";
   }
 }
 
@@ -708,6 +731,8 @@ function fieldOverride(
       return overrides?.issue?.summary?.maxBytes?.toString();
     case "attachment.max_bytes":
       return overrides?.attachment?.maxBytes?.toString();
+    case "board.pins.max_count":
+      return overrides?.board?.pins?.maxCount?.toString();
   }
 }
 
@@ -724,6 +749,8 @@ function fieldOrigin(
       return origins?.issue?.summary?.maxBytes;
     case "attachment.max_bytes":
       return origins?.attachment?.maxBytes;
+    case "board.pins.max_count":
+      return origins?.board?.pins?.maxCount;
   }
 }
 
