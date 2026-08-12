@@ -43,7 +43,7 @@ import { IssueLabel, type SelectLabel } from "./issue-label.tsx";
 import { IssueStatusBadge } from "./issue-status.tsx";
 import { IssueWaitingReason } from "./issue-waiting.tsx";
 import { issueIdentity, visibleIssueProvenance } from "./provenance.ts";
-import { unaryRouteQueryOptions } from "./query-runtime.ts";
+import { unaryScopeQueryOptions } from "./query-runtime.ts";
 import {
   buildIssueStreams,
   issueLoadControl,
@@ -177,12 +177,25 @@ function LoadedIssueCollection(props: LoadedIssueCollectionProps) {
         stream.pageCount === 0 &&
         (stream.status === "idle" || stream.status === "loading"),
     );
+  const initialPinsBoardId = boardPinsBoardId(props.mode, props.selection);
   if (initialLoad) {
     return (
-      <RouteState
-        title={props.mode === "board" ? "Board" : "List"}
-        message="Loading issues"
-      />
+      <section
+        className={`issue-view issue-view-${props.mode}`}
+        aria-label={props.mode === "board" ? "Issue board" : "Issue list"}
+      >
+        {props.mode === "board" && (
+          <div className="kanban-surface">
+            {initialPinsBoardId !== undefined && (
+              <BoardPins boardId={initialPinsBoardId} />
+            )}
+            <RouteState title="Board" message="Loading issues" />
+          </div>
+        )}
+        {props.mode === "list" && (
+          <RouteState title="List" message="Loading issues" />
+        )}
+      </section>
     );
   }
   const listStream = pages.state.streams[0];
@@ -309,21 +322,45 @@ export function boardPinsBoardId(
 function BoardPins({ boardId }: { boardId: string }) {
   const transport = useTransport();
   const request = useQuery({
-    ...unaryRouteQueryOptions(
+    ...unaryScopeQueryOptions(
       IssueService.method.listBoardPins,
       { boardId },
       transport,
     ),
     select: (response) => response.issues,
   });
-  if (request.isError) {
+  if (request.data === undefined && request.isError) {
     return (
-      <p className="board-pins-error" role="alert">
-        Pinned issues could not be loaded.
-      </p>
+      <BoardPinsError retry={() => void request.refetch()} />
     );
   }
-  return <BoardPinCarousel boardId={boardId} issues={request.data ?? []} />;
+  return (
+    <>
+      <BoardPinCarousel boardId={boardId} issues={request.data ?? []} />
+      {request.data !== undefined && request.isError && (
+        <BoardPinsError retry={() => void request.refetch()} refresh />
+      )}
+    </>
+  );
+}
+
+function BoardPinsError({
+  refresh = false,
+  retry,
+}: {
+  refresh?: boolean;
+  retry: () => void;
+}) {
+  return (
+    <p className="board-pins-error" role="alert">
+      {refresh
+        ? "Pinned issues could not be refreshed."
+        : "Pinned issues could not be loaded."}{" "}
+      <button type="button" className="link-button" onClick={retry}>
+        Retry
+      </button>
+    </p>
+  );
 }
 
 /** BoardPinCarousel renders one board's nonempty ordered pin collection. */
@@ -354,7 +391,9 @@ export function BoardPinCarousel({
                 <IssueStatusBadge status={issue.status} />
               </div>
               <h3>
-                <Link to={issuePath(boardId, issue.id)}>{issue.title}</Link>
+                <Link title={issue.title} to={issuePath(boardId, issue.id)}>
+                  {issue.title}
+                </Link>
               </h3>
             </article>
           ))}

@@ -907,7 +907,7 @@ describe("issue detail RPC boundaries", () => {
 
     await expect(
       changeIssuePin({ pin, unpin }, "cm-task", "  Rawls  ", false),
-    ).resolves.toBe("Pinned cm-task.");
+    ).resolves.toEqual({ message: "Pinned cm-task.", pinned: true });
     expect(pin).toHaveBeenCalledWith({
       issueId: "cm-task",
       context: expect.objectContaining({ actor: "Rawls" }),
@@ -915,7 +915,10 @@ describe("issue detail RPC boundaries", () => {
 
     await expect(
       changeIssuePin({ pin, unpin }, "cm-task", "Rawls", true),
-    ).resolves.toBe("cm-task was already unpinned.");
+    ).resolves.toEqual({
+      message: "cm-task was already unpinned.",
+      pinned: false,
+    });
     expect(unpin).toHaveBeenCalledWith({
       issueId: "cm-task",
       context: expect.objectContaining({ actor: "Rawls" }),

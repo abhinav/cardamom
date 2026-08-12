@@ -195,6 +195,11 @@ interface PinMutations {
   >;
 }
 
+interface PinMutationOutcome {
+  message: string;
+  pinned: boolean;
+}
+
 /** changeIssueLifecycle dispatches one browser control to its product operation. */
 export async function changeIssueLifecycle(
   mutations: LifecycleMutations,
@@ -257,16 +262,22 @@ export async function changeIssuePin(
   issueId: string,
   actor: string,
   pinned: boolean,
-): Promise<string> {
+): Promise<PinMutationOutcome> {
   const context = mutationContext(actor);
   if (pinned) {
     const response = await mutations.unpin({ issueId, context });
     const id = response.issue?.id ?? issueId;
-    return response.changed ? `Unpinned ${id}.` : `${id} was already unpinned.`;
+    return {
+      message: response.changed ? `Unpinned ${id}.` : `${id} was already unpinned.`,
+      pinned: false,
+    };
   }
   const response = await mutations.pin({ issueId, context });
   const id = response.issue?.id ?? issueId;
-  return response.changed ? `Pinned ${id}.` : `${id} was already pinned.`;
+  return {
+    message: response.changed ? `Pinned ${id}.` : `${id} was already pinned.`,
+    pinned: true,
+  };
 }
 
 /** DependencyEdit selects one atomic planning relationship edit. */
@@ -381,6 +392,7 @@ export function IssueDetailPage({
   const [dependencyQuery, setDependencyQuery] = useState("");
   const [checkpointReason, setCheckpointReason] = useState("");
   const [metadataEditor, setMetadataEditor] = useState<IssueMetadataDraft>();
+  const [pinOverride, setPinOverride] = useState<boolean>();
 
   const issueRequest = useQuery({
     ...unaryRouteQueryOptions(
@@ -463,6 +475,8 @@ export function IssueDetailPage({
     [expectedBoardId, queryClient, source, transport],
   );
   const detail = requestData(issueRequest);
+  const serverPinned = detail?.context?.pins.some((pin) => pin.id === issueId) ?? false;
+  useEffect(() => setPinOverride(undefined), [serverPinned]);
 
   if (detail === undefined) {
     return (
@@ -505,11 +519,13 @@ export function IssueDetailPage({
     runMutation([WatchResource.ISSUES, WatchResource.APPROVALS], () =>
       changeIssueLifecycle(lifecycleMutations, issueId, actor, action),
     );
-  const pinned = detail.context?.pins.some((pin) => pin.id === issueId) ?? false;
+  const pinned = pinOverride ?? serverPinned;
   const changePin = () =>
-    runMutation([WatchResource.ISSUES], () =>
-      changeIssuePin(pinMutations, issueId, actor, pinned),
-    );
+    runMutation([WatchResource.ISSUES], async () => {
+      const outcome = await changeIssuePin(pinMutations, issueId, actor, pinned);
+      setPinOverride(outcome.pinned);
+      return outcome.message;
+    });
   const changeDependency = (
     prerequisiteId: string,
     edit: DependencyEdit,

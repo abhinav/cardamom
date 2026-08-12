@@ -37,6 +37,7 @@ import {
   issueCollectionQueryOptions,
   runInvalidatingMutation,
   unaryRouteQueryOptions,
+  unaryScopeQueryOptions,
 } from "./query-runtime.ts";
 
 describe("bootstrap query", () => {
@@ -333,5 +334,19 @@ describe("route query policy", () => {
     expect(options.refetchOnReconnect).toBe(false);
     expect(options.refetchOnWindowFocus).toBe(false);
     expect(options.placeholderData?.(previous)).toBe(previous);
+  });
+
+  it("does not bridge data across scope identities", () => {
+    const transport = createRouterTransport(() => {});
+    const options = unaryScopeQueryOptions(
+      ProjectService.method.getBoard,
+      { boardId: "board-2" },
+      transport,
+    );
+
+    expect(options.retry).toBe(false);
+    expect(options.refetchOnReconnect).toBe(false);
+    expect(options.refetchOnWindowFocus).toBe(false);
+    expect(options).not.toHaveProperty("placeholderData");
   });
 });

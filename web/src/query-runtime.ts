@@ -97,6 +97,23 @@ export function unaryRouteQueryOptions<
   };
 }
 
+/** unaryScopeQueryOptions never presents data from a previous scope identity. */
+export function unaryScopeQueryOptions<
+  I extends DescMessage,
+  O extends DescMessage,
+>(
+  schema: DescMethodUnary<I, O>,
+  input: MessageInitShape<I> | undefined,
+  transport: Transport,
+) {
+  return {
+    ...createQueryOptions(schema, input, { transport }),
+    retry: false,
+    refetchOnReconnect: false,
+    refetchOnWindowFocus: false,
+  };
+}
+
 /** invalidateQueryResources marks every Connect query family named by a change. */
 export async function invalidateQueryResources(
   queryClient: QueryClient,

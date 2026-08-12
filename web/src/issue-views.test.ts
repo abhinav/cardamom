@@ -66,6 +66,7 @@ describe("kanban board", () => {
     expect(markup).toContain('href="/board/board-1/issue/cm-first"');
     expect(markup).toContain("In progress");
     expect(markup).toContain("Waiting");
+    expect(markup).toContain('title="First pinned issue"');
     expect(markup.indexOf("First pinned issue")).toBeLessThan(
       markup.indexOf("Second pinned issue"),
     );

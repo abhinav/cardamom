@@ -1584,6 +1584,10 @@ button:disabled {
   letter-spacing: 0;
   line-height: 1.3;
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
 }
 
 .board-pin-card h3 a {
