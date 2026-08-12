@@ -1,3 +1,6 @@
 kind: Added
-body: Added ordered board pins with CLI and web controls, inherited limits, automatic issue context, and copy and backup preservation.
+body: >-
+  Added ordered board pins with CLI and web controls, inherited limits,
+  copy and backup preservation, and pin IDs and titles in `claim --context`
+  and `show --context` output.
 time: 2026-08-12T11:19:46.260889-07:00

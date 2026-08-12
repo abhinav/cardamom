@@ -159,8 +159,8 @@ remove issues from that order,
 or inspect the current order:
 
 ```bash
-card --actor coordinator board pin <issue-id>
-card --actor coordinator board unpin <issue-id>
+card --actor coordinator board pin cm-7f3a
+card --actor coordinator board unpin cm-7f3a
 card --actor coordinator board pins
 ```
 
@@ -168,8 +168,8 @@ card --actor coordinator board pins
 Both mutation commands accept `--key`
 when the positional argument is an exact producer key instead of an issue ID.
 
-The `board.pins.max_count` configuration key limits the number of pinned
-issues and defaults to `8`.
+The configuration key `board.pins.max_count`
+limits pinned issues and defaults to `8`.
 Like other configuration values,
 it inherits through built-in, store, project, and board scopes,
 with the most specific configured value taking precedence.
