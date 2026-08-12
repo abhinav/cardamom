@@ -1,3 +1,0 @@
-kind: Changed
-body: Show the Git revision, dirty state, and build timestamp in `card version` when available.
-time: 2026-08-08T10:09:05.289044-07:00
