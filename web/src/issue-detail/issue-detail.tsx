@@ -280,14 +280,6 @@ export async function changeIssuePin(
   };
 }
 
-/** issuePinState prefers a completed local mutation over stale query data. */
-export function issuePinState(
-  serverPinned: boolean,
-  pinOverride: boolean | undefined,
-): boolean {
-  return pinOverride ?? serverPinned;
-}
-
 /** DependencyEdit selects one atomic planning relationship edit. */
 export type DependencyEdit = "add" | "remove";
 
@@ -527,7 +519,7 @@ export function IssueDetailPage({
     runMutation([WatchResource.ISSUES, WatchResource.APPROVALS], () =>
       changeIssueLifecycle(lifecycleMutations, issueId, actor, action),
     );
-  const pinned = issuePinState(serverPinned, pinOverride);
+  const pinned = pinOverride ?? serverPinned;
   const changePin = () =>
     runMutation([WatchResource.ISSUES], async () => {
       const outcome = await changeIssuePin(pinMutations, issueId, actor, pinned);

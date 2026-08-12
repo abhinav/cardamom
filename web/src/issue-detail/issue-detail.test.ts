@@ -59,7 +59,6 @@ import {
   IssueHeader,
   LogEntryList,
   issueMetadataDraft,
-  issuePinState,
   PrimaryRecord,
   RelationshipBand,
   RelationshipList,
@@ -938,12 +937,6 @@ describe("issue detail RPC boundaries", () => {
     );
     expect(actorlessMarkup).toContain("Unpin from board");
     expect(actorlessMarkup).toMatch(/disabled=""[^>]*>.*Unpin from board/s);
-  });
-
-  it("keeps a completed pin mutation visible while query data is stale", () => {
-    expect(issuePinState(false, true)).toBe(true);
-    expect(issuePinState(true, false)).toBe(false);
-    expect(issuePinState(true, undefined)).toBe(true);
   });
 
   it("searches the current board and excludes existing relationships", () => {
