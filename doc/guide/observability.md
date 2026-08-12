@@ -42,6 +42,10 @@ log entries,
 dependencies,
 and checkpoint decisions.
 It displays the board selected by the running `card web` process.
+The selected-board view displays nonempty pinned issues in board order
+in a compact horizontal carousel.
+Open an issue's **Issue actions** to pin or unpin it from that board.
+Read-only servers omit the pin and unpin action.
 
 Use `--no-browser` when another process manages navigation
 or when the server runs without a desktop session:

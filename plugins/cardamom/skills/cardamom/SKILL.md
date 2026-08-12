@@ -39,6 +39,8 @@ while the coordinator records its reasoning under its own actor.
 Issue and attachment work resolves a board.
 Mail and resource leases resolve only a store and may span its boards.
 Projects organize boards but are not a separate execution selection.
+Use `card board pin`, `card board unpin`, and `card board pins`
+to change or inspect the selected board's pinned issues.
 Use supplied scope,
 report unresolved ambiguity instead of choosing or creating persistent scope,
 and load [scope.md](references/scope.md) when scope is not established,
@@ -57,6 +59,8 @@ materially revise an executable issue.
 Start selected, unclaimed work with `claim --context`.
 When the current actor already owns the claim,
 use `show --context` and continue without claiming again.
+Requested `claim --context` and `show --context` output includes
+the selected board's pinned issue IDs and current titles.
 The claim owner executes the issue, maintains its records,
 and performs its handoff.
 An assisting actor without issue custody returns evidence to the claim owner.

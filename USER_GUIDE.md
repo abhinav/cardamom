@@ -166,9 +166,13 @@ card --actor worker-a --json claim <issue-id> --context
 The response includes:
 
 - the selected board description;
+- the selected board's pinned issue IDs and current titles;
 - ancestor summaries and current states;
 - the claimed issue's summary, details, and state; and
 - results from completed direct dependencies.
+
+`card show <issue-id> --context` includes the same pinned board context
+without claiming the issue.
 
 Ancestor details, complete logs, attachments, and terminal descendants remain
 available on demand.
@@ -433,6 +437,35 @@ When several boards are eligible and none is selected,
 board-scoped commands fail instead of guessing.
 Creating or selecting a board never changes the physical store.
 
+Pin a short ordered set of issues to the selected board,
+remove issues from that order,
+or inspect the current order:
+
+```bash
+card --actor coordinator board pin <issue-id>
+card --actor coordinator board unpin <issue-id>
+card --actor coordinator board pins
+```
+
+`board pin` appends an issue to the order.
+Both mutation commands accept `--key`
+when the positional argument is an exact producer key instead of an issue ID.
+
+The `board.pins.max_count` configuration key limits the number of pinned
+issues and defaults to `8`.
+Like other configuration values,
+it inherits through built-in, store, project, and board scopes,
+with the most specific configured value taking precedence.
+Set a board-specific limit with:
+
+```bash
+card --actor coordinator config set \
+  --scope board board.pins.max_count 12
+```
+
+`config unset` at a scope restores inheritance from the next less-specific
+configured scope.
+
 Choose a board for the coordination boundary whose description,
 issue graph,
 and claims should be shared.
@@ -444,9 +477,13 @@ labels and workstream containment handle classification within one graph.
 
 ## Portable backups
 
+`card board copy` preserves the board's pin order and effective pin limit,
+and rewrites each pin to the copied issue ID.
+
 `card backup` writes complete boards to one portable archive.
 Each included board carries its complete board data
-and every committed attachment file.
+and every committed attachment file,
+including its pin order and effective pin limit.
 
 ### Choose boards to back up
 
@@ -485,6 +522,7 @@ card --actor operator \
 ```
 
 Restore retains each archived project's identity.
+Restored boards retain the archived pin order and pin limit.
 Cardamom adds the archived projects and boards
 without replacing unrelated data already in the destination.
 If the destination has the same project identity with incompatible metadata,
@@ -898,6 +936,10 @@ log entries,
 dependencies,
 and checkpoint decisions.
 It displays the board selected by the running `card web` process.
+The selected-board view displays nonempty pinned issues in board order
+in a compact horizontal carousel.
+Open an issue's **Issue actions** to pin or unpin it from that board.
+Read-only servers omit the pin and unpin action.
 
 Use `--no-browser` when another process manages navigation
 or when the server runs without a desktop session:

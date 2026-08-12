@@ -1,8 +1,12 @@
 # Portable backups
 
+`card board copy` preserves the board's pin order and effective pin limit,
+and rewrites each pin to the copied issue ID.
+
 `card backup` writes complete boards to one portable archive.
 Each included board carries its complete board data
-and every committed attachment file.
+and every committed attachment file,
+including its pin order and effective pin limit.
 
 ## Choose boards to back up
 
@@ -41,6 +45,7 @@ card --actor operator \
 ```
 
 Restore retains each archived project's identity.
+Restored boards retain the archived pin order and pin limit.
 Cardamom adds the archived projects and boards
 without replacing unrelated data already in the destination.
 If the destination has the same project identity with incompatible metadata,
