@@ -10,7 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/boardcopy"
+	backupv1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/backup/v1"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestBoardRecordDecodesPublishedTrailerField(t *testing.T) {
+	var record backupv1.BoardRecord
+	require.NoError(t, proto.Unmarshal([]byte{0x62, 0x00}, &record))
+	assert.NotNil(t, record.GetTrailer())
+}
 
 func TestBoardRecordCodecUsesDeterministicDelimitedFraming(t *testing.T) {
 	_, snapshot, _, _ := archiveTestValues(t)

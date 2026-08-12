@@ -137,10 +137,10 @@ message BoardRecord {
     // attachment records are ordered by Attachment.id.
     Attachment attachment = 11;
 
-    // pin records use contiguous zero-based Pin.order values.
-    Pin pin = 12;
+    BoardTrailer trailer = 12;
 
-    BoardTrailer trailer = 13;
+    // pin records use contiguous zero-based Pin.order values.
+    Pin pin = 13;
   }
 }
 

@@ -424,8 +424,8 @@ type BoardRecord struct {
 	//	*BoardRecord_Result
 	//	*BoardRecord_Checkpoint
 	//	*BoardRecord_Attachment
-	//	*BoardRecord_Pin
 	//	*BoardRecord_Trailer
+	//	*BoardRecord_Pin
 	Value         isBoardRecord_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -567,19 +567,19 @@ func (x *BoardRecord) GetAttachment() *Attachment {
 	return nil
 }
 
-func (x *BoardRecord) GetPin() *Pin {
+func (x *BoardRecord) GetTrailer() *BoardTrailer {
 	if x != nil {
-		if x, ok := x.Value.(*BoardRecord_Pin); ok {
-			return x.Pin
+		if x, ok := x.Value.(*BoardRecord_Trailer); ok {
+			return x.Trailer
 		}
 	}
 	return nil
 }
 
-func (x *BoardRecord) GetTrailer() *BoardTrailer {
+func (x *BoardRecord) GetPin() *Pin {
 	if x != nil {
-		if x, ok := x.Value.(*BoardRecord_Trailer); ok {
-			return x.Trailer
+		if x, ok := x.Value.(*BoardRecord_Pin); ok {
+			return x.Pin
 		}
 	}
 	return nil
@@ -645,13 +645,13 @@ type BoardRecord_Attachment struct {
 	Attachment *Attachment `protobuf:"bytes,11,opt,name=attachment,proto3,oneof"`
 }
 
-type BoardRecord_Pin struct {
-	// pin records use contiguous zero-based Pin.order values.
-	Pin *Pin `protobuf:"bytes,12,opt,name=pin,proto3,oneof"`
+type BoardRecord_Trailer struct {
+	Trailer *BoardTrailer `protobuf:"bytes,12,opt,name=trailer,proto3,oneof"`
 }
 
-type BoardRecord_Trailer struct {
-	Trailer *BoardTrailer `protobuf:"bytes,13,opt,name=trailer,proto3,oneof"`
+type BoardRecord_Pin struct {
+	// pin records use contiguous zero-based Pin.order values.
+	Pin *Pin `protobuf:"bytes,13,opt,name=pin,proto3,oneof"`
 }
 
 func (*BoardRecord_Header) isBoardRecord_Value() {}
@@ -676,9 +676,9 @@ func (*BoardRecord_Checkpoint) isBoardRecord_Value() {}
 
 func (*BoardRecord_Attachment) isBoardRecord_Value() {}
 
-func (*BoardRecord_Pin) isBoardRecord_Value() {}
-
 func (*BoardRecord_Trailer) isBoardRecord_Value() {}
+
+func (*BoardRecord_Pin) isBoardRecord_Value() {}
 
 // BoardHeader is the required first record in a board member.
 type BoardHeader struct {
@@ -2046,9 +2046,9 @@ const file_cardamom_private_backup_v1_backup_proto_rawDesc = "" +
 	"checkpoint\x12H\n" +
 	"\n" +
 	"attachment\x18\v \x01(\v2&.cardamom.private.backup.v1.AttachmentH\x00R\n" +
-	"attachment\x123\n" +
-	"\x03pin\x18\f \x01(\v2\x1f.cardamom.private.backup.v1.PinH\x00R\x03pin\x12D\n" +
-	"\atrailer\x18\r \x01(\v2(.cardamom.private.backup.v1.BoardTrailerH\x00R\atrailerB\a\n" +
+	"attachment\x12D\n" +
+	"\atrailer\x18\f \x01(\v2(.cardamom.private.backup.v1.BoardTrailerH\x00R\atrailer\x123\n" +
+	"\x03pin\x18\r \x01(\v2\x1f.cardamom.private.backup.v1.PinH\x00R\x03pinB\a\n" +
 	"\x05value\"\x86\x02\n" +
 	"\vBoardHeader\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x12*\n" +
@@ -2237,8 +2237,8 @@ var file_cardamom_private_backup_v1_backup_proto_depIdxs = []int32{
 	17, // 13: cardamom.private.backup.v1.BoardRecord.result:type_name -> cardamom.private.backup.v1.Result
 	18, // 14: cardamom.private.backup.v1.BoardRecord.checkpoint:type_name -> cardamom.private.backup.v1.Checkpoint
 	19, // 15: cardamom.private.backup.v1.BoardRecord.attachment:type_name -> cardamom.private.backup.v1.Attachment
-	20, // 16: cardamom.private.backup.v1.BoardRecord.pin:type_name -> cardamom.private.backup.v1.Pin
-	7,  // 17: cardamom.private.backup.v1.BoardRecord.trailer:type_name -> cardamom.private.backup.v1.BoardTrailer
+	7,  // 16: cardamom.private.backup.v1.BoardRecord.trailer:type_name -> cardamom.private.backup.v1.BoardTrailer
+	20, // 17: cardamom.private.backup.v1.BoardRecord.pin:type_name -> cardamom.private.backup.v1.Pin
 	8,  // 18: cardamom.private.backup.v1.BoardHeader.board:type_name -> cardamom.private.backup.v1.Board
 	9,  // 19: cardamom.private.backup.v1.BoardHeader.configuration:type_name -> cardamom.private.backup.v1.Configuration
 	22, // 20: cardamom.private.backup.v1.Board.created_at:type_name -> google.protobuf.Timestamp
@@ -2276,8 +2276,8 @@ func file_cardamom_private_backup_v1_backup_proto_init() {
 		(*BoardRecord_Result)(nil),
 		(*BoardRecord_Checkpoint)(nil),
 		(*BoardRecord_Attachment)(nil),
-		(*BoardRecord_Pin)(nil),
 		(*BoardRecord_Trailer)(nil),
+		(*BoardRecord_Pin)(nil),
 	}
 	file_cardamom_private_backup_v1_backup_proto_msgTypes[8].OneofWrappers = []any{}
 	file_cardamom_private_backup_v1_backup_proto_msgTypes[10].OneofWrappers = []any{}
