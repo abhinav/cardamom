@@ -24,6 +24,7 @@ INSERT INTO boards (
     issue_id_strategy,
     issue_summary_max_bytes,
     attachment_max_bytes,
+    board_pins_max_count,
     revision
 ) VALUES (
     sqlc.arg(id),
@@ -35,5 +36,6 @@ INSERT INTO boards (
     sqlc.arg(issue_id_strategy),
     sqlc.arg(issue_summary_max_bytes),
     sqlc.arg(attachment_max_bytes),
+    sqlc.arg(board_pins_max_count),
     sqlc.arg(revision)
 );

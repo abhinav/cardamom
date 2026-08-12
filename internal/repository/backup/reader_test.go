@@ -64,6 +64,15 @@ func TestReader_CaptureUsesOneViewForAllAndSelectedBoards(t *testing.T) {
 	require.Len(t, selectedDestination.boards, 1)
 	assert.Equal(t, "project-two", selectedDestination.projects[0].ID.String())
 	assert.Equal(t, board.ID("board-two"), selectedDestination.boards[0].boardID)
+	selectedHeader := selectedDestination.boards[0].records[0].(boardcopy.RecordHeader)
+	assert.Equal(t, board.PinLimit(5), selectedHeader.Configuration.Board.Pins.MaxCount)
+	var selectedPins []boardcopy.CopyPin
+	for _, record := range selectedDestination.boards[0].records {
+		if pin, ok := record.(boardcopy.CopyPin); ok {
+			selectedPins = append(selectedPins, pin)
+		}
+	}
+	assert.Equal(t, []boardcopy.CopyPin{{Order: 0, IssueID: "two-1"}}, selectedPins)
 
 	_, captureErr := reader.Capture(
 		t.Context(),
@@ -234,10 +243,10 @@ func seedBackupTestBoards(t *testing.T, persistence *store.Store) {
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, change.Done()) })
 	_, err = change.ExecContext(t.Context(), `
-INSERT INTO projects (id, name, created_at)
+INSERT INTO projects (id, name, created_at, board_pins_max_count)
 VALUES
-    ('project-one', 'Project one', 1000),
-    ('project-two', 'Project two', 1000);
+    ('project-one', 'Project one', 1000, NULL),
+    ('project-two', 'Project two', 1000, 5);
 INSERT INTO boards (id, project_id, name, description, created_at, revision)
 VALUES
     ('board-one', 'project-one', 'Board one', NULL, 1000, 1),
@@ -247,7 +256,13 @@ INSERT INTO issues (
     revision
 ) VALUES (
     'one-1', 'board-one', 'Committed', 'task', 'open', 2, 1000, 1001, 1
+), (
+    'two-1', 'board-two', 'Selected', 'task', 'open', 2, 1000, 1001, 2
 );
+INSERT INTO board_pins (board_id, issue_id, position)
+VALUES
+    ('board-one', 'one-1', 1),
+    ('board-two', 'two-1', 1);
 INSERT INTO attachment_blobs (digest, size_bytes)
 VALUES (
     'sha256:3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7',

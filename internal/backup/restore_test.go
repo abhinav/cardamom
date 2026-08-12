@@ -70,6 +70,24 @@ func TestRestoreService_preservesDestinationAndReappliesIdentically(t *testing.T
 	assert.Equal(t, beta.ID.String(), result.Boards[1].DestinationProjectID)
 	assert.False(t, result.Boards[0].AlreadyCompleted)
 	assert.False(t, result.Boards[1].AlreadyCompleted)
+	restoredBoardID := board.ID(result.Boards[0].DestinationBoardID)
+	restoredBoard, err := repositoryboard.New(
+		destination.persistence,
+		repositoryboard.Config{BoardID: restoredBoardID},
+	)
+	require.NoError(t, err)
+	pins, err := restoredBoard.ListPins(t.Context())
+	require.NoError(t, err)
+	require.Len(t, pins, 2)
+	assert.Equal(t, "cm-a-secondary", pins[0].ID)
+	assert.Equal(t, "cm-a", pins[1].ID)
+	layers, err := destination.projects.ReadConfigurationLayers(
+		t.Context(),
+		restoredBoardID,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, layers.Board.Board.Pins.MaxCount)
+	assert.Equal(t, board.PinLimit(7), *layers.Board.Board.Pins.MaxCount)
 
 	projects, err := destination.projects.ListProjects(t.Context())
 	require.NoError(t, err)
@@ -239,11 +257,12 @@ func TestRestoreService_resumesAfterCommittedBoard(t *testing.T) {
 }
 
 type restoreTestDestination struct {
-	directory string
-	projects  *repositoryproject.Repository
-	boards    *repositoryboard.CopyRepository
-	blobs     *repositoryattachment.Repository
-	service   *domainbackup.RestoreService
+	directory   string
+	persistence *store.Store
+	projects    *repositoryproject.Repository
+	boards      *repositoryboard.CopyRepository
+	blobs       *repositoryattachment.Repository
+	service     *domainbackup.RestoreService
 }
 
 func newRestoreTestDestination(
@@ -272,10 +291,11 @@ func newRestoreTestDestination(
 	})
 	require.NoError(t, err)
 	return &restoreTestDestination{
-		directory: directory,
-		projects:  projects,
-		boards:    boards,
-		blobs:     blobs,
+		directory:   directory,
+		persistence: persistence,
+		projects:    projects,
+		boards:      boards,
+		blobs:       blobs,
 		service: domainbackup.NewRestoreService(domainbackup.RestoreServiceConfig{
 			Projects: projects,
 			Boards:   boards,
@@ -391,9 +411,15 @@ func restoreTestBoardRecords(
 				return
 			}
 		}
+		for _, pin := range snapshot.Pins {
+			if !yield(pin, nil) {
+				return
+			}
+		}
 		yield(boardcopy.RecordTrailer{Counts: boardcopy.RecordCounts{
 			Issues:      uint64(len(snapshot.Issues)),
 			Attachments: uint64(len(snapshot.Attachments)),
+			Pins:        uint64(len(snapshot.Pins)),
 		}}, nil)
 	}
 }
@@ -404,25 +430,39 @@ func restoreTestBoardSnapshot(
 ) restoreBoardSnapshot {
 	createdAt := restoreTestTime()
 	issueID := "cm-" + publication.suffix
+	secondaryIssueID := issueID + "-secondary"
 	attachmentID := "att_" + strings.Repeat(publication.suffix, 25) + "a"
+	resolved := configuration.Defaults()
+	resolved.Board.Pins.MaxCount = board.PinLimit(7)
 	return restoreBoardSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  12,
 		Board: boardcopy.CopyBoard{
 			ID: publication.id, Name: publication.name, CreatedAt: createdAt,
 		},
-		Configuration: configuration.Defaults(),
-		Issues: []boardcopy.CopyIssue{{
-			ID: issueID, Title: "Issue " + publication.suffix,
-			Kind: "task", Lifecycle: "open", Priority: 2,
-			CreatedAt: createdAt, UpdatedAt: createdAt,
-		}},
+		Configuration: resolved,
+		Issues: []boardcopy.CopyIssue{
+			{
+				ID: issueID, Title: "Issue " + publication.suffix,
+				Kind: "task", Lifecycle: "open", Priority: 2,
+				CreatedAt: createdAt, UpdatedAt: createdAt,
+			},
+			{
+				ID: secondaryIssueID, Title: "Secondary " + publication.suffix,
+				Kind: "task", Lifecycle: "open", Priority: 2,
+				CreatedAt: createdAt, UpdatedAt: createdAt,
+			},
+		},
 		Attachments: []boardcopy.CopyAttachment{{
 			ID: attachmentID, OriginIssueID: new(issueID), Blob: descriptor,
 			Filename:  "evidence-" + publication.suffix + ".txt",
 			MediaType: "text/plain", Lifecycle: "active",
 			CreatedActor: "worker", CreatedAt: createdAt,
 		}},
+		Pins: []boardcopy.CopyPin{
+			{Order: 0, IssueID: secondaryIssueID},
+			{Order: 1, IssueID: issueID},
+		},
 	}
 }
 
@@ -433,6 +473,7 @@ type restoreBoardSnapshot struct {
 	Configuration   configuration.Configuration
 	Issues          []boardcopy.CopyIssue
 	Attachments     []boardcopy.CopyAttachment
+	Pins            []boardcopy.CopyPin
 }
 
 func restoreTestProject(

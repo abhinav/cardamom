@@ -60,7 +60,7 @@ func TestCopyService_CopyPublishesUniqueBlobsBeforeMetadata(t *testing.T) {
 	assert.Equal(t, CopyReceiptKey{
 		SourceLineageID: dependencies.snapshot.SourceLineageID,
 		SourceBoardID:   dependencies.snapshot.Board.ID,
-		SnapshotVersion: 2,
+		SnapshotVersion: CopySnapshotVersion,
 	}, dependencies.receiptKey)
 }
 

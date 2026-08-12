@@ -56,7 +56,7 @@ message BoardPublication {
 
   // snapshot_version selects the semantic board-copy digest contract.
   // It must equal BoardHeader.version in the referenced member.
-  // Archive format version 1 readers accept semantic version 2.
+  // Archive format version 1 readers accept semantic version 3.
   uint32 snapshot_version = 5;
 
   // snapshot_digest is the SHA-256 digest of the versioned deterministic
@@ -137,14 +137,17 @@ message BoardRecord {
     // attachment records are ordered by Attachment.id.
     Attachment attachment = 11;
 
-    BoardTrailer trailer = 12;
+    // pin records use contiguous zero-based Pin.order values.
+    Pin pin = 12;
+
+    BoardTrailer trailer = 13;
   }
 }
 
 // BoardHeader is the required first record in a board member.
 message BoardHeader {
   // version selects the semantic board-copy contract.
-  // Archive format version 1 readers accept semantic version 2.
+  // Archive format version 1 readers accept semantic version 3.
   uint32 version = 1;
 
   // source_lineage_id is the stable lineage minted by the source store.
@@ -177,6 +180,8 @@ message BoardTrailer {
   uint64 results = 8;
   uint64 checkpoints = 9;
   uint64 attachments = 10;
+
+  uint64 pins = 11;
 }
 
 // Board preserves the source namespace and presentation restored into a new
@@ -209,8 +214,7 @@ message Configuration {
 
   // attachment_max_bytes is the attachment body admission limit in bytes.
   uint64 attachment_max_bytes = 4;
-
-  // board_pins_max_count limits new pinned-issue admissions.
+  // board_pins_max_count is the largest admitted pin collection.
   uint64 board_pins_max_count = 5;
 }
 
@@ -399,6 +403,15 @@ message Attachment {
 
   // removed_at is present for removed attachments.
   google.protobuf.Timestamp removed_at = 10;
+}
+
+// Pin preserves one position in the board's ordered pinned-issue collection.
+message Pin {
+  // order is the contiguous zero-based source board position.
+  uint64 order = 1;
+
+  // issue_id references the pinned Issue.id.
+  string issue_id = 2;
 }
 
 // BlobDescriptor identifies immutable content referenced by attachment

@@ -33,10 +33,12 @@ SELECT
     project.issue_id_strategy AS project_issue_id_strategy,
     project.issue_summary_max_bytes AS project_issue_summary_max_bytes,
     project.attachment_max_bytes AS project_attachment_max_bytes,
+    project.board_pins_max_count AS project_board_pins_max_count,
     board.issue_id_prefix AS board_issue_id_prefix,
     board.issue_id_strategy AS board_issue_id_strategy,
     board.issue_summary_max_bytes AS board_issue_summary_max_bytes,
-    board.attachment_max_bytes AS board_attachment_max_bytes
+    board.attachment_max_bytes AS board_attachment_max_bytes,
+    board.board_pins_max_count AS board_board_pins_max_count
 FROM boards AS board
 JOIN projects AS project ON project.id = board.project_id
 WHERE board.id = ?1
@@ -51,10 +53,12 @@ type BoardGetCopySourceRow struct {
 	ProjectIssueIDStrategy      *string
 	ProjectIssueSummaryMaxBytes *int64
 	ProjectAttachmentMaxBytes   *int64
+	ProjectBoardPinsMaxCount    *int64
 	BoardIssueIDPrefix          *string
 	BoardIssueIDStrategy        *string
 	BoardIssueSummaryMaxBytes   *int64
 	BoardAttachmentMaxBytes     *int64
+	BoardBoardPinsMaxCount      *int64
 }
 
 func (q *Queries) BoardGetCopySource(ctx context.Context, boardID string) (BoardGetCopySourceRow, error) {
@@ -69,10 +73,12 @@ func (q *Queries) BoardGetCopySource(ctx context.Context, boardID string) (Board
 		&i.ProjectIssueIDStrategy,
 		&i.ProjectIssueSummaryMaxBytes,
 		&i.ProjectAttachmentMaxBytes,
+		&i.ProjectBoardPinsMaxCount,
 		&i.BoardIssueIDPrefix,
 		&i.BoardIssueIDStrategy,
 		&i.BoardIssueSummaryMaxBytes,
 		&i.BoardAttachmentMaxBytes,
+		&i.BoardBoardPinsMaxCount,
 	)
 	return i, err
 }

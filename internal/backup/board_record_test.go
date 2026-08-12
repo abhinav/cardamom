@@ -53,6 +53,9 @@ func TestBoardRecordCodecUsesDeterministicDelimitedFraming(t *testing.T) {
 	for _, value := range snapshot.Attachments {
 		records = append(records, value)
 	}
+	for _, value := range snapshot.Pins {
+		records = append(records, value)
+	}
 	records = append(records, boardcopy.RecordTrailer{Counts: boardcopy.RecordCounts{
 		Issues: uint64(len(snapshot.Issues)), Labels: uint64(len(snapshot.Labels)),
 		Dependencies: uint64(len(snapshot.Dependencies)),
@@ -62,6 +65,7 @@ func TestBoardRecordCodecUsesDeterministicDelimitedFraming(t *testing.T) {
 		States:       uint64(len(snapshot.States)), Results: uint64(len(snapshot.Results)),
 		Checkpoints: uint64(len(snapshot.Checkpoints)),
 		Attachments: uint64(len(snapshot.Attachments)),
+		Pins:        uint64(len(snapshot.Pins)),
 	}})
 
 	encode := func() ([]byte, string) {

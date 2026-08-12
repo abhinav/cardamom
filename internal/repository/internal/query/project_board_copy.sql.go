@@ -57,6 +57,7 @@ INSERT INTO boards (
     issue_id_strategy,
     issue_summary_max_bytes,
     attachment_max_bytes,
+    board_pins_max_count,
     revision
 ) VALUES (
     ?1,
@@ -68,7 +69,8 @@ INSERT INTO boards (
     ?7,
     ?8,
     ?9,
-    ?10
+    ?10,
+    ?11
 )
 `
 
@@ -82,6 +84,7 @@ type ProjectInsertCopiedBoardParams struct {
 	IssueIDStrategy      *string
 	IssueSummaryMaxBytes *int64
 	AttachmentMaxBytes   *int64
+	BoardPinsMaxCount    *int64
 	Revision             int64
 }
 
@@ -96,6 +99,7 @@ func (q *Queries) ProjectInsertCopiedBoard(ctx context.Context, arg ProjectInser
 		arg.IssueIDStrategy,
 		arg.IssueSummaryMaxBytes,
 		arg.AttachmentMaxBytes,
+		arg.BoardPinsMaxCount,
 		arg.Revision,
 	)
 	return err

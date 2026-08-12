@@ -49,6 +49,8 @@ func (i *copyRecordImporter) Import(record boardcopy.Record) error {
 		return i.importCheckpoint(value)
 	case boardcopy.CopyAttachment:
 		return i.importAttachment(value)
+	case boardcopy.CopyPin:
+		return i.importPin(value)
 	case boardcopy.RecordTrailer:
 		return nil
 	default:
@@ -62,6 +64,7 @@ func (i *copyRecordImporter) importHeader(value boardcopy.RecordHeader) error {
 	strategy := value.Configuration.Issue.ID.Strategy.String()
 	summaryMaxBytes := int64(value.Configuration.Issue.Summary.MaxBytes.Uint64())
 	attachmentMaxBytes := int64(value.Configuration.Attachment.MaxBytes.Uint64())
+	pinMaxCount := int64(value.Configuration.Board.Pins.MaxCount.Uint64())
 	if err := i.queries.ProjectInsertCopiedBoard(
 		i.ctx,
 		query.ProjectInsertCopiedBoardParams{
@@ -70,6 +73,7 @@ func (i *copyRecordImporter) importHeader(value boardcopy.RecordHeader) error {
 			IssueIDPrefix: &prefix, IssueIDStrategy: &strategy,
 			IssueSummaryMaxBytes: &summaryMaxBytes,
 			AttachmentMaxBytes:   &attachmentMaxBytes,
+			BoardPinsMaxCount:    &pinMaxCount,
 			Revision:             i.lastRevision,
 		},
 	); err != nil {
@@ -311,6 +315,20 @@ func (i *copyRecordImporter) importAttachment(
 		},
 	); err != nil {
 		return fmt.Errorf("create destination attachment %q: %w", value.ID, err)
+	}
+	return nil
+}
+
+func (i *copyRecordImporter) importPin(value boardcopy.CopyPin) error {
+	issueID, err := i.issueID(value.IssueID)
+	if err != nil {
+		return err
+	}
+	if err := i.queries.BoardInsertPin(
+		i.ctx,
+		query.BoardInsertPinParams{BoardID: i.boardID, IssueID: issueID},
+	); err != nil {
+		return fmt.Errorf("create destination board pin: %w", err)
 	}
 	return nil
 }
