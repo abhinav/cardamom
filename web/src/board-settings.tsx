@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import type { BoardScopeSelection } from "./board-scope.ts";
 import { WatchResource } from "./gen/cardamom/private/v1/change_pb.ts";
 import { ProjectService, type Board } from "./gen/cardamom/private/v1/project_pb.ts";
+import type { SourceRef } from "./gen/cardamom/private/v1/source_pb.ts";
 import {
   runInvalidatingMutation,
   unaryRouteQueryOptions,
@@ -34,6 +35,11 @@ export function boardSettingsUpdateInput(
   };
 }
 
+/** boardContextRequest identifies a board on a local or aggregate server. */
+export function boardContextRequest(boardId: string, source?: SourceRef) {
+  return { boardId, source };
+}
+
 /** boardSettingsLoaded initializes editor state only for the first board result. */
 export function boardSettingsLoaded(
   state: BoardSettingsEditorState,
@@ -58,6 +64,76 @@ interface BoardSettingsDialogProps {
   boardId: string;
   onDismiss: () => void;
   onSaved: () => void;
+}
+
+interface BoardContextDialogProps {
+  boardId: string;
+  source?: SourceRef;
+  onDismiss: () => void;
+}
+
+/** BoardContextDialog presents one board's shared context without mutations. */
+export function BoardContextDialog({
+  boardId,
+  source,
+  onDismiss,
+}: BoardContextDialogProps) {
+  const transport = useTransport();
+  const load = useQuery({
+    ...unaryRouteQueryOptions(
+      ProjectService.method.getBoard,
+      boardContextRequest(boardId, source),
+      transport,
+    ),
+    select(response) {
+      if (response.board === undefined) {
+        throw new Error("GetBoard response did not include the selected board");
+      }
+      return response.board;
+    },
+  });
+  const contextLabel = source?.sourceId === undefined
+    ? boardId
+    : `${source.sourceId} / ${boardId}`;
+
+  return (
+    <div className="modal-backdrop">
+      <section
+        className="modal-panel modal-panel-compact"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="board-context-title"
+      >
+        <header className="modal-header board-settings-header">
+          <div>
+            <h2 id="board-context-title">Board context</h2>
+            <p>{contextLabel}</p>
+          </div>
+          <button
+            type="button"
+            className="secondary-button board-settings-icon-button"
+            aria-label="Close board context"
+            title="Close"
+            onClick={onDismiss}
+          >
+            <X aria-hidden="true" />
+          </button>
+        </header>
+        {load.data === undefined && !load.isError && (
+          <p role="status">Loading board context</p>
+        )}
+        {load.data === undefined && load.isError && (
+          <div className="modal-load-error" role="alert">
+            <p>{load.error.message}</p>
+            <button type="button" onClick={() => void load.refetch()}>
+              Retry
+            </button>
+          </div>
+        )}
+        {load.data !== undefined && <BoardContextContent board={load.data} />}
+      </section>
+    </div>
+  );
 }
 
 /**
@@ -293,46 +369,7 @@ export function BoardSettingsContent({
   onSubmit,
 }: BoardSettingsContentProps) {
   if (mode === "read") {
-    const renderedDescription = board.description?.renderedHtml ?? "";
-    return (
-      <div className="board-settings-content">
-        <div className="board-settings-field-row">
-          <h3>{board.name}</h3>
-          {board.archived === undefined && (
-            <button
-              type="button"
-              className="secondary-button board-settings-icon-button"
-              aria-label="Edit board name"
-              title="Edit name"
-              onClick={() => onBeginEdit("name")}
-            >
-              <Pencil aria-hidden="true" />
-            </button>
-          )}
-        </div>
-        <div className="board-settings-field-row board-settings-description-row">
-          {renderedDescription === "" ? (
-            <p className="empty-copy">No description.</p>
-          ) : (
-            <div
-              className="markdown-content board-settings-description"
-              dangerouslySetInnerHTML={{ __html: renderedDescription }}
-            />
-          )}
-          {board.archived === undefined && (
-            <button
-              type="button"
-              className="secondary-button board-settings-icon-button"
-              aria-label="Edit board description"
-              title="Edit description"
-              onClick={() => onBeginEdit("description")}
-            >
-              <Pencil aria-hidden="true" />
-            </button>
-          )}
-        </div>
-      </div>
-    );
+    return <BoardContextContent board={board} onBeginEdit={onBeginEdit} />;
   }
 
   return (
@@ -387,6 +424,59 @@ export function BoardSettingsContent({
         </button>
       </div>
     </form>
+  );
+}
+
+interface BoardContextContentProps {
+  board: Board;
+  onBeginEdit?: (mode: "name" | "description") => void;
+}
+
+/** BoardContextContent renders board settings with optional edit entry points. */
+export function BoardContextContent({
+  board,
+  onBeginEdit,
+}: BoardContextContentProps) {
+  const renderedDescription = board.description?.renderedHtml ?? "";
+  const editable = board.archived === undefined && onBeginEdit !== undefined;
+  return (
+    <div className="board-settings-content">
+      <div className="board-settings-field-row">
+        <h3>{board.name}</h3>
+        {editable && (
+          <button
+            type="button"
+            className="secondary-button board-settings-icon-button"
+            aria-label="Edit board name"
+            title="Edit name"
+            onClick={() => onBeginEdit?.("name")}
+          >
+            <Pencil aria-hidden="true" />
+          </button>
+        )}
+      </div>
+      <div className="board-settings-field-row board-settings-description-row">
+        {renderedDescription === "" ? (
+          <p className="empty-copy">No description.</p>
+        ) : (
+          <div
+            className="markdown-content board-settings-description"
+            dangerouslySetInnerHTML={{ __html: renderedDescription }}
+          />
+        )}
+        {editable && (
+          <button
+            type="button"
+            className="secondary-button board-settings-icon-button"
+            aria-label="Edit board description"
+            title="Edit description"
+            onClick={() => onBeginEdit?.("description")}
+          >
+            <Pencil aria-hidden="true" />
+          </button>
+        )}
+      </div>
+    </div>
   );
 }
 

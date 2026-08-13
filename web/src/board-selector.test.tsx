@@ -229,7 +229,7 @@ describe("board selector", () => {
     expect(markup).not.toContain("Open settings for");
   });
 
-  it("exposes settings only for the board named by the current scope", () => {
+  it("exposes context for every board without changing the current scope", () => {
     const markup = renderToStaticMarkup(BoardSelectorView({
       aggregate: false,
       boards,
@@ -238,19 +238,19 @@ describe("board selector", () => {
       query: "",
       selection: { kind: "board", boardId: "board-m" },
       onDismiss: vi.fn(),
-      onOpenBoardSettings: vi.fn(),
+      onOpenBoardContext: vi.fn(),
       onQueryChange: vi.fn(),
       onSelectScope: vi.fn(),
       onToggle: vi.fn(),
     }));
 
-    expect(markup).toContain("Open settings for Operations");
-    expect(markup).not.toContain("Open settings for Web");
-    expect(markup).not.toContain("Open settings for API");
-    expect(markup).not.toContain("Open settings for Solo");
+    expect(markup).toContain("View context for Operations");
+    expect(markup).toContain("View context for Web");
+    expect(markup).toContain("View context for API");
+    expect(markup).toContain("View context for Solo");
   });
 
-  it("exposes settings for every board when the current scope is all boards", () => {
+  it("exposes context for every board when the current scope is all boards", () => {
     const markup = renderToStaticMarkup(BoardSelectorView({
       aggregate: false,
       boards,
@@ -259,23 +259,28 @@ describe("board selector", () => {
       query: "",
       selection: { kind: "all" },
       onDismiss: vi.fn(),
-      onOpenBoardSettings: vi.fn(),
+      onOpenBoardContext: vi.fn(),
       onQueryChange: vi.fn(),
       onSelectScope: vi.fn(),
       onToggle: vi.fn(),
     }));
 
-    expect(markup).toContain("Open settings for Operations");
-    expect(markup).toContain("Open settings for Web");
-    expect(markup).toContain("Open settings for API");
-    expect(markup).toContain("Open settings for Solo");
+    expect(markup).toContain("View context for Operations");
+    expect(markup).toContain("View context for Web");
+    expect(markup).toContain("View context for API");
+    expect(markup).toContain("View context for Solo");
   });
 
-  it("exposes toggle, selection, settings, and Escape interactions", () => {
+  it("keeps context and selection as separate interactions", () => {
     const onDismiss = vi.fn();
-    const onOpenBoardSettings = vi.fn();
+    const onOpenBoardContext = vi.fn();
     const onSelectScope = vi.fn();
     const onToggle = vi.fn();
+    const source = create(SourceRefSchema, {
+      sourceId: "builder",
+      storeLineageId: "lineage-builder",
+    });
+    const sourceBoard = { ...boards[1]!, source };
     const view = BoardSelectorView({
       aggregate: false,
       boards,
@@ -284,7 +289,7 @@ describe("board selector", () => {
       query: "",
       selection: { kind: "all" },
       onDismiss,
-      onOpenBoardSettings,
+      onOpenBoardContext,
       onQueryChange: vi.fn(),
       onSelectScope,
       onToggle,
@@ -300,20 +305,22 @@ describe("board selector", () => {
     });
 
     const boardRow = BoardSelectorBoardRow({
-      board: boards[1]!,
+      board: sourceBoard,
       projectName: "Alpha",
       selectedBoardId: "board-a2",
-      onOpenBoardSettings,
+      onOpenBoardContext,
       onSelectScope,
     });
     elementWithAriaLabel(boardRow, "Select Web").props.onClick?.();
     expect(onSelectScope).toHaveBeenNthCalledWith(2, {
       kind: "board",
       boardId: "board-a2",
+      source,
     });
 
-    elementWithAriaLabel(boardRow, "Open settings for Web").props.onClick?.();
-    expect(onOpenBoardSettings).toHaveBeenCalledExactlyOnceWith("board-a2");
+    elementWithAriaLabel(boardRow, "View context for Web").props.onClick?.();
+    expect(onOpenBoardContext).toHaveBeenCalledExactlyOnceWith(sourceBoard);
+    expect(onSelectScope).toHaveBeenCalledTimes(2);
 
     const preventDefault = vi.fn();
     const stopPropagation = vi.fn();
@@ -342,7 +349,7 @@ function renderSelector(query: string): string {
     query,
     selection: { kind: "all" },
     onDismiss: vi.fn(),
-    onOpenBoardSettings: vi.fn(),
+    onOpenBoardContext: vi.fn(),
     onQueryChange: vi.fn(),
     onSelectScope: vi.fn(),
     onToggle: vi.fn(),

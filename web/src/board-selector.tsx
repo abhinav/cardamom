@@ -29,11 +29,14 @@ interface AvailableProject {
   source?: Project["source"];
 }
 
-interface AvailableBoard {
+export interface BoardContextTarget {
   id: string;
+  source?: BoardSummary["source"];
+}
+
+interface AvailableBoard extends BoardContextTarget {
   projectId: string;
   name: string;
-  source?: BoardSummary["source"];
   /** archived is present when the board is readable but omitted from active discovery. */
   archived?: BoardSummary["archived"];
 }
@@ -51,6 +54,7 @@ interface BoardSelectorProps {
   projects: readonly AvailableProject[];
   sources?: readonly AvailableSource[];
   selection: BoardScopeSelection;
+  onOpenBoardContext?: (board: BoardContextTarget) => void;
   onOpenBoardSettings?: (boardId: string) => void;
   onSelectScope: (selection: ResolvedBoardScope) => void;
 }
@@ -160,6 +164,7 @@ export function BoardSelector({
   projects,
   sources = [],
   selection,
+  onOpenBoardContext,
   onOpenBoardSettings,
   onSelectScope,
 }: BoardSelectorProps) {
@@ -207,6 +212,14 @@ export function BoardSelector({
       selection={selection}
       triggerRef={triggerRef}
       onDismiss={dismiss}
+      onOpenBoardContext={
+        onOpenBoardContext === undefined
+          ? undefined
+          : (board) => {
+              dismiss();
+              onOpenBoardContext(board);
+            }
+      }
       onOpenBoardSettings={
         onOpenBoardSettings === undefined
           ? undefined
@@ -257,6 +270,7 @@ export function BoardSelectorView({
   selection,
   triggerRef,
   onDismiss,
+  onOpenBoardContext,
   onOpenBoardSettings,
   onQueryChange,
   onSelectScope,
@@ -272,11 +286,6 @@ export function BoardSelectorView({
   // The selector's labels use the full catalog so an explicitly selected
   // archived board remains identified, while quick switching stays active-only.
   const activeBoards = boards.filter((board) => board.archived === undefined);
-  const selectedArchivedBoard = selection.kind === "board"
-    ? boards.find(
-        (board) => board.id === selection.boardId && board.archived !== undefined,
-      )
-    : undefined;
   const units = visibleProjectUnits(projects, activeBoards, query);
   const allBoardsSelected = selection.kind === "all";
   const storeSummary = catalogSummary(projects.length, activeBoards.length);
@@ -366,7 +375,7 @@ export function BoardSelectorView({
                 sources,
                 units,
                 selection,
-                onOpenBoardSettings,
+                onOpenBoardContext,
                 onSelectScope,
               )
               : units.map((unit) =>
@@ -381,7 +390,7 @@ export function BoardSelectorView({
                               ? selection.boardId
                               : undefined
                           }
-                          onOpenBoardSettings={onOpenBoardSettings}
+                          onOpenBoardContext={onOpenBoardContext}
                           onSelectScope={onSelectScope}
                         />
                       )
@@ -410,7 +419,7 @@ export function BoardSelectorView({
                                   ? selection.boardId
                                   : undefined
                               }
-                              onOpenBoardSettings={onOpenBoardSettings}
+                              onOpenBoardContext={onOpenBoardContext}
                               onSelectScope={onSelectScope}
                             />
                           ))}
@@ -423,11 +432,11 @@ export function BoardSelectorView({
               </p>
             )}
           </div>
-          {selectedArchivedBoard !== undefined && onOpenBoardSettings !== undefined && (
+          {selection.kind === "board" && onOpenBoardSettings !== undefined && (
             <button
               type="button"
               className="board-selector-catalog-link"
-              onClick={() => onOpenBoardSettings(selectedArchivedBoard.id)}
+              onClick={() => onOpenBoardSettings(selection.boardId)}
             >
               Board settings
             </button>
@@ -445,7 +454,7 @@ interface BoardSelectorBoardRowProps {
   board: AvailableBoard;
   projectName: string;
   selectedBoardId: string | undefined;
-  onOpenBoardSettings?: (boardId: string) => void;
+  onOpenBoardContext?: (board: BoardContextTarget) => void;
   onSelectScope: (selection: ResolvedBoardScope) => void;
 }
 
@@ -453,14 +462,10 @@ export function BoardSelectorBoardRow({
   board,
   projectName,
   selectedBoardId,
-  onOpenBoardSettings,
+  onOpenBoardContext,
   onSelectScope,
 }: BoardSelectorBoardRowProps) {
   const selected = board.id === selectedBoardId;
-  // Without a concrete board scope, each row owns the settings entry point for
-  // its board. Concrete scope keeps that action on the selected row alone.
-  const showSettings = onOpenBoardSettings !== undefined &&
-    (selectedBoardId === undefined || selected);
   return (
     <div className="board-selector-row">
       <button
@@ -480,13 +485,13 @@ export function BoardSelectorBoardRow({
           </span>
         </span>
       </button>
-      {showSettings ? (
+      {onOpenBoardContext !== undefined ? (
         <button
           type="button"
           className="board-selector-action"
-          aria-label={`Open settings for ${board.name}`}
-          title={`Board settings: ${board.name}`}
-          onClick={() => onOpenBoardSettings(board.id)}
+          aria-label={`View context for ${board.name}`}
+          title={`Board context: ${board.name}`}
+          onClick={() => onOpenBoardContext(board)}
         >
           <Settings aria-hidden="true" />
         </button>
@@ -597,7 +602,7 @@ function renderAggregateUnits(
   sources: readonly AvailableSource[],
   units: readonly ProjectUnit[],
   selection: BoardScopeSelection,
-  onOpenBoardSettings: ((boardId: string) => void) | undefined,
+  onOpenBoardContext: ((board: BoardContextTarget) => void) | undefined,
   onSelectScope: (selection: ResolvedBoardScope) => void,
 ): ReactNode[] {
   return sources.flatMap((source) => {
@@ -640,7 +645,7 @@ function renderAggregateUnits(
                 board={board}
                 projectName={unit.project.name}
                 selectedBoardId={selection.kind === "board" ? selection.boardId : undefined}
-                onOpenBoardSettings={onOpenBoardSettings}
+                onOpenBoardContext={onOpenBoardContext}
                 onSelectScope={onSelectScope}
               />
             ))}
