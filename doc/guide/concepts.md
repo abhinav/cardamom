@@ -56,9 +56,13 @@ card --actor worker-a --json claim <issue-id> --context
 The response includes:
 
 - the selected board description;
+- the selected board's pinned issue IDs and current titles;
 - ancestor summaries and current states;
 - the claimed issue's summary, details, and state; and
 - results from completed direct dependencies.
+
+`card show <issue-id> --context` includes the same pinned board context
+without claiming the issue.
 
 Ancestor details, complete logs, attachments, and terminal descendants remain
 available on demand.

@@ -154,6 +154,35 @@ When several boards are eligible and none is selected,
 board-scoped commands fail instead of guessing.
 Creating or selecting a board never changes the physical store.
 
+Pin a short ordered set of issues to the selected board,
+remove issues from that order,
+or inspect the current order:
+
+```bash
+card --actor coordinator board pin cm-7f3a
+card --actor coordinator board unpin cm-7f3a
+card --actor coordinator board pins
+```
+
+`board pin` appends an issue to the order.
+Both mutation commands accept `--key`
+when the positional argument is an exact producer key instead of an issue ID.
+
+The configuration key `board.pins.max_count`
+limits pinned issues and defaults to `8`.
+Like other configuration values,
+it inherits through built-in, store, project, and board scopes,
+with the most specific configured value taking precedence.
+Set a board-specific limit with:
+
+```bash
+card --actor coordinator config set \
+  --scope board board.pins.max_count 12
+```
+
+`config unset` at a scope restores inheritance from the next less-specific
+configured scope.
+
 Choose a board for the coordination boundary whose description,
 issue graph,
 and claims should be shared.
