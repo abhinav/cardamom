@@ -181,7 +181,7 @@ type BoardPublication struct {
 	SourceRevision int64 `protobuf:"varint,4,opt,name=source_revision,json=sourceRevision,proto3" json:"source_revision,omitempty"`
 	// snapshot_version selects the semantic board-copy digest contract.
 	// It must equal BoardHeader.version in the referenced member.
-	// Archive format version 1 readers accept semantic version 2.
+	// Archive format version 1 readers accept semantic version 3.
 	SnapshotVersion uint32 `protobuf:"varint,5,opt,name=snapshot_version,json=snapshotVersion,proto3" json:"snapshot_version,omitempty"`
 	// snapshot_digest is the SHA-256 digest of the versioned deterministic
 	// semantic fields in the complete canonical BoardRecord sequence.
@@ -425,6 +425,7 @@ type BoardRecord struct {
 	//	*BoardRecord_Checkpoint
 	//	*BoardRecord_Attachment
 	//	*BoardRecord_Trailer
+	//	*BoardRecord_Pin
 	Value         isBoardRecord_Value `protobuf_oneof:"value"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -575,6 +576,15 @@ func (x *BoardRecord) GetTrailer() *BoardTrailer {
 	return nil
 }
 
+func (x *BoardRecord) GetPin() *Pin {
+	if x != nil {
+		if x, ok := x.Value.(*BoardRecord_Pin); ok {
+			return x.Pin
+		}
+	}
+	return nil
+}
+
 type isBoardRecord_Value interface {
 	isBoardRecord_Value()
 }
@@ -639,6 +649,11 @@ type BoardRecord_Trailer struct {
 	Trailer *BoardTrailer `protobuf:"bytes,12,opt,name=trailer,proto3,oneof"`
 }
 
+type BoardRecord_Pin struct {
+	// pin records use contiguous zero-based Pin.order values.
+	Pin *Pin `protobuf:"bytes,13,opt,name=pin,proto3,oneof"`
+}
+
 func (*BoardRecord_Header) isBoardRecord_Value() {}
 
 func (*BoardRecord_Issue) isBoardRecord_Value() {}
@@ -663,11 +678,13 @@ func (*BoardRecord_Attachment) isBoardRecord_Value() {}
 
 func (*BoardRecord_Trailer) isBoardRecord_Value() {}
 
+func (*BoardRecord_Pin) isBoardRecord_Value() {}
+
 // BoardHeader is the required first record in a board member.
 type BoardHeader struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// version selects the semantic board-copy contract.
-	// Archive format version 1 readers accept semantic version 2.
+	// Archive format version 1 readers accept semantic version 3.
 	Version uint32 `protobuf:"varint,1,opt,name=version,proto3" json:"version,omitempty"`
 	// source_lineage_id is the stable lineage minted by the source store.
 	// The semantic digest excludes this retained-view coordinate.
@@ -764,6 +781,7 @@ type BoardTrailer struct {
 	Results       uint64                 `protobuf:"varint,8,opt,name=results,proto3" json:"results,omitempty"`
 	Checkpoints   uint64                 `protobuf:"varint,9,opt,name=checkpoints,proto3" json:"checkpoints,omitempty"`
 	Attachments   uint64                 `protobuf:"varint,10,opt,name=attachments,proto3" json:"attachments,omitempty"`
+	Pins          uint64                 `protobuf:"varint,11,opt,name=pins,proto3" json:"pins,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -868,6 +886,13 @@ func (x *BoardTrailer) GetAttachments() uint64 {
 	return 0
 }
 
+func (x *BoardTrailer) GetPins() uint64 {
+	if x != nil {
+		return x.Pins
+	}
+	return 0
+}
+
 // Board preserves the source namespace and presentation restored into a new
 // destination board.
 type Board struct {
@@ -954,7 +979,7 @@ type Configuration struct {
 	IssueSummaryMaxBytes uint64 `protobuf:"varint,3,opt,name=issue_summary_max_bytes,json=issueSummaryMaxBytes,proto3" json:"issue_summary_max_bytes,omitempty"`
 	// attachment_max_bytes is the attachment body admission limit in bytes.
 	AttachmentMaxBytes uint64 `protobuf:"varint,4,opt,name=attachment_max_bytes,json=attachmentMaxBytes,proto3" json:"attachment_max_bytes,omitempty"`
-	// board_pins_max_count limits new pinned-issue admissions.
+	// board_pins_max_count is the largest admitted pin collection.
 	BoardPinsMaxCount uint64 `protobuf:"varint,5,opt,name=board_pins_max_count,json=boardPinsMaxCount,proto3" json:"board_pins_max_count,omitempty"`
 	unknownFields     protoimpl.UnknownFields
 	sizeCache         protoimpl.SizeCache
@@ -1858,6 +1883,61 @@ func (x *Attachment) GetRemovedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+// Pin preserves one position in the board's ordered pinned-issue collection.
+type Pin struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// order is the contiguous zero-based source board position.
+	Order uint64 `protobuf:"varint,1,opt,name=order,proto3" json:"order,omitempty"`
+	// issue_id references the pinned Issue.id.
+	IssueId       string `protobuf:"bytes,2,opt,name=issue_id,json=issueId,proto3" json:"issue_id,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *Pin) Reset() {
+	*x = Pin{}
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[20]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *Pin) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*Pin) ProtoMessage() {}
+
+func (x *Pin) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[20]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use Pin.ProtoReflect.Descriptor instead.
+func (*Pin) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{20}
+}
+
+func (x *Pin) GetOrder() uint64 {
+	if x != nil {
+		return x.Order
+	}
+	return 0
+}
+
+func (x *Pin) GetIssueId() string {
+	if x != nil {
+		return x.IssueId
+	}
+	return ""
+}
+
 // BlobDescriptor identifies immutable content referenced by attachment
 // metadata.
 type BlobDescriptor struct {
@@ -1872,7 +1952,7 @@ type BlobDescriptor struct {
 
 func (x *BlobDescriptor) Reset() {
 	*x = BlobDescriptor{}
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[20]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[21]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1884,7 +1964,7 @@ func (x *BlobDescriptor) String() string {
 func (*BlobDescriptor) ProtoMessage() {}
 
 func (x *BlobDescriptor) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[20]
+	mi := &file_cardamom_private_backup_v1_backup_proto_msgTypes[21]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1897,7 +1977,7 @@ func (x *BlobDescriptor) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use BlobDescriptor.ProtoReflect.Descriptor instead.
 func (*BlobDescriptor) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{20}
+	return file_cardamom_private_backup_v1_backup_proto_rawDescGZIP(), []int{21}
 }
 
 func (x *BlobDescriptor) GetDigest() string {
@@ -1947,7 +2027,7 @@ const file_cardamom_private_backup_v1_backup_proto_rawDesc = "" +
 	"\x04name\x18\x01 \x01(\tR\x04name\x12\x1d\n" +
 	"\n" +
 	"size_bytes\x18\x02 \x01(\x04R\tsizeBytes\x12\x16\n" +
-	"\x06digest\x18\x03 \x01(\tR\x06digest\"\xcc\x06\n" +
+	"\x06digest\x18\x03 \x01(\tR\x06digest\"\x81\a\n" +
 	"\vBoardRecord\x12A\n" +
 	"\x06header\x18\x01 \x01(\v2'.cardamom.private.backup.v1.BoardHeaderH\x00R\x06header\x129\n" +
 	"\x05issue\x18\x02 \x01(\v2!.cardamom.private.backup.v1.IssueH\x00R\x05issue\x129\n" +
@@ -1967,14 +2047,15 @@ const file_cardamom_private_backup_v1_backup_proto_rawDesc = "" +
 	"\n" +
 	"attachment\x18\v \x01(\v2&.cardamom.private.backup.v1.AttachmentH\x00R\n" +
 	"attachment\x12D\n" +
-	"\atrailer\x18\f \x01(\v2(.cardamom.private.backup.v1.BoardTrailerH\x00R\atrailerB\a\n" +
+	"\atrailer\x18\f \x01(\v2(.cardamom.private.backup.v1.BoardTrailerH\x00R\atrailer\x123\n" +
+	"\x03pin\x18\r \x01(\v2\x1f.cardamom.private.backup.v1.PinH\x00R\x03pinB\a\n" +
 	"\x05value\"\x86\x02\n" +
 	"\vBoardHeader\x12\x18\n" +
 	"\aversion\x18\x01 \x01(\rR\aversion\x12*\n" +
 	"\x11source_lineage_id\x18\x02 \x01(\tR\x0fsourceLineageId\x12'\n" +
 	"\x0fsource_revision\x18\x03 \x01(\x03R\x0esourceRevision\x127\n" +
 	"\x05board\x18\x04 \x01(\v2!.cardamom.private.backup.v1.BoardR\x05board\x12O\n" +
-	"\rconfiguration\x18\x05 \x01(\v2).cardamom.private.backup.v1.ConfigurationR\rconfiguration\"\xc0\x02\n" +
+	"\rconfiguration\x18\x05 \x01(\v2).cardamom.private.backup.v1.ConfigurationR\rconfiguration\"\xd4\x02\n" +
 	"\fBoardTrailer\x12\x16\n" +
 	"\x06issues\x18\x01 \x01(\x04R\x06issues\x12\x16\n" +
 	"\x06labels\x18\x02 \x01(\x04R\x06labels\x12\"\n" +
@@ -1987,7 +2068,8 @@ const file_cardamom_private_backup_v1_backup_proto_rawDesc = "" +
 	"\aresults\x18\b \x01(\x04R\aresults\x12 \n" +
 	"\vcheckpoints\x18\t \x01(\x04R\vcheckpoints\x12 \n" +
 	"\vattachments\x18\n" +
-	" \x01(\x04R\vattachments\"\x9d\x01\n" +
+	" \x01(\x04R\vattachments\x12\x12\n" +
+	"\x04pins\x18\v \x01(\x04R\x04pins\"\x9d\x01\n" +
 	"\x05Board\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n" +
 	"\x04name\x18\x02 \x01(\tR\x04name\x12%\n" +
@@ -2090,7 +2172,10 @@ const file_cardamom_private_backup_v1_backup_proto_rawDesc = "" +
 	"removed_at\x18\n" +
 	" \x01(\v2\x1a.google.protobuf.TimestampR\tremovedAtB\x12\n" +
 	"\x10_origin_issue_idB\x10\n" +
-	"\x0e_removed_actor\"G\n" +
+	"\x0e_removed_actor\"6\n" +
+	"\x03Pin\x12\x14\n" +
+	"\x05order\x18\x01 \x01(\x04R\x05order\x12\x19\n" +
+	"\bissue_id\x18\x02 \x01(\tR\aissueId\"G\n" +
 	"\x0eBlobDescriptor\x12\x16\n" +
 	"\x06digest\x18\x01 \x01(\tR\x06digest\x12\x1d\n" +
 	"\n" +
@@ -2109,7 +2194,7 @@ func file_cardamom_private_backup_v1_backup_proto_rawDescGZIP() []byte {
 	return file_cardamom_private_backup_v1_backup_proto_rawDescData
 }
 
-var file_cardamom_private_backup_v1_backup_proto_msgTypes = make([]protoimpl.MessageInfo, 21)
+var file_cardamom_private_backup_v1_backup_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
 var file_cardamom_private_backup_v1_backup_proto_goTypes = []any{
 	(*Manifest)(nil),              // 0: cardamom.private.backup.v1.Manifest
 	(*Project)(nil),               // 1: cardamom.private.backup.v1.Project
@@ -2131,14 +2216,15 @@ var file_cardamom_private_backup_v1_backup_proto_goTypes = []any{
 	(*Result)(nil),                // 17: cardamom.private.backup.v1.Result
 	(*Checkpoint)(nil),            // 18: cardamom.private.backup.v1.Checkpoint
 	(*Attachment)(nil),            // 19: cardamom.private.backup.v1.Attachment
-	(*BlobDescriptor)(nil),        // 20: cardamom.private.backup.v1.BlobDescriptor
-	(*timestamppb.Timestamp)(nil), // 21: google.protobuf.Timestamp
+	(*Pin)(nil),                   // 20: cardamom.private.backup.v1.Pin
+	(*BlobDescriptor)(nil),        // 21: cardamom.private.backup.v1.BlobDescriptor
+	(*timestamppb.Timestamp)(nil), // 22: google.protobuf.Timestamp
 }
 var file_cardamom_private_backup_v1_backup_proto_depIdxs = []int32{
 	1,  // 0: cardamom.private.backup.v1.Manifest.projects:type_name -> cardamom.private.backup.v1.Project
 	2,  // 1: cardamom.private.backup.v1.Manifest.boards:type_name -> cardamom.private.backup.v1.BoardPublication
 	3,  // 2: cardamom.private.backup.v1.Manifest.blobs:type_name -> cardamom.private.backup.v1.Blob
-	21, // 3: cardamom.private.backup.v1.Project.created_at:type_name -> google.protobuf.Timestamp
+	22, // 3: cardamom.private.backup.v1.Project.created_at:type_name -> google.protobuf.Timestamp
 	4,  // 4: cardamom.private.backup.v1.BoardPublication.member:type_name -> cardamom.private.backup.v1.Member
 	6,  // 5: cardamom.private.backup.v1.BoardRecord.header:type_name -> cardamom.private.backup.v1.BoardHeader
 	10, // 6: cardamom.private.backup.v1.BoardRecord.issue:type_name -> cardamom.private.backup.v1.Issue
@@ -2152,24 +2238,25 @@ var file_cardamom_private_backup_v1_backup_proto_depIdxs = []int32{
 	18, // 14: cardamom.private.backup.v1.BoardRecord.checkpoint:type_name -> cardamom.private.backup.v1.Checkpoint
 	19, // 15: cardamom.private.backup.v1.BoardRecord.attachment:type_name -> cardamom.private.backup.v1.Attachment
 	7,  // 16: cardamom.private.backup.v1.BoardRecord.trailer:type_name -> cardamom.private.backup.v1.BoardTrailer
-	8,  // 17: cardamom.private.backup.v1.BoardHeader.board:type_name -> cardamom.private.backup.v1.Board
-	9,  // 18: cardamom.private.backup.v1.BoardHeader.configuration:type_name -> cardamom.private.backup.v1.Configuration
-	21, // 19: cardamom.private.backup.v1.Board.created_at:type_name -> google.protobuf.Timestamp
-	21, // 20: cardamom.private.backup.v1.Issue.created_at:type_name -> google.protobuf.Timestamp
-	21, // 21: cardamom.private.backup.v1.Issue.updated_at:type_name -> google.protobuf.Timestamp
-	21, // 22: cardamom.private.backup.v1.Issue.closed_at:type_name -> google.protobuf.Timestamp
-	21, // 23: cardamom.private.backup.v1.Issue.waiting_since:type_name -> google.protobuf.Timestamp
-	21, // 24: cardamom.private.backup.v1.LogEntry.created_at:type_name -> google.protobuf.Timestamp
-	21, // 25: cardamom.private.backup.v1.State.updated_at:type_name -> google.protobuf.Timestamp
-	21, // 26: cardamom.private.backup.v1.Checkpoint.decided_at:type_name -> google.protobuf.Timestamp
-	20, // 27: cardamom.private.backup.v1.Attachment.blob:type_name -> cardamom.private.backup.v1.BlobDescriptor
-	21, // 28: cardamom.private.backup.v1.Attachment.created_at:type_name -> google.protobuf.Timestamp
-	21, // 29: cardamom.private.backup.v1.Attachment.removed_at:type_name -> google.protobuf.Timestamp
-	30, // [30:30] is the sub-list for method output_type
-	30, // [30:30] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	20, // 17: cardamom.private.backup.v1.BoardRecord.pin:type_name -> cardamom.private.backup.v1.Pin
+	8,  // 18: cardamom.private.backup.v1.BoardHeader.board:type_name -> cardamom.private.backup.v1.Board
+	9,  // 19: cardamom.private.backup.v1.BoardHeader.configuration:type_name -> cardamom.private.backup.v1.Configuration
+	22, // 20: cardamom.private.backup.v1.Board.created_at:type_name -> google.protobuf.Timestamp
+	22, // 21: cardamom.private.backup.v1.Issue.created_at:type_name -> google.protobuf.Timestamp
+	22, // 22: cardamom.private.backup.v1.Issue.updated_at:type_name -> google.protobuf.Timestamp
+	22, // 23: cardamom.private.backup.v1.Issue.closed_at:type_name -> google.protobuf.Timestamp
+	22, // 24: cardamom.private.backup.v1.Issue.waiting_since:type_name -> google.protobuf.Timestamp
+	22, // 25: cardamom.private.backup.v1.LogEntry.created_at:type_name -> google.protobuf.Timestamp
+	22, // 26: cardamom.private.backup.v1.State.updated_at:type_name -> google.protobuf.Timestamp
+	22, // 27: cardamom.private.backup.v1.Checkpoint.decided_at:type_name -> google.protobuf.Timestamp
+	21, // 28: cardamom.private.backup.v1.Attachment.blob:type_name -> cardamom.private.backup.v1.BlobDescriptor
+	22, // 29: cardamom.private.backup.v1.Attachment.created_at:type_name -> google.protobuf.Timestamp
+	22, // 30: cardamom.private.backup.v1.Attachment.removed_at:type_name -> google.protobuf.Timestamp
+	31, // [31:31] is the sub-list for method output_type
+	31, // [31:31] is the sub-list for method input_type
+	31, // [31:31] is the sub-list for extension type_name
+	31, // [31:31] is the sub-list for extension extendee
+	0,  // [0:31] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_backup_v1_backup_proto_init() }
@@ -2190,6 +2277,7 @@ func file_cardamom_private_backup_v1_backup_proto_init() {
 		(*BoardRecord_Checkpoint)(nil),
 		(*BoardRecord_Attachment)(nil),
 		(*BoardRecord_Trailer)(nil),
+		(*BoardRecord_Pin)(nil),
 	}
 	file_cardamom_private_backup_v1_backup_proto_msgTypes[8].OneofWrappers = []any{}
 	file_cardamom_private_backup_v1_backup_proto_msgTypes[10].OneofWrappers = []any{}
@@ -2202,7 +2290,7 @@ func file_cardamom_private_backup_v1_backup_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_backup_v1_backup_proto_rawDesc), len(file_cardamom_private_backup_v1_backup_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   21,
+			NumMessages:   22,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

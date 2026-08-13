@@ -56,7 +56,7 @@ func TestRecordIndexUsesDeterministicSemanticFrames(t *testing.T) {
 	assert.NotEqual(t, first.Digest, third.Digest)
 }
 
-func TestRecordIndexUsesVersionTwoDigestContract(t *testing.T) {
+func TestRecordIndexUsesVersionThreeDigestContract(t *testing.T) {
 	createdAt := time.Date(2026, time.July, 29, 9, 30, 0, 123, time.UTC)
 	closedAt := createdAt.Add(time.Hour)
 	summary := "Summary"
@@ -120,23 +120,25 @@ func TestRecordIndexUsesVersionTwoDigestContract(t *testing.T) {
 				Lifecycle: "removed", CreatedActor: actor,
 				CreatedAt: createdAt, RemovedActor: &actor, RemovedAt: &closedAt,
 			},
+			boardcopy.CopyPin{Order: 0, IssueID: "cm-2"},
+			boardcopy.CopyPin{Order: 1, IssueID: "cm-1"},
 			boardcopy.RecordTrailer{Counts: boardcopy.RecordCounts{
 				Issues: 2, Labels: 2, Dependencies: 1, Containment: 1,
 				ExternalKeys: 1, LogEntries: 2, States: 1, Results: 1,
-				Checkpoints: 1, Attachments: 1,
+				Checkpoints: 1, Attachments: 1, Pins: 2,
 			}},
 		),
 	)
 	require.NoError(t, err)
-	assert.Equal(t, 2, index.Header.Version)
+	assert.Equal(t, 3, index.Header.Version)
 	assert.Equal(t, boardcopy.RecordCounts{
 		Issues: 2, Labels: 2, Dependencies: 1, Containment: 1,
 		ExternalKeys: 1, LogEntries: 2, States: 1, Results: 1,
-		Checkpoints: 1, Attachments: 1,
+		Checkpoints: 1, Attachments: 1, Pins: 2,
 	}, index.Counts)
 	assert.Equal(
 		t,
-		"sha256:94a8bcbd08cffc175024602bce96e1d10c6790fe5903760445c747fec6c5eb6c",
+		"sha256:2993376fc5354e98981dd9e1552cccdd45c8e57147bbe04266089c4e2e939a7d",
 		index.Digest,
 	)
 }
@@ -159,6 +161,17 @@ func TestRecordIndexRejectsIncompleteOrNoncanonicalRecords(t *testing.T) {
 		))
 		require.Error(t, err)
 		assert.ErrorContains(t, err, "unsupported board record version 1")
+	})
+
+	t.Run("VersionTwo", func(t *testing.T) {
+		versionTwo := header
+		versionTwo.Version = 2
+		_, err := boardcopy.IndexRecords(recordSequence(
+			versionTwo,
+			boardcopy.RecordTrailer{},
+		))
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "unsupported board record version 2")
 	})
 
 	t.Run("MissingRecord", func(t *testing.T) {
@@ -298,6 +311,15 @@ func TestRecordIndexRejectsIncompleteOrNoncanonicalRecords(t *testing.T) {
 		assert.ErrorContains(t, err, "order is 1, expected 0")
 	})
 
+	t.Run("PinsByContiguousOrder", func(t *testing.T) {
+		_, err := boardcopy.IndexRecords(recordSequence(
+			header,
+			boardcopy.CopyPin{Order: 1, IssueID: "cm-one"},
+		))
+		require.Error(t, err)
+		assert.ErrorContains(t, err, "pin order is 1, expected 0")
+	})
+
 	t.Run("RecordAfterTrailer", func(t *testing.T) {
 		_, err := boardcopy.IndexRecords(recordSequence(
 			header,
@@ -322,6 +344,7 @@ func TestRecordTypeOfUsesCanonicalSectionOrder(t *testing.T) {
 		boardcopy.CopyResultRecord{},
 		boardcopy.CopyCheckpoint{},
 		boardcopy.CopyAttachment{},
+		boardcopy.CopyPin{},
 		boardcopy.RecordTrailer{},
 	}
 	want := []boardcopy.RecordType{
@@ -336,6 +359,7 @@ func TestRecordTypeOfUsesCanonicalSectionOrder(t *testing.T) {
 		boardcopy.RecordTypeResult,
 		boardcopy.RecordTypeCheckpoint,
 		boardcopy.RecordTypeAttachment,
+		boardcopy.RecordTypePin,
 		boardcopy.RecordTypeTrailer,
 	}
 

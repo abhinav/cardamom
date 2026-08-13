@@ -34,7 +34,7 @@ UPDATE store_state SET current_revision = 3 WHERE singleton = 1`)
 	require.NoError(t, change.Commit())
 	require.NoError(t, change.Done())
 
-	records := make([]boardcopy.Record, 0, 21)
+	records := make([]boardcopy.Record, 0, 23)
 	for record, recordErr := range repository.readCopyRecords(
 		t.Context(),
 		"board-source",
@@ -47,6 +47,11 @@ UPDATE store_state SET current_revision = 3 WHERE singleton = 1`)
 			continue
 		}
 		assert.Equal(t, int64(3), records[0].(boardcopy.RecordHeader).SourceRevision)
+		assert.Equal(
+			t,
+			uint64(3),
+			records[0].(boardcopy.RecordHeader).Configuration.Board.Pins.MaxCount.Uint64(),
+		)
 		assert.Equal(t, "src-1", records[1].(boardcopy.CopyIssue).ID)
 
 		change, err := persistence.Change(t.Context())
@@ -92,6 +97,8 @@ WHERE singleton = 1`)
 		boardcopy.RecordTypeResult,
 		boardcopy.RecordTypeCheckpoint,
 		boardcopy.RecordTypeAttachment,
+		boardcopy.RecordTypePin,
+		boardcopy.RecordTypePin,
 		boardcopy.RecordTypeTrailer,
 	}, recordTypes(records))
 
@@ -115,11 +122,21 @@ WHERE singleton = 1`)
 		{IssueID: "src-1", Label: "area:z"},
 		{IssueID: "src-2", Label: "area:a"},
 	}, labels)
+	var pins []boardcopy.CopyPin
+	for _, record := range records {
+		if value, ok := record.(boardcopy.CopyPin); ok {
+			pins = append(pins, value)
+		}
+	}
+	assert.Equal(t, []boardcopy.CopyPin{
+		{Order: 0, IssueID: "src-2"},
+		{Order: 1, IssueID: "src-1"},
+	}, pins)
 
 	assert.Equal(t, boardcopy.RecordTrailer{Counts: boardcopy.RecordCounts{
 		Issues: 4, Labels: 3, Dependencies: 2, Containment: 2,
 		ExternalKeys: 2, LogEntries: 2, States: 1, Results: 1,
-		Checkpoints: 1, Attachments: 1,
+		Checkpoints: 1, Attachments: 1, Pins: 2,
 	}}, records[len(records)-1])
 }
 
@@ -142,6 +159,29 @@ func TestRepository_RecordSequenceClosesOwnedViewAfterEarlyStop(t *testing.T) {
 		}
 	}
 	assert.NoError(t, ctx.Err())
+}
+
+func TestRepository_RecordSequenceClosesOwnedViewAfterPinStop(t *testing.T) {
+	persistence := openCopyTestStore(t, t.TempDir())
+	seedCopySource(t, persistence, copyTestBlobDescriptor(t))
+	repository, err := New(persistence, Config{BoardID: "board-source"})
+	require.NoError(t, err)
+
+	for record, recordErr := range repository.readCopyRecords(
+		t.Context(),
+		"board-source",
+		configuration.Overrides{},
+		1,
+	) {
+		require.NoError(t, recordErr)
+		if boardcopy.RecordTypeOf(record) == boardcopy.RecordTypePin {
+			break
+		}
+	}
+
+	view, err := persistence.View(t.Context())
+	require.NoError(t, err)
+	assert.NoError(t, view.Done())
 }
 
 func TestBackupReader_RecordSequenceBorrowsView(t *testing.T) {

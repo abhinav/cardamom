@@ -103,15 +103,15 @@ func TestCopyRepositoryCopiesCompleteBoardAndRemapsCollisions(t *testing.T) {
 	require.NoError(t, err)
 	t.Cleanup(func() { assert.NoError(t, view.Done()) })
 	var (
-		prefix, strategy          string
-		summaryMax, attachmentMax int64
-		boardRevision             int64
-		boardDescription          string
+		prefix, strategy                  string
+		summaryMax, attachmentMax, pinMax int64
+		boardRevision                     int64
+		boardDescription                  string
 	)
 	require.NoError(t, view.QueryRowContext(t.Context(), `
 SELECT
     issue_id_prefix, issue_id_strategy, issue_summary_max_bytes,
-    attachment_max_bytes, revision, description
+    attachment_max_bytes, board_pins_max_count, revision, description
 FROM boards
 WHERE id = ?`,
 		outcome.DestinationBoardID,
@@ -120,6 +120,7 @@ WHERE id = ?`,
 		&strategy,
 		&summaryMax,
 		&attachmentMax,
+		&pinMax,
 		&boardRevision,
 		&boardDescription,
 	))
@@ -127,8 +128,25 @@ WHERE id = ?`,
 	assert.Equal(t, "sequential", strategy)
 	assert.Equal(t, int64(4096), summaryMax)
 	assert.Equal(t, int64(8192), attachmentMax)
+	assert.Equal(t, int64(3), pinMax)
 	assert.Equal(t, outcome.DestinationRevision, boardRevision)
 	assert.Equal(t, "Board %src-5", boardDescription)
+
+	rows, err := view.QueryContext(t.Context(), `
+SELECT issue_id
+FROM board_pins
+WHERE board_id = ?
+ORDER BY position`, outcome.DestinationBoardID)
+	require.NoError(t, err)
+	var pinIDs []string
+	for rows.Next() {
+		var pinID string
+		require.NoError(t, rows.Scan(&pinID))
+		pinIDs = append(pinIDs, pinID)
+	}
+	require.NoError(t, rows.Err())
+	require.NoError(t, rows.Close())
+	assert.Equal(t, []string{"src-2", "src-5"}, pinIDs)
 
 	var summary string
 	require.NoError(t, view.QueryRowContext(t.Context(), `
@@ -485,9 +503,9 @@ func seedCopySource(
 	_, err = change.ExecContext(t.Context(), `
 INSERT INTO projects (
     id, name, created_at, issue_id_prefix, issue_id_strategy,
-    issue_summary_max_bytes, attachment_max_bytes
+    issue_summary_max_bytes, attachment_max_bytes, board_pins_max_count
 ) VALUES (
-    'project-source', 'Source project', 1000, 'src-', 'sequential', 4096, 8192
+    'project-source', 'Source project', 1000, 'src-', 'sequential', 4096, 8192, 3
 );
 INSERT INTO boards (
     id, project_id, name, description, created_at, revision
@@ -523,6 +541,10 @@ INSERT INTO dependencies (board_id, issue_id, prerequisite_id)
 VALUES ('board-source', 'src-1', 'src-4');
 INSERT INTO containment (board_id, child_id, parent_id)
 VALUES ('board-source', 'src-1', 'src-3');
+INSERT INTO board_pins (board_id, issue_id, position)
+VALUES
+    ('board-source', 'src-2', 1),
+    ('board-source', 'src-1', 2);
 INSERT INTO issue_log_entries (
     id, board_id, issue_id, kind, author, committer, body, created_at,
     next_action

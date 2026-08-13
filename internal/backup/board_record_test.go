@@ -10,7 +10,15 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/boardcopy"
+	backupv1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/backup/v1"
+	"google.golang.org/protobuf/proto"
 )
+
+func TestBoardRecordDecodesPublishedTrailerField(t *testing.T) {
+	var record backupv1.BoardRecord
+	require.NoError(t, proto.Unmarshal([]byte{0x62, 0x00}, &record))
+	assert.NotNil(t, record.GetTrailer())
+}
 
 func TestBoardRecordCodecUsesDeterministicDelimitedFraming(t *testing.T) {
 	_, snapshot, _, _ := archiveTestValues(t)
@@ -53,6 +61,9 @@ func TestBoardRecordCodecUsesDeterministicDelimitedFraming(t *testing.T) {
 	for _, value := range snapshot.Attachments {
 		records = append(records, value)
 	}
+	for _, value := range snapshot.Pins {
+		records = append(records, value)
+	}
 	records = append(records, boardcopy.RecordTrailer{Counts: boardcopy.RecordCounts{
 		Issues: uint64(len(snapshot.Issues)), Labels: uint64(len(snapshot.Labels)),
 		Dependencies: uint64(len(snapshot.Dependencies)),
@@ -62,6 +73,7 @@ func TestBoardRecordCodecUsesDeterministicDelimitedFraming(t *testing.T) {
 		States:       uint64(len(snapshot.States)), Results: uint64(len(snapshot.Results)),
 		Checkpoints: uint64(len(snapshot.Checkpoints)),
 		Attachments: uint64(len(snapshot.Attachments)),
+		Pins:        uint64(len(snapshot.Pins)),
 	}})
 
 	encode := func() ([]byte, string) {

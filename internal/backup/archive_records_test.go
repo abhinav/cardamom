@@ -268,6 +268,7 @@ type testBoardSnapshot struct {
 	Results         []boardcopy.CopyResultRecord
 	Checkpoints     []boardcopy.CopyCheckpoint
 	Attachments     []boardcopy.CopyAttachment
+	Pins            []boardcopy.CopyPin
 }
 
 func writeRecordArchive(
@@ -332,6 +333,9 @@ func testBoardRecords(snapshot testBoardSnapshot) []boardcopy.Record {
 	for _, value := range snapshot.Attachments {
 		records = append(records, value)
 	}
+	for _, value := range snapshot.Pins {
+		records = append(records, value)
+	}
 	return append(records, boardcopy.RecordTrailer{Counts: boardcopy.RecordCounts{
 		Issues:       uint64(len(snapshot.Issues)),
 		Labels:       uint64(len(snapshot.Labels)),
@@ -343,5 +347,6 @@ func testBoardRecords(snapshot testBoardSnapshot) []boardcopy.Record {
 		Results:      uint64(len(snapshot.Results)),
 		Checkpoints:  uint64(len(snapshot.Checkpoints)),
 		Attachments:  uint64(len(snapshot.Attachments)),
+		Pins:         uint64(len(snapshot.Pins)),
 	}})
 }

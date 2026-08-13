@@ -33,10 +33,12 @@ SELECT
     project.issue_id_strategy AS project_issue_id_strategy,
     project.issue_summary_max_bytes AS project_issue_summary_max_bytes,
     project.attachment_max_bytes AS project_attachment_max_bytes,
+    project.board_pins_max_count AS project_board_pins_max_count,
     board.issue_id_prefix AS board_issue_id_prefix,
     board.issue_id_strategy AS board_issue_id_strategy,
     board.issue_summary_max_bytes AS board_issue_summary_max_bytes,
-    board.attachment_max_bytes AS board_attachment_max_bytes
+    board.attachment_max_bytes AS board_attachment_max_bytes,
+    board.board_pins_max_count AS board_board_pins_max_count
 FROM boards AS board
 JOIN projects AS project ON project.id = board.project_id
 WHERE board.id = ?1
@@ -51,10 +53,12 @@ type BoardGetCopySourceRow struct {
 	ProjectIssueIDStrategy      *string
 	ProjectIssueSummaryMaxBytes *int64
 	ProjectAttachmentMaxBytes   *int64
+	ProjectBoardPinsMaxCount    *int64
 	BoardIssueIDPrefix          *string
 	BoardIssueIDStrategy        *string
 	BoardIssueSummaryMaxBytes   *int64
 	BoardAttachmentMaxBytes     *int64
+	BoardBoardPinsMaxCount      *int64
 }
 
 func (q *Queries) BoardGetCopySource(ctx context.Context, boardID string) (BoardGetCopySourceRow, error) {
@@ -69,10 +73,12 @@ func (q *Queries) BoardGetCopySource(ctx context.Context, boardID string) (Board
 		&i.ProjectIssueIDStrategy,
 		&i.ProjectIssueSummaryMaxBytes,
 		&i.ProjectAttachmentMaxBytes,
+		&i.ProjectBoardPinsMaxCount,
 		&i.BoardIssueIDPrefix,
 		&i.BoardIssueIDStrategy,
 		&i.BoardIssueSummaryMaxBytes,
 		&i.BoardAttachmentMaxBytes,
+		&i.BoardBoardPinsMaxCount,
 	)
 	return i, err
 }
@@ -472,6 +478,49 @@ func (q *Queries) BoardListCopyLogEntryPage(ctx context.Context, arg BoardListCo
 			&i.CreatedAt,
 			&i.NextAction,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const boardListCopyPinPage = `-- name: BoardListCopyPinPage :many
+SELECT position, issue_id
+FROM board_pins
+WHERE board_id = ?1
+    AND position > ?2
+ORDER BY position
+LIMIT ?3
+`
+
+type BoardListCopyPinPageParams struct {
+	BoardID       string
+	AfterPosition int64
+	PageSize      int64
+}
+
+type BoardListCopyPinPageRow struct {
+	Position int64
+	IssueID  string
+}
+
+func (q *Queries) BoardListCopyPinPage(ctx context.Context, arg BoardListCopyPinPageParams) ([]BoardListCopyPinPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, boardListCopyPinPage, arg.BoardID, arg.AfterPosition, arg.PageSize)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []BoardListCopyPinPageRow
+	for rows.Next() {
+		var i BoardListCopyPinPageRow
+		if err := rows.Scan(&i.Position, &i.IssueID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

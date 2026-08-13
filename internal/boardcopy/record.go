@@ -15,7 +15,7 @@ import (
 
 const (
 	// CopySnapshotVersion identifies the streamed semantic board-copy contract.
-	CopySnapshotVersion = 2
+	CopySnapshotVersion = 3
 )
 
 // RecordType identifies one section of the canonical incremental board
@@ -58,6 +58,9 @@ const (
 
 	// RecordTypeAttachment identifies an attachment-metadata record.
 	RecordTypeAttachment
+
+	// RecordTypePin identifies an ordered board-pin record.
+	RecordTypePin
 
 	// RecordTypeTrailer identifies the required final record.
 	RecordTypeTrailer
@@ -142,6 +145,10 @@ func (r RecordHeader) encodeSemantic(encoder *semanticEncoder) {
 	encoder.unsigned(
 		"configuration.attachment.max_bytes",
 		r.Configuration.Attachment.MaxBytes.Uint64(),
+	)
+	encoder.unsigned(
+		"configuration.board.pins.max_count",
+		r.Configuration.Board.Pins.MaxCount.Uint64(),
 	)
 }
 
@@ -558,6 +565,40 @@ func (r CopyAttachment) encodeSemantic(encoder *semanticEncoder) {
 	encoder.optionalTimestamp("attachment.removed_at", r.RemovedAt)
 }
 
+// CopyPin preserves one position in the board's ordered pin collection.
+// Canonical pin records use contiguous zero-based Order values.
+type CopyPin struct {
+	// Order is the stable source board pin position.
+	Order uint64
+
+	// IssueID identifies the pinned source issue.
+	IssueID string
+}
+
+func (CopyPin) recordType() RecordType { return RecordTypePin }
+
+func (r CopyPin) compareRecordKey(other Record) int {
+	return cmp.Compare(r.Order, other.(CopyPin).Order)
+}
+
+func (r CopyPin) addToRecordCounts(counts *RecordCounts) error {
+	if r.Order != counts.Pins {
+		return fmt.Errorf(
+			"board pin order is %d, expected %d",
+			r.Order,
+			counts.Pins,
+		)
+	}
+	counts.Pins++
+	return nil
+}
+
+func (r CopyPin) encodeSemantic(encoder *semanticEncoder) {
+	encoder.marker("pins.item")
+	encoder.unsigned("pin.order", r.Order)
+	encoder.string("pin.issue_id", r.IssueID)
+}
+
 // RecordCounts reports the number of values in each canonical record section.
 // The required RecordTrailer carries all fields and must equal the counts
 // accumulated from its preceding payloads.
@@ -591,6 +632,9 @@ type RecordCounts struct {
 
 	// Attachments is the number of attachment-metadata records.
 	Attachments uint64
+
+	// Pins is the number of ordered board-pin records.
+	Pins uint64
 }
 
 // RecordTrailer terminates a complete record stream.
@@ -629,6 +673,7 @@ func (r RecordTrailer) encodeSemantic(encoder *semanticEncoder) {
 	encoder.unsigned("results.count", r.Counts.Results)
 	encoder.unsigned("checkpoints.count", r.Counts.Checkpoints)
 	encoder.unsigned("attachments.count", r.Counts.Attachments)
+	encoder.unsigned("pins.count", r.Counts.Pins)
 }
 
 // RecordTypeOf reports the canonical section containing record.

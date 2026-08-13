@@ -207,6 +207,7 @@ func readCopyRecordHeader(
 		source.ProjectIssueIDStrategy,
 		source.ProjectIssueSummaryMaxBytes,
 		source.ProjectAttachmentMaxBytes,
+		source.ProjectBoardPinsMaxCount,
 	)
 	if err != nil {
 		return header, fmt.Errorf("load source project configuration: %w", err)
@@ -216,6 +217,7 @@ func readCopyRecordHeader(
 		source.BoardIssueIDStrategy,
 		source.BoardIssueSummaryMaxBytes,
 		source.BoardAttachmentMaxBytes,
+		source.BoardBoardPinsMaxCount,
 	)
 	if err != nil {
 		return header, fmt.Errorf("load source board configuration: %w", err)
@@ -268,6 +270,7 @@ func copyOverrides(
 	strategyValue *string,
 	summaryMax *int64,
 	attachmentMax *int64,
+	pinMax *int64,
 ) (configuration.Overrides, error) {
 	var overrides configuration.Overrides
 	if prefixValue != nil {
@@ -298,6 +301,13 @@ func copyOverrides(
 		}
 		overrides.Attachment.MaxBytes = &value
 	}
+	if pinMax != nil {
+		value, err := domainboard.NewPinLimit(uint64(*pinMax))
+		if err != nil {
+			return overrides, err
+		}
+		overrides.Board.Pins.MaxCount = &value
+	}
 	return overrides, nil
 }
 
@@ -317,6 +327,9 @@ func resolveCopyConfiguration(
 		}
 		if value := layer.Attachment.MaxBytes; value != nil {
 			resolved.Attachment.MaxBytes = *value
+		}
+		if value := layer.Board.Pins.MaxCount; value != nil {
+			resolved.Board.Pins.MaxCount = *value
 		}
 	}
 	return resolved
@@ -344,7 +357,8 @@ func (p *copyRecordPager) read(
 		p.readStates(yield) &&
 		p.readResults(yield) &&
 		p.readCheckpoints(yield) &&
-		p.readAttachments(yield)
+		p.readAttachments(yield) &&
+		p.readPins(yield)
 }
 
 func (p *copyRecordPager) readIssues(
@@ -681,6 +695,38 @@ func (p *copyRecordPager) readAttachments(
 				CreatedAt: row.CreatedAt, RemovedActor: row.RemovedActor,
 				RemovedAt: row.RemovedAt,
 			}, nil) {
+				return false
+			}
+		}
+	}
+}
+
+func (p *copyRecordPager) readPins(
+	yield func(boardcopy.Record, error) bool,
+) bool {
+	var afterPosition int64
+	for {
+		rows, err := p.queries.BoardListCopyPinPage(
+			p.ctx,
+			query.BoardListCopyPinPageParams{
+				BoardID: p.boardID, AfterPosition: afterPosition,
+				PageSize: p.pageSize,
+			},
+		)
+		if err != nil {
+			yield(nil, fmt.Errorf("read source board pin page: %w", err))
+			return false
+		}
+		if len(rows) == 0 {
+			return true
+		}
+		for _, row := range rows {
+			afterPosition = row.Position
+			record := boardcopy.CopyPin{
+				Order: p.counts.Pins, IssueID: row.IssueID,
+			}
+			p.counts.Pins++
+			if !yield(record, nil) {
 				return false
 			}
 		}

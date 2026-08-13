@@ -426,6 +426,10 @@ func archiveTestValues(t *testing.T) (
 			CreatedActor: actor, CreatedAt: createdAt,
 			RemovedActor: &actor, RemovedAt: &updatedAt,
 		}},
+		Pins: []boardcopy.CopyPin{
+			{Order: 0, IssueID: "cm-2"},
+			{Order: 1, IssueID: "cm-1"},
+		},
 	}, descriptor, []byte("data")
 }
 

@@ -154,6 +154,10 @@ func boardRecordToProto(record boardcopy.Record) (*backupv1.BoardRecord, error) 
 		return &backupv1.BoardRecord{Value: &backupv1.BoardRecord_Attachment{
 			Attachment: encoded,
 		}}, nil
+	case boardcopy.CopyPin:
+		return &backupv1.BoardRecord{Value: &backupv1.BoardRecord_Pin{
+			Pin: &backupv1.Pin{Order: value.Order, IssueId: value.IssueID},
+		}}, nil
 	case boardcopy.RecordTrailer:
 		counts := value.Counts
 		return &backupv1.BoardRecord{Value: &backupv1.BoardRecord_Trailer{
@@ -163,7 +167,7 @@ func boardRecordToProto(record boardcopy.Record) (*backupv1.BoardRecord, error) 
 				Containment:  counts.Containment, ExternalKeys: counts.ExternalKeys,
 				LogEntries: counts.LogEntries, States: counts.States,
 				Results: counts.Results, Checkpoints: counts.Checkpoints,
-				Attachments: counts.Attachments,
+				Attachments: counts.Attachments, Pins: counts.Pins,
 			},
 		}}, nil
 	default:
@@ -222,6 +226,13 @@ func boardRecordFromProto(encoded *backupv1.BoardRecord) (boardcopy.Record, erro
 		return copyCheckpointFromProto(value.Checkpoint)
 	case *backupv1.BoardRecord_Attachment:
 		return copyAttachmentFromProto(value.Attachment)
+	case *backupv1.BoardRecord_Pin:
+		if value.Pin == nil {
+			return nil, errors.New("pin is required")
+		}
+		return boardcopy.CopyPin{
+			Order: value.Pin.GetOrder(), IssueID: value.Pin.GetIssueId(),
+		}, nil
 	case *backupv1.BoardRecord_Trailer:
 		if value.Trailer == nil {
 			return nil, errors.New("board trailer is required")
@@ -235,6 +246,7 @@ func boardRecordFromProto(encoded *backupv1.BoardRecord) (boardcopy.Record, erro
 			States:       value.Trailer.GetStates(), Results: value.Trailer.GetResults(),
 			Checkpoints: value.Trailer.GetCheckpoints(),
 			Attachments: value.Trailer.GetAttachments(),
+			Pins:        value.Trailer.GetPins(),
 		}}, nil
 	default:
 		return nil, errors.New("board record value is required")

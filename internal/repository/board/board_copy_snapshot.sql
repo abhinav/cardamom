@@ -8,10 +8,12 @@ SELECT
     project.issue_id_strategy AS project_issue_id_strategy,
     project.issue_summary_max_bytes AS project_issue_summary_max_bytes,
     project.attachment_max_bytes AS project_attachment_max_bytes,
+    project.board_pins_max_count AS project_board_pins_max_count,
     board.issue_id_prefix AS board_issue_id_prefix,
     board.issue_id_strategy AS board_issue_id_strategy,
     board.issue_summary_max_bytes AS board_issue_summary_max_bytes,
-    board.attachment_max_bytes AS board_attachment_max_bytes
+    board.attachment_max_bytes AS board_attachment_max_bytes,
+    board.board_pins_max_count AS board_board_pins_max_count
 FROM boards AS board
 JOIN projects AS project ON project.id = board.project_id
 WHERE board.id = sqlc.arg(board_id);
@@ -133,4 +135,12 @@ FROM checkpoint_decisions
 WHERE board_id = sqlc.arg(board_id)
     AND issue_id > sqlc.arg(after_issue_id)
 ORDER BY issue_id
+LIMIT sqlc.arg(page_size);
+
+-- name: BoardListCopyPinPage :many
+SELECT position, issue_id
+FROM board_pins
+WHERE board_id = sqlc.arg(board_id)
+    AND position > sqlc.arg(after_position)
+ORDER BY position
 LIMIT sqlc.arg(page_size);
