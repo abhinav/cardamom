@@ -130,6 +130,9 @@ stdout 'attachment.max_bytes'
 #     max_bytes: 2048
 # attachment:
 #   max_bytes: 104857600
+# board:
+#   pins:
+#     max_count: 8
 -- golden/default.json --
 {"scope":"effective","store":"$WORK/.cardamom","project":"project_00000000000000000000","board":"board_00000000000000000000","values":{"issue":{"id":{"prefix":"script-config-c-","strategy":"random"},"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},"origins":{"issue":{"id":{"prefix":{"scope":"project","identity":"project_00000000000000000000"},"strategy":{"scope":"built_in","identity":"built-in"}},"summary":{"max_bytes":{"scope":"built_in","identity":"built-in"}}},"attachment":{"max_bytes":{"scope":"built_in","identity":"built-in"}}}}
 -- golden/default.txt --

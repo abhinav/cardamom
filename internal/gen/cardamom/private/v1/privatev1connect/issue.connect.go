@@ -37,6 +37,15 @@ const (
 	IssueServiceListIssuesProcedure = "/cardamom.private.v1.IssueService/ListIssues"
 	// IssueServiceGetIssueProcedure is the fully-qualified name of the IssueService's GetIssue RPC.
 	IssueServiceGetIssueProcedure = "/cardamom.private.v1.IssueService/GetIssue"
+	// IssueServiceListBoardPinsProcedure is the fully-qualified name of the IssueService's
+	// ListBoardPins RPC.
+	IssueServiceListBoardPinsProcedure = "/cardamom.private.v1.IssueService/ListBoardPins"
+	// IssueServicePinBoardIssueProcedure is the fully-qualified name of the IssueService's
+	// PinBoardIssue RPC.
+	IssueServicePinBoardIssueProcedure = "/cardamom.private.v1.IssueService/PinBoardIssue"
+	// IssueServiceUnpinBoardIssueProcedure is the fully-qualified name of the IssueService's
+	// UnpinBoardIssue RPC.
+	IssueServiceUnpinBoardIssueProcedure = "/cardamom.private.v1.IssueService/UnpinBoardIssue"
 )
 
 // IssueServiceClient is a client for the cardamom.private.v1.IssueService service.
@@ -45,6 +54,12 @@ type IssueServiceClient interface {
 	ListIssues(context.Context, *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error)
 	// GetIssue returns one issue and its independently loaded context.
 	GetIssue(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
+	// ListBoardPins returns current issues in one board's pin order.
+	ListBoardPins(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error)
+	// PinBoardIssue adds one issue to its owning board's pin order.
+	PinBoardIssue(context.Context, *connect.Request[v1.PinBoardIssueRequest]) (*connect.Response[v1.PinBoardIssueResponse], error)
+	// UnpinBoardIssue removes one issue from its owning board's pin order.
+	UnpinBoardIssue(context.Context, *connect.Request[v1.UnpinBoardIssueRequest]) (*connect.Response[v1.UnpinBoardIssueResponse], error)
 }
 
 // NewIssueServiceClient constructs a client for the cardamom.private.v1.IssueService service. By
@@ -72,13 +87,35 @@ func NewIssueServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 			connect.WithClientOptions(opts...),
 		),
+		listBoardPins: connect.NewClient[v1.ListBoardPinsRequest, v1.ListBoardPinsResponse](
+			httpClient,
+			baseURL+IssueServiceListBoardPinsProcedure,
+			connect.WithSchema(issueServiceMethods.ByName("ListBoardPins")),
+			connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+			connect.WithClientOptions(opts...),
+		),
+		pinBoardIssue: connect.NewClient[v1.PinBoardIssueRequest, v1.PinBoardIssueResponse](
+			httpClient,
+			baseURL+IssueServicePinBoardIssueProcedure,
+			connect.WithSchema(issueServiceMethods.ByName("PinBoardIssue")),
+			connect.WithClientOptions(opts...),
+		),
+		unpinBoardIssue: connect.NewClient[v1.UnpinBoardIssueRequest, v1.UnpinBoardIssueResponse](
+			httpClient,
+			baseURL+IssueServiceUnpinBoardIssueProcedure,
+			connect.WithSchema(issueServiceMethods.ByName("UnpinBoardIssue")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // issueServiceClient implements IssueServiceClient.
 type issueServiceClient struct {
-	listIssues *connect.Client[v1.ListIssuesRequest, v1.ListIssuesResponse]
-	getIssue   *connect.Client[v1.GetIssueRequest, v1.GetIssueResponse]
+	listIssues      *connect.Client[v1.ListIssuesRequest, v1.ListIssuesResponse]
+	getIssue        *connect.Client[v1.GetIssueRequest, v1.GetIssueResponse]
+	listBoardPins   *connect.Client[v1.ListBoardPinsRequest, v1.ListBoardPinsResponse]
+	pinBoardIssue   *connect.Client[v1.PinBoardIssueRequest, v1.PinBoardIssueResponse]
+	unpinBoardIssue *connect.Client[v1.UnpinBoardIssueRequest, v1.UnpinBoardIssueResponse]
 }
 
 // ListIssues calls cardamom.private.v1.IssueService.ListIssues.
@@ -91,12 +128,33 @@ func (c *issueServiceClient) GetIssue(ctx context.Context, req *connect.Request[
 	return c.getIssue.CallUnary(ctx, req)
 }
 
+// ListBoardPins calls cardamom.private.v1.IssueService.ListBoardPins.
+func (c *issueServiceClient) ListBoardPins(ctx context.Context, req *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
+	return c.listBoardPins.CallUnary(ctx, req)
+}
+
+// PinBoardIssue calls cardamom.private.v1.IssueService.PinBoardIssue.
+func (c *issueServiceClient) PinBoardIssue(ctx context.Context, req *connect.Request[v1.PinBoardIssueRequest]) (*connect.Response[v1.PinBoardIssueResponse], error) {
+	return c.pinBoardIssue.CallUnary(ctx, req)
+}
+
+// UnpinBoardIssue calls cardamom.private.v1.IssueService.UnpinBoardIssue.
+func (c *issueServiceClient) UnpinBoardIssue(ctx context.Context, req *connect.Request[v1.UnpinBoardIssueRequest]) (*connect.Response[v1.UnpinBoardIssueResponse], error) {
+	return c.unpinBoardIssue.CallUnary(ctx, req)
+}
+
 // IssueServiceHandler is an implementation of the cardamom.private.v1.IssueService service.
 type IssueServiceHandler interface {
 	// ListIssues returns one stable page from a selected issue collection.
 	ListIssues(context.Context, *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error)
 	// GetIssue returns one issue and its independently loaded context.
 	GetIssue(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
+	// ListBoardPins returns current issues in one board's pin order.
+	ListBoardPins(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error)
+	// PinBoardIssue adds one issue to its owning board's pin order.
+	PinBoardIssue(context.Context, *connect.Request[v1.PinBoardIssueRequest]) (*connect.Response[v1.PinBoardIssueResponse], error)
+	// UnpinBoardIssue removes one issue from its owning board's pin order.
+	UnpinBoardIssue(context.Context, *connect.Request[v1.UnpinBoardIssueRequest]) (*connect.Response[v1.UnpinBoardIssueResponse], error)
 }
 
 // NewIssueServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -120,12 +178,37 @@ func NewIssueServiceHandler(svc IssueServiceHandler, opts ...connect.HandlerOpti
 		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
 		connect.WithHandlerOptions(opts...),
 	)
+	issueServiceListBoardPinsHandler := connect.NewUnaryHandler(
+		IssueServiceListBoardPinsProcedure,
+		svc.ListBoardPins,
+		connect.WithSchema(issueServiceMethods.ByName("ListBoardPins")),
+		connect.WithIdempotency(connect.IdempotencyNoSideEffects),
+		connect.WithHandlerOptions(opts...),
+	)
+	issueServicePinBoardIssueHandler := connect.NewUnaryHandler(
+		IssueServicePinBoardIssueProcedure,
+		svc.PinBoardIssue,
+		connect.WithSchema(issueServiceMethods.ByName("PinBoardIssue")),
+		connect.WithHandlerOptions(opts...),
+	)
+	issueServiceUnpinBoardIssueHandler := connect.NewUnaryHandler(
+		IssueServiceUnpinBoardIssueProcedure,
+		svc.UnpinBoardIssue,
+		connect.WithSchema(issueServiceMethods.ByName("UnpinBoardIssue")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/cardamom.private.v1.IssueService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case IssueServiceListIssuesProcedure:
 			issueServiceListIssuesHandler.ServeHTTP(w, r)
 		case IssueServiceGetIssueProcedure:
 			issueServiceGetIssueHandler.ServeHTTP(w, r)
+		case IssueServiceListBoardPinsProcedure:
+			issueServiceListBoardPinsHandler.ServeHTTP(w, r)
+		case IssueServicePinBoardIssueProcedure:
+			issueServicePinBoardIssueHandler.ServeHTTP(w, r)
+		case IssueServiceUnpinBoardIssueProcedure:
+			issueServiceUnpinBoardIssueHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -141,4 +224,16 @@ func (UnimplementedIssueServiceHandler) ListIssues(context.Context, *connect.Req
 
 func (UnimplementedIssueServiceHandler) GetIssue(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.IssueService.GetIssue is not implemented"))
+}
+
+func (UnimplementedIssueServiceHandler) ListBoardPins(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.IssueService.ListBoardPins is not implemented"))
+}
+
+func (UnimplementedIssueServiceHandler) PinBoardIssue(context.Context, *connect.Request[v1.PinBoardIssueRequest]) (*connect.Response[v1.PinBoardIssueResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.IssueService.PinBoardIssue is not implemented"))
+}
+
+func (UnimplementedIssueServiceHandler) UnpinBoardIssue(context.Context, *connect.Request[v1.UnpinBoardIssueRequest]) (*connect.Response[v1.UnpinBoardIssueResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("cardamom.private.v1.IssueService.UnpinBoardIssue is not implemented"))
 }

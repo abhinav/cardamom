@@ -50,14 +50,21 @@ func TestConfigureGitIgnoreCanonicalizesStorePath(t *testing.T) {
 }
 
 func TestInitializeAddsBlobsToLegacyExcludes(t *testing.T) {
+	ambientStore := filepath.Join(t.TempDir(), "ambient-store")
+	t.Setenv("CARDAMOM_STORE", ambientStore)
+	t.Setenv("CARDAMOM_BOARD", "ambient-board")
 	projectDirectory := t.TempDir()
 	command := exec.Command("git", "init", "-q", "-b", "main", projectDirectory)
 	require.NoError(t, command.Run())
 	cfg := testConfig(t)
+	assert.Empty(t, os.Getenv("CARDAMOM_STORE"))
+	assert.Empty(t, os.Getenv("CARDAMOM_BOARD"))
 	cfg.CWD = projectDirectory
 	cfg.DisableGitIgnore = true
 	initialized := execute(t, cfg, "--json", "init")
 	require.Equal(t, cli.ExitSuccess, initialized.code, initialized.stderr)
+	assert.FileExists(t, filepath.Join(projectDirectory, ".cardamom", "board.sqlite3"))
+	assert.NoDirExists(t, ambientStore)
 
 	excludePath := filepath.Join(projectDirectory, ".git", "info", "exclude")
 	require.NoError(t, os.WriteFile(excludePath, []byte(".cardamom/board.sqlite3*\n"), 0o644))
@@ -533,6 +540,8 @@ func execute(t *testing.T, cfg Config, args ...string) executionResult {
 
 func testConfig(t *testing.T) Config {
 	t.Helper()
+	t.Setenv("CARDAMOM_STORE", "")
+	t.Setenv("CARDAMOM_BOARD", "")
 	return Config{
 		Version:      "test",
 		CWD:          t.TempDir(),

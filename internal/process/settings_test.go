@@ -34,6 +34,7 @@ func TestReadSettings_missingAndCommentOnlyInheritBuiltIns(t *testing.T) {
 	assert.Contains(t, string(body), "# version: 1")
 	assert.Contains(t, string(body), "#     max_bytes: 2048")
 	assert.Contains(t, string(body), "#   max_bytes: 104857600")
+	assert.Contains(t, string(body), "#     max_count: 8")
 	assert.Contains(t, string(body), "card config set --scope store")
 	assert.Contains(t, string(body), "card config unset --scope store")
 }
@@ -74,6 +75,9 @@ issue:
     max_bytes: 4096
 attachment:
   max_bytes: 8192
+board:
+  pins:
+    max_count: 5
 `),
 		0o644,
 	))
@@ -84,10 +88,12 @@ attachment:
 	require.NotNil(t, overrides.Issue.ID.Strategy)
 	require.NotNil(t, overrides.Issue.Summary.MaxBytes)
 	require.NotNil(t, overrides.Attachment.MaxBytes)
+	require.NotNil(t, overrides.Board.Pins.MaxCount)
 	assert.Equal(t, "mission-", overrides.Issue.ID.Prefix.String())
 	assert.Equal(t, configuration.IDStrategySequential, *overrides.Issue.ID.Strategy)
 	assert.Equal(t, uint64(4096), overrides.Issue.Summary.MaxBytes.Uint64())
 	assert.Equal(t, uint64(8192), overrides.Attachment.MaxBytes.Uint64())
+	assert.Equal(t, uint64(5), overrides.Board.Pins.MaxCount.Uint64())
 }
 
 func TestReadSettings_requiresVersionForActiveValues(t *testing.T) {

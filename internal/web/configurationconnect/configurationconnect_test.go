@@ -50,16 +50,25 @@ func TestServiceReadsOrderedConfigurationView(t *testing.T) {
 	assert.Equal(t, "project-1", responseView.GetLayers()[2].GetSource().GetIdentity())
 	assert.Equal(t, "board-1", responseView.GetLayers()[3].GetSource().GetIdentity())
 	assert.Equal(t, "project-", responseView.GetEffective().GetIssue().GetId().GetPrefix())
+	assert.Equal(t, uint64(8), responseView.GetEffective().GetBoard().GetPins().GetMaxCount())
 	assert.Equal(
 		t,
 		privatev1.ConfigurationScope_CONFIGURATION_SCOPE_PROJECT,
 		responseView.GetOrigins().GetIssue().GetId().GetPrefix().GetScope(),
+	)
+	assert.Equal(
+		t,
+		privatev1.ConfigurationScope_CONFIGURATION_SCOPE_BUILT_IN,
+		responseView.GetOrigins().GetBoard().GetPins().GetMaxCount().GetScope(),
 	)
 }
 
 func TestServiceUpdatesTypedConfigurationPatch(t *testing.T) {
 	prefix := "next-"
 	parsedPrefix, err := configuration.NewPrefix(prefix)
+	require.NoError(t, err)
+	pinMaximum := uint64(5)
+	parsedPinMaximum, err := board.NewPinLimit(pinMaximum)
 	require.NoError(t, err)
 	operations := NewMockConfigurations(gomock.NewController(t))
 	operations.EXPECT().Update(
@@ -72,10 +81,14 @@ func TestServiceUpdatesTypedConfigurationPatch(t *testing.T) {
 				Fields: []configuration.Field{
 					configuration.FieldIssueIDPrefix,
 					configuration.FieldAttachmentMaxBytes,
+					configuration.FieldBoardPinsMaxCount,
 				},
 				Overrides: configuration.Overrides{
 					Issue: configuration.IssueOverrides{
 						ID: configuration.IssueIDOverrides{Prefix: &parsedPrefix},
+					},
+					Board: configuration.BoardOverrides{
+						Pins: configuration.PinOverrides{MaxCount: &parsedPinMaximum},
 					},
 				},
 			},
@@ -92,10 +105,14 @@ func TestServiceUpdatesTypedConfigurationPatch(t *testing.T) {
 				Issue: &privatev1.ConfigurationIssueOverrides{
 					Id: &privatev1.ConfigurationIssueIDOverrides{Prefix: &prefix},
 				},
+				Board: &privatev1.ConfigurationBoardOverrides{
+					Pins: &privatev1.ConfigurationPinsOverrides{MaxCount: &pinMaximum},
+				},
 			},
 			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{
 				"issue.id.prefix",
 				"attachment.max_bytes",
+				"board.pins.max_count",
 			}},
 			Context: &privatev1.MutationContext{Actor: new("engineer")},
 		}),
@@ -200,6 +217,9 @@ func testView(t *testing.T) configuration.View {
 				Summary: configuration.SummaryOrigins{MaxBytes: boardSource},
 			},
 			Attachment: configuration.AttachmentOrigins{MaxBytes: builtInSource},
+			Board: configuration.BoardOrigins{
+				Pins: configuration.PinOrigins{MaxCount: builtInSource},
+			},
 		},
 	}
 }

@@ -166,7 +166,7 @@ func (o *webOperation) open(
 	informationHandler := informationconnect.New(runtime.informationService())
 	issueHandler := issueconnect.New(issueconnect.Config{
 		Scope: scope, Readers: &issueReaderFactory{runtime: runtime},
-		Views: views,
+		Pins: &issuePinsFactory{runtime: runtime}, Views: views,
 	})
 	planningHandler := planningconnect.New(planningconnect.Config{
 		Scope: scope, Planners: &planningServiceFactory{runtime: runtime},
@@ -284,6 +284,18 @@ func (f *issueReaderFactory) Reader(
 	boardID board.ID,
 ) (issueconnect.BoardReader, error) {
 	return f.runtime.issueQueries(boardID)
+}
+
+// issuePinsFactory preserves IssueService's narrow board-pin return type.
+type issuePinsFactory struct {
+	// runtime owns the process-lifetime store used to open pin operations.
+	runtime *namespaceRuntime
+}
+
+func (f *issuePinsFactory) Pins(
+	boardID board.ID,
+) (issueconnect.BoardPins, error) {
+	return f.runtime.boardPins(boardID)
 }
 
 // checkpointReaderFactory preserves CheckpointService's narrow board-reader

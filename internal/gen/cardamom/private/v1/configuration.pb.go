@@ -142,7 +142,9 @@ type Configuration struct {
 	// issue contains issue authoring and identity policy.
 	Issue *ConfigurationIssue `protobuf:"bytes,1,opt,name=issue,proto3" json:"issue,omitempty"`
 	// attachment contains attachment admission policy.
-	Attachment    *ConfigurationAttachment `protobuf:"bytes,2,opt,name=attachment,proto3" json:"attachment,omitempty"`
+	Attachment *ConfigurationAttachment `protobuf:"bytes,2,opt,name=attachment,proto3" json:"attachment,omitempty"`
+	// board contains board-scoped coordination policy.
+	Board         *ConfigurationBoard `protobuf:"bytes,3,opt,name=board,proto3" json:"board,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -187,6 +189,13 @@ func (x *Configuration) GetIssue() *ConfigurationIssue {
 func (x *Configuration) GetAttachment() *ConfigurationAttachment {
 	if x != nil {
 		return x.Attachment
+	}
+	return nil
+}
+
+func (x *Configuration) GetBoard() *ConfigurationBoard {
+	if x != nil {
+		return x.Board
 	}
 	return nil
 }
@@ -393,20 +402,114 @@ func (x *ConfigurationAttachment) GetMaxBytes() uint64 {
 	return 0
 }
 
+// ConfigurationBoard contains fully resolved board policy.
+type ConfigurationBoard struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// pins controls the ordered pinned-issue collection.
+	Pins          *ConfigurationPins `protobuf:"bytes,1,opt,name=pins,proto3" json:"pins,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfigurationBoard) Reset() {
+	*x = ConfigurationBoard{}
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[5]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigurationBoard) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigurationBoard) ProtoMessage() {}
+
+func (x *ConfigurationBoard) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[5]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigurationBoard.ProtoReflect.Descriptor instead.
+func (*ConfigurationBoard) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{5}
+}
+
+func (x *ConfigurationBoard) GetPins() *ConfigurationPins {
+	if x != nil {
+		return x.Pins
+	}
+	return nil
+}
+
+// ConfigurationPins contains fully resolved board pin policy.
+type ConfigurationPins struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// max_count is the largest admitted pinned-issue collection.
+	MaxCount      uint64 `protobuf:"varint,1,opt,name=max_count,json=maxCount,proto3" json:"max_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfigurationPins) Reset() {
+	*x = ConfigurationPins{}
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[6]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigurationPins) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigurationPins) ProtoMessage() {}
+
+func (x *ConfigurationPins) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[6]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigurationPins.ProtoReflect.Descriptor instead.
+func (*ConfigurationPins) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{6}
+}
+
+func (x *ConfigurationPins) GetMaxCount() uint64 {
+	if x != nil {
+		return x.MaxCount
+	}
+	return 0
+}
+
 // ConfigurationOverrides contains one nested layer of optional values.
 type ConfigurationOverrides struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issue contains optional issue policy values.
 	Issue *ConfigurationIssueOverrides `protobuf:"bytes,1,opt,name=issue,proto3" json:"issue,omitempty"`
 	// attachment contains optional attachment policy values.
-	Attachment    *ConfigurationAttachmentOverrides `protobuf:"bytes,2,opt,name=attachment,proto3" json:"attachment,omitempty"`
+	Attachment *ConfigurationAttachmentOverrides `protobuf:"bytes,2,opt,name=attachment,proto3" json:"attachment,omitempty"`
+	// board contains optional board policy values.
+	Board         *ConfigurationBoardOverrides `protobuf:"bytes,3,opt,name=board,proto3" json:"board,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ConfigurationOverrides) Reset() {
 	*x = ConfigurationOverrides{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[5]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[7]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -418,7 +521,7 @@ func (x *ConfigurationOverrides) String() string {
 func (*ConfigurationOverrides) ProtoMessage() {}
 
 func (x *ConfigurationOverrides) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[5]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[7]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -431,7 +534,7 @@ func (x *ConfigurationOverrides) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationOverrides.ProtoReflect.Descriptor instead.
 func (*ConfigurationOverrides) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{5}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{7}
 }
 
 func (x *ConfigurationOverrides) GetIssue() *ConfigurationIssueOverrides {
@@ -444,6 +547,13 @@ func (x *ConfigurationOverrides) GetIssue() *ConfigurationIssueOverrides {
 func (x *ConfigurationOverrides) GetAttachment() *ConfigurationAttachmentOverrides {
 	if x != nil {
 		return x.Attachment
+	}
+	return nil
+}
+
+func (x *ConfigurationOverrides) GetBoard() *ConfigurationBoardOverrides {
+	if x != nil {
+		return x.Board
 	}
 	return nil
 }
@@ -461,7 +571,7 @@ type ConfigurationIssueOverrides struct {
 
 func (x *ConfigurationIssueOverrides) Reset() {
 	*x = ConfigurationIssueOverrides{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[6]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[8]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -473,7 +583,7 @@ func (x *ConfigurationIssueOverrides) String() string {
 func (*ConfigurationIssueOverrides) ProtoMessage() {}
 
 func (x *ConfigurationIssueOverrides) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[6]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[8]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -486,7 +596,7 @@ func (x *ConfigurationIssueOverrides) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationIssueOverrides.ProtoReflect.Descriptor instead.
 func (*ConfigurationIssueOverrides) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{6}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{8}
 }
 
 func (x *ConfigurationIssueOverrides) GetId() *ConfigurationIssueIDOverrides {
@@ -516,7 +626,7 @@ type ConfigurationIssueIDOverrides struct {
 
 func (x *ConfigurationIssueIDOverrides) Reset() {
 	*x = ConfigurationIssueIDOverrides{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[7]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[9]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -528,7 +638,7 @@ func (x *ConfigurationIssueIDOverrides) String() string {
 func (*ConfigurationIssueIDOverrides) ProtoMessage() {}
 
 func (x *ConfigurationIssueIDOverrides) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[7]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[9]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -541,7 +651,7 @@ func (x *ConfigurationIssueIDOverrides) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationIssueIDOverrides.ProtoReflect.Descriptor instead.
 func (*ConfigurationIssueIDOverrides) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{7}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{9}
 }
 
 func (x *ConfigurationIssueIDOverrides) GetPrefix() string {
@@ -569,7 +679,7 @@ type ConfigurationSummaryOverrides struct {
 
 func (x *ConfigurationSummaryOverrides) Reset() {
 	*x = ConfigurationSummaryOverrides{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[8]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[10]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -581,7 +691,7 @@ func (x *ConfigurationSummaryOverrides) String() string {
 func (*ConfigurationSummaryOverrides) ProtoMessage() {}
 
 func (x *ConfigurationSummaryOverrides) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[8]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[10]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -594,7 +704,7 @@ func (x *ConfigurationSummaryOverrides) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationSummaryOverrides.ProtoReflect.Descriptor instead.
 func (*ConfigurationSummaryOverrides) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{8}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{10}
 }
 
 func (x *ConfigurationSummaryOverrides) GetMaxBytes() uint64 {
@@ -615,7 +725,7 @@ type ConfigurationAttachmentOverrides struct {
 
 func (x *ConfigurationAttachmentOverrides) Reset() {
 	*x = ConfigurationAttachmentOverrides{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[9]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[11]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -627,7 +737,7 @@ func (x *ConfigurationAttachmentOverrides) String() string {
 func (*ConfigurationAttachmentOverrides) ProtoMessage() {}
 
 func (x *ConfigurationAttachmentOverrides) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[9]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[11]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -640,12 +750,104 @@ func (x *ConfigurationAttachmentOverrides) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationAttachmentOverrides.ProtoReflect.Descriptor instead.
 func (*ConfigurationAttachmentOverrides) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{9}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{11}
 }
 
 func (x *ConfigurationAttachmentOverrides) GetMaxBytes() uint64 {
 	if x != nil && x.MaxBytes != nil {
 		return *x.MaxBytes
+	}
+	return 0
+}
+
+// ConfigurationBoardOverrides contains optional board policy values.
+type ConfigurationBoardOverrides struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// pins contains optional pinned-issue policy values.
+	Pins          *ConfigurationPinsOverrides `protobuf:"bytes,1,opt,name=pins,proto3" json:"pins,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfigurationBoardOverrides) Reset() {
+	*x = ConfigurationBoardOverrides{}
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[12]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigurationBoardOverrides) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigurationBoardOverrides) ProtoMessage() {}
+
+func (x *ConfigurationBoardOverrides) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[12]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigurationBoardOverrides.ProtoReflect.Descriptor instead.
+func (*ConfigurationBoardOverrides) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{12}
+}
+
+func (x *ConfigurationBoardOverrides) GetPins() *ConfigurationPinsOverrides {
+	if x != nil {
+		return x.Pins
+	}
+	return nil
+}
+
+// ConfigurationPinsOverrides contains optional pinned-issue policy values.
+type ConfigurationPinsOverrides struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// max_count overrides the inherited pin limit when present.
+	MaxCount      *uint64 `protobuf:"varint,1,opt,name=max_count,json=maxCount,proto3,oneof" json:"max_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfigurationPinsOverrides) Reset() {
+	*x = ConfigurationPinsOverrides{}
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[13]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigurationPinsOverrides) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigurationPinsOverrides) ProtoMessage() {}
+
+func (x *ConfigurationPinsOverrides) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[13]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigurationPinsOverrides.ProtoReflect.Descriptor instead.
+func (*ConfigurationPinsOverrides) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{13}
+}
+
+func (x *ConfigurationPinsOverrides) GetMaxCount() uint64 {
+	if x != nil && x.MaxCount != nil {
+		return *x.MaxCount
 	}
 	return 0
 }
@@ -663,7 +865,7 @@ type ConfigurationSource struct {
 
 func (x *ConfigurationSource) Reset() {
 	*x = ConfigurationSource{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[10]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[14]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -675,7 +877,7 @@ func (x *ConfigurationSource) String() string {
 func (*ConfigurationSource) ProtoMessage() {}
 
 func (x *ConfigurationSource) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[10]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[14]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -688,7 +890,7 @@ func (x *ConfigurationSource) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationSource.ProtoReflect.Descriptor instead.
 func (*ConfigurationSource) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{10}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{14}
 }
 
 func (x *ConfigurationSource) GetScope() ConfigurationScope {
@@ -718,7 +920,7 @@ type ConfigurationLayer struct {
 
 func (x *ConfigurationLayer) Reset() {
 	*x = ConfigurationLayer{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[11]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[15]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -730,7 +932,7 @@ func (x *ConfigurationLayer) String() string {
 func (*ConfigurationLayer) ProtoMessage() {}
 
 func (x *ConfigurationLayer) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[11]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[15]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -743,7 +945,7 @@ func (x *ConfigurationLayer) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationLayer.ProtoReflect.Descriptor instead.
 func (*ConfigurationLayer) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{11}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{15}
 }
 
 func (x *ConfigurationLayer) GetSource() *ConfigurationSource {
@@ -766,14 +968,16 @@ type ConfigurationOrigins struct {
 	// issue contains origins for issue policy.
 	Issue *ConfigurationIssueOrigins `protobuf:"bytes,1,opt,name=issue,proto3" json:"issue,omitempty"`
 	// attachment contains origins for attachment policy.
-	Attachment    *ConfigurationAttachmentOrigins `protobuf:"bytes,2,opt,name=attachment,proto3" json:"attachment,omitempty"`
+	Attachment *ConfigurationAttachmentOrigins `protobuf:"bytes,2,opt,name=attachment,proto3" json:"attachment,omitempty"`
+	// board contains origins for board policy.
+	Board         *ConfigurationBoardOrigins `protobuf:"bytes,3,opt,name=board,proto3" json:"board,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
 func (x *ConfigurationOrigins) Reset() {
 	*x = ConfigurationOrigins{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[12]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[16]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -785,7 +989,7 @@ func (x *ConfigurationOrigins) String() string {
 func (*ConfigurationOrigins) ProtoMessage() {}
 
 func (x *ConfigurationOrigins) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[12]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[16]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -798,7 +1002,7 @@ func (x *ConfigurationOrigins) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationOrigins.ProtoReflect.Descriptor instead.
 func (*ConfigurationOrigins) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{12}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{16}
 }
 
 func (x *ConfigurationOrigins) GetIssue() *ConfigurationIssueOrigins {
@@ -811,6 +1015,13 @@ func (x *ConfigurationOrigins) GetIssue() *ConfigurationIssueOrigins {
 func (x *ConfigurationOrigins) GetAttachment() *ConfigurationAttachmentOrigins {
 	if x != nil {
 		return x.Attachment
+	}
+	return nil
+}
+
+func (x *ConfigurationOrigins) GetBoard() *ConfigurationBoardOrigins {
+	if x != nil {
+		return x.Board
 	}
 	return nil
 }
@@ -828,7 +1039,7 @@ type ConfigurationIssueOrigins struct {
 
 func (x *ConfigurationIssueOrigins) Reset() {
 	*x = ConfigurationIssueOrigins{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[13]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[17]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -840,7 +1051,7 @@ func (x *ConfigurationIssueOrigins) String() string {
 func (*ConfigurationIssueOrigins) ProtoMessage() {}
 
 func (x *ConfigurationIssueOrigins) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[13]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[17]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -853,7 +1064,7 @@ func (x *ConfigurationIssueOrigins) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationIssueOrigins.ProtoReflect.Descriptor instead.
 func (*ConfigurationIssueOrigins) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{13}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{17}
 }
 
 func (x *ConfigurationIssueOrigins) GetId() *ConfigurationIssueIDOrigins {
@@ -883,7 +1094,7 @@ type ConfigurationIssueIDOrigins struct {
 
 func (x *ConfigurationIssueIDOrigins) Reset() {
 	*x = ConfigurationIssueIDOrigins{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[14]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[18]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -895,7 +1106,7 @@ func (x *ConfigurationIssueIDOrigins) String() string {
 func (*ConfigurationIssueIDOrigins) ProtoMessage() {}
 
 func (x *ConfigurationIssueIDOrigins) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[14]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[18]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -908,7 +1119,7 @@ func (x *ConfigurationIssueIDOrigins) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationIssueIDOrigins.ProtoReflect.Descriptor instead.
 func (*ConfigurationIssueIDOrigins) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{14}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{18}
 }
 
 func (x *ConfigurationIssueIDOrigins) GetPrefix() *ConfigurationSource {
@@ -936,7 +1147,7 @@ type ConfigurationSummaryOrigins struct {
 
 func (x *ConfigurationSummaryOrigins) Reset() {
 	*x = ConfigurationSummaryOrigins{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[15]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[19]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -948,7 +1159,7 @@ func (x *ConfigurationSummaryOrigins) String() string {
 func (*ConfigurationSummaryOrigins) ProtoMessage() {}
 
 func (x *ConfigurationSummaryOrigins) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[15]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[19]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -961,7 +1172,7 @@ func (x *ConfigurationSummaryOrigins) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationSummaryOrigins.ProtoReflect.Descriptor instead.
 func (*ConfigurationSummaryOrigins) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{15}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{19}
 }
 
 func (x *ConfigurationSummaryOrigins) GetMaxBytes() *ConfigurationSource {
@@ -982,7 +1193,7 @@ type ConfigurationAttachmentOrigins struct {
 
 func (x *ConfigurationAttachmentOrigins) Reset() {
 	*x = ConfigurationAttachmentOrigins{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[16]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[20]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -994,7 +1205,7 @@ func (x *ConfigurationAttachmentOrigins) String() string {
 func (*ConfigurationAttachmentOrigins) ProtoMessage() {}
 
 func (x *ConfigurationAttachmentOrigins) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[16]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[20]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1007,12 +1218,104 @@ func (x *ConfigurationAttachmentOrigins) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationAttachmentOrigins.ProtoReflect.Descriptor instead.
 func (*ConfigurationAttachmentOrigins) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{16}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{20}
 }
 
 func (x *ConfigurationAttachmentOrigins) GetMaxBytes() *ConfigurationSource {
 	if x != nil {
 		return x.MaxBytes
+	}
+	return nil
+}
+
+// ConfigurationBoardOrigins contains origins for board policy.
+type ConfigurationBoardOrigins struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// pins contains origins for pinned-issue policy.
+	Pins          *ConfigurationPinsOrigins `protobuf:"bytes,1,opt,name=pins,proto3" json:"pins,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfigurationBoardOrigins) Reset() {
+	*x = ConfigurationBoardOrigins{}
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[21]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigurationBoardOrigins) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigurationBoardOrigins) ProtoMessage() {}
+
+func (x *ConfigurationBoardOrigins) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[21]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigurationBoardOrigins.ProtoReflect.Descriptor instead.
+func (*ConfigurationBoardOrigins) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{21}
+}
+
+func (x *ConfigurationBoardOrigins) GetPins() *ConfigurationPinsOrigins {
+	if x != nil {
+		return x.Pins
+	}
+	return nil
+}
+
+// ConfigurationPinsOrigins contains origins for pinned-issue policy.
+type ConfigurationPinsOrigins struct {
+	state protoimpl.MessageState `protogen:"open.v1"`
+	// max_count identifies the effective pin-limit source.
+	MaxCount      *ConfigurationSource `protobuf:"bytes,1,opt,name=max_count,json=maxCount,proto3" json:"max_count,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *ConfigurationPinsOrigins) Reset() {
+	*x = ConfigurationPinsOrigins{}
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[22]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *ConfigurationPinsOrigins) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*ConfigurationPinsOrigins) ProtoMessage() {}
+
+func (x *ConfigurationPinsOrigins) ProtoReflect() protoreflect.Message {
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[22]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use ConfigurationPinsOrigins.ProtoReflect.Descriptor instead.
+func (*ConfigurationPinsOrigins) Descriptor() ([]byte, []int) {
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{22}
+}
+
+func (x *ConfigurationPinsOrigins) GetMaxCount() *ConfigurationSource {
+	if x != nil {
+		return x.MaxCount
 	}
 	return nil
 }
@@ -1032,7 +1335,7 @@ type ConfigurationView struct {
 
 func (x *ConfigurationView) Reset() {
 	*x = ConfigurationView{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[17]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[23]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1044,7 +1347,7 @@ func (x *ConfigurationView) String() string {
 func (*ConfigurationView) ProtoMessage() {}
 
 func (x *ConfigurationView) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[17]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[23]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1057,7 +1360,7 @@ func (x *ConfigurationView) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use ConfigurationView.ProtoReflect.Descriptor instead.
 func (*ConfigurationView) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{17}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{23}
 }
 
 func (x *ConfigurationView) GetLayers() []*ConfigurationLayer {
@@ -1092,7 +1395,7 @@ type GetConfigurationRequest struct {
 
 func (x *GetConfigurationRequest) Reset() {
 	*x = GetConfigurationRequest{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[18]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[24]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1104,7 +1407,7 @@ func (x *GetConfigurationRequest) String() string {
 func (*GetConfigurationRequest) ProtoMessage() {}
 
 func (x *GetConfigurationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[18]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[24]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1117,7 +1420,7 @@ func (x *GetConfigurationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetConfigurationRequest.ProtoReflect.Descriptor instead.
 func (*GetConfigurationRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{18}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{24}
 }
 
 func (x *GetConfigurationRequest) GetBoardId() string {
@@ -1138,7 +1441,7 @@ type GetConfigurationResponse struct {
 
 func (x *GetConfigurationResponse) Reset() {
 	*x = GetConfigurationResponse{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[19]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[25]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1150,7 +1453,7 @@ func (x *GetConfigurationResponse) String() string {
 func (*GetConfigurationResponse) ProtoMessage() {}
 
 func (x *GetConfigurationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[19]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[25]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1163,7 +1466,7 @@ func (x *GetConfigurationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use GetConfigurationResponse.ProtoReflect.Descriptor instead.
 func (*GetConfigurationResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{19}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{25}
 }
 
 func (x *GetConfigurationResponse) GetView() *ConfigurationView {
@@ -1193,7 +1496,7 @@ type UpdateConfigurationRequest struct {
 
 func (x *UpdateConfigurationRequest) Reset() {
 	*x = UpdateConfigurationRequest{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[20]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[26]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1205,7 +1508,7 @@ func (x *UpdateConfigurationRequest) String() string {
 func (*UpdateConfigurationRequest) ProtoMessage() {}
 
 func (x *UpdateConfigurationRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[20]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[26]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1218,7 +1521,7 @@ func (x *UpdateConfigurationRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateConfigurationRequest.ProtoReflect.Descriptor instead.
 func (*UpdateConfigurationRequest) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{20}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{26}
 }
 
 func (x *UpdateConfigurationRequest) GetBoardId() string {
@@ -1267,7 +1570,7 @@ type UpdateConfigurationResponse struct {
 
 func (x *UpdateConfigurationResponse) Reset() {
 	*x = UpdateConfigurationResponse{}
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[21]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[27]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -1279,7 +1582,7 @@ func (x *UpdateConfigurationResponse) String() string {
 func (*UpdateConfigurationResponse) ProtoMessage() {}
 
 func (x *UpdateConfigurationResponse) ProtoReflect() protoreflect.Message {
-	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[21]
+	mi := &file_cardamom_private_v1_configuration_proto_msgTypes[27]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -1292,7 +1595,7 @@ func (x *UpdateConfigurationResponse) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use UpdateConfigurationResponse.ProtoReflect.Descriptor instead.
 func (*UpdateConfigurationResponse) Descriptor() ([]byte, []int) {
-	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{21}
+	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{27}
 }
 
 func (x *UpdateConfigurationResponse) GetView() *ConfigurationView {
@@ -1306,12 +1609,13 @@ var File_cardamom_private_v1_configuration_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_configuration_proto_rawDesc = "" +
 	"\n" +
-	"'cardamom/private/v1/configuration.proto\x12\x13cardamom.private.v1\x1a\"cardamom/private/v1/mutation.proto\x1a google/protobuf/field_mask.proto\"\x9c\x01\n" +
+	"'cardamom/private/v1/configuration.proto\x12\x13cardamom.private.v1\x1a\"cardamom/private/v1/mutation.proto\x1a google/protobuf/field_mask.proto\"\xdb\x01\n" +
 	"\rConfiguration\x12=\n" +
 	"\x05issue\x18\x01 \x01(\v2'.cardamom.private.v1.ConfigurationIssueR\x05issue\x12L\n" +
 	"\n" +
 	"attachment\x18\x02 \x01(\v2,.cardamom.private.v1.ConfigurationAttachmentR\n" +
-	"attachment\"\x94\x01\n" +
+	"attachment\x12=\n" +
+	"\x05board\x18\x03 \x01(\v2'.cardamom.private.v1.ConfigurationBoardR\x05board\"\x94\x01\n" +
 	"\x12ConfigurationIssue\x129\n" +
 	"\x02id\x18\x01 \x01(\v2).cardamom.private.v1.ConfigurationIssueIDR\x02id\x12C\n" +
 	"\asummary\x18\x02 \x01(\v2).cardamom.private.v1.ConfigurationSummaryR\asummary\"}\n" +
@@ -1321,12 +1625,17 @@ const file_cardamom_private_v1_configuration_proto_rawDesc = "" +
 	"\x14ConfigurationSummary\x12\x1b\n" +
 	"\tmax_bytes\x18\x01 \x01(\x04R\bmaxBytes\"6\n" +
 	"\x17ConfigurationAttachment\x12\x1b\n" +
-	"\tmax_bytes\x18\x01 \x01(\x04R\bmaxBytes\"\xb7\x01\n" +
+	"\tmax_bytes\x18\x01 \x01(\x04R\bmaxBytes\"P\n" +
+	"\x12ConfigurationBoard\x12:\n" +
+	"\x04pins\x18\x01 \x01(\v2&.cardamom.private.v1.ConfigurationPinsR\x04pins\"0\n" +
+	"\x11ConfigurationPins\x12\x1b\n" +
+	"\tmax_count\x18\x01 \x01(\x04R\bmaxCount\"\xff\x01\n" +
 	"\x16ConfigurationOverrides\x12F\n" +
 	"\x05issue\x18\x01 \x01(\v20.cardamom.private.v1.ConfigurationIssueOverridesR\x05issue\x12U\n" +
 	"\n" +
 	"attachment\x18\x02 \x01(\v25.cardamom.private.v1.ConfigurationAttachmentOverridesR\n" +
-	"attachment\"\xaf\x01\n" +
+	"attachment\x12F\n" +
+	"\x05board\x18\x03 \x01(\v20.cardamom.private.v1.ConfigurationBoardOverridesR\x05board\"\xaf\x01\n" +
 	"\x1bConfigurationIssueOverrides\x12B\n" +
 	"\x02id\x18\x01 \x01(\v22.cardamom.private.v1.ConfigurationIssueIDOverridesR\x02id\x12L\n" +
 	"\asummary\x18\x02 \x01(\v22.cardamom.private.v1.ConfigurationSummaryOverridesR\asummary\"\xa8\x01\n" +
@@ -1342,18 +1651,25 @@ const file_cardamom_private_v1_configuration_proto_rawDesc = "" +
 	" ConfigurationAttachmentOverrides\x12 \n" +
 	"\tmax_bytes\x18\x01 \x01(\x04H\x00R\bmaxBytes\x88\x01\x01B\f\n" +
 	"\n" +
-	"_max_bytes\"p\n" +
+	"_max_bytes\"b\n" +
+	"\x1bConfigurationBoardOverrides\x12C\n" +
+	"\x04pins\x18\x01 \x01(\v2/.cardamom.private.v1.ConfigurationPinsOverridesR\x04pins\"L\n" +
+	"\x1aConfigurationPinsOverrides\x12 \n" +
+	"\tmax_count\x18\x01 \x01(\x04H\x00R\bmaxCount\x88\x01\x01B\f\n" +
+	"\n" +
+	"_max_count\"p\n" +
 	"\x13ConfigurationSource\x12=\n" +
 	"\x05scope\x18\x01 \x01(\x0e2'.cardamom.private.v1.ConfigurationScopeR\x05scope\x12\x1a\n" +
 	"\bidentity\x18\x02 \x01(\tR\bidentity\"\xa1\x01\n" +
 	"\x12ConfigurationLayer\x12@\n" +
 	"\x06source\x18\x01 \x01(\v2(.cardamom.private.v1.ConfigurationSourceR\x06source\x12I\n" +
-	"\toverrides\x18\x02 \x01(\v2+.cardamom.private.v1.ConfigurationOverridesR\toverrides\"\xb1\x01\n" +
+	"\toverrides\x18\x02 \x01(\v2+.cardamom.private.v1.ConfigurationOverridesR\toverrides\"\xf7\x01\n" +
 	"\x14ConfigurationOrigins\x12D\n" +
 	"\x05issue\x18\x01 \x01(\v2..cardamom.private.v1.ConfigurationIssueOriginsR\x05issue\x12S\n" +
 	"\n" +
 	"attachment\x18\x02 \x01(\v23.cardamom.private.v1.ConfigurationAttachmentOriginsR\n" +
-	"attachment\"\xa9\x01\n" +
+	"attachment\x12D\n" +
+	"\x05board\x18\x03 \x01(\v2..cardamom.private.v1.ConfigurationBoardOriginsR\x05board\"\xa9\x01\n" +
 	"\x19ConfigurationIssueOrigins\x12@\n" +
 	"\x02id\x18\x01 \x01(\v20.cardamom.private.v1.ConfigurationIssueIDOriginsR\x02id\x12J\n" +
 	"\asummary\x18\x02 \x01(\v20.cardamom.private.v1.ConfigurationSummaryOriginsR\asummary\"\xa5\x01\n" +
@@ -1363,7 +1679,11 @@ const file_cardamom_private_v1_configuration_proto_rawDesc = "" +
 	"\x1bConfigurationSummaryOrigins\x12E\n" +
 	"\tmax_bytes\x18\x01 \x01(\v2(.cardamom.private.v1.ConfigurationSourceR\bmaxBytes\"g\n" +
 	"\x1eConfigurationAttachmentOrigins\x12E\n" +
-	"\tmax_bytes\x18\x01 \x01(\v2(.cardamom.private.v1.ConfigurationSourceR\bmaxBytes\"\xdb\x01\n" +
+	"\tmax_bytes\x18\x01 \x01(\v2(.cardamom.private.v1.ConfigurationSourceR\bmaxBytes\"^\n" +
+	"\x19ConfigurationBoardOrigins\x12A\n" +
+	"\x04pins\x18\x01 \x01(\v2-.cardamom.private.v1.ConfigurationPinsOriginsR\x04pins\"a\n" +
+	"\x18ConfigurationPinsOrigins\x12E\n" +
+	"\tmax_count\x18\x01 \x01(\v2(.cardamom.private.v1.ConfigurationSourceR\bmaxCount\"\xdb\x01\n" +
 	"\x11ConfigurationView\x12?\n" +
 	"\x06layers\x18\x01 \x03(\v2'.cardamom.private.v1.ConfigurationLayerR\x06layers\x12@\n" +
 	"\teffective\x18\x02 \x01(\v2\".cardamom.private.v1.ConfigurationR\teffective\x12C\n" +
@@ -1409,7 +1729,7 @@ func file_cardamom_private_v1_configuration_proto_rawDescGZIP() []byte {
 }
 
 var file_cardamom_private_v1_configuration_proto_enumTypes = make([]protoimpl.EnumInfo, 2)
-var file_cardamom_private_v1_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 22)
+var file_cardamom_private_v1_configuration_proto_msgTypes = make([]protoimpl.MessageInfo, 28)
 var file_cardamom_private_v1_configuration_proto_goTypes = []any{
 	(ConfigurationScope)(0),                  // 0: cardamom.private.v1.ConfigurationScope
 	(ConfigurationIssueIDStrategy)(0),        // 1: cardamom.private.v1.ConfigurationIssueIDStrategy
@@ -1418,66 +1738,79 @@ var file_cardamom_private_v1_configuration_proto_goTypes = []any{
 	(*ConfigurationIssueID)(nil),             // 4: cardamom.private.v1.ConfigurationIssueID
 	(*ConfigurationSummary)(nil),             // 5: cardamom.private.v1.ConfigurationSummary
 	(*ConfigurationAttachment)(nil),          // 6: cardamom.private.v1.ConfigurationAttachment
-	(*ConfigurationOverrides)(nil),           // 7: cardamom.private.v1.ConfigurationOverrides
-	(*ConfigurationIssueOverrides)(nil),      // 8: cardamom.private.v1.ConfigurationIssueOverrides
-	(*ConfigurationIssueIDOverrides)(nil),    // 9: cardamom.private.v1.ConfigurationIssueIDOverrides
-	(*ConfigurationSummaryOverrides)(nil),    // 10: cardamom.private.v1.ConfigurationSummaryOverrides
-	(*ConfigurationAttachmentOverrides)(nil), // 11: cardamom.private.v1.ConfigurationAttachmentOverrides
-	(*ConfigurationSource)(nil),              // 12: cardamom.private.v1.ConfigurationSource
-	(*ConfigurationLayer)(nil),               // 13: cardamom.private.v1.ConfigurationLayer
-	(*ConfigurationOrigins)(nil),             // 14: cardamom.private.v1.ConfigurationOrigins
-	(*ConfigurationIssueOrigins)(nil),        // 15: cardamom.private.v1.ConfigurationIssueOrigins
-	(*ConfigurationIssueIDOrigins)(nil),      // 16: cardamom.private.v1.ConfigurationIssueIDOrigins
-	(*ConfigurationSummaryOrigins)(nil),      // 17: cardamom.private.v1.ConfigurationSummaryOrigins
-	(*ConfigurationAttachmentOrigins)(nil),   // 18: cardamom.private.v1.ConfigurationAttachmentOrigins
-	(*ConfigurationView)(nil),                // 19: cardamom.private.v1.ConfigurationView
-	(*GetConfigurationRequest)(nil),          // 20: cardamom.private.v1.GetConfigurationRequest
-	(*GetConfigurationResponse)(nil),         // 21: cardamom.private.v1.GetConfigurationResponse
-	(*UpdateConfigurationRequest)(nil),       // 22: cardamom.private.v1.UpdateConfigurationRequest
-	(*UpdateConfigurationResponse)(nil),      // 23: cardamom.private.v1.UpdateConfigurationResponse
-	(*fieldmaskpb.FieldMask)(nil),            // 24: google.protobuf.FieldMask
-	(*MutationContext)(nil),                  // 25: cardamom.private.v1.MutationContext
+	(*ConfigurationBoard)(nil),               // 7: cardamom.private.v1.ConfigurationBoard
+	(*ConfigurationPins)(nil),                // 8: cardamom.private.v1.ConfigurationPins
+	(*ConfigurationOverrides)(nil),           // 9: cardamom.private.v1.ConfigurationOverrides
+	(*ConfigurationIssueOverrides)(nil),      // 10: cardamom.private.v1.ConfigurationIssueOverrides
+	(*ConfigurationIssueIDOverrides)(nil),    // 11: cardamom.private.v1.ConfigurationIssueIDOverrides
+	(*ConfigurationSummaryOverrides)(nil),    // 12: cardamom.private.v1.ConfigurationSummaryOverrides
+	(*ConfigurationAttachmentOverrides)(nil), // 13: cardamom.private.v1.ConfigurationAttachmentOverrides
+	(*ConfigurationBoardOverrides)(nil),      // 14: cardamom.private.v1.ConfigurationBoardOverrides
+	(*ConfigurationPinsOverrides)(nil),       // 15: cardamom.private.v1.ConfigurationPinsOverrides
+	(*ConfigurationSource)(nil),              // 16: cardamom.private.v1.ConfigurationSource
+	(*ConfigurationLayer)(nil),               // 17: cardamom.private.v1.ConfigurationLayer
+	(*ConfigurationOrigins)(nil),             // 18: cardamom.private.v1.ConfigurationOrigins
+	(*ConfigurationIssueOrigins)(nil),        // 19: cardamom.private.v1.ConfigurationIssueOrigins
+	(*ConfigurationIssueIDOrigins)(nil),      // 20: cardamom.private.v1.ConfigurationIssueIDOrigins
+	(*ConfigurationSummaryOrigins)(nil),      // 21: cardamom.private.v1.ConfigurationSummaryOrigins
+	(*ConfigurationAttachmentOrigins)(nil),   // 22: cardamom.private.v1.ConfigurationAttachmentOrigins
+	(*ConfigurationBoardOrigins)(nil),        // 23: cardamom.private.v1.ConfigurationBoardOrigins
+	(*ConfigurationPinsOrigins)(nil),         // 24: cardamom.private.v1.ConfigurationPinsOrigins
+	(*ConfigurationView)(nil),                // 25: cardamom.private.v1.ConfigurationView
+	(*GetConfigurationRequest)(nil),          // 26: cardamom.private.v1.GetConfigurationRequest
+	(*GetConfigurationResponse)(nil),         // 27: cardamom.private.v1.GetConfigurationResponse
+	(*UpdateConfigurationRequest)(nil),       // 28: cardamom.private.v1.UpdateConfigurationRequest
+	(*UpdateConfigurationResponse)(nil),      // 29: cardamom.private.v1.UpdateConfigurationResponse
+	(*fieldmaskpb.FieldMask)(nil),            // 30: google.protobuf.FieldMask
+	(*MutationContext)(nil),                  // 31: cardamom.private.v1.MutationContext
 }
 var file_cardamom_private_v1_configuration_proto_depIdxs = []int32{
 	3,  // 0: cardamom.private.v1.Configuration.issue:type_name -> cardamom.private.v1.ConfigurationIssue
 	6,  // 1: cardamom.private.v1.Configuration.attachment:type_name -> cardamom.private.v1.ConfigurationAttachment
-	4,  // 2: cardamom.private.v1.ConfigurationIssue.id:type_name -> cardamom.private.v1.ConfigurationIssueID
-	5,  // 3: cardamom.private.v1.ConfigurationIssue.summary:type_name -> cardamom.private.v1.ConfigurationSummary
-	1,  // 4: cardamom.private.v1.ConfigurationIssueID.strategy:type_name -> cardamom.private.v1.ConfigurationIssueIDStrategy
-	8,  // 5: cardamom.private.v1.ConfigurationOverrides.issue:type_name -> cardamom.private.v1.ConfigurationIssueOverrides
-	11, // 6: cardamom.private.v1.ConfigurationOverrides.attachment:type_name -> cardamom.private.v1.ConfigurationAttachmentOverrides
-	9,  // 7: cardamom.private.v1.ConfigurationIssueOverrides.id:type_name -> cardamom.private.v1.ConfigurationIssueIDOverrides
-	10, // 8: cardamom.private.v1.ConfigurationIssueOverrides.summary:type_name -> cardamom.private.v1.ConfigurationSummaryOverrides
-	1,  // 9: cardamom.private.v1.ConfigurationIssueIDOverrides.strategy:type_name -> cardamom.private.v1.ConfigurationIssueIDStrategy
-	0,  // 10: cardamom.private.v1.ConfigurationSource.scope:type_name -> cardamom.private.v1.ConfigurationScope
-	12, // 11: cardamom.private.v1.ConfigurationLayer.source:type_name -> cardamom.private.v1.ConfigurationSource
-	7,  // 12: cardamom.private.v1.ConfigurationLayer.overrides:type_name -> cardamom.private.v1.ConfigurationOverrides
-	15, // 13: cardamom.private.v1.ConfigurationOrigins.issue:type_name -> cardamom.private.v1.ConfigurationIssueOrigins
-	18, // 14: cardamom.private.v1.ConfigurationOrigins.attachment:type_name -> cardamom.private.v1.ConfigurationAttachmentOrigins
-	16, // 15: cardamom.private.v1.ConfigurationIssueOrigins.id:type_name -> cardamom.private.v1.ConfigurationIssueIDOrigins
-	17, // 16: cardamom.private.v1.ConfigurationIssueOrigins.summary:type_name -> cardamom.private.v1.ConfigurationSummaryOrigins
-	12, // 17: cardamom.private.v1.ConfigurationIssueIDOrigins.prefix:type_name -> cardamom.private.v1.ConfigurationSource
-	12, // 18: cardamom.private.v1.ConfigurationIssueIDOrigins.strategy:type_name -> cardamom.private.v1.ConfigurationSource
-	12, // 19: cardamom.private.v1.ConfigurationSummaryOrigins.max_bytes:type_name -> cardamom.private.v1.ConfigurationSource
-	12, // 20: cardamom.private.v1.ConfigurationAttachmentOrigins.max_bytes:type_name -> cardamom.private.v1.ConfigurationSource
-	13, // 21: cardamom.private.v1.ConfigurationView.layers:type_name -> cardamom.private.v1.ConfigurationLayer
-	2,  // 22: cardamom.private.v1.ConfigurationView.effective:type_name -> cardamom.private.v1.Configuration
-	14, // 23: cardamom.private.v1.ConfigurationView.origins:type_name -> cardamom.private.v1.ConfigurationOrigins
-	19, // 24: cardamom.private.v1.GetConfigurationResponse.view:type_name -> cardamom.private.v1.ConfigurationView
-	0,  // 25: cardamom.private.v1.UpdateConfigurationRequest.scope:type_name -> cardamom.private.v1.ConfigurationScope
-	7,  // 26: cardamom.private.v1.UpdateConfigurationRequest.overrides:type_name -> cardamom.private.v1.ConfigurationOverrides
-	24, // 27: cardamom.private.v1.UpdateConfigurationRequest.update_mask:type_name -> google.protobuf.FieldMask
-	25, // 28: cardamom.private.v1.UpdateConfigurationRequest.context:type_name -> cardamom.private.v1.MutationContext
-	19, // 29: cardamom.private.v1.UpdateConfigurationResponse.view:type_name -> cardamom.private.v1.ConfigurationView
-	20, // 30: cardamom.private.v1.ConfigurationService.GetConfiguration:input_type -> cardamom.private.v1.GetConfigurationRequest
-	22, // 31: cardamom.private.v1.ConfigurationService.UpdateConfiguration:input_type -> cardamom.private.v1.UpdateConfigurationRequest
-	21, // 32: cardamom.private.v1.ConfigurationService.GetConfiguration:output_type -> cardamom.private.v1.GetConfigurationResponse
-	23, // 33: cardamom.private.v1.ConfigurationService.UpdateConfiguration:output_type -> cardamom.private.v1.UpdateConfigurationResponse
-	32, // [32:34] is the sub-list for method output_type
-	30, // [30:32] is the sub-list for method input_type
-	30, // [30:30] is the sub-list for extension type_name
-	30, // [30:30] is the sub-list for extension extendee
-	0,  // [0:30] is the sub-list for field type_name
+	7,  // 2: cardamom.private.v1.Configuration.board:type_name -> cardamom.private.v1.ConfigurationBoard
+	4,  // 3: cardamom.private.v1.ConfigurationIssue.id:type_name -> cardamom.private.v1.ConfigurationIssueID
+	5,  // 4: cardamom.private.v1.ConfigurationIssue.summary:type_name -> cardamom.private.v1.ConfigurationSummary
+	1,  // 5: cardamom.private.v1.ConfigurationIssueID.strategy:type_name -> cardamom.private.v1.ConfigurationIssueIDStrategy
+	8,  // 6: cardamom.private.v1.ConfigurationBoard.pins:type_name -> cardamom.private.v1.ConfigurationPins
+	10, // 7: cardamom.private.v1.ConfigurationOverrides.issue:type_name -> cardamom.private.v1.ConfigurationIssueOverrides
+	13, // 8: cardamom.private.v1.ConfigurationOverrides.attachment:type_name -> cardamom.private.v1.ConfigurationAttachmentOverrides
+	14, // 9: cardamom.private.v1.ConfigurationOverrides.board:type_name -> cardamom.private.v1.ConfigurationBoardOverrides
+	11, // 10: cardamom.private.v1.ConfigurationIssueOverrides.id:type_name -> cardamom.private.v1.ConfigurationIssueIDOverrides
+	12, // 11: cardamom.private.v1.ConfigurationIssueOverrides.summary:type_name -> cardamom.private.v1.ConfigurationSummaryOverrides
+	1,  // 12: cardamom.private.v1.ConfigurationIssueIDOverrides.strategy:type_name -> cardamom.private.v1.ConfigurationIssueIDStrategy
+	15, // 13: cardamom.private.v1.ConfigurationBoardOverrides.pins:type_name -> cardamom.private.v1.ConfigurationPinsOverrides
+	0,  // 14: cardamom.private.v1.ConfigurationSource.scope:type_name -> cardamom.private.v1.ConfigurationScope
+	16, // 15: cardamom.private.v1.ConfigurationLayer.source:type_name -> cardamom.private.v1.ConfigurationSource
+	9,  // 16: cardamom.private.v1.ConfigurationLayer.overrides:type_name -> cardamom.private.v1.ConfigurationOverrides
+	19, // 17: cardamom.private.v1.ConfigurationOrigins.issue:type_name -> cardamom.private.v1.ConfigurationIssueOrigins
+	22, // 18: cardamom.private.v1.ConfigurationOrigins.attachment:type_name -> cardamom.private.v1.ConfigurationAttachmentOrigins
+	23, // 19: cardamom.private.v1.ConfigurationOrigins.board:type_name -> cardamom.private.v1.ConfigurationBoardOrigins
+	20, // 20: cardamom.private.v1.ConfigurationIssueOrigins.id:type_name -> cardamom.private.v1.ConfigurationIssueIDOrigins
+	21, // 21: cardamom.private.v1.ConfigurationIssueOrigins.summary:type_name -> cardamom.private.v1.ConfigurationSummaryOrigins
+	16, // 22: cardamom.private.v1.ConfigurationIssueIDOrigins.prefix:type_name -> cardamom.private.v1.ConfigurationSource
+	16, // 23: cardamom.private.v1.ConfigurationIssueIDOrigins.strategy:type_name -> cardamom.private.v1.ConfigurationSource
+	16, // 24: cardamom.private.v1.ConfigurationSummaryOrigins.max_bytes:type_name -> cardamom.private.v1.ConfigurationSource
+	16, // 25: cardamom.private.v1.ConfigurationAttachmentOrigins.max_bytes:type_name -> cardamom.private.v1.ConfigurationSource
+	24, // 26: cardamom.private.v1.ConfigurationBoardOrigins.pins:type_name -> cardamom.private.v1.ConfigurationPinsOrigins
+	16, // 27: cardamom.private.v1.ConfigurationPinsOrigins.max_count:type_name -> cardamom.private.v1.ConfigurationSource
+	17, // 28: cardamom.private.v1.ConfigurationView.layers:type_name -> cardamom.private.v1.ConfigurationLayer
+	2,  // 29: cardamom.private.v1.ConfigurationView.effective:type_name -> cardamom.private.v1.Configuration
+	18, // 30: cardamom.private.v1.ConfigurationView.origins:type_name -> cardamom.private.v1.ConfigurationOrigins
+	25, // 31: cardamom.private.v1.GetConfigurationResponse.view:type_name -> cardamom.private.v1.ConfigurationView
+	0,  // 32: cardamom.private.v1.UpdateConfigurationRequest.scope:type_name -> cardamom.private.v1.ConfigurationScope
+	9,  // 33: cardamom.private.v1.UpdateConfigurationRequest.overrides:type_name -> cardamom.private.v1.ConfigurationOverrides
+	30, // 34: cardamom.private.v1.UpdateConfigurationRequest.update_mask:type_name -> google.protobuf.FieldMask
+	31, // 35: cardamom.private.v1.UpdateConfigurationRequest.context:type_name -> cardamom.private.v1.MutationContext
+	25, // 36: cardamom.private.v1.UpdateConfigurationResponse.view:type_name -> cardamom.private.v1.ConfigurationView
+	26, // 37: cardamom.private.v1.ConfigurationService.GetConfiguration:input_type -> cardamom.private.v1.GetConfigurationRequest
+	28, // 38: cardamom.private.v1.ConfigurationService.UpdateConfiguration:input_type -> cardamom.private.v1.UpdateConfigurationRequest
+	27, // 39: cardamom.private.v1.ConfigurationService.GetConfiguration:output_type -> cardamom.private.v1.GetConfigurationResponse
+	29, // 40: cardamom.private.v1.ConfigurationService.UpdateConfiguration:output_type -> cardamom.private.v1.UpdateConfigurationResponse
+	39, // [39:41] is the sub-list for method output_type
+	37, // [37:39] is the sub-list for method input_type
+	37, // [37:37] is the sub-list for extension type_name
+	37, // [37:37] is the sub-list for extension extendee
+	0,  // [0:37] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_configuration_proto_init() }
@@ -1486,16 +1819,17 @@ func file_cardamom_private_v1_configuration_proto_init() {
 		return
 	}
 	file_cardamom_private_v1_mutation_proto_init()
-	file_cardamom_private_v1_configuration_proto_msgTypes[7].OneofWrappers = []any{}
-	file_cardamom_private_v1_configuration_proto_msgTypes[8].OneofWrappers = []any{}
 	file_cardamom_private_v1_configuration_proto_msgTypes[9].OneofWrappers = []any{}
+	file_cardamom_private_v1_configuration_proto_msgTypes[10].OneofWrappers = []any{}
+	file_cardamom_private_v1_configuration_proto_msgTypes[11].OneofWrappers = []any{}
+	file_cardamom_private_v1_configuration_proto_msgTypes[13].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_cardamom_private_v1_configuration_proto_rawDesc), len(file_cardamom_private_v1_configuration_proto_rawDesc)),
 			NumEnums:      2,
-			NumMessages:   22,
+			NumMessages:   28,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

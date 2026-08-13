@@ -13,15 +13,18 @@ import (
 func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 	prefix := mustPrefix(t, "store-")
 	storeSummary := mustByteLimit(t, 3072)
+	storePins := mustCountLimit(t, 6)
 	projectStrategy := IDStrategySequential
 	projectSummary := mustByteLimit(t, 4096)
 	boardPrefix := mustPrefix(t, "board-")
 	boardAttachment := mustByteLimit(t, 512)
+	boardPins := mustCountLimit(t, 3)
 	storeOverrides := Overrides{
 		Issue: IssueOverrides{
 			ID:      IssueIDOverrides{Prefix: &prefix},
 			Summary: SummaryOverrides{MaxBytes: &storeSummary},
 		},
+		Board: BoardOverrides{Pins: PinOverrides{MaxCount: &storePins}},
 	}
 	layers := DatabaseLayers{
 		ProjectID: mustProjectID(t, "project-test"),
@@ -32,6 +35,7 @@ func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 		Board: Overrides{
 			Issue:      IssueOverrides{ID: IssueIDOverrides{Prefix: &boardPrefix}},
 			Attachment: AttachmentOverrides{MaxBytes: &boardAttachment},
+			Board:      BoardOverrides{Pins: PinOverrides{MaxCount: &boardPins}},
 		},
 	}
 	store := NewMockStore(gomock.NewController(t))
@@ -51,11 +55,13 @@ func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 			Summary: SummaryConfiguration{MaxBytes: projectSummary},
 		},
 		Attachment: AttachmentConfiguration{MaxBytes: boardAttachment},
+		Board:      BoardConfiguration{Pins: PinConfiguration{MaxCount: boardPins}},
 	}, resolved.Effective)
 	assert.Equal(t, ScopeBoard, resolved.Origins.Issue.ID.Prefix.Scope)
 	assert.Equal(t, ScopeProject, resolved.Origins.Issue.ID.Strategy.Scope)
 	assert.Equal(t, ScopeProject, resolved.Origins.Issue.Summary.MaxBytes.Scope)
 	assert.Equal(t, ScopeBoard, resolved.Origins.Attachment.MaxBytes.Scope)
+	assert.Equal(t, ScopeBoard, resolved.Origins.Board.Pins.MaxCount.Scope)
 	assert.Equal(t, "board-test", resolved.Origins.Issue.ID.Prefix.Identity)
 	assert.Equal(t, "project-test", resolved.Origins.Issue.ID.Strategy.Identity)
 
@@ -140,6 +146,7 @@ func TestDefaults(t *testing.T) {
 	assert.Equal(t, IDStrategyRandom, Defaults().Issue.ID.Strategy)
 	assert.Equal(t, uint64(2048), Defaults().Issue.Summary.MaxBytes.Uint64())
 	assert.Equal(t, uint64(104857600), Defaults().Attachment.MaxBytes.Uint64())
+	assert.Equal(t, uint64(8), Defaults().Board.Pins.MaxCount.Uint64())
 }
 
 func TestNewPrefixCannotGenerateInvalidIssueIDs(t *testing.T) {
@@ -212,6 +219,13 @@ func mustPrefix(t *testing.T, value string) Prefix {
 func mustByteLimit(t *testing.T, value uint64) ByteLimit {
 	t.Helper()
 	limit, err := NewByteLimit(value)
+	require.NoError(t, err)
+	return limit
+}
+
+func mustCountLimit(t *testing.T, value uint64) board.PinLimit {
+	t.Helper()
+	limit, err := board.NewPinLimit(value)
 	require.NoError(t, err)
 	return limit
 }

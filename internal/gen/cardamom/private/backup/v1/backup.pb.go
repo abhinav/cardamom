@@ -954,8 +954,10 @@ type Configuration struct {
 	IssueSummaryMaxBytes uint64 `protobuf:"varint,3,opt,name=issue_summary_max_bytes,json=issueSummaryMaxBytes,proto3" json:"issue_summary_max_bytes,omitempty"`
 	// attachment_max_bytes is the attachment body admission limit in bytes.
 	AttachmentMaxBytes uint64 `protobuf:"varint,4,opt,name=attachment_max_bytes,json=attachmentMaxBytes,proto3" json:"attachment_max_bytes,omitempty"`
-	unknownFields      protoimpl.UnknownFields
-	sizeCache          protoimpl.SizeCache
+	// board_pins_max_count limits new pinned-issue admissions.
+	BoardPinsMaxCount uint64 `protobuf:"varint,5,opt,name=board_pins_max_count,json=boardPinsMaxCount,proto3" json:"board_pins_max_count,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *Configuration) Reset() {
@@ -1012,6 +1014,13 @@ func (x *Configuration) GetIssueSummaryMaxBytes() uint64 {
 func (x *Configuration) GetAttachmentMaxBytes() uint64 {
 	if x != nil {
 		return x.AttachmentMaxBytes
+	}
+	return 0
+}
+
+func (x *Configuration) GetBoardPinsMaxCount() uint64 {
+	if x != nil {
+		return x.BoardPinsMaxCount
 	}
 	return 0
 }
@@ -1985,12 +1994,13 @@ const file_cardamom_private_backup_v1_backup_proto_rawDesc = "" +
 	"\vdescription\x18\x03 \x01(\tH\x00R\vdescription\x88\x01\x01\x129\n" +
 	"\n" +
 	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAtB\x0e\n" +
-	"\f_description\"\xcc\x01\n" +
+	"\f_description\"\xfd\x01\n" +
 	"\rConfiguration\x12&\n" +
 	"\x0fissue_id_prefix\x18\x01 \x01(\tR\rissueIdPrefix\x12*\n" +
 	"\x11issue_id_strategy\x18\x02 \x01(\tR\x0fissueIdStrategy\x125\n" +
 	"\x17issue_summary_max_bytes\x18\x03 \x01(\x04R\x14issueSummaryMaxBytes\x120\n" +
-	"\x14attachment_max_bytes\x18\x04 \x01(\x04R\x12attachmentMaxBytes\"\x80\x04\n" +
+	"\x14attachment_max_bytes\x18\x04 \x01(\x04R\x12attachmentMaxBytes\x12/\n" +
+	"\x14board_pins_max_count\x18\x05 \x01(\x04R\x11boardPinsMaxCount\"\x80\x04\n" +
 	"\x05Issue\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x12\n" +

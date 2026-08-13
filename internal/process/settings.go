@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 
 	"github.com/goccy/go-yaml"
+	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
 )
 
@@ -20,6 +21,7 @@ type settingsDocument struct {
 	Version    *int                        `yaml:"version,omitempty"`
 	Issue      *settingsIssueDocument      `yaml:"issue,omitempty"`
 	Attachment *settingsAttachmentDocument `yaml:"attachment,omitempty"`
+	Board      *settingsBoardDocument      `yaml:"board,omitempty"`
 }
 
 type settingsIssueDocument struct {
@@ -38,6 +40,14 @@ type settingsSummaryDocument struct {
 
 type settingsAttachmentDocument struct {
 	MaxBytes *uint64 `yaml:"max_bytes,omitempty"`
+}
+
+type settingsBoardDocument struct {
+	Pins *settingsPinsDocument `yaml:"pins,omitempty"`
+}
+
+type settingsPinsDocument struct {
+	MaxCount *uint64 `yaml:"max_count,omitempty"`
 }
 
 // settingsStore adapts the optional YAML file to configuration.Store.
@@ -180,6 +190,22 @@ func renderSettings(overrides configuration.Overrides) []byte {
 			overrides.Attachment.MaxBytes.Uint64(),
 		)
 	}
+
+	boardComment := "# "
+	if overrides.Board.Pins.MaxCount != nil {
+		boardComment = ""
+	}
+	_, _ = fmt.Fprintf(&body, "%sboard:\n", boardComment)
+	_, _ = fmt.Fprintf(&body, "%s  pins:\n", boardComment)
+	if overrides.Board.Pins.MaxCount == nil {
+		_, _ = fmt.Fprintf(&body, "#     max_count: %d\n", configuration.DefaultPinMaxCount)
+	} else {
+		_, _ = fmt.Fprintf(
+			&body,
+			"    max_count: %d\n",
+			overrides.Board.Pins.MaxCount.Uint64(),
+		)
+	}
 	return body.Bytes()
 }
 
@@ -246,6 +272,14 @@ func (d settingsDocument) overrides() (configuration.Overrides, error) {
 		overrides.Attachment.MaxBytes = &limit
 		active = true
 	}
+	if d.Board != nil && d.Board.Pins != nil && d.Board.Pins.MaxCount != nil {
+		limit, err := board.NewPinLimit(*d.Board.Pins.MaxCount)
+		if err != nil {
+			return overrides, fmt.Errorf("board pins: %w", err)
+		}
+		overrides.Board.Pins.MaxCount = &limit
+		active = true
+	}
 	if active && (d.Version == nil || *d.Version != 1) {
 		return overrides, errors.New("version must be 1 when configuration values are active")
 	}
@@ -268,6 +302,9 @@ func storeConfiguration(overrides configuration.Overrides) configuration.Configu
 	}
 	if overrides.Attachment.MaxBytes != nil {
 		defaults.Attachment.MaxBytes = *overrides.Attachment.MaxBytes
+	}
+	if overrides.Board.Pins.MaxCount != nil {
+		defaults.Board.Pins.MaxCount = *overrides.Board.Pins.MaxCount
 	}
 	return defaults
 }

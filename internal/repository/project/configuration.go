@@ -60,6 +60,7 @@ func (r *Repository) ReadProjectConfiguration(
 		strategy:           row.IssueIDStrategy,
 		summaryMaxBytes:    row.IssueSummaryMaxBytes,
 		attachmentMaxBytes: row.AttachmentMaxBytes,
+		pinMaxCount:        row.BoardPinsMaxCount,
 	}).overrides()
 }
 
@@ -90,6 +91,7 @@ func (r *Repository) UpdateProjectConfiguration(
 		strategy:           row.IssueIDStrategy,
 		summaryMaxBytes:    row.IssueSummaryMaxBytes,
 		attachmentMaxBytes: row.AttachmentMaxBytes,
+		pinMaxCount:        row.BoardPinsMaxCount,
 	}).overrides()
 	if err != nil {
 		return out, err
@@ -110,6 +112,7 @@ func (r *Repository) UpdateProjectConfiguration(
 			IssueIDStrategy:      values.strategy,
 			IssueSummaryMaxBytes: values.summaryMaxBytes,
 			AttachmentMaxBytes:   values.attachmentMaxBytes,
+			BoardPinsMaxCount:    values.pinMaxCount,
 			ID:                   projectID.String(),
 		},
 	); err != nil {
@@ -155,6 +158,7 @@ func (r *Repository) UpdateBoardConfiguration(
 		strategy:           row.IssueIDStrategy,
 		summaryMaxBytes:    row.IssueSummaryMaxBytes,
 		attachmentMaxBytes: row.AttachmentMaxBytes,
+		pinMaxCount:        row.BoardPinsMaxCount,
 	}).overrides()
 	if err != nil {
 		return out, err
@@ -175,6 +179,7 @@ func (r *Repository) UpdateBoardConfiguration(
 			IssueIDStrategy:      values.strategy,
 			IssueSummaryMaxBytes: values.summaryMaxBytes,
 			AttachmentMaxBytes:   values.attachmentMaxBytes,
+			BoardPinsMaxCount:    values.pinMaxCount,
 			ID:                   boardID.String(),
 		},
 	); err != nil {
@@ -198,6 +203,7 @@ func loadConfigurationLayers(
 		strategy:           row.ProjectIssueIDStrategy,
 		summaryMaxBytes:    row.ProjectIssueSummaryMaxBytes,
 		attachmentMaxBytes: row.ProjectAttachmentMaxBytes,
+		pinMaxCount:        row.ProjectBoardPinsMaxCount,
 	}).overrides()
 	if err != nil {
 		return configuration.DatabaseLayers{}, err
@@ -207,6 +213,7 @@ func loadConfigurationLayers(
 		strategy:           row.BoardIssueIDStrategy,
 		summaryMaxBytes:    row.BoardIssueSummaryMaxBytes,
 		attachmentMaxBytes: row.BoardAttachmentMaxBytes,
+		pinMaxCount:        row.BoardBoardPinsMaxCount,
 	}).overrides()
 	if err != nil {
 		return configuration.DatabaseLayers{}, err
@@ -223,6 +230,7 @@ type nullableConfiguration struct {
 	strategy           *string
 	summaryMaxBytes    *int64
 	attachmentMaxBytes *int64
+	pinMaxCount        *int64
 }
 
 func (v nullableConfiguration) overrides() (configuration.Overrides, error) {
@@ -255,6 +263,13 @@ func (v nullableConfiguration) overrides() (configuration.Overrides, error) {
 		}
 		overrides.Attachment.MaxBytes = &limit
 	}
+	if v.pinMaxCount != nil {
+		limit, err := board.NewPinLimit(uint64(*v.pinMaxCount))
+		if err != nil {
+			return overrides, err
+		}
+		overrides.Board.Pins.MaxCount = &limit
+	}
 	return overrides, nil
 }
 
@@ -264,6 +279,7 @@ func nullableConfigurationFromOverrides(overrides configuration.Overrides) nulla
 		strategy:           nullableStrategy(overrides.Issue.ID.Strategy),
 		summaryMaxBytes:    nullableLimit(overrides.Issue.Summary.MaxBytes),
 		attachmentMaxBytes: nullableLimit(overrides.Attachment.MaxBytes),
+		pinMaxCount:        nullableCountLimit(overrides.Board.Pins.MaxCount),
 	}
 }
 
@@ -284,6 +300,14 @@ func nullableStrategy(value *configuration.IDStrategy) *string {
 }
 
 func nullableLimit(value *configuration.ByteLimit) *int64 {
+	if value == nil {
+		return nil
+	}
+	limit := int64(value.Uint64())
+	return &limit
+}
+
+func nullableCountLimit(value *board.PinLimit) *int64 {
 	if value == nil {
 		return nil
 	}

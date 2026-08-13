@@ -186,6 +186,20 @@ func (r *namespaceRuntime) issueQueries(
 	return issue.NewQueries(repository), nil
 }
 
+// boardPins constructs pinned-issue operations for one board in this namespace.
+func (r *namespaceRuntime) boardPins(
+	boardID board.ID,
+) (*board.Pins, error) {
+	repository, err := r.boardRepository(boardID)
+	if err != nil {
+		return nil, err
+	}
+	return board.NewPins(board.PinsConfig{
+		BoardID: boardID, Repository: repository,
+		Configuration: r.configuration,
+	}), nil
+}
+
 // issueExecutor constructs execution operations for one board in this namespace.
 func (r *namespaceRuntime) issueExecutor(
 	boardID board.ID,

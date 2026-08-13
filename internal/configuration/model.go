@@ -8,6 +8,7 @@ import (
 	"math"
 	"strings"
 
+	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/must"
 )
@@ -20,6 +21,9 @@ const (
 
 	// DefaultAttachmentMaxBytes is the built-in attachment admission limit.
 	DefaultAttachmentMaxBytes uint64 = 100 << 20
+
+	// DefaultPinMaxCount is the built-in board pin admission limit.
+	DefaultPinMaxCount uint64 = 8
 )
 
 // Prefix is a validated issue ID prefix.
@@ -191,6 +195,9 @@ type Configuration struct {
 
 	// Attachment contains attachment admission policy.
 	Attachment AttachmentConfiguration
+
+	// Board contains board-scoped coordination policy.
+	Board BoardConfiguration
 }
 
 // IssueConfiguration contains fully resolved issue policy.
@@ -223,6 +230,18 @@ type AttachmentConfiguration struct {
 	MaxBytes ByteLimit
 }
 
+// BoardConfiguration contains fully resolved board policy.
+type BoardConfiguration struct {
+	// Pins controls the board's ordered pinned-issue collection.
+	Pins PinConfiguration
+}
+
+// PinConfiguration contains fully resolved board pin policy.
+type PinConfiguration struct {
+	// MaxCount is the largest admitted pinned-issue collection.
+	MaxCount board.PinLimit
+}
+
 // Defaults returns Cardamom's built-in fully resolved configuration.
 func Defaults() Configuration {
 	prefix, err := NewPrefix("cm-")
@@ -243,6 +262,9 @@ func Defaults() Configuration {
 			Summary: SummaryConfiguration{MaxBytes: summary},
 		},
 		Attachment: AttachmentConfiguration{MaxBytes: attachment},
+		Board: BoardConfiguration{
+			Pins: PinConfiguration{MaxCount: board.PinLimit(DefaultPinMaxCount)},
+		},
 	}
 }
 
@@ -253,6 +275,9 @@ type Overrides struct {
 
 	// Attachment contains optional attachment policy values.
 	Attachment AttachmentOverrides
+
+	// Board contains optional board policy values.
+	Board BoardOverrides
 }
 
 // IssueOverrides contains optional issue policy values.
@@ -285,12 +310,25 @@ type AttachmentOverrides struct {
 	MaxBytes *ByteLimit
 }
 
+// BoardOverrides contains optional board policy values.
+type BoardOverrides struct {
+	// Pins contains optional pinned-issue policy values.
+	Pins PinOverrides
+}
+
+// PinOverrides contains optional pinned-issue policy values.
+type PinOverrides struct {
+	// MaxCount overrides the inherited pin limit when non-nil.
+	MaxCount *board.PinLimit
+}
+
 // Empty reports whether the layer inherits every field.
 func (o Overrides) Empty() bool {
 	return o.Issue.ID.Prefix == nil &&
 		o.Issue.ID.Strategy == nil &&
 		o.Issue.Summary.MaxBytes == nil &&
-		o.Attachment.MaxBytes == nil
+		o.Attachment.MaxBytes == nil &&
+		o.Board.Pins.MaxCount == nil
 }
 
 // Equal reports whether two layers contain the same inherited and overridden
@@ -299,7 +337,8 @@ func (o Overrides) Equal(other Overrides) bool {
 	return equalOptional(o.Issue.ID.Prefix, other.Issue.ID.Prefix) &&
 		equalOptional(o.Issue.ID.Strategy, other.Issue.ID.Strategy) &&
 		equalOptional(o.Issue.Summary.MaxBytes, other.Issue.Summary.MaxBytes) &&
-		equalOptional(o.Attachment.MaxBytes, other.Attachment.MaxBytes)
+		equalOptional(o.Attachment.MaxBytes, other.Attachment.MaxBytes) &&
+		equalOptional(o.Board.Pins.MaxCount, other.Board.Pins.MaxCount)
 }
 
 func equalOptional[T comparable](left, right *T) bool {
@@ -330,6 +369,11 @@ func (o Overrides) Validate() error {
 			return fmt.Errorf("attachment maximum: %w", err)
 		}
 	}
+	if o.Board.Pins.MaxCount != nil {
+		if _, err := board.NewPinLimit(o.Board.Pins.MaxCount.Uint64()); err != nil {
+			return fmt.Errorf("board pin maximum: %w", err)
+		}
+	}
 	return nil
 }
 
@@ -350,6 +394,9 @@ const (
 
 	// FieldAttachmentMaxBytes selects attachment.max_bytes.
 	FieldAttachmentMaxBytes
+
+	// FieldBoardPinsMaxCount selects board.pins.max_count.
+	FieldBoardPinsMaxCount
 )
 
 // String returns the stable dotted field name.
@@ -363,6 +410,8 @@ func (f Field) String() string {
 		return "issue.summary.max_bytes"
 	case FieldAttachmentMaxBytes:
 		return "attachment.max_bytes"
+	case FieldBoardPinsMaxCount:
+		return "board.pins.max_count"
 	default:
 		return ""
 	}
@@ -401,6 +450,7 @@ func (p Patch) Validate() error {
 		FieldIssueIDStrategy:      p.Overrides.Issue.ID.Strategy != nil,
 		FieldIssueSummaryMaxBytes: p.Overrides.Issue.Summary.MaxBytes != nil,
 		FieldAttachmentMaxBytes:   p.Overrides.Attachment.MaxBytes != nil,
+		FieldBoardPinsMaxCount:    p.Overrides.Board.Pins.MaxCount != nil,
 	} {
 		if present {
 			if _, ok := selected[field]; !ok {
@@ -423,6 +473,8 @@ func (p Patch) Apply(current Overrides) Overrides {
 			current.Issue.Summary.MaxBytes = p.Overrides.Issue.Summary.MaxBytes
 		case FieldAttachmentMaxBytes:
 			current.Attachment.MaxBytes = p.Overrides.Attachment.MaxBytes
+		case FieldBoardPinsMaxCount:
+			current.Board.Pins.MaxCount = p.Overrides.Board.Pins.MaxCount
 		}
 	}
 	return current

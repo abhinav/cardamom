@@ -14,7 +14,7 @@ import (
 	"go.abhg.dev/cardamom/internal/web/issueview"
 )
 
-//go:generate go tool mockgen -destination mocks_test.go -package issueconnect -typed -write_package_comment=false . BoardReaderFactory
+//go:generate go tool mockgen -destination mocks_test.go -package issueconnect -typed -write_package_comment=false . BoardReaderFactory,BoardPinsFactory
 
 // BoardReader supplies the issue reads exposed by IssueService.
 type BoardReader interface {
@@ -34,6 +34,24 @@ type BoardReaderFactory interface {
 	Reader(board.ID) (BoardReader, error)
 }
 
+// BoardPins supplies the pin operations exposed by IssueService.
+type BoardPins interface {
+	// List returns current issue references in insertion order.
+	List(context.Context) ([]issue.Reference, error)
+
+	// Pin adds one issue to the ordered collection when absent.
+	Pin(context.Context, board.Invocation, string) (board.PinMutation, error)
+
+	// Unpin removes one issue from the ordered collection when present.
+	Unpin(context.Context, board.Invocation, string) (board.PinMutation, error)
+}
+
+// BoardPinsFactory opens pin operations for one explicitly resolved board.
+type BoardPinsFactory interface {
+	// Pins returns pin operations constrained to boardID.
+	Pins(board.ID) (BoardPins, error)
+}
+
 // Config supplies the collaborators required by IssueService.
 type Config struct {
 	// Scope resolves protocol scopes and store-global issue ownership.
@@ -41,6 +59,9 @@ type Config struct {
 
 	// Readers opens board-scoped issue reads.
 	Readers BoardReaderFactory // required
+
+	// Pins opens board-scoped pin operations.
+	Pins BoardPinsFactory // required
 
 	// Views converts issue-domain records to generated protocol messages.
 	Views *issueview.Encoder // required
@@ -51,6 +72,7 @@ type Service struct {
 	privatev1connect.UnimplementedIssueServiceHandler
 	scope   *boardscope.Resolver
 	readers BoardReaderFactory
+	pins    BoardPinsFactory
 	views   *issueview.Encoder
 }
 
@@ -60,8 +82,11 @@ var _ privatev1connect.IssueServiceHandler = (*Service)(nil)
 func New(cfg Config) *Service {
 	must.NotBeNilf(cfg.Scope, "issueconnect: board scope resolver is required")
 	must.NotBeNilf(cfg.Readers, "issueconnect: board reader factory is required")
+	must.NotBeNilf(cfg.Pins, "issueconnect: board pins factory is required")
 	must.NotBeNilf(cfg.Views, "issueconnect: issue view encoder is required")
-	return &Service{scope: cfg.Scope, readers: cfg.Readers, views: cfg.Views}
+	return &Service{
+		scope: cfg.Scope, readers: cfg.Readers, pins: cfg.Pins, views: cfg.Views,
+	}
 }
 
 // scopedBoardReader pairs one resolved board with reads constrained to it.
