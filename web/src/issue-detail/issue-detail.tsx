@@ -922,6 +922,11 @@ export function IssueActions({
 }) {
   const actions = availableLifecycleActions(summary, actor);
   const actorMissing = actor.trim() === "";
+  const pinLabel = actorMissing
+    ? `Set actor in Settings to ${pinned ? "unpin" : "pin"}`
+    : pinned
+      ? "Unpin from board"
+      : "Pin to board";
   return (
     <details className="issue-actions">
       <summary>Issue actions</summary>
@@ -946,7 +951,7 @@ export function IssueActions({
           ) : (
             <Pin aria-hidden="true" size={14} strokeWidth={2} />
           )}
-          {pinned ? "Unpin from board" : "Pin to board"}
+          {pinLabel}
         </button>
         {actions.map((action) => (
           <button

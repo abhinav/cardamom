@@ -931,12 +931,14 @@ describe("issue detail RPC boundaries", () => {
         changeLifecycle: vi.fn(),
         edit: vi.fn(),
         pending: false,
-        pinned: true,
+        pinned: false,
         summary: create(IssueSummarySchema, { id: "cm-task" }),
       }),
     );
-    expect(actorlessMarkup).toContain("Unpin from board");
-    expect(actorlessMarkup).toMatch(/disabled=""[^>]*>.*Unpin from board/s);
+    expect(actorlessMarkup).toContain("Set actor in Settings to pin");
+    expect(actorlessMarkup).toMatch(
+      /disabled=""[^>]*>.*Set actor in Settings to pin/s,
+    );
   });
 
   it("searches the current board and excludes existing relationships", () => {
