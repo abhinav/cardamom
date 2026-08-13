@@ -12,12 +12,18 @@ import { App, boardSettingsOpener } from "./app.tsx";
 import {
   IssueDetailSchema,
   IssueService,
+  ListBoardPinsResponseSchema,
+  RelatedIssueSchema,
   IssueSummarySchema,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
-import { AccessMode } from "./gen/cardamom/private/v1/project_pb.ts";
+import {
+  AccessMode,
+  BoardArchiveSchema,
+} from "./gen/cardamom/private/v1/project_pb.ts";
 import {
   bootstrapQueryOptions,
   unaryRouteQueryOptions,
+  unaryScopeQueryOptions,
 } from "./query-runtime.ts";
 
 describe("application shell", () => {
@@ -173,6 +179,131 @@ describe("application shell", () => {
     expect(markup).toContain('aria-label="Select board scope: Primary"');
     expect(markup).toContain('href="/board/board-1"');
     expect(markup).not.toContain("Page not found");
+  });
+
+  it("shows board pins while the issue columns are still loading", async () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+    queryClient.setQueryData(
+      unaryScopeQueryOptions(
+        IssueService.method.listBoardPins,
+        { boardId: "board-1" },
+        transport,
+      ).queryKey,
+      create(ListBoardPinsResponseSchema, {
+        issues: [
+          create(RelatedIssueSchema, {
+            id: "cm-pin",
+            boardId: "board-1",
+            title: "Pinned while loading",
+          }),
+        ],
+      }),
+    );
+
+    const markup = await renderApp(
+      queryClient,
+      transport,
+      "/board/board-1",
+    );
+
+    expect(markup).toContain("Pinned while loading");
+    expect(markup).toContain("Loading issues");
+  });
+
+  it("keeps cached board pins visible after a refresh failure", async () => {
+    const transport = createRouterTransport(({ service }) => {
+      service(IssueService, {
+        listBoardPins: () => {
+          throw new Error("refresh failed");
+        },
+      });
+    });
+    const queryClient = new QueryClient();
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      boards: [
+        { id: "board-1", projectId: "project-1", name: "Primary" },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+    const pinOptions = unaryScopeQueryOptions(
+      IssueService.method.listBoardPins,
+      { boardId: "board-1" },
+      transport,
+    );
+    queryClient.setQueryData(
+      pinOptions.queryKey,
+      create(ListBoardPinsResponseSchema, {
+        issues: [
+          create(RelatedIssueSchema, {
+            id: "cm-cached",
+            boardId: "board-1",
+            title: "Cached pin",
+          }),
+        ],
+      }),
+    );
+    await expect(queryClient.fetchQuery(pinOptions)).rejects.toThrow();
+
+    const markup = await renderApp(
+      queryClient,
+      transport,
+      "/board/board-1",
+    );
+
+    expect(markup).toContain("Cached pin");
+    expect(markup).toContain("Pinned issues could not be refreshed.");
+    expect(markup).toContain(">Retry</button>");
+  });
+
+  it("does not offer issue mutations on an archived board", async () => {
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      accessMode: AccessMode.READ_WRITE,
+      boards: [
+        {
+          id: "board-1",
+          projectId: "project-1",
+          name: "Archived",
+          archived: create(BoardArchiveSchema),
+        },
+      ],
+      projects: [{ id: "project-1", name: "Cardamom" }],
+    });
+    queryClient.setQueryData(
+      unaryRouteQueryOptions(
+        IssueService.method.getIssue,
+        { issueId: "cm-archived" },
+        transport,
+      ).queryKey,
+      {
+        issue: create(IssueDetailSchema, {
+          issue: create(IssueSummarySchema, {
+            id: "cm-archived",
+            boardId: "board-1",
+            title: "Archived board issue",
+          }),
+        }),
+      },
+    );
+
+    const markup = await renderApp(
+      queryClient,
+      transport,
+      "/board/board-1/issue/cm-archived",
+    );
+
+    expect(markup).toContain("Archived board issue");
+    expect(markup).not.toContain("Issue actions");
+    expect(markup).not.toContain("Pin to board");
+    expect(markup).not.toContain("Unpin from board");
   });
 
   it("rejects an issue returned outside the route board scope", async () => {

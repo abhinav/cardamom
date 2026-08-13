@@ -9,11 +9,18 @@ import {
   IssueStatus,
   IssueType,
   ListIssuesRequestSchema,
+  RelatedIssueSchema,
   WaitingStateSchema,
   type IssueSummary,
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import type { IssuePageStream } from "./issue-pages.ts";
-import { formatIssueTime, IssueList, KanbanBoard } from "./issue-views.tsx";
+import {
+  BoardPinCarousel,
+  boardPinsBoardId,
+  formatIssueTime,
+  IssueList,
+  KanbanBoard,
+} from "./issue-views.tsx";
 
 describe("issue time presentation", () => {
   it("includes time of day from the most recent issue timestamp", () => {
@@ -30,6 +37,51 @@ describe("issue time presentation", () => {
 });
 
 describe("kanban board", () => {
+  it("shows ordered pins only for a selected-board Kanban", () => {
+    const markup = renderToStaticMarkup(
+      createElement(
+        MemoryRouter,
+        null,
+        createElement(BoardPinCarousel, {
+          boardId: "board-1",
+          issues: [
+            create(RelatedIssueSchema, {
+              id: "cm-first",
+              boardId: "board-1",
+              title: "First pinned issue",
+              status: IssueStatus.IN_PROGRESS,
+            }),
+            create(RelatedIssueSchema, {
+              id: "cm-second",
+              boardId: "board-1",
+              title: "Second pinned issue",
+              status: IssueStatus.WAITING,
+            }),
+          ],
+        }),
+      ),
+    );
+
+    expect(markup).toContain('aria-label="Pinned issues"');
+    expect(markup).toContain('href="/board/board-1/issue/cm-first"');
+    expect(markup).toContain("In progress");
+    expect(markup).toContain("Waiting");
+    expect(markup).toContain('title="First pinned issue"');
+    expect(markup.indexOf("First pinned issue")).toBeLessThan(
+      markup.indexOf("Second pinned issue"),
+    );
+    expect(
+      renderToStaticMarkup(
+        createElement(BoardPinCarousel, { boardId: "board-1", issues: [] }),
+      ),
+    ).toBe("");
+    expect(boardPinsBoardId("board", { kind: "board", boardId: "board-1" }))
+      .toBe("board-1");
+    expect(boardPinsBoardId("board", { kind: "all" })).toBeUndefined();
+    expect(boardPinsBoardId("list", { kind: "board", boardId: "board-1" }))
+      .toBeUndefined();
+  });
+
   it("shows loaded and total issues in each column heading", () => {
     const stream = {
       key: `status:${IssueStatus.READY}`,

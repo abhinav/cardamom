@@ -36,6 +36,22 @@ describe("Configuration workflow", () => {
       configurationUpdateInput(
         "board-1",
         "browser-actor",
+        ConfigurationScope.STORE,
+        "board.pins.max_count",
+        "12",
+      ),
+    ).toEqual({
+      boardId: "board-1",
+      scope: ConfigurationScope.STORE,
+      overrides: { board: { pins: { maxCount: 12n } } },
+      updateMask: { paths: ["board.pins.max_count"] },
+      context: { actor: "browser-actor" },
+    });
+
+    expect(
+      configurationUpdateInput(
+        "board-1",
+        "browser-actor",
         ConfigurationScope.BOARD,
         "issue.id.strategy",
         undefined,
@@ -57,6 +73,10 @@ describe("Configuration workflow", () => {
       .toBe("Enter a whole number of bytes between 1 and 9223372036854775807.");
     expect(validateConfigurationDraft("attachment.max_bytes", "104857600"))
       .toBeUndefined();
+    expect(validateConfigurationDraft("board.pins.max_count", "0"))
+      .toBeUndefined();
+    expect(validateConfigurationDraft("board.pins.max_count", "-1"))
+      .toBe("Enter a whole number between 0 and 9223372036854775807.");
   });
 
   it("previews the effective value after edit and reset", () => {
@@ -94,6 +114,14 @@ describe("Configuration workflow", () => {
         "Work",
       ),
     ).toEqual({ value: "Work", source: "Board" });
+    expect(
+      configurationPreview(
+        view,
+        ConfigurationScope.BOARD,
+        "board.pins.max_count",
+        "-1",
+      ),
+    ).toEqual({ value: "6", source: "Board" });
   });
 
   it("renders effective values before the four-layer cascade", () => {
@@ -111,6 +139,19 @@ describe("Configuration workflow", () => {
     );
     expect(markup).toContain("work-");
     expect(markup).toContain("sequential");
+    expect(markup).toContain("board.pins.max_count");
+    for (const value of ["8", "10", "9", "6"]) {
+      expect(markup).toContain(
+        `<code>board.pins.max_count</code><strong>${value}</strong>` +
+          '<span class="configuration-layer-effective">' +
+          "Effective for board: 6 from Board</span>",
+      );
+    }
+    expect(markup).toContain(
+      '<span class="configuration-field-label">Pinned issue limit</span>' +
+        '<strong>6</strong><span class="configuration-origin">' +
+        '<span aria-hidden="true"></span>From Board</span>',
+    );
     expect(markup).toContain("Local to this store");
     expect(markup).toContain("Cardamom defaults");
     expect(markup).toContain("/tmp/test-store/.cardamom");
@@ -151,6 +192,7 @@ function configurationView() {
             summary: { maxBytes: 2048n },
           },
           attachment: { maxBytes: 104857600n },
+          board: { pins: { maxCount: 8n } },
         },
       },
       {
@@ -158,7 +200,10 @@ function configurationView() {
           scope: ConfigurationScope.STORE,
           identity: "/tmp/test-store/.cardamom",
         },
-        overrides: { attachment: { maxBytes: 78643200n } },
+        overrides: {
+          attachment: { maxBytes: 78643200n },
+          board: { pins: { maxCount: 10n } },
+        },
       },
       {
         source: {
@@ -170,6 +215,7 @@ function configurationView() {
             id: { prefix: "work-" },
             summary: { maxBytes: 4096n },
           },
+          board: { pins: { maxCount: 9n } },
         },
       },
       {
@@ -181,6 +227,7 @@ function configurationView() {
                 ConfigurationIssueIDStrategy.CONFIGURATION_ISSUE_ID_STRATEGY_SEQUENTIAL,
             },
           },
+          board: { pins: { maxCount: 6n } },
         },
       },
     ],
@@ -194,6 +241,7 @@ function configurationView() {
         summary: { maxBytes: 4096n },
       },
       attachment: { maxBytes: 78643200n },
+      board: { pins: { maxCount: 6n } },
     },
     origins: {
       issue: {
@@ -218,6 +266,14 @@ function configurationView() {
         maxBytes: {
           scope: ConfigurationScope.STORE,
           identity: "/tmp/test-store/.cardamom",
+        },
+      },
+      board: {
+        pins: {
+          maxCount: {
+            scope: ConfigurationScope.BOARD,
+            identity: "board-1",
+          },
         },
       },
     },

@@ -775,11 +775,11 @@ function RouteContent({
           path="/board/:boardId/issue/:issueId"
           element={
             <IssuePage
-              aggregateMode={aggregateMode}
               attachmentClient={attachmentClient}
               boards={boards}
               preferences={preferences}
               projects={projects}
+              canMutateServer={canMutateServer}
               selection={selection}
               selectLabel={selectLabel}
               updatePreferences={updatePreferences}
@@ -866,20 +866,20 @@ function RoutinesPage({
 }
 
 function IssuePage({
-  aggregateMode,
   attachmentClient,
   boards,
   preferences,
   projects,
+  canMutateServer,
   selection,
   selectLabel,
   updatePreferences,
 }: {
-  aggregateMode: boolean;
   attachmentClient: AttachmentClient;
   boards: readonly BoardSummary[];
   preferences: Preferences;
   projects: readonly Project[];
+  canMutateServer: boolean;
   selection: BoardScopeSelection;
   selectLabel: (label: string) => void;
   updatePreferences: (preferences: Preferences) => void;
@@ -899,7 +899,7 @@ function IssuePage({
       expectedBoardId={boardId}
       issueId={issueId}
       projects={projects}
-      readOnly={aggregateMode}
+      readOnly={!canMutateServer}
       relationsOpen={preferences.relationsOpen}
       selectLabel={selectLabel}
       setRelationsOpen={(relationsOpen) =>

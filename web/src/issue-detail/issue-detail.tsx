@@ -6,7 +6,7 @@ import {
 } from "@bufbuild/protobuf";
 import { useMutation, useTransport } from "@connectrpc/connect-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ChevronRight, Pencil } from "lucide-react";
+import { ChevronRight, Pencil, Pin, PinOff } from "lucide-react";
 import type { FormEvent } from "react";
 import {
   createContext,
@@ -184,6 +184,22 @@ interface LifecycleMutations {
   >;
 }
 
+interface PinMutations {
+  pin: Mutation<
+    typeof IssueService.method.pinBoardIssue.input,
+    typeof IssueService.method.pinBoardIssue.output
+  >;
+  unpin: Mutation<
+    typeof IssueService.method.unpinBoardIssue.input,
+    typeof IssueService.method.unpinBoardIssue.output
+  >;
+}
+
+interface PinMutationOutcome {
+  message: string;
+  pinned: boolean;
+}
+
 /** changeIssueLifecycle dispatches one browser control to its product operation. */
 export async function changeIssueLifecycle(
   mutations: LifecycleMutations,
@@ -238,6 +254,30 @@ export async function changeIssueLifecycle(
       );
     }
   }
+}
+
+/** changeIssuePin applies one actor-attributed board pin mutation. */
+export async function changeIssuePin(
+  mutations: PinMutations,
+  issueId: string,
+  actor: string,
+  pinned: boolean,
+): Promise<PinMutationOutcome> {
+  const context = mutationContext(actor);
+  if (pinned) {
+    const response = await mutations.unpin({ issueId, context });
+    const id = response.issue?.id ?? issueId;
+    return {
+      message: response.changed ? `Unpinned ${id}.` : `${id} was already unpinned.`,
+      pinned: false,
+    };
+  }
+  const response = await mutations.pin({ issueId, context });
+  const id = response.issue?.id ?? issueId;
+  return {
+    message: response.changed ? `Pinned ${id}.` : `${id} was already pinned.`,
+    pinned: true,
+  };
 }
 
 /** DependencyEdit selects one atomic planning relationship edit. */
@@ -338,6 +378,10 @@ export function IssueDetailPage({
     release: useMutation(ExecutionService.method.releaseIssue).mutateAsync,
     reopen: useMutation(ExecutionService.method.reopenIssues).mutateAsync,
   };
+  const pinMutations: PinMutations = {
+    pin: useMutation(IssueService.method.pinBoardIssue).mutateAsync,
+    unpin: useMutation(IssueService.method.unpinBoardIssue).mutateAsync,
+  };
   const resolveCheckpoint = useMutation(
     CheckpointService.method.resolveCheckpoint,
   );
@@ -348,6 +392,7 @@ export function IssueDetailPage({
   const [dependencyQuery, setDependencyQuery] = useState("");
   const [checkpointReason, setCheckpointReason] = useState("");
   const [metadataEditor, setMetadataEditor] = useState<IssueMetadataDraft>();
+  const [pinOverride, setPinOverride] = useState<boolean>();
 
   const issueRequest = useQuery({
     ...unaryRouteQueryOptions(
@@ -430,6 +475,8 @@ export function IssueDetailPage({
     [expectedBoardId, queryClient, source, transport],
   );
   const detail = requestData(issueRequest);
+  const serverPinned = detail?.context?.pins.some((pin) => pin.id === issueId) ?? false;
+  useEffect(() => setPinOverride(undefined), [serverPinned]);
 
   if (detail === undefined) {
     return (
@@ -472,6 +519,13 @@ export function IssueDetailPage({
     runMutation([WatchResource.ISSUES, WatchResource.APPROVALS], () =>
       changeIssueLifecycle(lifecycleMutations, issueId, actor, action),
     );
+  const pinned = pinOverride ?? serverPinned;
+  const changePin = () =>
+    runMutation([WatchResource.ISSUES], async () => {
+      const outcome = await changeIssuePin(pinMutations, issueId, actor, pinned);
+      setPinOverride(outcome.pinned);
+      return outcome.message;
+    });
   const changeDependency = (
     prerequisiteId: string,
     edit: DependencyEdit,
@@ -566,7 +620,9 @@ export function IssueDetailPage({
         {canMutateServer && (
           <IssueActions
             actor={actor}
+            changePin={() => void changePin()}
             pending={mutation.status === "pending"}
+            pinned={pinned}
             summary={issue}
             changeLifecycle={(action) => void changeLifecycle(action)}
             edit={openMetadataEditor}
@@ -849,18 +905,28 @@ export function PrimaryRecord({
 /** IssueActions keeps mutations inside one collapsed header disclosure. */
 export function IssueActions({
   actor,
+  changePin,
   changeLifecycle,
   edit,
   pending,
+  pinned,
   summary,
 }: {
   actor: string;
+  changePin: () => void;
   changeLifecycle: (action: LifecycleActionValue) => void;
   edit: () => void;
   pending: boolean;
+  pinned: boolean;
   summary: IssueSummary;
 }) {
   const actions = availableLifecycleActions(summary, actor);
+  const actorMissing = actor.trim() === "";
+  const pinLabel = actorMissing
+    ? `Set actor in Settings to ${pinned ? "unpin" : "pin"}`
+    : pinned
+      ? "Unpin from board"
+      : "Pin to board";
   return (
     <details className="issue-actions">
       <summary>Issue actions</summary>
@@ -873,6 +939,19 @@ export function IssueActions({
         >
           <Pencil aria-hidden="true" size={14} strokeWidth={2} />
           Edit issue
+        </button>
+        <button
+          type="button"
+          className="issue-action-quiet"
+          disabled={pending || actorMissing}
+          onClick={changePin}
+        >
+          {pinned ? (
+            <PinOff aria-hidden="true" size={14} strokeWidth={2} />
+          ) : (
+            <Pin aria-hidden="true" size={14} strokeWidth={2} />
+          )}
+          {pinLabel}
         </button>
         {actions.map((action) => (
           <button

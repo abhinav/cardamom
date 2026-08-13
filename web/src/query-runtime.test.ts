@@ -37,6 +37,7 @@ import {
   issueCollectionQueryOptions,
   runInvalidatingMutation,
   unaryRouteQueryOptions,
+  unaryScopeQueryOptions,
 } from "./query-runtime.ts";
 
 describe("bootstrap query", () => {
@@ -333,5 +334,33 @@ describe("route query policy", () => {
     expect(options.refetchOnReconnect).toBe(false);
     expect(options.refetchOnWindowFocus).toBe(false);
     expect(options.placeholderData?.(previous)).toBe(previous);
+  });
+
+  it("does not bridge data across scope identities", () => {
+    const transport = createRouterTransport(() => {});
+    const queryClient = new QueryClient();
+    const firstOptions = unaryScopeQueryOptions(
+      ProjectService.method.getBoard,
+      { boardId: "board-1" },
+      transport,
+    );
+    const secondOptions = unaryScopeQueryOptions(
+      ProjectService.method.getBoard,
+      { boardId: "board-2" },
+      transport,
+    );
+    queryClient.setQueryData(
+      firstOptions.queryKey,
+      create(GetBoardResponseSchema, {
+        board: { id: "board-1", name: "First" },
+      }),
+    );
+    const observer = new QueryObserver(queryClient, firstOptions);
+
+    expect(observer.getCurrentResult().data?.board?.id).toBe("board-1");
+
+    observer.setOptions(secondOptions);
+
+    expect(observer.getCurrentResult().data).toBeUndefined();
   });
 });
