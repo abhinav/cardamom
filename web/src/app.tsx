@@ -23,7 +23,11 @@ import {
 } from "react-router";
 
 import type { AttachmentClient, ChangeClient, WebClient } from "./api.ts";
-import { BoardPickerRoute, BoardSelector } from "./board-selector.tsx";
+import {
+  BoardPickerRoute,
+  BoardSelector,
+  type BoardContextTarget,
+} from "./board-selector.tsx";
 import {
   collectionRouteLocationSearch,
   collectionRouteSearch,
@@ -92,6 +96,11 @@ const BoardRoute = lazy(() =>
 const BoardSettingsDialog = lazy(() =>
   import("./board-settings.tsx").then(({ BoardSettingsDialog }) => ({
     default: BoardSettingsDialog,
+  }))
+);
+const BoardContextDialog = lazy(() =>
+  import("./board-settings.tsx").then(({ BoardContextDialog }) => ({
+    default: BoardContextDialog,
   }))
 );
 const ConfigurationRoute = lazy(() =>
@@ -277,9 +286,14 @@ function ApplicationShell({
   const navigate = useNavigate();
   const location = useLocation();
   const collectionRoute = isCollectionRoute(location.pathname);
+  const [boardContextTarget, setBoardContextTarget] =
+    useState<BoardContextTarget>();
   const [boardSettingsBoardId, setBoardSettingsBoardId] = useState<string>();
   const selectionIdentity = scopeKey(selection);
-  useEffect(() => setBoardSettingsBoardId(undefined), [selectionIdentity]);
+  useEffect(() => {
+    setBoardContextTarget(undefined);
+    setBoardSettingsBoardId(undefined);
+  }, [selectionIdentity]);
   const selectedBoard =
     selection.kind === "board"
       ? boards.find((board) => board.id === selection.boardId)
@@ -350,10 +364,17 @@ function ApplicationShell({
             sources={sources}
             projects={projects}
             selection={selection}
+            onOpenBoardContext={(target) => {
+              setBoardSettingsBoardId(undefined);
+              setBoardContextTarget(target);
+            }}
             onOpenBoardSettings={boardSettingsOpener(
               aggregateMode,
               serverCanMutate,
-              setBoardSettingsBoardId,
+              (boardId) => {
+                setBoardContextTarget(undefined);
+                setBoardSettingsBoardId(boardId);
+              },
             )}
             onSelectScope={(nextSelection) =>
               navigate(
@@ -439,6 +460,14 @@ function ApplicationShell({
           />
         </main>
         <Suspense fallback={null}>
+          {boardContextTarget !== undefined && (
+            <BoardContextDialog
+              key={`${boardContextTarget.source?.sourceId ?? "local"}:${boardContextTarget.id}`}
+              boardId={boardContextTarget.id}
+              source={boardContextTarget.source}
+              onDismiss={() => setBoardContextTarget(undefined)}
+            />
+          )}
           {!aggregateMode && canMutateServer && boardSettingsBoardId !== undefined && (
             <BoardSettingsDialog
               key={boardSettingsBoardId}

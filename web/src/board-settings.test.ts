@@ -1,14 +1,18 @@
+import { create } from "@bufbuild/protobuf";
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it, vi } from "vitest";
 
 import {
   BoardLifecycleControls,
+  BoardContextContent,
   BoardSettingsContent,
+  boardContextRequest,
   boardSettingsLoaded,
   boardSettingsBoardId,
   boardSettingsUpdateInput,
 } from "./board-settings.tsx";
 import type { Board } from "./gen/cardamom/private/v1/project_pb.ts";
+import { SourceRefSchema } from "./gen/cardamom/private/v1/source_pb.ts";
 
 describe("Board settings workflow", () => {
   it("is available only for a concrete board selection", () => {
@@ -46,6 +50,30 @@ describe("Board settings workflow", () => {
     expect(markup).not.toContain("Add a file");
     expect(markup).not.toContain('type="file"');
     expect(markup).not.toContain(">Upload</button>");
+  });
+
+  it("renders board context without mutation controls", () => {
+    const markup = renderToStaticMarkup(
+      BoardContextContent({ board: board("Board One", "Shared context") }),
+    );
+
+    expect(markup).toContain("<h3>Board One</h3>");
+    expect(markup).toContain("<p>context</p>");
+    expect(markup).not.toContain("<button");
+    expect(markup).not.toContain("<form");
+    expect(markup).not.toContain("Archive board");
+  });
+
+  it("qualifies aggregate board context reads by source", () => {
+    const source = create(SourceRefSchema, {
+      sourceId: "builder",
+      storeLineageId: "lineage-builder",
+    });
+
+    expect(boardContextRequest("board-1", source)).toEqual({
+      boardId: "board-1",
+      source,
+    });
   });
 
   it("keeps an archived board readable without an edit action", () => {
