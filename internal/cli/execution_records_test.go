@@ -20,6 +20,7 @@ func TestClaimCommand_directIssueIncludesActorAndContext(t *testing.T) {
 	view := testIssueView("an-routine", "routine", "in_progress")
 	view.Detail.Issue.State = new("Preserve the diagnostic position.")
 	view.Detail.Issue.NextAction = new("Inspect the secondary relay.")
+	view.Context.Pins = []issue.PinnedIssue{{ID: "an-pin", Title: "Pinned issue"}}
 	request := execution.ClaimIssueRequest{
 		ID: "an-routine", Assignee: "worker-a", ContextDepth: new(0),
 	}
@@ -41,6 +42,7 @@ func TestClaimCommand_directIssueIncludesActorAndContext(t *testing.T) {
 		"board": {"description": "Shared context"},
 		"context": [],
 		"dependency_results": [],
+		"pins": [{"id":"an-pin","title":"Pinned issue"}],
 		"issue": {
 			"id": "an-routine",
 			"title": "Test issue",
@@ -65,6 +67,19 @@ func TestClaimCommand_directIssueIncludesActorAndContext(t *testing.T) {
 		}
 	}`, stdout.String())
 	assert.Empty(t, stderr.String())
+}
+
+func TestFormatIssueViewSingleLinesPinnedTitles(t *testing.T) {
+	view := testIssueView("an-task", "task", "ready")
+	view.Context.Pins = []issue.PinnedIssue{{
+		ID: "an-pin", Title: "Pinned\nissue\tname",
+	}}
+
+	assert.Contains(
+		t,
+		formatIssueView(view),
+		"Pinned issues:\n- an-pin: Pinned issue name\n",
+	)
 }
 
 func TestClaimCommand_automaticSelectionPassesPoolFilters(t *testing.T) {

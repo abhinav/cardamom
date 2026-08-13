@@ -153,6 +153,11 @@ func TestRepositoryBindsAndReadsDirectIssueKeys(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "task-1", view.Detail.Issue.ID)
 	assert.Equal(t, []string{"source:a", "source:z"}, view.Detail.Keys)
+	resolved, err := repository.ResolveExternalKey(t.Context(), "source:z")
+	require.NoError(t, err)
+	assert.Equal(t, issue.ID("task-1"), resolved)
+	_, err = repository.ResolveExternalKey(t.Context(), "")
+	assert.ErrorContains(t, err, "external key required")
 
 	_, err = planner.CreateIssue(t.Context(), issue.NewInvocation("captain"), planning.CreateIssueRequest{
 		Title: "Second", Type: "task", Priority: 2, Key: new("source:other"),

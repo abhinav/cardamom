@@ -94,6 +94,7 @@ issue.id.prefix          common-     project (project_00000000000000000000)
 issue.id.strategy        sequential  store ($WORK/repo/.git/.cardamom)
 issue.summary.max_bytes  2048        built_in (built-in)
 attachment.max_bytes     104857600   built_in (built-in)
+board.pins.max_count     8           built_in (built-in)
 -- golden/linked-board.txt --
 board_11111111111111111111
 -- golden/use-primary.txt --
@@ -142,6 +143,7 @@ issue.id.prefix          nested-     project (project_00000000000000000000)
 issue.id.strategy        sequential  store ($WORK/linked/nested/.cardamom)
 issue.summary.max_bytes  2048        built_in (built-in)
 attachment.max_bytes     104857600   built_in (built-in)
+board.pins.max_count     8           built_in (built-in)
 -- golden/nested-create.txt --
 nested-1
 -- golden/nested-list.txt --

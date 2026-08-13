@@ -60,23 +60,7 @@ func (r *Repository) resolveIssueReadID(
 	if err != nil {
 		return "", err
 	}
-	id, err := query.New(scope).BoardGetIssueIDByExternalKey(
-		ctx,
-		query.BoardGetIssueIDByExternalKeyParams{
-			BoardID: r.boardID.String(), ExternalKey: key.String(),
-		},
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", errkind.Errorf(
-			errkind.NotFound,
-			"issue not found: external key %q",
-			key,
-		)
-	}
-	if err != nil {
-		return "", err
-	}
-	return issue.ID(id), nil
+	return r.resolveExternalKey(ctx, scope, key)
 }
 
 func (r *Repository) readIssueDetail(

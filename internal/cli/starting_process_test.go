@@ -14,6 +14,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/board/selection"
 	"go.abhg.dev/cardamom/internal/errkind"
+	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/project"
 	"go.abhg.dev/komplete"
 	"go.uber.org/mock/gomock"
@@ -238,6 +239,81 @@ func TestBoardCommandsDelegateNamespaceRulesAndRenderResults(t *testing.T) {
 	})
 }
 
+func TestBoardPinCommandsDelegateSelectorsAndRenderResults(t *testing.T) {
+	value := issue.Reference{
+		ID: "an-one", Title: "Pinned\nissue\tname", Type: "task",
+		Status: "ready", Priority: 2,
+	}
+
+	t.Run("PinByKey", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		operations := &fakeBoardPinOperations{
+			pinResult: board.PinMutation{Issue: value, Changed: true},
+		}
+		app, err := New(
+			testConfig(&stdout, &stderr),
+			kong.BindTo(operations, (*BoardPinOperations)(nil)),
+		)
+		require.NoError(t, err)
+
+		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{
+			"--actor", "hooke", "board", "pin", "--key", "source:one",
+		}))
+		assert.Equal(t, "hooke", operations.actor)
+		assert.Equal(t, BoardPinRequest{Value: "source:one", Key: true}, operations.request)
+		assert.Empty(t, (&boardPinCommand{Issue: "source:one", Key: true}).referencedIssueIDs())
+		assert.Equal(t, "pinned an-one: Pinned issue name\n", stdout.String())
+		assert.Empty(t, stderr.String())
+	})
+
+	t.Run("PinRejectsEmptyKey", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		operations := &fakeBoardPinOperations{}
+		app, err := New(
+			testConfig(&stdout, &stderr),
+			kong.BindTo(operations, (*BoardPinOperations)(nil)),
+		)
+		require.NoError(t, err)
+
+		assert.Equal(t, ExitUsage, app.Run(t.Context(), []string{
+			"board", "pin", "--key", "",
+		}))
+		assert.Equal(t, BoardPinRequest{}, operations.request)
+		assert.Empty(t, stdout.String())
+		assert.Contains(t, stderr.String(), "external key must not be empty")
+	})
+
+	t.Run("ListHuman", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		operations := &fakeBoardPinOperations{pins: []issue.Reference{value}}
+		app, err := New(
+			testConfig(&stdout, &stderr),
+			kong.BindTo(operations, (*BoardPinOperations)(nil)),
+		)
+		require.NoError(t, err)
+
+		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"board", "pins"}))
+		assert.Contains(t, stdout.String(), "an-one  2    ready   task  Pinned issue name\n")
+		assert.Empty(t, stderr.String())
+	})
+
+	t.Run("ListJSONLines", func(t *testing.T) {
+		var stdout, stderr bytes.Buffer
+		operations := &fakeBoardPinOperations{pins: []issue.Reference{value}}
+		app, err := New(
+			testConfig(&stdout, &stderr),
+			kong.BindTo(operations, (*BoardPinOperations)(nil)),
+		)
+		require.NoError(t, err)
+
+		assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{
+			"--json", "board", "pins",
+		}))
+		assert.Equal(t, "{\"id\":\"an-one\",\"title\":\"Pinned\\nissue\\tname\",\"type\":\"task\",\"status\":\"ready\",\"priority\":2}\n", stdout.String())
+		assert.Empty(t, stderr.String())
+	})
+}
+
 func TestVersionCommandRendersAvailableBuildMetadata(t *testing.T) {
 	const (
 		revision  = "946440c7b34322afb39e1693431aaf1d41f3f5af"
@@ -317,6 +393,7 @@ func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 				Summary: InfoSummaryConfiguration{MaxBytes: 2048},
 			},
 			Attachment: InfoAttachmentConfiguration{MaxBytes: 104857600},
+			Board:      InfoBoardConfiguration{Pins: InfoPinConfiguration{MaxCount: 8}},
 		},
 		Revision: InfoRevision{Current: 42},
 		Issues: InfoIssueInventory{
@@ -344,7 +421,8 @@ func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 		"board":{"id":"board-one","project_id":"project-one","name":"Mission"},
 		"schema":{"database_version":12,"code_version":13},
 		"configuration":{"issue":{"id":{"prefix":"mission-","strategy":"sequential"},
-		"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600}},
+		"summary":{"max_bytes":2048}},"attachment":{"max_bytes":104857600},
+		"board":{"pins":{"max_count":8}}},
 		"revision":{"current":42},"issues":{"total":3,"by_status":[
 		{"status":"ready","count":2},{"status":"closed","count":1}]}
 	}`, stdout.String())
@@ -679,6 +757,35 @@ func (f *fakeProjectCatalog) UnarchiveBoard(
 type fakeBoardBinding struct {
 	selected board.ID
 	written  board.ID
+}
+
+type fakeBoardPinOperations struct {
+	pins      []issue.Reference
+	pinResult board.PinMutation
+	request   BoardPinRequest
+	actor     string
+}
+
+func (f *fakeBoardPinOperations) ListBoardPins(context.Context) ([]issue.Reference, error) {
+	return f.pins, nil
+}
+
+func (f *fakeBoardPinOperations) PinBoardIssue(
+	_ context.Context,
+	invocation board.Invocation,
+	request BoardPinRequest,
+) (board.PinMutation, error) {
+	f.actor = invocation.Actor()
+	f.request = request
+	return f.pinResult, nil
+}
+
+func (f *fakeBoardPinOperations) UnpinBoardIssue(
+	context.Context,
+	board.Invocation,
+	BoardPinRequest,
+) (board.PinMutation, error) {
+	return board.PinMutation{}, nil
 }
 
 func (f *fakeBoardBinding) Read() (board.ID, error) {

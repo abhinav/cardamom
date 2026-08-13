@@ -67,6 +67,18 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
+func TestWriteIssueContextSingleLinesPinnedTitles(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	output := newOutput(&stdout, &stderr, false, false)
+
+	err := writeIssueContext(output, issue.Context{Pins: []issue.PinnedIssue{{
+		ID: "an-pin", Title: "Pinned\nissue\tname",
+	}}})
+	require.NoError(t, err)
+	assert.Equal(t, "Pinned issues:\n- an-pin: Pinned issue name\n\n", stdout.String())
+	assert.Empty(t, stderr.String())
+}
+
 func TestListCommandDefaultsToNonTerminalStatuses(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	request := issue.ListRequest{
@@ -165,6 +177,7 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 			DependencyResults: []issue.DependencyResult{{
 				Issue: issue.Reference{ID: "an-dep", Title: "Dependency"}, Body: "Completed",
 			}},
+			Pins: []issue.PinnedIssue{{ID: "an-pin", Title: "Pinned issue"}},
 		},
 	}
 	request := issue.ReadRequest{IssueID: "an-current", ContextDepth: new(2)}
@@ -194,6 +207,7 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 		"dependency_results":[{
 			"issue_id":"an-dep","title":"Dependency","body":"Completed"
 		}],
+		"pins":[{"id":"an-pin","title":"Pinned issue"}],
 		"issue":{
 			"id":"an-current","title":"Current","type":"task",
 			"lifecycle":"open","status":"ready","priority":2,
