@@ -33,6 +33,31 @@ Create a child only when a bounded outcome benefits from independent custody,
 sequencing, evidence, artifact, or acceptance.
 Changing actors or ordinary execution phases is not a new outcome.
 
+## Preserve lineage when outcome boundaries change
+
+When accepted knowledge requires one outcome to split,
+several outcomes to merge,
+or an outcome to be superseded,
+publish the rationale on every issue whose current boundary will change before
+the replacement graph consumes that decision.
+Give each successor its own executable contract.
+After creating the successor,
+make every predecessor identify its successor or successors,
+and make the successor identify a predecessor when that lineage affects
+execution, recovery, or review.
+
+Carry forward the material premise, evidence, and remaining contract each
+successor needs rather than copying complete predecessor records.
+Keep the material conclusion in the applicable record;
+an issue reference supplies navigation rather than meaning.
+Changing only an actor or ordinary phase continues the same issue without
+predecessor or successor lineage.
+
+When the original outcome is no longer valid,
+follow [termination.md](termination.md) and cancel it as superseded after the
+successor contracts and navigable lineage are established.
+Do not invent a successful Result for the replaced outcome.
+
 ## Establish the executable contract
 
 Summary is the concise outcome and inherited acceptance boundary.
@@ -44,6 +69,20 @@ Record the established problem and intended behavior, owned area,
 constraints, accepted choices, and completion evidence.
 If the implementation is not established,
 define the investigation boundary and evidence needed to choose it.
+For a decision-producing investigation or experiment,
+record the question, method, applicable baseline or comparison,
+evidence or metric, stopping condition, durable artifact when one is needed,
+and decision rule before primary work.
+Include only elements that can change the decision;
+a bounded source inspection does not need invented metrics or thresholds.
+
+Define completion evidence as behavior an acceptor can observe or judge.
+For a qualitative outcome,
+record the criteria an acceptor will apply rather than an unjudgeable quality
+claim.
+When the fastest useful iterative check differs from final acceptance evidence,
+name both and do not treat the iterative check as completion.
+One check may fill both roles when it exercises the complete contract.
 If a plan is accepted,
 publish it before execution even when the planner will execute directly.
 
