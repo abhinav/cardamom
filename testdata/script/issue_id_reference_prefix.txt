@@ -1,0 +1,73 @@
+exec git init -b main
+at 2026-08-14T12:00:00Z
+exec card init --prefix ref-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card create --type workstream --key %source 'Parent workstream'
+cmp stdout $WORK/golden/parent-id.txt
+exec card create 'Dependency'
+cmp stdout $WORK/golden/dependency-id.txt
+exec card create --parent %ref-1 --depends-on %ref-2 'Child task'
+cmp stdout $WORK/golden/child-id.txt
+
+# The Markdown issue-reference marker is accepted on scalar selectors.
+exec card --json show %ref-3
+cmpjson stdout $WORK/golden/blocked-child.json
+
+# Selector flags and exact producer keys retain their distinct meanings.
+exec card board pin %ref-1
+cmp stdout $WORK/golden/pinned.txt
+exec card board pin --key %source
+cmp stdout $WORK/golden/already-pinned.txt
+exec card --json show --key %source
+cmpjson stdout $WORK/golden/keyed-parent.json
+exec card --json list --under %ref-1 --status blocked
+cmp stdout $WORK/golden/blocked-descendants.jsonl
+
+# Optional parent values and signed relationship terms strip their markers.
+exec card edit %ref-3 --parent %ref-1 --depends-on=-%ref-2
+cmp stdout $WORK/golden/edited.txt
+exec card --json show %ref-3
+cmpjson stdout $WORK/golden/ready-child.json
+
+# Structured CLI input accepts the same reference spelling for ID targets.
+exec card apply update.json
+cmp stdout $WORK/golden/applied.txt
+
+# Repeated positional IDs and repeated selector flags share the same parsing.
+exec card close %ref-2 %ref-3
+cmp stdout $WORK/golden/closed.txt
+exec card dump dump --issue %ref-1 --issue %ref-2 --no-descendants
+cmpenv stdout $WORK/golden/dumped.txt
+
+-- update.json --
+{"version":1,"on_existing":"update","issues":[{"id":"%ref-3","summary":"Updated through apply.","parent":{"id":"%ref-1"}}]}
+-- golden/parent-id.txt --
+ref-1
+-- golden/dependency-id.txt --
+ref-2
+-- golden/child-id.txt --
+ref-3
+-- golden/blocked-child.json --
+{"id":"ref-3","title":"Child task","type":"task","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1786708800,"updated":1786708800,"revision":4,"keys":[],"labels":[],"depends_on":["ref-2"],"blocks":[],"log_count":0,"blocked":true,"parent_id":"ref-1","attachments":[]}
+-- golden/ready-child.json --
+{"id":"ref-3","title":"Child task","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1786708800,"updated":1786708800,"revision":6,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":"ref-1","attachments":[]}
+-- golden/keyed-parent.json --
+{"id":"ref-1","title":"Parent workstream","type":"workstream","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1786708800,"updated":1786708800,"revision":2,"keys":["%source"],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
+-- golden/pinned.txt --
+pinned ref-1: Parent workstream
+-- golden/already-pinned.txt --
+ref-1 is already pinned: Parent workstream
+-- golden/blocked-descendants.jsonl --
+{"id":"ref-3","title":"Child task","type":"task","lifecycle":"open","status":"blocked","priority":2,"active_claim":null,"created":1786708800,"updated":1786708800,"revision":4,"labels":[],"blocked":true}
+-- golden/edited.txt --
+edited ref-3
+-- golden/applied.txt --
+applied document: 0 create, 1 update, 0 skip, 0 no change
+0	update	ref-3
+-- golden/closed.txt --
+Closed ref-2.
+Closed ref-3.
+Parent ref-1 has no open children.
+-- golden/dumped.txt --
+published 2 issues to $WORK/dump (2 written, 0 unchanged, 0 removed)

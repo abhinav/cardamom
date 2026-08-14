@@ -39,17 +39,17 @@ func (c *attachmentShowCommand) Run(
 }
 
 type attachmentListCommand struct {
-	Issue          string `name:"issue" predictor:"issues" placeholder:"ISSUE" help:"Restrict results to this originating issue."`
-	IncludeRemoved bool   `name:"include-removed" help:"Include permanently tombstoned attachment metadata."`
-	Limit          uint32 `name:"limit" placeholder:"COUNT" help:"Maximum attachments in this page. Zero selects the default limit."`
-	After          string `name:"after" placeholder:"TOKEN" help:"Continue after the opaque token returned as next_page_token."`
+	Issue          issueID `name:"issue" predictor:"issues" placeholder:"ISSUE" help:"Restrict results to this originating issue."`
+	IncludeRemoved bool    `name:"include-removed" help:"Include permanently tombstoned attachment metadata."`
+	Limit          uint32  `name:"limit" placeholder:"COUNT" help:"Maximum attachments in this page. Zero selects the default limit."`
+	After          string  `name:"after" placeholder:"TOKEN" help:"Continue after the opaque token returned as next_page_token."`
 }
 
 func (c *attachmentListCommand) referencedIssueIDs() []string {
 	if c.Issue == "" {
 		return nil
 	}
-	return []string{c.Issue}
+	return []string{c.Issue.String()}
 }
 
 // Help describes stable page selection and tombstone visibility.
@@ -66,7 +66,7 @@ func (c *attachmentListCommand) Run(
 ) error {
 	var originIssueID *issue.ID
 	if c.Issue != "" {
-		parsed, err := issue.NewID(c.Issue)
+		parsed, err := issue.NewID(c.Issue.String())
 		if err != nil {
 			return UsageErrorf("attachment list: --issue: %s", err)
 		}

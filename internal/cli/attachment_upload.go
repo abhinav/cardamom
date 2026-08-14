@@ -13,16 +13,16 @@ import (
 )
 
 type attachmentAddCommand struct {
-	Source string `arg:"" name:"source" help:"File path, or - to read standard input."`
-	Name   string `name:"name" placeholder:"NAME" help:"Portable attachment filename. Required for standard input; otherwise defaults to the source basename."`
-	Issue  string `name:"issue" predictor:"issues" placeholder:"ISSUE" help:"Originating issue ID. The association is organizational and does not restrict same-board references."`
+	Source string  `arg:"" name:"source" help:"File path, or - to read standard input."`
+	Name   string  `name:"name" placeholder:"NAME" help:"Portable attachment filename. Required for standard input; otherwise defaults to the source basename."`
+	Issue  issueID `name:"issue" predictor:"issues" placeholder:"ISSUE" help:"Originating issue ID. The association is organizational and does not restrict same-board references."`
 }
 
 func (c *attachmentAddCommand) referencedIssueIDs() []string {
 	if c.Issue == "" {
 		return nil
 	}
-	return []string{c.Issue}
+	return []string{c.Issue.String()}
 }
 
 // Help describes bounded upload input and the emitted Markdown references.
@@ -56,7 +56,7 @@ func (c *attachmentAddCommand) Run(
 		return err
 	}
 	if c.Issue != "" {
-		originIssueID, parseErr := issue.NewID(c.Issue)
+		originIssueID, parseErr := issue.NewID(c.Issue.String())
 		if parseErr != nil {
 			return UsageErrorf("attachment add: --issue: %s", parseErr)
 		}

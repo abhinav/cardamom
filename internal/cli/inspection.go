@@ -13,7 +13,7 @@ import (
 )
 
 type listCommand struct {
-	UnderID     string     `name:"under" predictor:"issues" placeholder:"ISSUE" help:"List strict containment descendants of this issue."`
+	UnderID     issueID    `name:"under" predictor:"issues" placeholder:"ISSUE" help:"List strict containment descendants of this issue."`
 	Statuses    []string   `name:"status" sep:"," enum:"ready,blocked,in_progress,waiting,closed,cancelled" placeholder:"STATUS" help:"Effective issue status to include: ready, blocked, in_progress, waiting, closed, or cancelled. Repeat or separate values with commas to match any status. Defaults to ready, blocked, in_progress, and waiting."`
 	Assignee    *string    `name:"assignee" placeholder:"ACTOR" help:"Match active custody by this actor."`
 	Type        string     `name:"type" placeholder:"TYPE" help:"Match one issue type: workstream, task, checkpoint, or routine."`
@@ -30,7 +30,7 @@ func (c *listCommand) referencedIssueIDs() []string {
 	if c.UnderID == "" {
 		return nil
 	}
-	return []string{c.UnderID}
+	return []string{c.UnderID.String()}
 }
 
 func (*listCommand) Help() string {
@@ -74,7 +74,7 @@ func (c *listCommand) Run(inv *Invocation, operation ListIssuesOperation) error 
 		}
 	}
 	result, err := operation.ListIssues(inv.Context, issue.ListRequest{
-		UnderID: c.UnderID, Statuses: statuses, Assignee: c.Assignee,
+		UnderID: c.UnderID.String(), Statuses: statuses, Assignee: c.Assignee,
 		Type: c.Type, LabelsAll: c.Labels.add, LabelsAny: c.LabelsAny,
 		LabelsNone: c.Labels.remove,
 		NoAssignee: c.NoAssignee, TitleRegexp: titleRegexp,
@@ -179,7 +179,7 @@ func (c *showCommand) referencedIssueIDs() []string {
 	if c.Key {
 		return nil
 	}
-	return []string{c.ID}
+	return []string{issueIDReference(c.ID)}
 }
 
 func (*showCommand) Help() string {
@@ -203,7 +203,7 @@ func (c *showCommand) Run(inv *Invocation, operation ReadIssueOperation) error {
 	if c.Context {
 		depth = &c.ContextDepth
 	}
-	request := issue.ReadRequest{IssueID: c.ID, ContextDepth: depth}
+	request := issue.ReadRequest{IssueID: issueIDReference(c.ID), ContextDepth: depth}
 	if c.Key {
 		request.IssueID = ""
 		request.Key = c.ID
