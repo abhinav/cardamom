@@ -31,7 +31,7 @@ func (c *boardPinCommand) referencedIssueIDs() []string {
 	if c.Key {
 		return nil
 	}
-	return []string{c.Issue}
+	return []string{issueIDReference(c.Issue)}
 }
 
 func (*boardPinCommand) Help() string {
@@ -63,7 +63,7 @@ func (c *boardUnpinCommand) referencedIssueIDs() []string {
 	if c.Key {
 		return nil
 	}
-	return []string{c.Issue}
+	return []string{issueIDReference(c.Issue)}
 }
 
 func (*boardUnpinCommand) Help() string {
@@ -87,10 +87,17 @@ func (c *boardUnpinCommand) Run(invocation *Invocation, operations BoardPinOpera
 }
 
 func newBoardPinRequest(value string, key bool) (BoardPinRequest, error) {
-	if key && value == "" {
-		return BoardPinRequest{}, UsageErrorf("external key must not be empty")
+	if key {
+		if value == "" {
+			return BoardPinRequest{}, UsageErrorf("external key must not be empty")
+		}
+		return BoardPinRequest{Value: value, Key: true}, nil
 	}
-	return BoardPinRequest{Value: value, Key: key}, nil
+	parsed, err := parseIssueID(value)
+	if err != nil {
+		return BoardPinRequest{}, UsageErrorf("%v", err)
+	}
+	return BoardPinRequest{Value: parsed.String()}, nil
 }
 
 type boardPinsCommand struct{}

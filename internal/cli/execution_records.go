@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"slices"
 	"strings"
 
 	"go.abhg.dev/cardamom/internal/issue"
@@ -25,8 +24,8 @@ type ClaimOperations interface {
 var _ ClaimOperations = (*execution.Executor)(nil)
 
 type claimCommand struct {
-	ID        string     `arg:"" optional:"" name:"id" predictor:"issues" help:"Issue to claim directly. Routines may be claimed only by ID."`
-	Under     string     `name:"under" predictor:"issues" placeholder:"ISSUE" help:"Limit automatic selection to strict descendants of this issue."`
+	ID        issueID    `arg:"" optional:"" name:"id" predictor:"issues" help:"Issue to claim directly. Routines may be claimed only by ID."`
+	Under     issueID    `name:"under" predictor:"issues" placeholder:"ISSUE" help:"Limit automatic selection to strict descendants of this issue."`
 	Labels    labelTerms `name:"label" short:"l" predictor:"labels" placeholder:"TERM" help:"Label term for automatic selection. No prefix or + requires; - excludes. Repeat for multiple labels."`
 	LabelsAny []string   `name:"label-any" predictor:"labels" placeholder:"LABEL" help:"Alternative label during automatic selection. Repeat to require at least one."`
 	Context   bool       `name:"context" help:"Include shared and inherited current context."`
@@ -35,12 +34,12 @@ type claimCommand struct {
 
 func (c *claimCommand) referencedIssueIDs() []string {
 	if c.ID != "" {
-		return []string{c.ID}
+		return []string{c.ID.String()}
 	}
 	if c.Under == "" {
 		return nil
 	}
-	return []string{c.Under}
+	return []string{c.Under.String()}
 }
 
 // Help explains direct and automatic claim selection.
@@ -71,11 +70,11 @@ func (c *claimCommand) Run(inv *Invocation, operations ClaimOperations) error {
 	var err error
 	if c.ID != "" {
 		result, err = operations.ClaimIssue(inv.Context, domainInvocation, execution.ClaimIssueRequest{
-			ID: c.ID, Assignee: inv.Actor, ContextDepth: contextDepth,
+			ID: c.ID.String(), Assignee: inv.Actor, ContextDepth: contextDepth,
 		})
 	} else {
 		result, err = operations.ClaimNext(inv.Context, domainInvocation, execution.ClaimNextRequest{
-			UnderID: c.Under, Assignee: inv.Actor,
+			UnderID: c.Under.String(), Assignee: inv.Actor,
 			LabelsAll: c.Labels.add, LabelsAny: c.LabelsAny,
 			LabelsNone: c.Labels.remove,
 			Watch:      c.Watch, ContextDepth: contextDepth,
@@ -101,11 +100,11 @@ type ReleaseOperations interface {
 var _ ReleaseOperations = (*execution.Executor)(nil)
 
 type releaseCommand struct {
-	ID      string  `arg:"" name:"id" predictor:"issues" help:"Issue whose active claim will be released."`
+	ID      issueID `arg:"" name:"id" predictor:"issues" help:"Issue whose active claim will be released."`
 	Waiting *string `name:"waiting" placeholder:"REASON" help:"Release into waiting status with this required plain-text reason."`
 }
 
-func (c *releaseCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *releaseCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes actor-owned custody release.
 func (*releaseCommand) Help() string {
@@ -117,7 +116,7 @@ func (c *releaseCommand) Run(inv *Invocation, operations ReleaseOperations) erro
 	result, err := operations.ReleaseIssue(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		execution.ReleaseIssueRequest{ID: c.ID, WaitingReason: c.Waiting},
+		execution.ReleaseIssueRequest{ID: c.ID.String(), WaitingReason: c.Waiting},
 	)
 	if err != nil {
 		return err
@@ -139,10 +138,10 @@ type CloseOperations interface {
 var _ CloseOperations = (*execution.Executor)(nil)
 
 type closeCommand struct {
-	IDs []string `arg:"" name:"id" help:"Issues to close in the requested order."`
+	IDs []issueID `arg:"" name:"id" help:"Issues to close in the requested order."`
 }
 
-func (c *closeCommand) referencedIssueIDs() []string { return slices.Clone(c.IDs) }
+func (c *closeCommand) referencedIssueIDs() []string { return issueIDStrings(c.IDs) }
 
 // Help describes lifecycle constraints not carried by the command summary.
 func (*closeCommand) Help() string {
@@ -155,7 +154,7 @@ func (c *closeCommand) Run(inv *Invocation, operations CloseOperations) error {
 	result, err := operations.CloseIssues(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		execution.CloseIssuesRequest{IDs: c.IDs},
+		execution.CloseIssuesRequest{IDs: issueIDStrings(c.IDs)},
 	)
 	if err != nil {
 		return err
@@ -179,10 +178,10 @@ type CancelOperations interface {
 var _ CancelOperations = (*execution.Executor)(nil)
 
 type cancelCommand struct {
-	IDs []string `arg:"" name:"id" help:"Root issues to cancel."`
+	IDs []issueID `arg:"" name:"id" help:"Root issues to cancel."`
 }
 
-func (c *cancelCommand) referencedIssueIDs() []string { return slices.Clone(c.IDs) }
+func (c *cancelCommand) referencedIssueIDs() []string { return issueIDStrings(c.IDs) }
 
 // Help describes cancellation propagation.
 func (*cancelCommand) Help() string {
@@ -194,7 +193,7 @@ func (c *cancelCommand) Run(inv *Invocation, operations CancelOperations) error 
 	result, err := operations.CancelIssues(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		execution.CancelIssuesRequest{Roots: c.IDs},
+		execution.CancelIssuesRequest{Roots: issueIDStrings(c.IDs)},
 	)
 	if err != nil {
 		return err
@@ -225,10 +224,10 @@ type ReopenOperations interface {
 var _ ReopenOperations = (*execution.Executor)(nil)
 
 type reopenCommand struct {
-	IDs []string `arg:"" name:"id" help:"Terminal issues to reopen in the requested order."`
+	IDs []issueID `arg:"" name:"id" help:"Terminal issues to reopen in the requested order."`
 }
 
-func (c *reopenCommand) referencedIssueIDs() []string { return slices.Clone(c.IDs) }
+func (c *reopenCommand) referencedIssueIDs() []string { return issueIDStrings(c.IDs) }
 
 // Help describes reopening without changing custody or prerequisites.
 func (*reopenCommand) Help() string {
@@ -240,7 +239,7 @@ func (c *reopenCommand) Run(inv *Invocation, operations ReopenOperations) error 
 	result, err := operations.ReopenIssues(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		execution.ReopenIssuesRequest{IDs: c.IDs},
+		execution.ReopenIssuesRequest{IDs: issueIDStrings(c.IDs)},
 	)
 	if err != nil {
 		return err
@@ -289,11 +288,11 @@ type CheckpointOperations interface {
 var _ CheckpointOperations = (*execution.Executor)(nil)
 
 type checkpointApproveCommand struct {
-	ID     string  `arg:"" name:"id" help:"Checkpoint to approve."`
+	ID     issueID `arg:"" name:"id" help:"Checkpoint to approve."`
 	Reason *string `name:"reason" placeholder:"MARKDOWN" help:"Optional Markdown reason. Use - to read standard input."`
 }
 
-func (c *checkpointApproveCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *checkpointApproveCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes successful checkpoint resolution.
 func (*checkpointApproveCommand) Help() string {
@@ -309,17 +308,17 @@ func (c *checkpointApproveCommand) Run(inv *Invocation, markdown *MarkdownInput,
 	result, err := operations.ApproveCheckpoint(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		execution.CheckpointRequest{IssueID: c.ID, Reason: reason},
+		execution.CheckpointRequest{IssueID: c.ID.String(), Reason: reason},
 	)
-	return renderCheckpointResult(inv.Output, c.ID, true, result, err)
+	return renderCheckpointResult(inv.Output, c.ID.String(), true, result, err)
 }
 
 type checkpointDenyCommand struct {
-	ID     string  `arg:"" name:"id" help:"Checkpoint to deny."`
+	ID     issueID `arg:"" name:"id" help:"Checkpoint to deny."`
 	Reason *string `name:"reason" placeholder:"MARKDOWN" help:"Optional Markdown reason. Use - to read standard input."`
 }
 
-func (c *checkpointDenyCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *checkpointDenyCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes failed checkpoint resolution.
 func (*checkpointDenyCommand) Help() string {
@@ -335,9 +334,9 @@ func (c *checkpointDenyCommand) Run(inv *Invocation, markdown *MarkdownInput, op
 	result, err := operations.DenyCheckpoint(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		execution.CheckpointRequest{IssueID: c.ID, Reason: reason},
+		execution.CheckpointRequest{IssueID: c.ID.String(), Reason: reason},
 	)
-	return renderCheckpointResult(inv.Output, c.ID, false, result, err)
+	return renderCheckpointResult(inv.Output, c.ID.String(), false, result, err)
 }
 
 func renderCheckpointResult(output *Output, id string, approved bool, result execution.ResolveCheckpointResult, err error) error {
@@ -389,11 +388,11 @@ type LogEntryWriteOperations interface {
 var _ LogEntryWriteOperations = (*record.Recorder)(nil)
 
 type logPostCommand struct {
-	ID   string  `arg:"" name:"id" help:"Issue receiving the log entry."`
+	ID   issueID `arg:"" name:"id" help:"Issue receiving the log entry."`
 	Body *string `arg:"" optional:"" name:"body" help:"Markdown body. Use - or omit with piped input to read standard input."`
 }
 
-func (c *logPostCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *logPostCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes immutable log input and attribution.
 func (*logPostCommand) Help() string {
@@ -412,7 +411,7 @@ func (c *logPostCommand) Run(inv *Invocation, markdown *MarkdownInput, operation
 	result, err := operations.AddLogEntry(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		record.AddLogEntryRequest{IssueID: c.ID, Body: body},
+		record.AddLogEntryRequest{IssueID: c.ID.String(), Body: body},
 	)
 	if err != nil {
 		return err
@@ -431,12 +430,12 @@ type LogEntryReadOperations interface {
 var _ LogEntryReadOperations = (*record.Recorder)(nil)
 
 type logShowCommand struct {
-	ID          string `arg:"" name:"id" help:"Issue whose log entries will be shown."`
-	Limit       int    `name:"limit" default:"0" placeholder:"COUNT" help:"Maximum entries after ordering; 0 lists all."`
-	OldestFirst bool   `name:"oldest-first" help:"Show entries in chronological order."`
+	ID          issueID `arg:"" name:"id" help:"Issue whose log entries will be shown."`
+	Limit       int     `name:"limit" default:"0" placeholder:"COUNT" help:"Maximum entries after ordering; 0 lists all."`
+	OldestFirst bool    `name:"oldest-first" help:"Show entries in chronological order."`
 }
 
-func (c *logShowCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *logShowCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes durable log ordering and limits.
 func (*logShowCommand) Help() string {
@@ -446,7 +445,7 @@ func (*logShowCommand) Help() string {
 // Run shows log entries as human records or JSON Lines.
 func (c *logShowCommand) Run(inv *Invocation, operations LogEntryReadOperations) error {
 	entries, err := operations.ListLogEntries(inv.Context, issue.LogListRequest{
-		IssueID: c.ID, Reverse: !c.OldestFirst, Limit: c.Limit,
+		IssueID: c.ID.String(), Reverse: !c.OldestFirst, Limit: c.Limit,
 	})
 	if err != nil {
 		return err
@@ -514,12 +513,12 @@ type StateWriteOperations interface {
 var _ StateWriteOperations = (*record.Recorder)(nil)
 
 type stateSetCommand struct {
-	ID   string  `arg:"" name:"id" help:"Issue whose State will be set or cleared."`
+	ID   issueID `arg:"" name:"id" help:"Issue whose State will be set or cleared."`
 	Text *string `arg:"" optional:"" name:"text" help:"State body Markdown. Use - or omit with piped input to read standard input."`
 	Next *string `name:"next" placeholder:"ACTION" help:"Optional next-action Markdown. Use - to read standard input."`
 }
 
-func (c *stateSetCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *stateSetCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes State setting and explicit removal.
 func (*stateSetCommand) Help() string {
@@ -562,18 +561,18 @@ func (c *stateSetCommand) Run(inv *Invocation, markdown *MarkdownInput, operatio
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
 		record.SetStateRequest{
-			IssueID: c.ID, Text: text, NextAction: nextAction,
+			IssueID: c.ID.String(), Text: text, NextAction: nextAction,
 		},
 	)
 	return renderStateMutation(inv.Output, "Set state on", result, err)
 }
 
 type stateAppendCommand struct {
-	ID   string  `arg:"" name:"id" help:"Issue whose state will be extended."`
+	ID   issueID `arg:"" name:"id" help:"Issue whose state will be extended."`
 	Text *string `arg:"" optional:"" name:"text" help:"Markdown to append. Use - or omit with piped input to read standard input."`
 }
 
-func (c *stateAppendCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *stateAppendCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes state append input and separation.
 func (*stateAppendCommand) Help() string {
@@ -595,7 +594,7 @@ func (c *stateAppendCommand) Run(inv *Invocation, markdown *MarkdownInput, opera
 	result, err := operations.AppendState(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		record.SetStateRequest{IssueID: c.ID, Text: text},
+		record.SetStateRequest{IssueID: c.ID.String(), Text: text},
 	)
 	return renderStateMutation(inv.Output, "Appended state on", result, err)
 }
@@ -618,10 +617,10 @@ type StateReadOperations interface {
 var _ StateReadOperations = (*record.Recorder)(nil)
 
 type stateShowCommand struct {
-	ID string `arg:"" name:"id" help:"Issue whose mutable state will be shown."`
+	ID issueID `arg:"" name:"id" help:"Issue whose mutable state will be shown."`
 }
 
-func (c *stateShowCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *stateShowCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes reading only the current mutable state.
 func (*stateShowCommand) Help() string {
@@ -630,7 +629,7 @@ func (*stateShowCommand) Help() string {
 
 // Run reads and renders one issue state.
 func (c *stateShowCommand) Run(inv *Invocation, operations StateReadOperations) error {
-	result, err := operations.GetState(inv.Context, record.GetStateRequest{IssueID: c.ID})
+	result, err := operations.GetState(inv.Context, record.GetStateRequest{IssueID: c.ID.String()})
 	if err != nil {
 		return err
 	}
@@ -658,12 +657,12 @@ type StateCommitOperations interface {
 var _ StateCommitOperations = (*record.Recorder)(nil)
 
 type stateCommitCommand struct {
-	ID   string  `arg:"" name:"id" help:"Issue whose current State will be committed."`
+	ID   issueID `arg:"" name:"id" help:"Issue whose current State will be committed."`
 	Set  *string `name:"set" placeholder:"MARKDOWN" help:"State body after the commit. Use - to read standard input."`
 	Next *string `name:"next" placeholder:"ACTION" help:"Optional next-action Markdown for a non-empty --set. Use - to read standard input."`
 }
 
-func (c *stateCommitCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *stateCommitCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes the atomic State disposition selected by each flag.
 func (*stateCommitCommand) Help() string {
@@ -677,7 +676,7 @@ func (c *stateCommitCommand) Run(
 	operations StateCommitOperations,
 ) error {
 	request := record.CommitStateRequest{
-		IssueID:     c.ID,
+		IssueID:     c.ID.String(),
 		Disposition: record.CommitStateClear,
 	}
 	if c.Next != nil && c.Set == nil {
@@ -766,11 +765,11 @@ type ResultWriteOperations interface {
 var _ ResultWriteOperations = (*record.Recorder)(nil)
 
 type resultSetCommand struct {
-	ID   string  `arg:"" name:"id" help:"Issue whose result will be set."`
+	ID   issueID `arg:"" name:"id" help:"Issue whose result will be set."`
 	Body *string `arg:"" optional:"" name:"body" help:"Result Markdown. Use - or omit with piped input to read standard input."`
 }
 
-func (c *resultSetCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *resultSetCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes durable result input.
 func (*resultSetCommand) Help() string {
@@ -789,7 +788,7 @@ func (c *resultSetCommand) Run(inv *Invocation, markdown *MarkdownInput, operati
 	result, err := operations.SetResult(
 		inv.Context,
 		issue.NewInvocation(inv.Actor),
-		record.SetResultRequest{IssueID: c.ID, Body: body},
+		record.SetResultRequest{IssueID: c.ID.String(), Body: body},
 	)
 	if err != nil {
 		return err
@@ -808,10 +807,10 @@ type ResultReadOperations interface {
 var _ ResultReadOperations = (*record.Recorder)(nil)
 
 type resultShowCommand struct {
-	ID string `arg:"" name:"id" help:"Issue whose durable result will be shown."`
+	ID issueID `arg:"" name:"id" help:"Issue whose durable result will be shown."`
 }
 
-func (c *resultShowCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *resultShowCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 // Help describes finite result retrieval.
 func (*resultShowCommand) Help() string {
@@ -820,7 +819,7 @@ func (*resultShowCommand) Help() string {
 
 // Run reads and renders one result.
 func (c *resultShowCommand) Run(inv *Invocation, operations ResultReadOperations) error {
-	result, err := operations.GetResult(inv.Context, record.GetResultRequest{IssueID: c.ID})
+	result, err := operations.GetResult(inv.Context, record.GetResultRequest{IssueID: c.ID.String()})
 	if err != nil {
 		return err
 	}

@@ -2,19 +2,18 @@ package cli
 
 import (
 	"context"
-	"slices"
 
 	"go.abhg.dev/cardamom/internal/dump"
 )
 
 type dumpCommand struct {
-	Directory     string   `arg:"" name:"directory" type:"path" help:"Directory to create or update."`
-	Issues        []string `name:"issue" predictor:"issues" placeholder:"ISSUE" help:"Issue root to publish. Repeat for multiple roots."`
-	NoDescendants bool     `name:"no-descendants" help:"Publish only named issues, without containment descendants."`
-	Force         bool     `name:"force" help:"Replace recognized generated files modified after publication."`
+	Directory     string    `arg:"" name:"directory" type:"path" help:"Directory to create or update."`
+	Issues        []issueID `name:"issue" predictor:"issues" placeholder:"ISSUE" help:"Issue root to publish. Repeat for multiple roots."`
+	NoDescendants bool      `name:"no-descendants" help:"Publish only named issues, without containment descendants."`
+	Force         bool      `name:"force" help:"Replace recognized generated files modified after publication."`
 }
 
-func (c *dumpCommand) referencedIssueIDs() []string { return slices.Clone(c.Issues) }
+func (c *dumpCommand) referencedIssueIDs() []string { return issueIDStrings(c.Issues) }
 
 func (*dumpCommand) Help() string {
 	return "Publish a deterministic Markdown view of a board or selected containment subtrees."
@@ -32,9 +31,10 @@ func (c *dumpCommand) Run(inv *Invocation, operation DumpOperation) error {
 	}
 	selection := dump.WholeBoard()
 	if len(c.Issues) > 0 {
-		selection = dump.SelectedIssues(c.Issues...)
+		issueIDs := issueIDStrings(c.Issues)
+		selection = dump.SelectedIssues(issueIDs...)
 		if c.NoDescendants {
-			selection = dump.NamedIssuesOnly(c.Issues...)
+			selection = dump.NamedIssuesOnly(issueIDs...)
 		}
 	}
 	force := dump.PreserveGenerated

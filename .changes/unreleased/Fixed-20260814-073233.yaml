@@ -1,0 +1,3 @@
+kind: Fixed
+body: Accept an optional `%` prefix on CLI issue ID references.
+time: 2026-08-14T07:32:33.153381-07:00

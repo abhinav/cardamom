@@ -64,7 +64,21 @@ func (l *labelTerms) decode(ctx *kong.DecodeContext, kind string) error {
 type dependencyTerms labelTerms
 
 func (d *dependencyTerms) Decode(ctx *kong.DecodeContext) error {
-	return (*labelTerms)(d).decode(ctx, "dependency")
+	addStart := len(d.add)
+	removeStart := len(d.remove)
+	if err := (*labelTerms)(d).decode(ctx, "dependency"); err != nil {
+		return err
+	}
+	for _, values := range [][]string{d.add[addStart:], d.remove[removeStart:]} {
+		for i, value := range values {
+			parsed, err := parseIssueID(value)
+			if err != nil {
+				return err
+			}
+			values[i] = parsed.String()
+		}
+	}
+	return nil
 }
 
 type createCommand struct {
@@ -72,8 +86,8 @@ type createCommand struct {
 	Type      string     `name:"type" default:"task" enum:"workstream,task,checkpoint,routine" placeholder:"TYPE" help:"Issue type. Defaults to task."`
 	Priority  int        `name:"priority" default:"2" placeholder:"PRIORITY" help:"Priority from 0 (highest) through 4 (lowest). Defaults to 2."`
 	Labels    labelTerms `name:"label" placeholder:"TERM" help:"Label term to attach. No prefix or + adds; - is invalid. Repeat for multiple labels."`
-	DependsOn []string   `name:"depends-on" placeholder:"ISSUE" help:"Prerequisite issue ID. Repeat for multiple prerequisites."`
-	Parent    string     `name:"parent" placeholder:"ISSUE" help:"Containment parent issue ID."`
+	DependsOn []issueID  `name:"depends-on" placeholder:"ISSUE" help:"Prerequisite issue ID. Repeat for multiple prerequisites."`
+	Parent    issueID    `name:"parent" placeholder:"ISSUE" help:"Containment parent issue ID."`
 	Summary   string     `name:"summary" placeholder:"MARKDOWN" help:"Concise Markdown issue summary."`
 	Details   string     `name:"details" placeholder:"MARKDOWN" help:"Expanded Markdown issue details."`
 	Key       *string    `name:"key" placeholder:"KEY" help:"Exact producer key to bind."`
@@ -97,7 +111,7 @@ func (c *createCommand) Run(inv *Invocation, operation CreateIssueOperation) err
 	}
 	result, err := operation.CreateIssue(inv.Context, issue.NewInvocation(inv.Actor), planning.CreateIssueRequest{
 		Title: c.Title, Type: c.Type, Priority: c.Priority,
-		Labels: c.Labels.add, DependsOn: c.DependsOn, Parent: c.Parent,
+		Labels: c.Labels.add, DependsOn: issueIDStrings(c.DependsOn), Parent: c.Parent.String(),
 		Summary: c.Summary, Details: c.Details,
 		Key: c.Key,
 	})
@@ -131,7 +145,8 @@ present fields.
 
 Issue object fields:
   alias: optional local reference token; trimmed, unique, and has no whitespace.
-  id: optional existing issue ID matching [A-Za-z0-9][A-Za-z0-9-]*.
+  id: optional existing issue ID. Accepts ISSUE or %ISSUE; the canonical ID
+      after the optional marker matches [A-Za-z0-9][A-Za-z0-9-]*.
   key: optional non-empty exact producer string; unique in the document and
        scoped to the selected board.
   title: optional string; trimmed and nonblank when present.
@@ -148,7 +163,8 @@ Label strings are trimmed, nonempty, and cannot start with + or -.
 
 An issue reference contains exactly one string field:
   {"alias":"TOKEN"} selects an entry's document-local alias.
-  {"id":"ISSUE"} selects a durable issue in the selected board.
+  {"id":"ISSUE"} selects a durable issue in the selected board; %ISSUE is
+                 accepted as equivalent CLI input.
   {"key":"STRING"} selects an exact board-scoped producer key.
 
 New issues require title and type. Omitted priority defaults to 2; omitted
@@ -221,10 +237,32 @@ func readApplyDocument(inv *Invocation, filename string) (*cardamomv1.ApplyDocum
 	if err := (protojson.UnmarshalOptions{DiscardUnknown: false}).Unmarshal(body, &document); err != nil {
 		return nil, UsageErrorf("decode apply document: %v", err)
 	}
+	normalizeApplyDocumentIssueIDs(&document)
 	if err := protovalidate.Validate(&document); err != nil {
 		return nil, UsageErrorf("validate apply document: %v", err)
 	}
 	return &document, nil
+}
+
+func normalizeApplyDocumentIssueIDs(document *cardamomv1.ApplyDocument) {
+	for _, entry := range document.GetIssues() {
+		if entry == nil {
+			continue
+		}
+		if entry.Id != nil {
+			*entry.Id = strings.TrimPrefix(*entry.Id, "%")
+		}
+		normalizeApplyIssueReference(entry.GetParent())
+		for _, dependency := range entry.GetDependsOn().GetValues() {
+			normalizeApplyIssueReference(dependency)
+		}
+	}
+}
+
+func normalizeApplyIssueReference(reference *cardamomv1.IssueReference) {
+	if target, ok := reference.GetTarget().(*cardamomv1.IssueReference_Id); ok {
+		target.Id = strings.TrimPrefix(target.Id, "%")
+	}
 }
 
 func renderApplyReceipt(output *Output, result planning.ApplyReceipt) error {
@@ -415,19 +453,19 @@ func applyReceiptMessage(value planning.ApplyReceipt) *cardamomv1.ApplyReceipt {
 }
 
 type issueEditCommand struct {
-	ID           string          `arg:"" name:"id" predictor:"issues" help:"Issue ID."`
-	Title        *string         `name:"title" placeholder:"TITLE" help:"Replacement title."`
-	Type         *string         `name:"type" enum:"workstream,task,routine" placeholder:"TYPE" help:"Replacement executable issue type."`
-	Priority     *int            `name:"priority" placeholder:"PRIORITY" help:"Replacement priority from 0 through 4."`
-	Summary      *string         `name:"summary" placeholder:"MARKDOWN" help:"Replacement Markdown summary. Use an empty value to clear it."`
-	Details      *string         `name:"details" placeholder:"MARKDOWN" help:"Replacement Markdown details. Use an empty value to clear it."`
-	Parent       *string         `name:"parent" placeholder:"ISSUE" help:"Replacement containment parent issue ID. Use an empty value to clear it."`
-	Dependencies dependencyTerms `name:"depends-on" placeholder:"TERM" help:"Prerequisite term. No prefix or + adds; - removes. Repeat for multiple issues."`
-	Labels       labelTerms      `name:"label" placeholder:"TERM" help:"Label term. No prefix or + adds; - removes. Repeat for multiple labels."`
-	Key          *string         `name:"key" placeholder:"KEY" help:"Exact producer key to bind."`
+	ID           issueID          `arg:"" name:"id" predictor:"issues" help:"Issue ID."`
+	Title        *string          `name:"title" placeholder:"TITLE" help:"Replacement title."`
+	Type         *string          `name:"type" enum:"workstream,task,routine" placeholder:"TYPE" help:"Replacement executable issue type."`
+	Priority     *int             `name:"priority" placeholder:"PRIORITY" help:"Replacement priority from 0 through 4."`
+	Summary      *string          `name:"summary" placeholder:"MARKDOWN" help:"Replacement Markdown summary. Use an empty value to clear it."`
+	Details      *string          `name:"details" placeholder:"MARKDOWN" help:"Replacement Markdown details. Use an empty value to clear it."`
+	Parent       *optionalIssueID `name:"parent" placeholder:"ISSUE" help:"Replacement containment parent issue ID. Use an empty value to clear it."`
+	Dependencies dependencyTerms  `name:"depends-on" placeholder:"TERM" help:"Prerequisite term. No prefix or + adds; - removes. Repeat for multiple issues."`
+	Labels       labelTerms       `name:"label" placeholder:"TERM" help:"Label term. No prefix or + adds; - removes. Repeat for multiple labels."`
+	Key          *string          `name:"key" placeholder:"KEY" help:"Exact producer key to bind."`
 }
 
-func (c *issueEditCommand) referencedIssueIDs() []string { return []string{c.ID} }
+func (c *issueEditCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
 
 func (*issueEditCommand) Help() string {
 	return `Atomically edit requested scalar fields, labels, prerequisites, and containment.
@@ -442,12 +480,12 @@ type EditIssueOperation interface {
 }
 
 func (c *issueEditCommand) Run(inv *Invocation, operation EditIssueOperation) error {
-	parent := c.Parent
+	parent := optionalIssueIDString(c.Parent)
 	if parent != nil && *parent == "" {
 		parent = nil
 	}
 	result, err := operation.EditIssue(inv.Context, issue.NewInvocation(inv.Actor), planning.EditIssueRequest{
-		ID: c.ID, Title: c.Title, Type: c.Type, Priority: c.Priority,
+		ID: c.ID.String(), Title: c.Title, Type: c.Type, Priority: c.Priority,
 		Summary: c.Summary, SummarySet: c.Summary != nil,
 		Details: c.Details, DetailsSet: c.Details != nil,
 		Parent: parent, ParentSet: c.Parent != nil,
