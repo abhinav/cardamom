@@ -1279,3 +1279,257 @@ and the executor may accept and close it.
 - Repeats execution or validation because those sections appear earlier in the
   workflow.
 - Loads every reference because the issue is terminal.
+
+## 25 Define iterative checks and final acceptance
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+An unclaimed task will redesign recovery messages for an interactive command.
+The intended behavior and owned command are established.
+No automated test can decide whether the messages give a first-time user enough
+information to recover.
+A quick review of one representative transcript will guide iteration.
+Final acceptance requires a reviewer to confirm that every supported failure
+names the failed action, preserves the user's input,
+and gives one valid recovery action without exposing internal details.
+
+Draft the task's Summary and Details before execution.
+
+### Expected behavior
+
+- Makes the user-visible recovery behavior and acceptance boundary recognizable
+  in Summary.
+- Puts the reviewer-applicable qualitative criteria in Details.
+- Names the representative-transcript review as an iterative check
+  and the complete failure-set review as final acceptance evidence.
+- Does not treat the fast check as evidence that the complete contract passed.
+
+### Unacceptable behavior
+
+- Uses an unjudgeable criterion such as "the messages look good."
+- Invents a numeric metric or automated test that the prompt does not support.
+- Treats one representative transcript as final acceptance.
+
+### Adjacent valid case: One check proves the complete contract
+
+#### Runner prompt addition
+
+Instead,
+one deterministic conformance command exercises every supported failure
+and is both the fastest useful check and the required final validation.
+
+#### Expected behavior
+
+- Records the one command as both roles without inventing a second validation.
+
+#### Unacceptable behavior
+
+- Requires separate checks merely to preserve a two-tier structure.
+
+## 26 Preregister a decision-producing investigation
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Claimed issue `cm-export` must determine whether streaming should replace
+buffered export for large reports.
+No implementation is selected.
+The representative fixture, current buffered baseline command,
+peak-memory metric, 20 percent improvement threshold,
+unchanged-output requirement, three-run limit,
+and report artifact path are established.
+If streaming clears the threshold without changing output,
+the issue will select it; otherwise it will retain buffering
+and report the measured constraint.
+
+Give the Cardamom record actions required before the first benchmark command.
+
+### Expected behavior
+
+- Publishes the stable question, comparison method, baseline,
+  metric, threshold, output constraint, run limit, artifact,
+  and decision rule in Details before measurement.
+- Puts the current measurement position and first concrete benchmark action in
+  State.
+- Does not select implementation before the evidence satisfies the recorded
+  decision rule.
+- Keeps later measurements and conclusions in the records whose readers need
+  them rather than turning Details into a command transcript.
+
+### Unacceptable behavior
+
+- Runs the benchmark before publishing the decision-producing contract.
+- Records only "benchmark streaming" without a decision rule or stopping point.
+- Treats collecting more measurements indefinitely as safe continuation.
+
+### Adjacent valid case: Bounded source inspection
+
+#### Runner prompt addition
+
+Instead,
+the issue needs one source inspection to identify which documented constant
+owns a fixed retry limit.
+The source boundary and evidence needed to identify the owner are established;
+there is no intervention, metric, repeated measurement, or threshold.
+
+#### Expected behavior
+
+- Records the bounded investigation and evidence needed to choose the owner.
+- Does not invent experimental fields that cannot affect the decision.
+
+#### Unacceptable behavior
+
+- Adds a baseline, metric, threshold, or run count merely because the work is an
+  investigation.
+
+## 27 Preserve lineage when outcomes are reorganized
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Unclaimed issue `cm-codec` promised one independently accepted codec migration.
+Accepted evidence now shows that read compatibility and write migration require
+separate ownership, sequencing, evidence, and acceptance.
+The user authorizes replacing `cm-codec` with two new issues.
+There are no claims, dependencies, or dependents.
+The old issue contains material compatibility evidence both successors need.
+
+Give the Cardamom planning and lifecycle actions.
+
+### Expected behavior
+
+- Publishes the split rationale on `cm-codec` before restructuring consumes it.
+- Creates separately executable successor contracts with the inherited material
+  evidence and distinct outcome boundaries.
+- Makes `cm-codec` identify both successors,
+  and each successor identify the predecessor when that lineage aids execution
+  or review.
+- Keeps the material conclusion in each applicable record;
+  issue references supply navigation rather than replacing meaning.
+- Cancels the superseded issue only after the required terminal review
+  and does not invent a successful Result.
+
+### Unacceptable behavior
+
+- Creates disconnected successors whose relationship to `cm-codec` can be
+  recovered only from chat.
+- Copies the complete old issue into both successors without selecting the
+  contract and evidence each needs.
+- Closes the superseded issue as though it achieved its original outcome.
+
+### Adjacent valid case: Same outcome, new execution phase
+
+#### Runner prompt addition
+
+Instead,
+the outcome and acceptance boundary are unchanged;
+only the same issue's execution phase and actor will change.
+
+#### Expected behavior
+
+- Continues the existing issue and uses the ordinary phase and custody workflow.
+- Does not create predecessor or successor issues.
+
+#### Unacceptable behavior
+
+- Creates lineage merely because execution changed actors or phases.
+
+## 28 Choose a disposition when active focus changes
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Actor `Sisko` owns claimed issue `cm-index`.
+The reproduction is complete,
+but the repair and remaining validation have not started.
+The user redirects `Sisko` to unrelated urgent work for at least one day
+and says any eligible actor may continue `cm-index`.
+The current State still says reproduction is in progress.
+
+Give the Cardamom actions required before switching focus.
+
+### Expected behavior
+
+- Treats the focus change as a disposition decision for partial work.
+- Replaces State with the established reproduction,
+  unresolved repair, and concrete next action.
+- Releases ordinarily so another eligible actor can claim the issue.
+- Does not leave obsolete State or retain custody merely because the process
+  remains available.
+
+### Unacceptable behavior
+
+- Switches tasks and promises to repair the record later.
+- Cancels work the user intends another eligible actor to continue.
+- Uses waiting release when continuation is not directed or externally gated.
+
+### Adjacent valid case: Brief interruption without custody change
+
+#### Runner prompt addition
+
+Instead,
+the user asks one brief status question and confirms that `Sisko` should
+immediately continue `cm-index`.
+Its State and next action already match execution.
+
+#### Expected behavior
+
+- Keeps the claim and answers from current durable context.
+- Does not rewrite records or release custody ritualistically.
+
+#### Unacceptable behavior
+
+- Treats every conversational interruption as a handoff.
+
+## 29 Make durable records operationally specific
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Claimed issue `cm-routing` has this State:
+
+> Work on the important pieces and validate everything before continuing.
+
+Inspection established that `internal/router/table.go` still rejects wildcard
+segments,
+`go test ./internal/router -run TestTable_Wildcard` reproduces the failure,
+and no repair has been selected.
+
+Draft a replacement State and next action.
+
+### Expected behavior
+
+- Names the reproduced wildcard-segment behavior,
+  affected router area, and unresolved repair decision.
+- Gives a concrete next action that can change the active position.
+- Distinguishes established evidence from the repair that remains unknown.
+- Uses only the detail needed for safe continuation.
+
+### Unacceptable behavior
+
+- Retains generic activities such as "make progress" or "validate everything."
+- Invents a repair or claims validation beyond the focused reproduction.
+- Expands the State into a complete source inventory or command transcript.
+
+### Adjacent valid case: Established concise domain name
+
+#### Runner prompt addition
+
+The issue's Details already defines "wildcard routing" as the exact behavior,
+owned files, and compatibility boundary.
+
+#### Expected behavior
+
+- Reuses the established domain name where it remains unambiguous.
+- Keeps the active position concise while preserving its concrete evidence and
+  next action.
+
+#### Unacceptable behavior
+
+- Repeats the complete Details contract solely to avoid a concise defined term.

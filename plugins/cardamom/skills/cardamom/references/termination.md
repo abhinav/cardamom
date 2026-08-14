@@ -12,8 +12,11 @@ contract.
 Before closing a workstream or routine,
 reconcile its direct children and confirm that each is closed or cancelled.
 When the outcome was abandoned, superseded, or invalidated,
-do not invent a successful Result or close it;
-use cancellation instead.
+do not invent a successful Result or close it.
+For superseded work,
+first preserve predecessor and successor lineage through
+[planning.md](planning.md),
+then use cancellation.
 
 The actor responsible for acceptance reads Result and material child outcomes
 without claiming merely to inspect them.

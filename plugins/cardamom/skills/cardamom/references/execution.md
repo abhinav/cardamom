@@ -202,6 +202,14 @@ Introduce prerequisites before dependent claims, reuse stable names,
 and make material scope, causes, evidence, and uncertainty explicit.
 Keep chronology only in records that own history.
 
+Use concrete referents at the granularity needed to act.
+Name the outcome, affected area, command, artifact, evidence, or decision when
+that identity distinguishes the current position or next action from a generic
+activity.
+Reuse a concise domain term after its record establishes what it denotes;
+do not copy the stable contract into State merely to avoid established
+shorthand.
+
 Structure a body for the reader's scanning task.
 Use short paragraphs for one connected thought,
 bullets or tables for independent facts,
@@ -251,6 +259,18 @@ Use [attachments.md](attachments.md) when later work needs produced file bytes.
 
 Result owns the completed outcome and validation.
 Choose the disposition from the issue contract and actual execution state:
+
+When active work will stop because focus changes,
+make the issue's State recoverable before switching and choose its custody
+deliberately.
+Keep the claim when the same actor retains ownership and a recoverable
+continuation remains established.
+Release ordinarily when any eligible actor may continue,
+or release waiting when continuation is directed or externally gated.
+Cancel only when the outcome is authorized for abandonment or replacement;
+a focus change alone does not establish either condition.
+A brief interruption that changes neither custody nor the recorded position
+needs no release or ritual record update.
 
 | Condition | Required sequence |
 | --- | --- |
