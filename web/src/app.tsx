@@ -4,12 +4,11 @@ import type { ReactNode } from "react";
 import {
   lazy,
   Suspense,
-  useCallback,
   useEffect,
   useMemo,
   useState,
 } from "react";
-import { Settings } from "lucide-react";
+import { Moon, Settings, Sun } from "lucide-react";
 import {
   Link,
   matchPath,
@@ -22,15 +21,28 @@ import {
   useParams,
 } from "react-router";
 
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import type { AttachmentClient, ChangeClient, WebClient } from "./api.ts";
 import {
   BoardPickerRoute,
   BoardSelector,
-  type BoardContextTarget,
+  type BoardConfigurationTarget,
 } from "./board-selector.tsx";
 import {
   collectionRouteLocationSearch,
-  collectionRouteSearch,
   issueFiltersFromSearch,
   issueViewFromSearch,
   labelCollectionLocation,
@@ -93,14 +105,9 @@ const BoardRoute = lazy(() =>
     default: BoardRoute,
   }))
 );
-const BoardSettingsDialog = lazy(() =>
-  import("./board-settings.tsx").then(({ BoardSettingsDialog }) => ({
-    default: BoardSettingsDialog,
-  }))
-);
-const BoardContextDialog = lazy(() =>
-  import("./board-settings.tsx").then(({ BoardContextDialog }) => ({
-    default: BoardContextDialog,
+const BoardConfigurationDialog = lazy(() =>
+  import("./board-settings.tsx").then(({ BoardConfigurationDialog }) => ({
+    default: BoardConfigurationDialog,
   }))
 );
 const ConfigurationRoute = lazy(() =>
@@ -142,9 +149,9 @@ export function App({ client, storage }: AppProps) {
         message="Cardamom could not connect"
         detail={bootstrap.error.message}
       >
-        <button type="button" onClick={() => void bootstrap.refetch()}>
+        <Button type="button" onClick={() => void bootstrap.refetch()}>
           Retry
-        </button>
+        </Button>
       </StartupState>
     );
   }
@@ -254,17 +261,13 @@ interface ApplicationShellProps {
   version: string;
 }
 
-/**
- * boardSettingsOpener exposes settings for boards owned by the writable local
- * server. Scope selection does not limit availability because aggregate scope
- * has no selected board and each selector row supplies its own board ID.
- */
-export function boardSettingsOpener(
+/** boardConfigurationActor enables edits only on the writable local server. */
+export function boardConfigurationActor(
   aggregateMode: boolean,
   canMutateServer: boolean,
-  open: (boardId: string) => void,
-): ((boardId: string) => void) | undefined {
-  return !aggregateMode && canMutateServer ? open : undefined;
+  actor: string,
+): string | undefined {
+  return !aggregateMode && canMutateServer ? actor : undefined;
 }
 
 function ApplicationShell({
@@ -286,13 +289,11 @@ function ApplicationShell({
   const navigate = useNavigate();
   const location = useLocation();
   const collectionRoute = isCollectionRoute(location.pathname);
-  const [boardContextTarget, setBoardContextTarget] =
-    useState<BoardContextTarget>();
-  const [boardSettingsBoardId, setBoardSettingsBoardId] = useState<string>();
+  const [boardConfigurationTarget, setBoardConfigurationTarget] =
+    useState<BoardConfigurationTarget>();
   const selectionIdentity = scopeKey(selection);
   useEffect(() => {
-    setBoardContextTarget(undefined);
-    setBoardSettingsBoardId(undefined);
+    setBoardConfigurationTarget(undefined);
   }, [selectionIdentity]);
   const selectedBoard =
     selection.kind === "board"
@@ -364,18 +365,7 @@ function ApplicationShell({
             sources={sources}
             projects={projects}
             selection={selection}
-            onOpenBoardContext={(target) => {
-              setBoardSettingsBoardId(undefined);
-              setBoardContextTarget(target);
-            }}
-            onOpenBoardSettings={boardSettingsOpener(
-              aggregateMode,
-              serverCanMutate,
-              (boardId) => {
-                setBoardContextTarget(undefined);
-                setBoardSettingsBoardId(boardId);
-              },
-            )}
+            onOpenBoardConfiguration={setBoardConfigurationTarget}
             onSelectScope={(nextSelection) =>
               navigate(
                 boardScopeHref(
@@ -460,21 +450,18 @@ function ApplicationShell({
           />
         </main>
         <Suspense fallback={null}>
-          {boardContextTarget !== undefined && (
-            <BoardContextDialog
-              key={`${boardContextTarget.source?.sourceId ?? "local"}:${boardContextTarget.id}`}
-              boardId={boardContextTarget.id}
-              source={boardContextTarget.source}
-              onDismiss={() => setBoardContextTarget(undefined)}
-            />
-          )}
-          {!aggregateMode && canMutateServer && boardSettingsBoardId !== undefined && (
-            <BoardSettingsDialog
-              key={boardSettingsBoardId}
-              actor={preferences.actor}
-              boardId={boardSettingsBoardId}
-              onDismiss={() => setBoardSettingsBoardId(undefined)}
-              onSaved={() => setBoardSettingsBoardId(undefined)}
+          {boardConfigurationTarget !== undefined && (
+            <BoardConfigurationDialog
+              key={`${boardConfigurationTarget.source?.sourceId ?? "local"}:${boardConfigurationTarget.id}`}
+              actor={boardConfigurationActor(
+                aggregateMode,
+                serverCanMutate,
+                preferences.actor,
+              )}
+              boardId={boardConfigurationTarget.id}
+              source={boardConfigurationTarget.source}
+              onDismiss={() => setBoardConfigurationTarget(undefined)}
+              onSaved={() => setBoardConfigurationTarget(undefined)}
             />
           )}
         </Suspense>
@@ -507,75 +494,100 @@ export function SettingsControl({
   updatePreferences,
   version,
 }: SettingsControlProps) {
+  const [open, setOpen] = useState(false);
   return (
-    <details className="settings-control">
-      <summary className="icon-control" aria-label="Settings" title="Settings">
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger
+        render={
+          <Button
+            aria-label="Settings"
+            title="Settings"
+            variant="outline"
+            size="icon"
+          />
+        }
+      >
         <Settings aria-hidden="true" />
-      </summary>
-      <div className="settings-panel">
-        <div className="session-controls">
-          <label>
-            <span>Actor</span>
-            <input
-              type="text"
-              value={preferences.actor}
-              placeholder="Not set"
-              autoComplete="username"
-              onInput={(event) =>
-                updatePreferences({
-                  ...preferences,
-                  actor: event.currentTarget.value,
-                })
-              }
-            />
-          </label>
-          <label>
-            <span>Theme</span>
-            <select
-              value={preferences.theme}
-              onChange={(event) =>
-                updatePreferences({
-                  ...preferences,
-                  theme: event.currentTarget.value as ThemePreference,
-                })
-              }
-            >
-              <option value="dark">Dark</option>
-              <option value="light">Light</option>
-            </select>
-          </label>
-          <label className="session-toggle">
-            <input
-              type="checkbox"
-              checked={preferences.boardView.showEmptyColumns}
-              onChange={(event) =>
-                updatePreferences({
-                  ...preferences,
-                  boardView: {
-                    ...preferences.boardView,
-                    showEmptyColumns: event.currentTarget.checked,
-                  },
-                })
-              }
-            />
-            <span>Show empty columns</span>
-          </label>
-          {selectedBoard !== undefined && (
-            <button
-              type="button"
-              className="session-action"
-              onClick={(event) => {
-                event.currentTarget.closest("details")?.removeAttribute("open");
-                openConfiguration();
-              }}
-            >
-              Configuration
-            </button>
-          )}
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 gap-4 p-4">
+        <div className="grid gap-2">
+          <Label htmlFor="session-actor">Actor</Label>
+          <Input
+            id="session-actor"
+            type="text"
+            value={preferences.actor}
+            placeholder="Not set"
+            autoComplete="username"
+            onChange={(event) =>
+              updatePreferences({
+                ...preferences,
+                actor: event.currentTarget.value,
+              })
+            }
+          />
         </div>
-        <p className="settings-version">Cardamom version {version}</p>
-      </div>
-    </details>
+        <div className="flex items-center justify-between gap-3">
+          <span className="text-sm font-medium">Theme</span>
+          <Button
+            type="button"
+            id="session-theme"
+            variant="outline"
+            size="icon"
+            aria-label={
+              preferences.theme === "dark"
+                ? "Switch to light theme"
+                : "Switch to dark theme"
+            }
+            title={
+              preferences.theme === "dark"
+                ? "Switch to light theme"
+                : "Switch to dark theme"
+            }
+            onClick={() =>
+              updatePreferences({
+                ...preferences,
+                theme: preferences.theme === "dark" ? "light" : "dark",
+              })
+            }
+          >
+            {preferences.theme === "dark"
+              ? <Sun aria-hidden="true" />
+              : <Moon aria-hidden="true" />}
+          </Button>
+        </div>
+        <div className="flex items-center gap-2">
+          <Checkbox
+            id="show-empty-columns"
+            checked={preferences.boardView.showEmptyColumns}
+            onCheckedChange={(checked) =>
+              updatePreferences({
+                ...preferences,
+                boardView: {
+                  ...preferences.boardView,
+                  showEmptyColumns: checked,
+                },
+              })
+            }
+          />
+          <Label htmlFor="show-empty-columns">Show empty columns</Label>
+        </div>
+        {selectedBoard !== undefined && (
+          <Button
+            type="button"
+            className="w-full"
+            onClick={() => {
+              setOpen(false);
+              openConfiguration();
+            }}
+          >
+            Configuration
+          </Button>
+        )}
+        <p className="text-xs text-muted-foreground">
+          Cardamom version {version}
+        </p>
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -590,13 +602,19 @@ function StreamState({
 }) {
   const label = aggregateStatus?.complete === false ? "Degraded" : status[0]?.toUpperCase() + status.slice(1);
   return (
-    <details className="stream-state-details">
-      <summary className="stream-state" data-status={status} role="status" aria-live="polite">
+    <Collapsible className="stream-state-details">
+      <CollapsibleTrigger
+        className="stream-state"
+        data-status={status}
+        role="status"
+        aria-live="polite"
+        render={<Button variant="ghost" size="sm" />}
+      >
         <span className="stream-state-dot" aria-hidden="true" />
         {label}
-      </summary>
+      </CollapsibleTrigger>
       {sources.length > 0 && (
-        <div className="source-health-panel">
+        <CollapsibleContent className="source-health-panel">
           <strong>Source health</strong>
           {sources.map((source) => (
             <div key={source.source?.sourceId} className="source-health-row">
@@ -608,9 +626,9 @@ function StreamState({
           {aggregateStatus?.complete === false && (
             <p>Some selected sources did not contribute to the current read.</p>
           )}
-        </div>
+        </CollapsibleContent>
       )}
-    </details>
+    </Collapsible>
   );
 }
 
@@ -960,4 +978,5 @@ function StartupState({
 
 function applyTheme(theme: ThemePreference): void {
   document.documentElement.dataset.theme = theme;
+  document.documentElement.classList.toggle("dark", theme === "dark");
 }

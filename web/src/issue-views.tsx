@@ -2,8 +2,24 @@ import { useTransport } from "@connectrpc/connect-query";
 import { useQuery } from "@tanstack/react-query";
 import { ListFilter, Plus, SlidersHorizontal } from "lucide-react";
 import type { ReactNode } from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link, useNavigate } from "react-router";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import type { AttachmentClient } from "./api.ts";
 import {
@@ -210,9 +226,9 @@ function LoadedIssueCollection(props: LoadedIssueCollectionProps) {
         message="Issues could not be loaded"
         detail={listStream.error?.message}
       >
-        <button type="button" onClick={() => pages.loadMore(listStream.key)}>
+        <Button type="button" onClick={() => pages.loadMore(listStream.key)}>
           Retry
-        </button>
+        </Button>
       </RouteState>
     );
   }
@@ -356,9 +372,9 @@ function BoardPinsError({
       {refresh
         ? "Pinned issues could not be refreshed."
         : "Pinned issues could not be loaded."}{" "}
-      <button type="button" className="link-button" onClick={retry}>
+      <Button type="button" variant="link" className="link-button" onClick={retry}>
         Retry
-      </button>
+      </Button>
     </p>
   );
 }
@@ -448,103 +464,113 @@ export function IssueControls(props: IssueControlsProps) {
         filters={props.view.filters}
         setFilters={props.updateFilters}
       />
-      <details className="collection-options" name="issue-collection-options">
-        <summary className="icon-control" aria-label={filterLabel} title="Filters">
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Button
+              aria-label={filterLabel}
+              title="Filters"
+              variant="outline"
+              size="icon"
+            />
+          }
+        >
           <ListFilter aria-hidden="true" />
           {activeFilterCount > 0 && (
             <span className="control-count" aria-hidden="true">
               {activeFilterCount}
             </span>
           )}
-        </summary>
-        <div className="collection-options-panel">
+        </PopoverTrigger>
+        <PopoverContent
+          align="end"
+          className="w-[min(30rem,calc(100vw-2rem))] gap-4 p-4"
+        >
           <FilterFields
             filters={props.view.filters}
             setFilters={(filters) => props.updateFilters(filters, "push")}
           />
           <div className="filter-actions">
-            <button
+            <Button
               type="button"
-              className="secondary-button"
+              variant="outline"
               disabled={!canClearFilters}
               onClick={() =>
                 props.updateFilters(clearIssueFilters(props.mode), "push")}
             >
               Clear filters
-            </button>
+            </Button>
           </div>
-        </div>
-      </details>
-      <details className="collection-options" name="issue-collection-options">
-        <summary
-          className="icon-control"
-          aria-label="View options"
-          title="View options"
+        </PopoverContent>
+      </Popover>
+      <Popover>
+        <PopoverTrigger
+          render={
+            <Button
+              aria-label="View options"
+              title="View options"
+              variant="outline"
+              size="icon"
+            />
+          }
         >
           <SlidersHorizontal aria-hidden="true" />
-        </summary>
-        <div className="collection-options-panel view-options">
+        </PopoverTrigger>
+        <PopoverContent align="end" className="w-64 gap-4 p-4">
           {props.mode === "board" && props.updateGrouping !== undefined && (
-            <label>
-              <span>Group</span>
-              <select
-                value={props.grouping}
-                onChange={(event) =>
-                  props.updateGrouping?.(event.currentTarget.value as IssueGrouping)
-                }
-              >
-                <option value="status">Status</option>
-                <option value="type">Type</option>
-              </select>
-            </label>
+            <IssueSelectField
+              label="Group"
+              value={props.grouping ?? "status"}
+              onValueChange={(value) =>
+                props.updateGrouping?.(value as IssueGrouping)}
+            >
+              <SelectItem value="status">Status</SelectItem>
+              <SelectItem value="type">Type</SelectItem>
+            </IssueSelectField>
           )}
-          <label>
-            <span>Sort</span>
-            <select
-              value={props.view.sort}
-              onChange={(event) =>
+          <IssueSelectField
+            label="Sort"
+            value={props.view.sort}
+            onValueChange={(value) =>
+              props.updateView({
+                ...props.view,
+                sort: value as IssueSortPreference,
+              })}
+          >
+            {props.mode === "board" && (
+              <SelectItem value="natural">Natural</SelectItem>
+            )}
+            <SelectItem value="priority">Priority</SelectItem>
+            <SelectItem value="updated">Updated</SelectItem>
+            <SelectItem value="created">Created</SelectItem>
+            <SelectItem value="title">Title</SelectItem>
+          </IssueSelectField>
+          {props.view.sort !== "natural" && (
+            <IssueSelectField
+              label="Direction"
+              value={props.view.direction}
+              onValueChange={(value) =>
                 props.updateView({
                   ...props.view,
-                  sort: event.currentTarget.value as IssueSortPreference,
-                })
-              }
+                  direction: value as SortDirectionPreference,
+                })}
             >
-              {props.mode === "board" && <option value="natural">Natural</option>}
-              <option value="priority">Priority</option>
-              <option value="updated">Updated</option>
-              <option value="created">Created</option>
-              <option value="title">Title</option>
-            </select>
-          </label>
-          {props.view.sort !== "natural" && (
-            <label>
-              <span>Direction</span>
-              <select
-                value={props.view.direction}
-                onChange={(event) =>
-                  props.updateView({
-                    ...props.view,
-                    direction: event.currentTarget.value as SortDirectionPreference,
-                  })
-                }
-              >
-                <option value="ascending">Ascending</option>
-                <option value="descending">Descending</option>
-              </select>
-            </label>
+              <SelectItem value="ascending">Ascending</SelectItem>
+              <SelectItem value="descending">Descending</SelectItem>
+            </IssueSelectField>
           )}
-        </div>
-      </details>
+        </PopoverContent>
+      </Popover>
       {props.createIssue !== undefined && (
-        <button
+        <Button
           type="button"
-          className="icon-control create-issue-control"
+          size="icon"
           aria-label="Create issue"
           title="Create issue"
           onClick={props.createIssue}
         >
           <Plus aria-hidden="true" />
-        </button>
+        </Button>
       )}
       {props.readOnly && (
         <span className="read-only-badge">All boards · read-only</span>
@@ -562,80 +588,123 @@ function FilterFields({
 }) {
   return (
     <div className="filter-fields">
-      <label>
-        <span>Lifecycle</span>
-        <select
-          value={filters.lifecycle}
-          onChange={(event) =>
-            setFilters({
-              ...filters,
-              lifecycle: event.currentTarget.value as IssueLifecycleFilter,
-            })
+      <IssueSelectField
+        label="Lifecycle"
+        value={filters.lifecycle}
+        onValueChange={(value) =>
+          setFilters({
+            ...filters,
+            lifecycle: value as IssueLifecycleFilter,
+          })}
+      >
+        <SelectItem value="current">Open + closed</SelectItem>
+        <SelectItem value="open">Open</SelectItem>
+        <SelectItem value="closed">Closed</SelectItem>
+        <SelectItem value="cancelled">Cancelled</SelectItem>
+        <SelectItem value="all">All</SelectItem>
+      </IssueSelectField>
+      <IssueSelectField
+        label="Status"
+        value={String(filters.status)}
+        onValueChange={(value) =>
+          setFilters({
+            ...filters,
+            status: enumFilter(value) as IssueStatus | "all",
+          })}
+      >
+        <SelectItem value="all">All</SelectItem>
+        <SelectItem value={String(IssueStatus.READY)}>Ready</SelectItem>
+        <SelectItem value={String(IssueStatus.BLOCKED)}>Blocked</SelectItem>
+        <SelectItem value={String(IssueStatus.IN_PROGRESS)}>In progress</SelectItem>
+        <SelectItem value={String(IssueStatus.WAITING)}>Waiting</SelectItem>
+        <SelectItem value={String(IssueStatus.CLOSED)}>Closed</SelectItem>
+        <SelectItem value={String(IssueStatus.CANCELLED)}>Cancelled</SelectItem>
+      </IssueSelectField>
+      <IssueSelectField
+        label="Type"
+        value={String(filters.type)}
+        onValueChange={(value) =>
+          setFilters({
+            ...filters,
+            type: enumFilter(value) as IssueType | "all",
+          })}
+      >
+        <SelectItem value="all">All</SelectItem>
+        <SelectItem value={String(IssueType.WORKSTREAM)}>Workstream</SelectItem>
+        <SelectItem value={String(IssueType.TASK)}>Task</SelectItem>
+        <SelectItem value={String(IssueType.CHECKPOINT)}>Checkpoint</SelectItem>
+        <SelectItem value={String(IssueType.ROUTINE)}>Routine</SelectItem>
+      </IssueSelectField>
+      <IssueTextFilterField
+        label="Actor"
+        value={filters.actor}
+        placeholder="Any actor"
+        onValueChange={(actor) => setFilters({ ...filters, actor })}
+      />
+      <IssueTextFilterField
+        label="Label"
+        value={filters.label}
+        placeholder="Any label"
+        onValueChange={(label) => setFilters({ ...filters, label })}
+      />
+    </div>
+  );
+}
+
+function IssueSelectField({
+  children,
+  label,
+  onValueChange,
+  value,
+}: {
+  children: ReactNode;
+  label: string;
+  onValueChange: (value: string) => void;
+  value: string;
+}) {
+  const id = useId();
+  return (
+    <div className="filter-field">
+      <Label htmlFor={id}>{label}</Label>
+      <Select
+        value={value}
+        onValueChange={(nextValue) => {
+          if (nextValue !== null) {
+            onValueChange(nextValue);
           }
-        >
-          <option value="current">Open + closed</option>
-          <option value="open">Open</option>
-          <option value="closed">Closed</option>
-          <option value="cancelled">Cancelled</option>
-          <option value="all">All</option>
-        </select>
-      </label>
-      <label>
-        <span>Status</span>
-        <select
-          value={filters.status}
-          onChange={(event) =>
-            setFilters({
-              ...filters,
-              status: enumFilter(event.currentTarget.value) as IssueStatus | "all",
-            })
-          }
-        >
-          <option value="all">All</option>
-          <option value={IssueStatus.READY}>Ready</option>
-          <option value={IssueStatus.BLOCKED}>Blocked</option>
-          <option value={IssueStatus.IN_PROGRESS}>In progress</option>
-          <option value={IssueStatus.WAITING}>Waiting</option>
-          <option value={IssueStatus.CLOSED}>Closed</option>
-          <option value={IssueStatus.CANCELLED}>Cancelled</option>
-        </select>
-      </label>
-      <label>
-        <span>Type</span>
-        <select
-          value={filters.type}
-          onChange={(event) =>
-            setFilters({
-              ...filters,
-              type: enumFilter(event.currentTarget.value) as IssueType | "all",
-            })
-          }
-        >
-          <option value="all">All</option>
-          <option value={IssueType.WORKSTREAM}>Workstream</option>
-          <option value={IssueType.TASK}>Task</option>
-          <option value={IssueType.CHECKPOINT}>Checkpoint</option>
-          <option value={IssueType.ROUTINE}>Routine</option>
-        </select>
-      </label>
-      <label>
-        <span>Actor</span>
-        <input
-          type="search"
-          value={filters.actor}
-          placeholder="Any actor"
-          onInput={(event) => setFilters({ ...filters, actor: event.currentTarget.value })}
-        />
-      </label>
-      <label>
-        <span>Label</span>
-        <input
-          type="search"
-          value={filters.label}
-          placeholder="Any label"
-          onInput={(event) => setFilters({ ...filters, label: event.currentTarget.value })}
-        />
-      </label>
+        }}
+      >
+        <SelectTrigger id={id} className="w-full">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>{children}</SelectContent>
+      </Select>
+    </div>
+  );
+}
+
+function IssueTextFilterField({
+  label,
+  onValueChange,
+  placeholder,
+  value,
+}: {
+  label: string;
+  onValueChange: (value: string) => void;
+  placeholder: string;
+  value: string;
+}) {
+  const id = useId();
+  return (
+    <div className="filter-field">
+      <Label htmlFor={id}>{label}</Label>
+      <Input
+        id={id}
+        type="search"
+        value={value}
+        placeholder={placeholder}
+        onChange={(event) => onValueChange(event.currentTarget.value)}
+      />
     </div>
   );
 }
@@ -922,9 +991,9 @@ function IssueStreamLoad({
   return (
     <div className="collection-load-state" ref={sentinel} aria-live="polite">
       {control.kind === "load" && (
-        <button type="button" aria-label={control.label} onClick={load}>
+        <Button type="button" variant="outline" aria-label={control.label} onClick={load}>
           Load more
-        </button>
+        </Button>
       )}
       {control.kind === "loading" && (
         <span role="status">{control.label}</span>
@@ -932,9 +1001,9 @@ function IssueStreamLoad({
       {control.kind === "retry" && (
         <>
           <span role="alert">{control.message}</span>
-          <button type="button" aria-label={control.label} onClick={load}>
+          <Button type="button" variant="outline" aria-label={control.label} onClick={load}>
             Retry
-          </button>
+          </Button>
         </>
       )}
       {control.kind === "exhausted" && <span>{control.label}</span>}

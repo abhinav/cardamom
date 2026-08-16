@@ -1,12 +1,12 @@
+// @vitest-environment jsdom
+
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import {
-  Children,
   createElement,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
 } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { isCollectionRoute } from "./app.tsx";
 import {
@@ -20,8 +20,11 @@ import {
   clearIssueFilters,
   defaultBoardView,
   defaultListView,
+  type IssueViewPreferences,
 } from "./issue-collection.ts";
 import { IssueControls } from "./issue-views.tsx";
+
+afterEach(cleanup);
 
 describe("issue collection toolbar", () => {
   it.each([
@@ -111,40 +114,9 @@ describe("issue collection toolbar", () => {
 
       expect(clearIssueFilters(mode)).toEqual(defaultView.filters);
 
-      const defaultMarkup = renderToStaticMarkup(createElement(IssueControls, {
-        mode,
-        updateFilters: vi.fn(),
-        updateView: vi.fn(),
-        view: defaultView,
-      }));
-      const filteredMarkup = renderToStaticMarkup(createElement(IssueControls, {
-        mode,
-        updateFilters: vi.fn(),
-        updateView: vi.fn(),
-        view: filteredView,
-      }));
-      const searchOnlyMarkup = renderToStaticMarkup(createElement(IssueControls, {
-        mode,
-        updateFilters: vi.fn(),
-        updateView: vi.fn(),
-        view: searchOnlyView,
-      }));
-      const defaultButton = defaultMarkup.match(
-        /<button[^>]*>Clear filters<\/button>/,
-      );
-      const filteredButton = filteredMarkup.match(
-        /<button[^>]*>Clear filters<\/button>/,
-      );
-      const searchOnlyButton = searchOnlyMarkup.match(
-        /<button[^>]*>Clear filters<\/button>/,
-      );
-
-      expect(defaultButton).toHaveLength(1);
-      expect(defaultButton?.[0]).toContain("disabled");
-      expect(filteredButton).toHaveLength(1);
-      expect(filteredButton?.[0]).not.toContain("disabled");
-      expect(searchOnlyButton).toHaveLength(1);
-      expect(searchOnlyButton?.[0]).not.toContain("disabled");
+      expect(clearButtonDisabled(mode, defaultView)).toBe(true);
+      expect(clearButtonDisabled(mode, filteredView)).toBe(false);
+      expect(clearButtonDisabled(mode, searchOnlyView)).toBe(false);
     },
   );
 });
@@ -152,38 +124,35 @@ describe("issue collection toolbar", () => {
 describe("collection search control", () => {
   it("opens the inline editor and focuses its input", () => {
     const beginEditing = vi.fn();
-    const closedControl = CollectionSearchControlView({
-      filters: defaultBoardView.filters,
-      setFilters: vi.fn(),
-      editing: false,
-      beginEditing,
-      endEditing: vi.fn(),
-    });
-
-    elementWithAriaLabel(closedControl, "Search issues").props.onClick?.({});
+    render(
+      <CollectionSearchControlView
+        filters={defaultBoardView.filters}
+        setFilters={vi.fn()}
+        editing={false}
+        beginEditing={beginEditing}
+        endEditing={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Search issues"));
 
     expect(beginEditing).toHaveBeenCalledOnce();
 
-    const editingControl = CollectionSearchControlView({
-      filters: {
-        ...defaultBoardView.filters,
-        query: "filter panel",
-      },
-      setFilters: vi.fn(),
-      editing: true,
-      beginEditing: vi.fn(),
-      endEditing: vi.fn(),
-    });
-    const input = elementWithAriaLabel(
-      editingControl,
-      "Search issue titles",
+    cleanup();
+    const { container } = render(
+      <CollectionSearchControlView
+        filters={{ ...defaultBoardView.filters, query: "filter panel" }}
+        setFilters={vi.fn()}
+        editing
+        beginEditing={vi.fn()}
+        endEditing={vi.fn()}
+      />,
     );
-    const markup = renderToStaticMarkup(editingControl);
+    const input = screen.getByLabelText("Search issue titles");
 
-    expect(input.props.autoFocus).toBe(true);
-    expect(markup).toContain('value="filter panel"');
-    expect(markup).not.toContain("collection-search-query");
-    expect(markup).not.toContain("collection-search-panel");
+    expect(input).toHaveFocus();
+    expect(input).toHaveValue("filter panel");
+    expect(container.querySelector(".collection-search-query")).toBeNull();
+    expect(container.querySelector(".collection-search-panel")).toBeNull();
   });
 
   it("clears only the title search", () => {
@@ -197,15 +166,16 @@ describe("collection search control", () => {
       query: "filter panel",
     };
     const setFilters = vi.fn();
-    const control = CollectionSearchControlView({
-      filters,
-      setFilters,
-      editing: true,
-      beginEditing: vi.fn(),
-      endEditing: vi.fn(),
-    });
-
-    elementWithAriaLabel(control, "Clear search").props.onClick?.({});
+    render(
+      <CollectionSearchControlView
+        filters={filters}
+        setFilters={setFilters}
+        editing
+        beginEditing={vi.fn()}
+        endEditing={vi.fn()}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText("Clear search"));
 
     expect(setFilters).toHaveBeenCalledExactlyOnceWith(
       {
@@ -218,16 +188,17 @@ describe("collection search control", () => {
 
   it("replaces the current history entry while editing title search", () => {
     const setFilters = vi.fn();
-    const control = CollectionSearchControlView({
-      filters: defaultBoardView.filters,
-      setFilters,
-      editing: true,
-      beginEditing: vi.fn(),
-      endEditing: vi.fn(),
-    });
-
-    elementWithAriaLabel(control, "Search issue titles").props.onInput?.({
-      currentTarget: { value: "route filters" },
+    render(
+      <CollectionSearchControlView
+        filters={defaultBoardView.filters}
+        setFilters={setFilters}
+        editing
+        beginEditing={vi.fn()}
+        endEditing={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Search issue titles"), {
+      target: { value: "route filters" },
     });
 
     expect(setFilters).toHaveBeenCalledExactlyOnceWith(
@@ -296,40 +267,22 @@ describe("collection shell", () => {
   });
 });
 
-interface TestElementProps {
-  autoFocus?: boolean;
-  children?: ReactNode;
-  "aria-label"?: string;
-  onClick?: (event: unknown) => void;
-  onInput?: (event: { currentTarget: { value: string } }) => void;
-}
-
-function elementWithAriaLabel(
-  root: ReactNode,
-  label: string,
-): ReactElement<TestElementProps> {
-  const element = findElementWithAriaLabel(root, label);
-  if (element === undefined) {
-    throw new Error(`No element has aria-label ${label}`);
-  }
-  return element;
-}
-
-function findElementWithAriaLabel(
-  root: ReactNode,
-  label: string,
-): ReactElement<TestElementProps> | undefined {
-  if (!isValidElement<TestElementProps>(root)) {
-    return undefined;
-  }
-  if (root.props["aria-label"] === label) {
-    return root;
-  }
-  for (const child of Children.toArray(root.props.children)) {
-    const element = findElementWithAriaLabel(child, label);
-    if (element !== undefined) {
-      return element;
-    }
-  }
-  return undefined;
+function clearButtonDisabled(
+  mode: "board" | "list",
+  view: IssueViewPreferences,
+): boolean {
+  render(
+    <IssueControls
+      mode={mode}
+      updateFilters={vi.fn()}
+      updateView={vi.fn()}
+      view={view}
+    />,
+  );
+  fireEvent.click(screen.getByLabelText(/^Filters/));
+  const disabled = screen.getByRole("button", {
+    name: "Clear filters",
+  }).hasAttribute("disabled");
+  cleanup();
+  return disabled;
 }

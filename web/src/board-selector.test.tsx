@@ -1,21 +1,21 @@
-import {
-  Children,
-  isValidElement,
-  type ReactElement,
-  type ReactNode,
-} from "react";
-import { renderToStaticMarkup } from "react-dom/server";
+// @vitest-environment jsdom
+
+import { create } from "@bufbuild/protobuf";
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it, vi } from "vitest";
 
 import {
+  type BoardConfigurationTarget,
+  BoardPickerRoute,
+  BoardSelector,
   BoardSelectorBoardRow,
   BoardSelectorView,
-  BoardPickerRoute,
   catalogBoards,
   groupBoardsBySourceAndProject,
 } from "./board-selector.tsx";
-import { create } from "@bufbuild/protobuf";
+import type { ResolvedBoardScope } from "./board-scope.ts";
 import {
   BoardSummarySchema,
   ProjectSchema,
@@ -23,6 +23,7 @@ import {
 import {
   SourceCatalogEntrySchema,
   SourceRefSchema,
+  type SourceCatalogEntry,
 } from "./gen/cardamom/private/v1/source_pb.ts";
 
 const projects = [
@@ -38,21 +39,51 @@ const boards = [
   { id: "board-m", projectId: "project-m", name: "Operations" },
 ];
 
+afterEach(cleanup);
+
 describe("board selector", () => {
-  it("groups archived visibility with the board search controls", () => {
-    const markup = renderToStaticMarkup(
+  it("focuses search when opened and restores trigger focus after Escape", async () => {
+    render(
       <MemoryRouter>
-        <BoardPickerRoute
+        <BoardSelector
           aggregate={false}
           boards={boards}
           projects={projects}
+          selection={{ kind: "all" }}
+          onSelectScope={vi.fn()}
         />
       </MemoryRouter>,
     );
+    const trigger = screen.getByRole("button", {
+      name: "Select board scope: All boards",
+    });
 
-    expect(markup).toMatch(
-      /class="board-picker-filters"[\s\S]*class="board-picker-search"[\s\S]*class="board-picker-archived"/,
+    fireEvent.click(trigger);
+    await waitFor(() => {
+      expect(screen.getByRole("searchbox", {
+        name: "Search boards and projects",
+      })).toHaveFocus();
+    });
+
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    await waitFor(() => {
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+      expect(trigger).toHaveFocus();
+    });
+  });
+
+  it("groups archived visibility with the board search controls", () => {
+    const { container } = render(
+      <MemoryRouter>
+        <BoardPickerRoute aggregate={false} boards={boards} projects={projects} />
+      </MemoryRouter>,
     );
+    const filters = container.querySelector(".board-picker-filters");
+
+    expect(filters).not.toBeNull();
+    expect(filters?.querySelector(".board-picker-search")).not.toBeNull();
+    expect(filters?.querySelector(".board-picker-archived")).not.toBeNull();
   });
 
   it("keeps archived boards out of quick selection and behind catalog opt-in", () => {
@@ -68,24 +99,18 @@ describe("board selector", () => {
     expect(catalogBoards([...boards, archived], false)).toEqual(boards);
     expect(catalogBoards([...boards, archived], true)).toContain(archived);
 
-    const markup = renderToStaticMarkup(BoardSelectorView({
-      aggregate: false,
+    renderSelector({
       boards: [...boards, archived],
-      open: true,
-      projects,
-      query: "",
       selection: { kind: "board", boardId: archived.id },
-      onDismiss: vi.fn(),
-      onOpenBoardSettings: vi.fn(),
-      onQueryChange: vi.fn(),
-      onSelectScope: vi.fn(),
-      onToggle: vi.fn(),
-    }));
-    expect(markup).toContain('board-selector-trigger-primary">Retired');
-    expect(markup).toContain("Archived");
-    expect(markup).not.toContain('aria-label="Select Retired"');
-    expect(markup).toContain(">Board settings</button>");
-    expect(markup).toContain("View all boards");
+      onOpenBoardConfiguration: vi.fn(),
+    });
+
+    expect(screen.getByText("Retired")).toBeInTheDocument();
+    expect(screen.getByText("Alpha · Archived")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Select Retired")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Board settings" }))
+      .not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "View all boards" })).toBeInTheDocument();
   });
 
   it("groups aggregate boards by source and then project", () => {
@@ -103,16 +128,8 @@ describe("board selector", () => {
         create(SourceCatalogEntrySchema, { source: builder }),
       ],
       [
-        create(ProjectSchema, {
-          id: "project-1",
-          name: "Build",
-          source: builder,
-        }),
-        create(ProjectSchema, {
-          id: "project-1",
-          name: "Build",
-          source: laptop,
-        }),
+        create(ProjectSchema, { id: "project-1", name: "Build", source: builder }),
+        create(ProjectSchema, { id: "project-1", name: "Build", source: laptop }),
       ],
       [
         create(BoardSummarySchema, {
@@ -137,257 +154,140 @@ describe("board selector", () => {
     ]);
   });
 
-  it("sorts projects and keeps grouping based on the complete catalog", () => {
-    const allMarkup = renderSelector("");
-    const filteredMarkup = renderSelector("web");
+  it("sorts projects while filtering boards against the complete catalog", () => {
+    renderSelector();
+    expect(screen.getAllByRole("button", { name: /^Select (?!All boards)/ })
+      .map((button) => button.getAttribute("aria-label"))).toEqual([
+        "Select API",
+        "Select Web",
+        "Select Operations",
+        "Select Solo",
+      ]);
+    expect(projectHeadings()).toEqual(["Alpha2 boards"]);
 
-    expect(allMarkup.indexOf(">Alpha<")).toBeLessThan(
-      allMarkup.indexOf(">Middle<"),
-    );
-    expect(allMarkup.indexOf(">Middle<")).toBeLessThan(
-      allMarkup.indexOf(">Zebra<"),
-    );
-    expect(allMarkup).toContain(">Alpha<");
-    expect(allMarkup).toContain(">2 boards<");
-    expect(allMarkup.match(/board-selector-project-heading/g)).toHaveLength(1);
-
-    expect(filteredMarkup).toContain(">Alpha<");
-    expect(filteredMarkup).toContain(">2 boards<");
-    expect(filteredMarkup).toContain(">Web<");
-    expect(filteredMarkup).not.toContain(">API<");
-    expect(filteredMarkup.match(/board-selector-project-heading/g))
-      .toHaveLength(1);
+    cleanup();
+    renderSelector({ query: "web" });
+    expect(projectHeadings()).toEqual(["Alpha2 boards"]);
+    expect(screen.getByLabelText("Select Web")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Select API")).not.toBeInTheDocument();
   });
 
   it("shows direct-server boards when bootstrap includes store lineage", () => {
     const source = create(SourceCatalogEntrySchema, {
       source: create(SourceRefSchema, { storeLineageId: "lineage-local" }),
     });
+    renderSelector({ sources: [source] });
 
-    const markup = renderToStaticMarkup(BoardSelectorView({
-      aggregate: false,
-      boards,
-      open: true,
-      projects,
-      query: "",
-      selection: { kind: "all" },
-      sources: [source],
-      onDismiss: vi.fn(),
-      onOpenBoardSettings: vi.fn(),
-      onQueryChange: vi.fn(),
-      onSelectScope: vi.fn(),
-      onToggle: vi.fn(),
-    }));
-
-    expect(markup).toContain('aria-label="Select Operations"');
-    expect(markup).toContain('aria-label="Select Web"');
+    expect(screen.getByLabelText("Select Operations")).toBeInTheDocument();
+    expect(screen.getByLabelText("Select Web")).toBeInTheDocument();
   });
 
   it("marks the selected scope and shows board and project labels", () => {
-    const markup = renderToStaticMarkup(BoardSelectorView({
-      aggregate: false,
-      boards,
-      open: true,
-      projects,
-      query: "",
-      selection: { kind: "board", boardId: "board-m" },
-      onDismiss: vi.fn(),
-      onOpenBoardSettings: vi.fn(),
-      onQueryChange: vi.fn(),
-      onSelectScope: vi.fn(),
-      onToggle: vi.fn(),
-    }));
+    renderSelector({ selection: { kind: "board", boardId: "board-m" } });
 
-    expect(markup).toContain(
-      '<span class="board-selector-trigger-primary">Operations</span>',
+    expect(screen.getByLabelText("Select board scope: Operations")).toHaveTextContent(
+      "OperationsMiddle",
     );
-    expect(markup).toContain(
-      '<span class="board-selector-trigger-secondary">Middle</span>',
+    expect(screen.getByLabelText("Select Operations")).toHaveAttribute(
+      "aria-current",
+      "true",
     );
-    expect(markup).toContain('aria-label="Select board scope: Operations"');
-    expect(markup).toMatch(
-      /aria-current="true" aria-label="Select Operations"/,
-    );
-    expect(markup).toContain("lucide-check");
   });
 
   it("preserves board selection without exposing board settings", () => {
-    const markup = renderToStaticMarkup(BoardSelectorView({
-      aggregate: false,
-      boards,
-      open: true,
-      projects,
-      query: "",
-      selection: { kind: "board", boardId: "board-m" },
-      onDismiss: vi.fn(),
-      onQueryChange: vi.fn(),
-      onSelectScope: vi.fn(),
-      onToggle: vi.fn(),
-    }));
+    renderSelector({ selection: { kind: "board", boardId: "board-m" } });
 
-    expect(markup).toContain('aria-label="Select Operations"');
-    expect(markup).not.toContain("Open settings for");
+    expect(screen.getByLabelText("Select Operations")).toBeInTheDocument();
+    expect(screen.queryByText("Board settings")).not.toBeInTheDocument();
   });
 
-  it("exposes context for every board without changing the current scope", () => {
-    const markup = renderToStaticMarkup(BoardSelectorView({
-      aggregate: false,
-      boards,
-      open: true,
-      projects,
-      query: "",
-      selection: { kind: "board", boardId: "board-m" },
-      onDismiss: vi.fn(),
-      onOpenBoardContext: vi.fn(),
-      onQueryChange: vi.fn(),
-      onSelectScope: vi.fn(),
-      onToggle: vi.fn(),
-    }));
+  it.each([
+    { kind: "board", boardId: "board-m" } as const,
+    { kind: "all" } as const,
+  ])("exposes context for every board from $kind scope", (selection) => {
+    renderSelector({ selection, onOpenBoardConfiguration: vi.fn() });
 
-    expect(markup).toContain("View context for Operations");
-    expect(markup).toContain("View context for Web");
-    expect(markup).toContain("View context for API");
-    expect(markup).toContain("View context for Solo");
-  });
-
-  it("exposes context for every board when the current scope is all boards", () => {
-    const markup = renderToStaticMarkup(BoardSelectorView({
-      aggregate: false,
-      boards,
-      open: true,
-      projects,
-      query: "",
-      selection: { kind: "all" },
-      onDismiss: vi.fn(),
-      onOpenBoardContext: vi.fn(),
-      onQueryChange: vi.fn(),
-      onSelectScope: vi.fn(),
-      onToggle: vi.fn(),
-    }));
-
-    expect(markup).toContain("View context for Operations");
-    expect(markup).toContain("View context for Web");
-    expect(markup).toContain("View context for API");
-    expect(markup).toContain("View context for Solo");
+    for (const name of ["Operations", "Web", "API", "Solo"]) {
+      expect(screen.getByLabelText(`Configure ${name}`)).toBeInTheDocument();
+    }
   });
 
   it("keeps context and selection as separate interactions", () => {
-    const onDismiss = vi.fn();
-    const onOpenBoardContext = vi.fn();
+    const onOpenBoardConfiguration = vi.fn();
     const onSelectScope = vi.fn();
-    const onToggle = vi.fn();
+    renderSelector({ onOpenBoardConfiguration, onSelectScope });
+
+    fireEvent.click(screen.getByLabelText("Select All boards"));
+    expect(onSelectScope).toHaveBeenCalledExactlyOnceWith({ kind: "all" });
+
+    cleanup();
     const source = create(SourceRefSchema, {
       sourceId: "builder",
       storeLineageId: "lineage-builder",
     });
     const sourceBoard = { ...boards[1]!, source };
-    const view = BoardSelectorView({
-      aggregate: false,
-      boards,
-      open: true,
-      projects,
-      query: "",
-      selection: { kind: "all" },
-      onDismiss,
-      onOpenBoardContext,
-      onQueryChange: vi.fn(),
-      onSelectScope,
-      onToggle,
-    });
+    render(
+      <BoardSelectorBoardRow
+        board={sourceBoard}
+        projectName="Alpha"
+        selectedBoardId="board-a2"
+        onOpenBoardConfiguration={onOpenBoardConfiguration}
+        onSelectScope={onSelectScope}
+      />,
+    );
 
-    elementWithAriaLabel(view, "Select board scope: All boards")
-      .props.onClick?.();
-    expect(onToggle).toHaveBeenCalledOnce();
-
-    elementWithAriaLabel(view, "Select All boards").props.onClick?.();
-    expect(onSelectScope).toHaveBeenNthCalledWith(1, {
-      kind: "all",
-    });
-
-    const boardRow = BoardSelectorBoardRow({
-      board: sourceBoard,
-      projectName: "Alpha",
-      selectedBoardId: "board-a2",
-      onOpenBoardContext,
-      onSelectScope,
-    });
-    elementWithAriaLabel(boardRow, "Select Web").props.onClick?.();
+    fireEvent.click(screen.getByLabelText("Select Web"));
     expect(onSelectScope).toHaveBeenNthCalledWith(2, {
       kind: "board",
       boardId: "board-a2",
       source,
     });
-
-    elementWithAriaLabel(boardRow, "View context for Web").props.onClick?.();
-    expect(onOpenBoardContext).toHaveBeenCalledExactlyOnceWith(sourceBoard);
+    fireEvent.click(screen.getByLabelText("Configure Web"));
+    expect(onOpenBoardConfiguration).toHaveBeenCalledExactlyOnceWith(sourceBoard);
     expect(onSelectScope).toHaveBeenCalledTimes(2);
-
-    const preventDefault = vi.fn();
-    const stopPropagation = vi.fn();
-    const onKeyDown = view.props.onKeyDown as (event: {
-      key: string;
-      preventDefault: () => void;
-      stopPropagation: () => void;
-    }) => void;
-    onKeyDown({
-      key: "Escape",
-      preventDefault,
-      stopPropagation,
-    });
-    expect(preventDefault).toHaveBeenCalledOnce();
-    expect(stopPropagation).toHaveBeenCalledOnce();
-    expect(onDismiss).toHaveBeenCalledOnce();
   });
 });
 
-function renderSelector(query: string): string {
-  return renderToStaticMarkup(BoardSelectorView({
-    aggregate: false,
-    boards,
-    open: true,
-    projects,
-    query,
-    selection: { kind: "all" },
-    onDismiss: vi.fn(),
-    onOpenBoardContext: vi.fn(),
-    onQueryChange: vi.fn(),
-    onSelectScope: vi.fn(),
-    onToggle: vi.fn(),
-  }));
+interface SelectorOverrides {
+  boards?: readonly (typeof boards[number] | {
+    id: string;
+    projectId: string;
+    name: string;
+    archived: {
+      $typeName: "cardamom.private.v1.BoardArchive";
+      actor: string;
+    };
+  })[];
+  query?: string;
+  selection?: { kind: "all" } | { kind: "board"; boardId: string };
+  sources?: readonly SourceCatalogEntry[];
+  onOpenBoardConfiguration?: (board: BoardConfigurationTarget) => void;
+  onSelectScope?: (selection: ResolvedBoardScope) => void;
 }
 
-interface TestElementProps {
-  children?: ReactNode;
-  "aria-label"?: string;
-  onClick?: () => void;
+function renderSelector(overrides: SelectorOverrides = {}) {
+  return render(
+    <MemoryRouter>
+      <BoardSelectorView
+        aggregate={false}
+        boards={overrides.boards ?? boards}
+        open
+        projects={projects}
+        query={overrides.query ?? ""}
+        selection={overrides.selection ?? { kind: "all" }}
+        sources={overrides.sources}
+        onDismiss={vi.fn()}
+        onOpenBoardConfiguration={overrides.onOpenBoardConfiguration}
+        onQueryChange={vi.fn()}
+        onSelectScope={overrides.onSelectScope ?? vi.fn()}
+        onToggle={vi.fn()}
+      />
+    </MemoryRouter>,
+  );
 }
 
-function elementWithAriaLabel(
-  root: ReactNode,
-  label: string,
-): ReactElement<TestElementProps> {
-  const element = findElementWithAriaLabel(root, label);
-  if (element === undefined) {
-    throw new Error(`No element has aria-label ${label}`);
-  }
-  return element;
-}
-
-function findElementWithAriaLabel(
-  root: ReactNode,
-  label: string,
-): ReactElement<TestElementProps> | undefined {
-  if (!isValidElement<TestElementProps>(root)) {
-    return undefined;
-  }
-  if (root.props["aria-label"] === label) {
-    return root;
-  }
-  for (const child of Children.toArray(root.props.children)) {
-    const element = findElementWithAriaLabel(child, label);
-    if (element !== undefined) {
-      return element;
-    }
-  }
-  return undefined;
+function projectHeadings(): string[] {
+  const dialog = screen.getByRole("dialog");
+  return [...dialog.querySelectorAll(".board-selector-project-heading")]
+    .map((heading) => heading.textContent ?? "");
 }

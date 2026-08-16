@@ -11,6 +11,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import type { AttachmentClient } from "./api.ts";
 import {
+  AttachmentFilePicker,
   AttachmentPanel,
   attachmentListInput,
   attachmentContent,
@@ -29,6 +30,20 @@ import {
 import { SourceRefSchema } from "./gen/cardamom/private/v1/source_pb.ts";
 
 describe("attachment web workflow", () => {
+  it("presents native file selection through an application control", () => {
+    const markup = renderToStaticMarkup(AttachmentFilePicker({
+      id: "attachment-file",
+      label: "Add a file",
+      selection: "No file selected",
+      onChange: vi.fn(),
+    }));
+
+    expect(markup).toContain('type="file"');
+    expect(markup).toContain("attachment-file-input sr-only");
+    expect(markup).toContain("Choose file");
+    expect(markup).toContain("No file selected");
+  });
+
   it("presents each stable attachment identity beside its filename", async () => {
     const listedAttachment = attachment("incident-log.txt");
     const transport = createRouterTransport(({ service }) => {

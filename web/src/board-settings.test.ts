@@ -6,7 +6,7 @@ import {
   BoardLifecycleControls,
   BoardContextContent,
   BoardSettingsContent,
-  boardContextRequest,
+  boardConfigurationRequest,
   boardSettingsLoaded,
   boardSettingsBoardId,
   boardSettingsUpdateInput,
@@ -70,7 +70,7 @@ describe("Board settings workflow", () => {
       storeLineageId: "lineage-builder",
     });
 
-    expect(boardContextRequest("board-1", source)).toEqual({
+    expect(boardConfigurationRequest("board-1", source)).toEqual({
       boardId: "board-1",
       source,
     });
@@ -110,7 +110,7 @@ describe("Board settings workflow", () => {
       onSubmit: vi.fn(),
     }));
 
-    expect(markup).toContain(">Name</span>");
+    expect(markup).toContain(">Name</label>");
     expect(markup).toContain(">Save name</button>");
     expect(markup).not.toContain("Description (Markdown)");
     expect(markup).not.toContain("<textarea");

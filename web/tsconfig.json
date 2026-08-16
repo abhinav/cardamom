@@ -7,10 +7,15 @@
     "moduleResolution": "Bundler",
     "noEmit": true,
     "noUncheckedIndexedAccess": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "paths": {
+      "@/*": ["./src/*"]
+    },
     "skipLibCheck": true,
     "strict": true,
     "target": "ES2024",
-    "types": ["vite/client"]
+    "types": ["node", "vite/client"]
   },
   "include": ["src", "vite.config.ts"]
 }

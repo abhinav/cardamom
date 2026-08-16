@@ -1,8 +1,11 @@
 import { useState } from "react";
 import { Search, X } from "lucide-react";
 
-import type { IssueFilterNavigation } from "./collection-route.ts";
-import type { IssueFilters } from "./issue-collection.ts";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+import type { IssueFilterNavigation } from "@/collection-route.ts";
+import type { IssueFilters } from "@/issue-collection.ts";
 
 interface CollectionSearchControlProps {
   filters: IssueFilters;
@@ -57,14 +60,14 @@ export function CollectionSearchControlView(
       {props.editing ? (
         <>
           <Search className="collection-search-icon" aria-hidden="true" />
-          <input
+          <Input
             autoFocus
             className="collection-search-input"
             type="search"
             aria-label="Search issue titles"
             value={props.filters.query}
             placeholder="Search issue titles"
-            onInput={(event) =>
+            onChange={(event) =>
               props.setFilters(
                 {
                   ...props.filters,
@@ -76,9 +79,11 @@ export function CollectionSearchControlView(
           />
         </>
       ) : (
-        <button
+        <Button
           type="button"
           className="collection-search-trigger"
+          variant="outline"
+          size="icon"
           aria-label="Search issues"
           title="Search issues"
           onClick={props.beginEditing}
@@ -89,12 +94,14 @@ export function CollectionSearchControlView(
               {query}
             </span>
           )}
-        </button>
+        </Button>
       )}
       {active && (
-        <button
+        <Button
           type="button"
           className="collection-search-clear"
+          variant="ghost"
+          size="icon-sm"
           aria-label="Clear search"
           title="Clear search"
           onClick={() =>
@@ -107,7 +114,7 @@ export function CollectionSearchControlView(
             )}
         >
           <X aria-hidden="true" />
-        </button>
+        </Button>
       )}
     </div>
   );

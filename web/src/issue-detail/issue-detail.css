@@ -1,12 +1,18 @@
 .issue-detail-page {
+  width: min(100%, 72rem);
   min-width: 0;
   display: grid;
   gap: 1.5rem;
+  margin-inline: auto;
 }
 
 .issue-detail-header {
-  padding-bottom: 1.25rem;
-  border-bottom: 1px solid var(--border);
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 7%);
 }
 
 .issue-detail-id {
@@ -48,16 +54,24 @@
   height: 0.85rem;
   margin-inline: 0.2rem;
   flex: none;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .issue-containment-breadcrumb .issue-containment-link {
-  color: inherit;
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
+}
+
+.issue-containment-breadcrumb [aria-current="page"] {
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  color: var(--secondary-foreground);
 }
 
 .issue-containment-breadcrumb .issue-containment-link:hover,
 .issue-containment-breadcrumb .issue-containment-link:focus-visible {
-  color: var(--accent-strong);
+  color: var(--ring);
 }
 
 .metadata-chip.issue-external-key {
@@ -92,8 +106,16 @@
 
 .issue-detail-section {
   min-width: 0;
-  padding-top: 1rem;
-  border-top: 1px solid var(--border);
+  padding: clamp(1rem, 2.5vw, 1.5rem);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 7%);
+}
+
+.issue-detail-section + .issue-detail-section {
+  margin-top: 1rem;
 }
 
 .issue-detail-section h2,
@@ -102,19 +124,19 @@
   font-size: 1rem;
 }
 
-.issue-details > summary,
-.issue-relations > summary {
+.issue-detail-disclosure {
+  width: 100%;
+  justify-content: flex-start;
   cursor: pointer;
 }
 
-.issue-details > summary h2,
-.issue-relations > summary h2 {
+.issue-detail-disclosure h2 {
   display: inline;
   margin: 0;
 }
 
-.issue-details[open] > summary,
-.issue-relations[open] > summary {
+.issue-details[data-open] > .issue-detail-disclosure,
+.issue-relations[data-open] > .issue-detail-disclosure {
   margin-bottom: 0.85rem;
 }
 
@@ -130,7 +152,7 @@
 }
 
 .issue-record dt {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -173,7 +195,7 @@
 .issue-markdown {
   min-width: 0;
   max-width: 100%;
-  color: var(--text);
+  color: var(--foreground);
   line-height: 1.65;
   overflow-wrap: anywhere;
 }
@@ -200,7 +222,7 @@
 
 .issue-next-action h3 {
   margin: 0 0 0.45rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -228,36 +250,36 @@
   overflow-y: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface-subtle);
+  background: var(--secondary);
 }
 
 .issue-markdown blockquote {
   margin-inline: 0;
   padding-inline-start: 1rem;
   border-inline-start: 3px solid var(--border);
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .issue-reference-link {
   display: grid;
   gap: 0.08rem;
-  color: var(--text);
+  color: var(--foreground);
   text-decoration: none;
 }
 
 .issue-reference-link:hover .issue-reference-title > span:last-child {
-  color: var(--accent-strong);
+  color: var(--ring);
 }
 
 .issue-reference-link small {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.68rem;
 }
 
 .issue-detail-empty,
 .issue-refresh-state {
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .issue-detail-empty {
@@ -272,7 +294,7 @@
 
 .issue-refresh-state[role="alert"],
 .issue-mutation-result[data-status="error"] {
-  color: var(--focus);
+  color: var(--ring);
 }
 
 .issue-action-row {
@@ -286,18 +308,18 @@
   position: relative;
 }
 
-.issue-actions summary {
-  color: var(--muted);
+.issue-actions > [data-slot="collapsible-trigger"] {
+  color: var(--muted-foreground);
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 700;
 }
 
-.issue-actions[open] .issue-action-row {
+.issue-actions[data-open] .issue-action-row {
   margin-top: 0.65rem;
   padding: 0.65rem;
   border: 1px solid var(--border);
-  background: var(--surface);
+  background: var(--card);
 }
 
 .issue-action-row button,
@@ -315,7 +337,7 @@ button.issue-action-quiet {
   padding: 0.2rem 0.4rem;
   border-color: var(--border);
   background: transparent;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.7rem;
 }
 
@@ -327,8 +349,8 @@ button:disabled {
 .issue-mutation-result {
   margin: 0;
   padding: 0.65rem;
-  border-left: 3px solid var(--accent);
-  background: var(--surface-subtle);
+  border-left: 3px solid var(--primary);
+  background: var(--secondary);
   font-size: 0.8rem;
 }
 
@@ -346,7 +368,7 @@ button:disabled {
 .issue-checkpoint p,
 .issue-checkpoint-waiting p {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.82rem;
 }
 
@@ -357,7 +379,7 @@ button:disabled {
 .issue-checkpoint label {
   display: grid;
   gap: 0.4rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -368,7 +390,7 @@ button:disabled {
 
 .issue-control-note {
   margin: 0;
-  color: var(--focus);
+  color: var(--ring);
   font-size: 0.78rem;
 }
 
@@ -416,7 +438,7 @@ button.issue-add-dependency {
   padding: 0;
   border-color: var(--border);
   background: transparent;
-  color: var(--accent-strong);
+  color: var(--ring);
   font-size: 1.2rem;
   line-height: 1;
 }
@@ -479,24 +501,24 @@ button.issue-add-dependency {
   padding: 0.45rem 0.5rem;
   border-color: transparent;
   background: transparent;
-  color: var(--text);
+  color: var(--foreground);
   text-align: start;
 }
 
 .issue-dependency-results button:hover {
   border-color: var(--border);
-  background: var(--surface-subtle);
+  background: var(--secondary);
 }
 
 .issue-dependency-results small {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.68rem;
 }
 
 .issue-dependency-search label,
 .issue-log-form label {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
   font-weight: 700;
 }
@@ -509,8 +531,8 @@ button.issue-add-dependency {
   padding: 0.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface-subtle);
-  color: var(--text);
+  background: var(--secondary);
+  color: var(--foreground);
   font: inherit;
 }
 
@@ -518,7 +540,7 @@ button.issue-add-dependency {
 .issue-checkpoint textarea:focus-visible,
 .issue-log-form textarea:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent);
 }
 
 .issue-hierarchy {
@@ -559,8 +581,8 @@ button.issue-add-dependency {
 }
 
 .issue-hierarchy a[aria-current="page"] {
-  background: var(--surface-subtle);
-  color: var(--accent-strong);
+  background: var(--secondary);
+  color: var(--ring);
 }
 
 .issue-reference-title {
@@ -585,7 +607,7 @@ button.issue-add-dependency {
 }
 
 .issue-section-heading span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.8rem;
 }
 
@@ -606,9 +628,13 @@ button.issue-add-dependency {
   border-inline-start: 2px solid transparent;
 }
 
+.issue-log-list > li:last-child {
+  border-bottom: 0;
+}
+
 .issue-log-list > li:target {
-  border-inline-start-color: var(--accent-strong);
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  border-inline-start-color: var(--ring);
+  background: color-mix(in srgb, var(--primary) 8%, transparent);
 }
 
 .issue-log-list article,
@@ -633,7 +659,7 @@ button.issue-add-dependency {
 }
 
 .issue-log-kind {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.68rem;
   font-weight: 700;
   text-transform: uppercase;
@@ -646,7 +672,7 @@ button.issue-add-dependency {
 
 .issue-log-list time,
 .issue-current-state-heading time {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
 }
 
@@ -673,7 +699,7 @@ button.issue-add-dependency {
 .issue-detail-state p {
   max-width: 44rem;
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 @media (max-width: 900px) {

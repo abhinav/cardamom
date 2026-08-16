@@ -3,8 +3,19 @@ import { useMutation, useTransport } from "@connectrpc/connect-query";
 import { useQuery } from "@tanstack/react-query";
 import { Pencil, RotateCcw } from "lucide-react";
 import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Link } from "react-router";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 import {
   ConfigurationIssueIDStrategy,
@@ -237,9 +248,9 @@ function ConfigurationLoadState({
     <section className="configuration-load-state" role={retry ? "alert" : "status"}>
       <p>{message}</p>
       {retry !== undefined && (
-        <button type="button" onClick={retry}>
+        <Button type="button" onClick={retry}>
           Retry
-        </button>
+        </Button>
       )}
     </section>
   );
@@ -370,23 +381,23 @@ function ConfigurationLayerView({
               </span>
               {canMutateServer && !readOnly && (
                 <div className="configuration-field-actions">
-                  <button
+                  <Button
                     type="button"
-                    className="secondary-button"
+                    variant="outline"
                     onClick={() => onBeginEdit("edit", layer, field)}
                   >
                     <Pencil aria-hidden="true" />
                     Edit
-                  </button>
+                  </Button>
                   {override !== undefined && (
-                    <button
+                    <Button
                       type="button"
-                      className="danger-button"
+                      variant="destructive"
                       onClick={() => onBeginEdit("reset", layer, field)}
                     >
                       <RotateCcw aria-hidden="true" />
                       Reset
-                    </button>
+                    </Button>
                   )}
                 </div>
               )}
@@ -434,26 +445,27 @@ function ConfigurationEditorDialog({
       title={resetting ? `Reset ${field.label}` : `Edit ${field.label}`}
       titleId={titleId}
       description={`${scopeLabel(editor.scope)} · ${layer.source?.identity ?? "Unknown source"}`}
+      onDismiss={onCancel}
       onSubmit={onSubmit}
       actions={(
         <>
-          <button
+          <Button
             type="button"
-            className="secondary-button"
+            variant="outline"
             disabled={submission.kind === "submitting"}
             onClick={onCancel}
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
-            className={resetting ? "danger-button" : undefined}
+            variant={resetting ? "destructive" : "default"}
             disabled={submission.kind === "submitting" || validation !== undefined}
           >
             {submission.kind === "submitting"
               ? (resetting ? "Resetting" : "Saving")
               : (resetting ? "Reset override" : "Save")}
-          </button>
+          </Button>
         </>
       )}
     >
@@ -499,22 +511,32 @@ function ConfigurationFieldInput({
   onChange: (draft: string) => void;
   validation: string | undefined;
 }) {
+  const fieldId = useId();
   const errorId = "configuration-field-error";
   const numeric = field.input === "bytes" || field.input === "count";
   return (
-    <label className="form-field form-field-wide">
-      <span>{field.label}</span>
+    <div className="form-field form-field-wide">
+      <Label htmlFor={fieldId}>{field.label}</Label>
       {field.input === "strategy" ? (
-        <select
-          autoFocus
+        <Select
           value={draft}
-          onChange={(event) => onChange(event.currentTarget.value)}
+          onValueChange={(value) => {
+            if (value !== null) {
+              onChange(value);
+            }
+          }}
         >
-          <option value="random">random</option>
-          <option value="sequential">sequential</option>
-        </select>
+          <SelectTrigger id={fieldId} autoFocus className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="random">random</SelectItem>
+            <SelectItem value="sequential">sequential</SelectItem>
+          </SelectContent>
+        </Select>
       ) : (
-        <input
+        <Input
+          id={fieldId}
           autoFocus
           type={numeric ? "number" : "text"}
           inputMode={numeric ? "numeric" : "text"}
@@ -525,7 +547,7 @@ function ConfigurationFieldInput({
           value={draft}
           aria-invalid={validation !== undefined}
           aria-describedby={validation === undefined ? undefined : errorId}
-          onInput={(event) => onChange(event.currentTarget.value)}
+          onChange={(event) => onChange(event.currentTarget.value)}
         />
       )}
       {validation !== undefined && (
@@ -533,7 +555,7 @@ function ConfigurationFieldInput({
           {validation}
         </span>
       )}
-    </label>
+    </div>
   );
 }
 

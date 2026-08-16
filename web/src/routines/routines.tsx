@@ -9,6 +9,15 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Label } from "@/components/ui/label";
+
 import { issuePath } from "../board-scope.ts";
 import { WatchResource } from "../gen/cardamom/private/v1/change_pb.ts";
 import { ExecutionService } from "../gen/cardamom/private/v1/execution_pb.ts";
@@ -242,9 +251,9 @@ export function RoutinesRoute({
   if (data === undefined && routines.isError) {
     return (
       <RouteState title="Routines" error={routines.error.message}>
-        <button type="button" onClick={() => void routines.refetch()}>
+        <Button type="button" onClick={() => void routines.refetch()}>
           Retry
-        </button>
+        </Button>
       </RouteState>
     );
   }
@@ -302,15 +311,14 @@ export function RoutinesRoute({
             {visibleIssues.length === 1 ? "routine" : "routines"} shown
           </p>
         </div>
-        <label className="retired-toggle">
-          <input
-            type="checkbox"
+        <div className="retired-toggle">
+          <Checkbox
+            id="show-retired-routines"
             checked={showRetired}
-            onChange={(event) =>
-              updateShowRetired(event.currentTarget.checked)}
+            onCheckedChange={updateShowRetired}
           />
-          <span>Show retired</span>
-        </label>
+          <Label htmlFor="show-retired-routines">Show retired</Label>
+        </div>
       </header>
 
       {showScopeMutationNotice && (
@@ -324,9 +332,9 @@ export function RoutinesRoute({
       {routines.isError && data !== undefined && (
         <div className="routines-error" role="alert">
           <span>Could not refresh routines: {routines.error.message}</span>
-          <button type="button" onClick={() => void routines.refetch()}>
+          <Button type="button" variant="outline" onClick={() => void routines.refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
       {outcome !== "" && (
@@ -431,24 +439,26 @@ function RoutineCard({
         </p>
       )}
       {presentation.actions.length > 0 && (
-        <details className="routine-actions">
-          <summary>Actions</summary>
-          <div className="routine-action-menu">
+        <Collapsible className="routine-actions">
+          <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
+            Actions
+          </CollapsibleTrigger>
+          <CollapsibleContent className="routine-action-menu">
             {presentation.actions.map((action) => (
-              <button
+              <Button
                 key={action}
-                className={
-                  action === LifecycleAction.CANCEL ? "danger-button" : ""
+                variant={
+                  action === LifecycleAction.CANCEL ? "destructive" : "default"
                 }
                 type="button"
                 disabled={pending}
                 onClick={() => void mutate(issue, action)}
               >
                 {pending ? "Working..." : lifecycleActionLabel(action)}
-              </button>
+              </Button>
             ))}
-          </div>
-        </details>
+          </CollapsibleContent>
+        </Collapsible>
       )}
     </article>
   );

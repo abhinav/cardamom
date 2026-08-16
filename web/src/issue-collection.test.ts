@@ -4,7 +4,6 @@ import { toBoardScopeMessage } from "./board-scope.ts";
 import {
   buildIssueQuery,
   defaultBoardView,
-  defaultListView,
   groupIssues,
   parseBoardView,
   type IssueViewPreferences,

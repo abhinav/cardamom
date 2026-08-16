@@ -1,8 +1,20 @@
 import { useMutation, useTransport } from "@connectrpc/connect-query";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Archive, Pencil, X } from "lucide-react";
+import { Archive, Pencil } from "lucide-react";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
 
 import type { BoardScopeSelection } from "./board-scope.ts";
 import { WatchResource } from "./gen/cardamom/private/v1/change_pb.ts";
@@ -35,8 +47,8 @@ export function boardSettingsUpdateInput(
   };
 }
 
-/** boardContextRequest identifies a board on a local or aggregate server. */
-export function boardContextRequest(boardId: string, source?: SourceRef) {
+/** boardConfigurationRequest identifies a board on a local or aggregate server. */
+export function boardConfigurationRequest(boardId: string, source?: SourceRef) {
   return { boardId, source };
 }
 
@@ -59,30 +71,68 @@ export function boardSettingsLoaded(
   };
 }
 
-interface BoardSettingsDialogProps {
+interface BoardConfigurationDialogProps {
+  actor?: string;
+  boardId: string;
+  source?: SourceRef;
+  onDismiss: () => void;
+  onSaved: () => void;
+}
+
+/**
+ * BoardConfigurationDialog presents the selected board and enables mutations
+ * only when the shell supplies a local actor.
+ */
+export function BoardConfigurationDialog({
+  actor,
+  boardId,
+  source,
+  onDismiss,
+  onSaved,
+}: BoardConfigurationDialogProps) {
+  if (actor === undefined) {
+    return (
+      <ReadonlyBoardConfigurationDialog
+        boardId={boardId}
+        source={source}
+        onDismiss={onDismiss}
+      />
+    );
+  }
+  return (
+    <EditableBoardConfigurationDialog
+      actor={actor}
+      boardId={boardId}
+      onDismiss={onDismiss}
+      onSaved={onSaved}
+    />
+  );
+}
+
+interface EditableBoardConfigurationDialogProps {
   actor: string;
   boardId: string;
   onDismiss: () => void;
   onSaved: () => void;
 }
 
-interface BoardContextDialogProps {
+interface ReadonlyBoardConfigurationDialogProps {
   boardId: string;
   source?: SourceRef;
   onDismiss: () => void;
 }
 
-/** BoardContextDialog presents one board's shared context without mutations. */
-export function BoardContextDialog({
+/** ReadonlyBoardConfigurationDialog presents a remote board without mutations. */
+function ReadonlyBoardConfigurationDialog({
   boardId,
   source,
   onDismiss,
-}: BoardContextDialogProps) {
+}: ReadonlyBoardConfigurationDialogProps) {
   const transport = useTransport();
   const load = useQuery({
     ...unaryRouteQueryOptions(
       ProjectService.method.getBoard,
-      boardContextRequest(boardId, source),
+      boardConfigurationRequest(boardId, source),
       transport,
     ),
     select(response) {
@@ -92,60 +142,47 @@ export function BoardContextDialog({
       return response.board;
     },
   });
-  const contextLabel = source?.sourceId === undefined
+  const boardLabel = source?.sourceId === undefined
     ? boardId
     : `${source.sourceId} / ${boardId}`;
 
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal-panel modal-panel-compact"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="board-context-title"
+    <Dialog open onOpenChange={(open) => !open && onDismiss()}>
+      <DialogContent
+        className="modal-panel modal-panel-compact max-w-lg"
       >
-        <header className="modal-header board-settings-header">
-          <div>
-            <h2 id="board-context-title">Board context</h2>
-            <p>{contextLabel}</p>
-          </div>
-          <button
-            type="button"
-            className="secondary-button board-settings-icon-button"
-            aria-label="Close board context"
-            title="Close"
-            onClick={onDismiss}
-          >
-            <X aria-hidden="true" />
-          </button>
-        </header>
+        <DialogHeader className="pr-8">
+          <DialogTitle id="board-configuration-title">Board configuration</DialogTitle>
+          <DialogDescription>{boardLabel}</DialogDescription>
+        </DialogHeader>
         {load.data === undefined && !load.isError && (
-          <p role="status">Loading board context</p>
+          <p role="status">Loading board configuration</p>
         )}
         {load.data === undefined && load.isError && (
           <div className="modal-load-error" role="alert">
             <p>{load.error.message}</p>
-            <button type="button" onClick={() => void load.refetch()}>
+            <Button type="button" onClick={() => void load.refetch()}>
               Retry
-            </button>
+            </Button>
           </div>
         )}
         {load.data !== undefined && <BoardContextContent board={load.data} />}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 /**
- * BoardSettingsDialog owns settings and lifecycle mutations for one explicit
- * board. Archived boards remain readable here and expose only unarchive.
+ * EditableBoardConfigurationDialog owns settings and lifecycle mutations for
+ * one explicit board. Archived boards remain readable here and expose only
+ * unarchive.
  */
-export function BoardSettingsDialog({
+function EditableBoardConfigurationDialog({
   actor,
   boardId,
   onDismiss,
   onSaved,
-}: BoardSettingsDialogProps) {
+}: EditableBoardConfigurationDialogProps) {
   const transport = useTransport();
   const queryClient = useQueryClient();
   const updateBoard = useMutation(ProjectService.method.updateBoard);
@@ -250,37 +287,23 @@ export function BoardSettingsDialog({
   };
 
   return (
-    <div className="modal-backdrop">
-      <section
-        className="modal-panel modal-panel-compact"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="board-settings-title"
+    <Dialog open onOpenChange={(open) => !open && onDismiss()}>
+      <DialogContent
+        className="modal-panel modal-panel-compact max-w-lg"
       >
-        <header className="modal-header board-settings-header">
-          <div>
-            <h2 id="board-settings-title">Board settings</h2>
-            <p>{boardId}</p>
-          </div>
-          <button
-            type="button"
-            className="secondary-button board-settings-icon-button"
-            aria-label="Close board settings"
-            title="Close"
-            onClick={onDismiss}
-          >
-            <X aria-hidden="true" />
-          </button>
-        </header>
+        <DialogHeader className="pr-8">
+          <DialogTitle id="board-settings-title">Board configuration</DialogTitle>
+          <DialogDescription>{boardId}</DialogDescription>
+        </DialogHeader>
         {load.data === undefined && !load.isError && (
           <p role="status">Loading board settings</p>
         )}
         {load.data === undefined && load.isError && (
           <div className="modal-load-error" role="alert">
             <p>{load.error.message}</p>
-            <button type="button" onClick={() => void load.refetch()}>
+            <Button type="button" onClick={() => void load.refetch()}>
               Retry
-            </button>
+            </Button>
           </div>
         )}
         {load.data !== undefined && (
@@ -338,8 +361,8 @@ export function BoardSettingsDialog({
             />
           </>
         )}
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -368,6 +391,9 @@ export function BoardSettingsContent({
   onChangeDraft,
   onSubmit,
 }: BoardSettingsContentProps) {
+  const fieldId = mode === "name"
+    ? "board-settings-name"
+    : "board-settings-description";
   if (mode === "read") {
     return <BoardContextContent board={board} onBeginEdit={onBeginEdit} />;
   }
@@ -375,33 +401,35 @@ export function BoardSettingsContent({
   return (
     <form className="workflow-form" onSubmit={onSubmit}>
       {mode === "name" ? (
-        <label className="form-field form-field-wide">
-          <span>Name</span>
-          <input
+        <div className="form-field form-field-wide">
+          <Label htmlFor={fieldId}>Name</Label>
+          <Input
+            id={fieldId}
             autoFocus
             required
             type="text"
             value={draft.name}
-            onInput={(event) =>
+            onChange={(event) =>
               onChangeDraft({ ...draft, name: event.currentTarget.value })
             }
           />
-        </label>
+        </div>
       ) : (
-        <label className="form-field form-field-wide">
-          <span>Description (Markdown)</span>
-          <textarea
+        <div className="form-field form-field-wide">
+          <Label htmlFor={fieldId}>Description (Markdown)</Label>
+          <Textarea
+            id={fieldId}
             autoFocus
             rows={9}
             value={draft.descriptionSource}
-            onInput={(event) =>
+            onChange={(event) =>
               onChangeDraft({
                 ...draft,
                 descriptionSource: event.currentTarget.value,
               })
             }
           />
-        </label>
+        </div>
       )}
       {submission.kind === "error" && (
         <p className="form-error form-field-wide" role="alert">
@@ -409,19 +437,19 @@ export function BoardSettingsContent({
         </p>
       )}
       <div className="modal-actions form-field-wide">
-        <button
+        <Button
           type="button"
-          className="secondary-button"
+          variant="outline"
           disabled={submission.kind === "submitting"}
           onClick={onCancelEdit}
         >
           Cancel
-        </button>
-        <button type="submit" disabled={submission.kind === "submitting"}>
+        </Button>
+        <Button type="submit" disabled={submission.kind === "submitting"}>
           {submission.kind === "submitting"
             ? "Saving"
             : mode === "name" ? "Save name" : "Save description"}
-        </button>
+        </Button>
       </div>
     </form>
   );
@@ -444,15 +472,17 @@ export function BoardContextContent({
       <div className="board-settings-field-row">
         <h3>{board.name}</h3>
         {editable && (
-          <button
+          <Button
             type="button"
-            className="secondary-button board-settings-icon-button"
+            className="board-settings-icon-button"
+            variant="ghost"
+            size="icon-sm"
             aria-label="Edit board name"
             title="Edit name"
             onClick={() => onBeginEdit?.("name")}
           >
             <Pencil aria-hidden="true" />
-          </button>
+          </Button>
         )}
       </div>
       <div className="board-settings-field-row board-settings-description-row">
@@ -465,15 +495,17 @@ export function BoardContextContent({
           />
         )}
         {editable && (
-          <button
+          <Button
             type="button"
-            className="secondary-button board-settings-icon-button"
+            className="board-settings-icon-button"
+            variant="ghost"
+            size="icon-sm"
             aria-label="Edit board description"
             title="Edit description"
             onClick={() => onBeginEdit?.("description")}
           >
             <Pencil aria-hidden="true" />
-          </button>
+          </Button>
         )}
       </div>
     </div>
@@ -526,19 +558,20 @@ export function BoardLifecycleControls({
   onArchive,
   onUnarchive,
 }: BoardLifecycleControlsProps) {
+  const reasonId = "board-settings-archive-reason";
   return (
     <div className="board-settings-lifecycle">
       {archived ? (
         <div className="board-settings-lifecycle-summary">
           <p>This board is archived.</p>
-          <button
+          <Button
             type="button"
-            className="secondary-button"
+            variant="outline"
             disabled={submitting}
             onClick={onUnarchive}
           >
             {submitting ? "Unarchiving" : "Unarchive"}
-          </button>
+          </Button>
         </div>
       ) : expanded ? (
         <form
@@ -548,41 +581,44 @@ export function BoardLifecycleControls({
             onArchive();
           }}
         >
-          <label className="form-field form-field-wide">
-            <span>Archive reason (optional)</span>
-            <input
+          <div className="form-field form-field-wide">
+            <Label htmlFor={reasonId}>Archive reason (optional)</Label>
+            <Input
+              id={reasonId}
               autoFocus
               type="text"
               value={reason}
-              onInput={(event) => onReasonChange(event.currentTarget.value)}
+              onChange={(event) => onReasonChange(event.currentTarget.value)}
             />
-          </label>
+          </div>
           <div className="board-settings-archive-actions">
-            <button
+            <Button
               type="button"
-              className="secondary-button"
+              variant="outline"
               disabled={submitting}
               onClick={onCancelArchive}
             >
               Cancel
-            </button>
-            <button type="submit" className="danger-button" disabled={submitting}>
+            </Button>
+            <Button type="submit" variant="destructive" disabled={submitting}>
               {submitting ? "Archiving" : "Archive"}
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
         <div className="board-settings-lifecycle-summary">
           <p>Archive this board</p>
-          <button
+          <Button
             type="button"
-            className="danger-button board-settings-icon-button"
+            className="board-settings-icon-button"
+            variant="destructive"
+            size="icon-sm"
             aria-label="Archive board"
             title="Archive board"
             onClick={onBeginArchive}
           >
             <Archive aria-hidden="true" />
-          </button>
+          </Button>
         </div>
       )}
       {error !== undefined && <p role="alert">{error}</p>}

@@ -1,9 +1,7 @@
-import type { Ref, ReactNode } from "react";
+import type { ReactNode } from "react";
 import {
   useCallback,
-  useEffect,
   useId,
-  useRef,
   useState,
 } from "react";
 import {
@@ -13,6 +11,17 @@ import {
   Settings,
 } from "lucide-react";
 import { Link } from "react-router";
+
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 import {
   boardScopePath,
@@ -29,12 +38,12 @@ interface AvailableProject {
   source?: Project["source"];
 }
 
-export interface BoardContextTarget {
+export interface BoardConfigurationTarget {
   id: string;
   source?: BoardSummary["source"];
 }
 
-interface AvailableBoard extends BoardContextTarget {
+interface AvailableBoard extends BoardConfigurationTarget {
   projectId: string;
   name: string;
   /** archived is present when the board is readable but omitted from active discovery. */
@@ -54,8 +63,7 @@ interface BoardSelectorProps {
   projects: readonly AvailableProject[];
   sources?: readonly AvailableSource[];
   selection: BoardScopeSelection;
-  onOpenBoardContext?: (board: BoardContextTarget) => void;
-  onOpenBoardSettings?: (boardId: string) => void;
+  onOpenBoardConfiguration?: (board: BoardConfigurationTarget) => void;
   onSelectScope: (selection: ResolvedBoardScope) => void;
 }
 
@@ -73,6 +81,8 @@ export function BoardPickerRoute({
   projects,
   sources = [],
 }: BoardPickerRouteProps) {
+  const searchId = useId();
+  const archivedId = useId();
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
   const visibleBoards = catalogBoards(boards, showArchived);
@@ -91,24 +101,27 @@ export function BoardPickerRoute({
         </Link>
       </header>
       <div className="board-picker-filters">
-        <label className="board-picker-search">
+        <div className="board-picker-search">
           <Search aria-hidden="true" />
-          <span className="sr-only">Search boards and projects</span>
-          <input
+          <Label className="sr-only" htmlFor={searchId}>
+            Search boards and projects
+          </Label>
+          <Input
+            id={searchId}
             type="search"
             value={query}
             placeholder="Find a board or project"
             onChange={(event) => setQuery(event.currentTarget.value)}
           />
-        </label>
-        <label className="board-picker-archived">
-          <input
-            type="checkbox"
+        </div>
+        <div className="board-picker-archived">
+          <Checkbox
+            id={archivedId}
             checked={showArchived}
-            onChange={(event) => setShowArchived(event.currentTarget.checked)}
+            onCheckedChange={setShowArchived}
           />
-          <span>Show archived</span>
-        </label>
+          <Label htmlFor={archivedId}>Show archived</Label>
+        </div>
       </div>
       <div className="board-picker-projects">
         {aggregate && <SourceHeadings sources={sources} />}
@@ -164,40 +177,16 @@ export function BoardSelector({
   projects,
   sources = [],
   selection,
-  onOpenBoardContext,
-  onOpenBoardSettings,
+  onOpenBoardConfiguration,
   onSelectScope,
 }: BoardSelectorProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const rootRef = useRef<HTMLDivElement>(null);
-  const triggerRef = useRef<HTMLButtonElement>(null);
-  const searchRef = useRef<HTMLInputElement>(null);
   const dialogId = useId();
   const dismiss = useCallback(() => {
     setOpen(false);
     setQuery("");
-    triggerRef.current?.focus();
   }, []);
-
-  useEffect(() => {
-    if (!open) {
-      return;
-    }
-    searchRef.current?.focus();
-    const closeOnOutsidePointer = (event: PointerEvent) => {
-      if (
-        event.target instanceof Node &&
-        !rootRef.current?.contains(event.target)
-      ) {
-        dismiss();
-      }
-    };
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-    };
-  }, [dismiss, open]);
 
   return (
     <BoardSelectorView
@@ -208,24 +197,14 @@ export function BoardSelector({
       projects={projects}
       sources={sources}
       query={query}
-      searchRef={searchRef}
       selection={selection}
-      triggerRef={triggerRef}
       onDismiss={dismiss}
-      onOpenBoardContext={
-        onOpenBoardContext === undefined
+      onOpenBoardConfiguration={
+        onOpenBoardConfiguration === undefined
           ? undefined
           : (board) => {
               dismiss();
-              onOpenBoardContext(board);
-            }
-      }
-      onOpenBoardSettings={
-        onOpenBoardSettings === undefined
-          ? undefined
-          : (boardId) => {
-              dismiss();
-              onOpenBoardSettings(boardId);
+              onOpenBoardConfiguration(board);
             }
       }
       onQueryChange={setQuery}
@@ -240,7 +219,6 @@ export function BoardSelector({
           setOpen(true);
         }
       }}
-      rootRef={rootRef}
     />
   );
 }
@@ -249,9 +227,6 @@ interface BoardSelectorViewProps extends BoardSelectorProps {
   dialogId?: string;
   open: boolean;
   query: string;
-  rootRef?: Ref<HTMLDivElement>;
-  searchRef?: Ref<HTMLInputElement>;
-  triggerRef?: Ref<HTMLButtonElement>;
   onDismiss: () => void;
   onQueryChange: (query: string) => void;
   onToggle: () => void;
@@ -265,13 +240,9 @@ export function BoardSelectorView({
   projects,
   sources = [],
   query,
-  rootRef,
-  searchRef,
   selection,
-  triggerRef,
   onDismiss,
-  onOpenBoardContext,
-  onOpenBoardSettings,
+  onOpenBoardConfiguration,
   onQueryChange,
   onSelectScope,
   onToggle,
@@ -280,7 +251,6 @@ export function BoardSelectorView({
     aggregate,
     projects,
     boards,
-    sources,
     selection,
   );
   // The selector's labels use the full catalog so an explicitly selected
@@ -291,27 +261,21 @@ export function BoardSelectorView({
   const storeSummary = catalogSummary(projects.length, activeBoards.length);
 
   return (
-    <div
-      className="board-selector"
-      ref={rootRef}
-      onKeyDown={(event) => {
-        if (event.key !== "Escape" || !open) {
-          return;
-        }
-        event.preventDefault();
-        event.stopPropagation();
-        onDismiss();
-      }}
+    <Dialog
+      open={open}
+      onOpenChange={(nextOpen) => nextOpen ? onToggle() : onDismiss()}
     >
-      <button
-        ref={triggerRef}
-        type="button"
-        className="board-selector-trigger"
-        aria-controls={dialogId}
-        aria-expanded={open}
-        aria-haspopup="dialog"
-        aria-label={`Select board scope: ${labels.primary}`}
-        onClick={onToggle}
+      <div className="board-selector">
+      <DialogTrigger
+        render={
+          <Button
+            type="button"
+            className="board-selector-trigger"
+            variant="outline"
+            aria-controls={dialogId}
+            aria-label={`Select board scope: ${labels.primary}`}
+          />
+        }
       >
         <span className="board-selector-trigger-copy">
           <span className="board-selector-trigger-primary">
@@ -326,22 +290,20 @@ export function BoardSelectorView({
           data-open={open}
           aria-hidden="true"
         />
-      </button>
+      </DialogTrigger>
       {open && (
-        <section
+        <DialogContent
           id={dialogId}
-          className="board-selector-dialog"
-          role="dialog"
-          aria-labelledby={`${dialogId}-title`}
+          className="board-selector-dialog max-w-xl gap-0 overflow-hidden p-0"
+          showCloseButton={false}
         >
-          <h2 id={`${dialogId}-title`} className="sr-only">
+          <DialogTitle id={`${dialogId}-title`} className="sr-only">
             Select board scope
-          </h2>
+          </DialogTitle>
           <label className="board-selector-search">
             <Search aria-hidden="true" />
             <span className="sr-only">Search boards and projects</span>
-            <input
-              ref={searchRef}
+            <Input
               type="search"
               value={query}
               placeholder="Find a board or project"
@@ -351,9 +313,10 @@ export function BoardSelectorView({
           </label>
           <div className="board-selector-results">
             <div className="board-selector-row">
-              <button
+              <Button
                 type="button"
                 className="board-selector-option"
+                variant="ghost"
                 aria-current={allBoardsSelected || undefined}
                 aria-label={`Select ${aggregate ? "All sources" : "All boards"}`}
                 onClick={() => onSelectScope({ kind: "all" })}
@@ -367,7 +330,7 @@ export function BoardSelectorView({
                     {storeSummary}
                   </span>
                 </span>
-              </button>
+              </Button>
               <span className="board-selector-action-space" aria-hidden="true" />
             </div>
             {aggregate
@@ -375,7 +338,7 @@ export function BoardSelectorView({
                 sources,
                 units,
                 selection,
-                onOpenBoardContext,
+                onOpenBoardConfiguration,
                 onSelectScope,
               )
               : units.map((unit) =>
@@ -390,7 +353,7 @@ export function BoardSelectorView({
                               ? selection.boardId
                               : undefined
                           }
-                          onOpenBoardContext={onOpenBoardContext}
+                          onOpenBoardConfiguration={onOpenBoardConfiguration}
                           onSelectScope={onSelectScope}
                         />
                       )
@@ -419,7 +382,7 @@ export function BoardSelectorView({
                                   ? selection.boardId
                                   : undefined
                               }
-                              onOpenBoardContext={onOpenBoardContext}
+                              onOpenBoardConfiguration={onOpenBoardConfiguration}
                               onSelectScope={onSelectScope}
                             />
                           ))}
@@ -432,21 +395,13 @@ export function BoardSelectorView({
               </p>
             )}
           </div>
-          {selection.kind === "board" && onOpenBoardSettings !== undefined && (
-            <button
-              type="button"
-              className="board-selector-catalog-link"
-              onClick={() => onOpenBoardSettings(selection.boardId)}
-            >
-              Board settings
-            </button>
-          )}
           <a className="board-selector-catalog-link" href="/" onClick={onDismiss}>
             View all boards
           </a>
-        </section>
+        </DialogContent>
       )}
-    </div>
+      </div>
+    </Dialog>
   );
 }
 
@@ -454,7 +409,7 @@ interface BoardSelectorBoardRowProps {
   board: AvailableBoard;
   projectName: string;
   selectedBoardId: string | undefined;
-  onOpenBoardContext?: (board: BoardContextTarget) => void;
+  onOpenBoardConfiguration?: (board: BoardConfigurationTarget) => void;
   onSelectScope: (selection: ResolvedBoardScope) => void;
 }
 
@@ -462,15 +417,16 @@ export function BoardSelectorBoardRow({
   board,
   projectName,
   selectedBoardId,
-  onOpenBoardContext,
+  onOpenBoardConfiguration,
   onSelectScope,
 }: BoardSelectorBoardRowProps) {
   const selected = board.id === selectedBoardId;
   return (
     <div className="board-selector-row">
-      <button
+      <Button
         type="button"
         className="board-selector-option"
+        variant="ghost"
         aria-current={selected || undefined}
         aria-label={`Select ${board.name}`}
         onClick={() =>
@@ -484,17 +440,19 @@ export function BoardSelectorBoardRow({
             {projectName}
           </span>
         </span>
-      </button>
-      {onOpenBoardContext !== undefined ? (
-        <button
+      </Button>
+      {onOpenBoardConfiguration !== undefined ? (
+        <Button
           type="button"
           className="board-selector-action"
-          aria-label={`View context for ${board.name}`}
-          title={`Board context: ${board.name}`}
-          onClick={() => onOpenBoardContext(board)}
+          variant="ghost"
+          size="icon-sm"
+          aria-label={`Configure ${board.name}`}
+          title={`Board configuration: ${board.name}`}
+          onClick={() => onOpenBoardConfiguration(board)}
         >
           <Settings aria-hidden="true" />
-        </button>
+        </Button>
       ) : (
         <span className="board-selector-action-space" aria-hidden="true" />
       )}
@@ -602,7 +560,8 @@ function renderAggregateUnits(
   sources: readonly AvailableSource[],
   units: readonly ProjectUnit[],
   selection: BoardScopeSelection,
-  onOpenBoardContext: ((board: BoardContextTarget) => void) | undefined,
+  onOpenBoardConfiguration:
+    ((board: BoardConfigurationTarget) => void) | undefined,
   onSelectScope: (selection: ResolvedBoardScope) => void,
 ): ReactNode[] {
   return sources.flatMap((source) => {
@@ -620,32 +579,34 @@ function renderAggregateUnits(
     }
     return [
       <section className="board-selector-source" key={`source:${sourceId}`}>
-        <button
+        <Button
           type="button"
           className="board-selector-scope-option"
+          variant="ghost"
           aria-current={selection.kind === "all" && selection.sourceId === sourceId || undefined}
           onClick={() => onSelectScope({ kind: "all", sourceId })}
         >
           {sourceId || "Unknown source"}
-        </button>
+        </Button>
         {sourceUnits.map((unit) => (
           <section className="board-selector-project" key={`${sourceId}:${unit.project.id}`}>
-            <button
+            <Button
               type="button"
               className="board-selector-scope-option board-selector-project-heading"
+              variant="ghost"
               aria-current={selection.kind === "all" && selection.projectId === unit.project.id || undefined}
               onClick={() => onSelectScope({ kind: "all", sourceId, projectId: unit.project.id })}
             >
               <span>{unit.project.name}</span>
               <span>{unit.totalBoardCount} {unit.totalBoardCount === 1 ? "board" : "boards"}</span>
-            </button>
+            </Button>
             {unit.boards.map((board) => (
               <BoardSelectorBoardRow
                 key={board.id}
                 board={board}
                 projectName={unit.project.name}
                 selectedBoardId={selection.kind === "board" ? selection.boardId : undefined}
-                onOpenBoardContext={onOpenBoardContext}
+                onOpenBoardConfiguration={onOpenBoardConfiguration}
                 onSelectScope={onSelectScope}
               />
             ))}
@@ -672,7 +633,6 @@ function selectedScopeLabels(
   aggregate: boolean,
   projects: readonly AvailableProject[],
   boards: readonly AvailableBoard[],
-  sources: readonly AvailableSource[],
   selection: BoardScopeSelection,
 ): { primary: string; secondary: string } {
   if (selection.kind === "all") {

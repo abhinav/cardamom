@@ -1,6 +1,8 @@
 import { Copy } from "lucide-react";
 import { type ReactNode, useState } from "react";
 
+import { Button } from "@/components/ui/button";
+
 import "./clipboard-pill.css";
 
 type CopyStatus = "idle" | "copied" | "failed";
@@ -48,8 +50,10 @@ export function ClipboardPill({
   return (
     <span className="clipboard-pill" data-copy-status={status} title={title}>
       <span className="clipboard-pill-content">{children}</span>
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-xs"
         aria-label={copyLabel}
         title={copyLabel}
         onClick={() => {
@@ -57,7 +61,7 @@ export function ClipboardPill({
         }}
       >
         <Copy aria-hidden="true" />
-      </button>
+      </Button>
       <span
         className="sr-only"
         role={status === "failed" ? "alert" : "status"}

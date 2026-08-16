@@ -1,3 +1,16 @@
+import { useId } from "react";
+
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Textarea } from "@/components/ui/textarea";
+
 import { IssueType } from "./gen/cardamom/private/v1/issue_pb.ts";
 
 /** IssueMetadataDraft is the controlled form representation shared by create and edit. */
@@ -28,89 +41,106 @@ export function IssueMetadataFields({
   draft,
   onChange,
 }: IssueMetadataFieldsProps) {
+  const titleId = useId();
+  const typeId = useId();
+  const priorityId = useId();
+  const summaryId = useId();
+  const detailsId = useId();
+  const labelsId = useId();
+  const parentId = useId();
   return (
     <>
-      <label className="form-field form-field-wide">
-        <span>Title</span>
-        <input
+      <div className="form-field form-field-wide">
+        <Label htmlFor={titleId}>Title</Label>
+        <Input
+          id={titleId}
           autoFocus={autoFocusTitle}
           disabled={disabled}
           required
           type="text"
           value={draft.title}
-          onInput={(event) => onChange("title", event.currentTarget.value)}
+          onChange={(event) => onChange("title", event.currentTarget.value)}
         />
-      </label>
-      <label className="form-field">
-        <span>Type</span>
-        <select
+      </div>
+      <div className="form-field">
+        <Label htmlFor={typeId}>Type</Label>
+        <Select
           disabled={disabled}
-          value={draft.type}
-          onChange={(event) =>
-            onChange(
-              "type",
-              Number(event.currentTarget.value) as IssueType,
-            )
-          }
+          value={String(draft.type)}
+          onValueChange={(value) => {
+            if (value !== null) {
+              onChange("type", Number(value) as IssueType);
+            }
+          }}
         >
-          <option value={IssueType.WORKSTREAM}>Workstream</option>
-          <option value={IssueType.TASK}>Task</option>
-          <option value={IssueType.CHECKPOINT}>Checkpoint</option>
-          <option value={IssueType.ROUTINE}>Routine</option>
-        </select>
-      </label>
-      <label className="form-field">
-        <span>Priority</span>
-        <input
+          <SelectTrigger id={typeId} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={String(IssueType.WORKSTREAM)}>Workstream</SelectItem>
+            <SelectItem value={String(IssueType.TASK)}>Task</SelectItem>
+            <SelectItem value={String(IssueType.CHECKPOINT)}>Checkpoint</SelectItem>
+            <SelectItem value={String(IssueType.ROUTINE)}>Routine</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      <div className="form-field">
+        <Label htmlFor={priorityId}>Priority</Label>
+        <Input
+          id={priorityId}
           type="number"
           min="0"
           max="4"
           disabled={disabled}
           required
           value={draft.priority}
-          onInput={(event) =>
+          onChange={(event) =>
             onChange("priority", Number(event.currentTarget.value))
           }
         />
-      </label>
-      <label className="form-field form-field-wide">
-        <span>Summary (Markdown)</span>
-        <textarea
+      </div>
+      <div className="form-field form-field-wide">
+        <Label htmlFor={summaryId}>Summary (Markdown)</Label>
+        <Textarea
+          id={summaryId}
           rows={4}
           disabled={disabled}
           value={draft.summary}
-          onInput={(event) => onChange("summary", event.currentTarget.value)}
+          onChange={(event) => onChange("summary", event.currentTarget.value)}
         />
-      </label>
-      <label className="form-field form-field-wide">
-        <span>Details (Markdown)</span>
-        <textarea
+      </div>
+      <div className="form-field form-field-wide">
+        <Label htmlFor={detailsId}>Details (Markdown)</Label>
+        <Textarea
+          id={detailsId}
           rows={7}
           disabled={disabled}
           value={draft.details}
-          onInput={(event) => onChange("details", event.currentTarget.value)}
+          onChange={(event) => onChange("details", event.currentTarget.value)}
         />
-      </label>
-      <label className="form-field form-field-wide">
-        <span>Labels</span>
-        <input
+      </div>
+      <div className="form-field form-field-wide">
+        <Label htmlFor={labelsId}>Labels</Label>
+        <Input
+          id={labelsId}
           type="text"
           disabled={disabled}
           placeholder="area:web, priority:high"
           value={draft.labels}
-          onInput={(event) => onChange("labels", event.currentTarget.value)}
+          onChange={(event) => onChange("labels", event.currentTarget.value)}
         />
-      </label>
-      <label className="form-field">
-        <span>Parent</span>
-        <input
+      </div>
+      <div className="form-field">
+        <Label htmlFor={parentId}>Parent</Label>
+        <Input
+          id={parentId}
           type="text"
           disabled={disabled}
           placeholder="Optional issue ID"
           value={draft.parent}
-          onInput={(event) => onChange("parent", event.currentTarget.value)}
+          onChange={(event) => onChange("parent", event.currentTarget.value)}
         />
-      </label>
+      </div>
     </>
   );
 }

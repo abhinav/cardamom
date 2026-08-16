@@ -29,4 +29,12 @@ describe("issue Markdown styles", () => {
     expect(targetRule).toMatch(/border-inline-start-color:/);
     expect(targetRule).toMatch(/background:/);
   });
+
+  it("does not divide the final log entry from empty space", () => {
+    const lastLogItemRule = issueDetailStyles.match(
+      /\.issue-log-list > li:last-child\s*\{(?<declarations>[^}]*)\}/,
+    )?.groups?.declarations;
+
+    expect(lastLogItemRule).toMatch(/border-bottom:\s*0;/);
+  });
 });

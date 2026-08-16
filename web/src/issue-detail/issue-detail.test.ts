@@ -223,7 +223,9 @@ describe("issue detail presentation", () => {
     expect(markup).not.toContain("state-title");
     expect(markup).toContain("<h2 id=\"result-title\">Result</h2>");
     expect(markup).toContain("Completed outcome.");
-    expect(markup).toContain('class="issue-detail-section issue-details" open=""');
+    expect(markup).toMatch(
+      /aria-expanded="true"[^>]*><h2 id="details-title">Details<\/h2>/,
+    );
     expect(markup).not.toContain("Description");
   });
 
@@ -430,12 +432,10 @@ describe("issue detail presentation", () => {
     expect(markup.indexOf("Service first.")).toBeLessThan(
       markup.indexOf("Service second."),
     );
-    expect(markup).toContain(
-      '<details class="issue-actions"><summary>Issue actions</summary>',
-    );
+    expect(markup).toMatch(/aria-expanded="false"[^>]*>Issue actions<\/button>/);
     expect(markup).not.toContain('id="lifecycle-title"');
-    expect(markup).toContain(
-      '<details class="issue-detail-section issue-relations" open=""><summary>',
+    expect(markup).toMatch(
+      /aria-expanded="true"[^>]*><h2 id="relations-title">Relations<\/h2>/,
     );
 
     const readOnlyMarkup = renderPage(AccessMode.READ_ONLY);
@@ -545,11 +545,8 @@ describe("issue detail presentation", () => {
       ),
     );
 
-    expect(markup).toContain(
-      '<details class="issue-detail-section issue-relations"><summary>',
-    );
-    expect(markup).not.toContain(
-      '<details class="issue-detail-section issue-relations" open="">',
+    expect(markup).toMatch(
+      /aria-expanded="false"[^>]*><h2 id="relations-title">Relations<\/h2>/,
     );
   });
 
@@ -884,15 +881,12 @@ describe("issue detail RPC boundaries", () => {
       }),
     );
 
-    expect(markup).toContain(
-      '<details class="issue-actions"><summary>Issue actions</summary>',
-    );
+    expect(markup).toMatch(/aria-expanded="false"[^>]*>Issue actions<\/button>/);
     expect(markup).toContain("Edit issue");
     expect(markup).toContain("Pin to board");
     expect(markup).toContain("Claim");
     expect(markup).toContain("Mark done");
     expect(markup).toContain("Cancel");
-    expect(markup).not.toContain('open=""');
   });
 
   it("attributes pin and unpin mutations and reports idempotent outcomes", async () => {
