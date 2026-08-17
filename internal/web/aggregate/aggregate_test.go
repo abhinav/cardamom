@@ -573,6 +573,58 @@ func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {
 	assert.Equal(t, 0, betaCalls)
 }
 
+func TestAggregateReadsEmptyBoardPins(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-pins", ProjectId: "project", Name: "Pins"}
+	server := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: sourceBootstrap(board, true),
+		pins: func(_ context.Context, request *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
+			assert.Equal(t, board.GetId(), request.Msg.GetBoardId())
+			return connect.NewResponse(&v1.ListBoardPinsResponse{}), nil
+		},
+	})
+	aggregate, err := New(t.Context(), Config{
+		Sources: []SourceConfig{{Alias: "pins", URL: mustURL(t, server.URL)}},
+	})
+	require.NoError(t, err)
+
+	response, err := newAggregateIssueClient(t, aggregate).ListBoardPins(
+		t.Context(),
+		connect.NewRequest(&v1.ListBoardPinsRequest{BoardId: board.GetId()}),
+	)
+	require.NoError(t, err)
+	assert.Empty(t, response.Msg.GetIssues())
+}
+
+func TestAggregateBoardPinsPreserveOrderAndQualifySource(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-pins", ProjectId: "project", Name: "Pins"}
+	server := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: sourceBootstrap(board, true),
+		pins: func(_ context.Context, _ *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
+			return connect.NewResponse(&v1.ListBoardPinsResponse{Issues: []*v1.RelatedIssue{
+				{Id: "issue-second", BoardId: board.GetId(), Title: "Second"},
+				{Id: "issue-first", BoardId: board.GetId(), Title: "First"},
+			}}), nil
+		},
+	})
+	aggregate, err := New(t.Context(), Config{
+		Sources: []SourceConfig{{Alias: "pins", URL: mustURL(t, server.URL)}},
+	})
+	require.NoError(t, err)
+
+	response, err := newAggregateIssueClient(t, aggregate).ListBoardPins(
+		t.Context(),
+		connect.NewRequest(&v1.ListBoardPinsRequest{BoardId: board.GetId()}),
+	)
+	require.NoError(t, err)
+	require.Len(t, response.Msg.GetIssues(), 2)
+	assert.Equal(t, "issue-second", response.Msg.GetIssues()[0].GetId())
+	assert.Equal(t, "issue-first", response.Msg.GetIssues()[1].GetId())
+	for _, issue := range response.Msg.GetIssues() {
+		assert.Equal(t, "pins", issue.GetSource().GetSourceId())
+		assert.Equal(t, "lineage-primary", issue.GetSource().GetStoreLineageId())
+	}
+}
+
 func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
 	board := &v1.BoardSummary{Id: "board-detail", ProjectId: "project", Name: "Detail"}
 	bootstrap := sourceBootstrap(board, true)
@@ -695,6 +747,7 @@ type sourceHandler struct {
 	board       *v1.Board
 	issues      func(context.Context, *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error)
 	issue       func(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
+	pins        func(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error)
 	logs        func(context.Context, *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error)
 	state       func(context.Context, *connect.Request[v1.GetStateRequest]) (*connect.Response[v1.GetStateResponse], error)
 	attachments func(context.Context, *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error)
@@ -737,6 +790,16 @@ func (s *sourceHandler) GetIssue(
 		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("issue not scripted"))
 	}
 	return s.issue(ctx, request)
+}
+
+func (s *sourceHandler) ListBoardPins(
+	ctx context.Context,
+	request *connect.Request[v1.ListBoardPinsRequest],
+) (*connect.Response[v1.ListBoardPinsResponse], error) {
+	if s.pins == nil {
+		return nil, connect.NewError(connect.CodeUnimplemented, errors.New("pins not scripted"))
+	}
+	return s.pins(ctx, request)
 }
 
 func (s *sourceHandler) ListLogEntries(
