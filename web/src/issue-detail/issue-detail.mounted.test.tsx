@@ -24,7 +24,7 @@ import { RecordService } from "../gen/cardamom/private/v1/record_pb.ts";
 import { AccessMode } from "../gen/cardamom/private/v1/project_pb.ts";
 import { unaryRouteQueryOptions } from "../query-runtime.ts";
 import { ServerAccessProvider } from "../server-access.tsx";
-import { IssueDetailPage } from "./issue-detail.tsx";
+import { IssueDetailPage, RelationshipBand } from "./issue-detail.tsx";
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean })
   .IS_REACT_ACT_ENVIRONMENT = true;
@@ -86,9 +86,11 @@ describe("issue detail interactions", () => {
                   collapsedDetailsBoardIds={[]}
                   expectedBoardId="board-1"
                   issueId={issueId}
+                  relationFocus="hierarchy"
                   relationsOpen
                   selectLabel={vi.fn()}
                   setDetailsCollapsed={vi.fn()}
+                  setRelationFocus={vi.fn()}
                   setRelationsOpen={vi.fn()}
                 />
               </MemoryRouter>
@@ -107,6 +109,75 @@ describe("issue detail interactions", () => {
     expect(pinBoardIssue).toHaveBeenCalledOnce();
     expect(getIssue.mock.calls.length).toBeGreaterThan(1);
     expect(findButton(container, "Unpin from board")).toBeDefined();
+
+    await act(async () => root.unmount());
+  });
+
+  it("requests the selected relation focus from the shared preferences owner", async () => {
+    const issueId = "cm-relations";
+    const detail = create(IssueDetailSchema, {
+      issue: create(IssueSummarySchema, {
+        id: issueId,
+        boardId: "board-1",
+        title: "Current issue",
+      }),
+      dependents: [
+        create(RelatedIssueSchema, {
+          id: "cm-dependent",
+          title: "Dependent issue",
+        }),
+      ],
+      containment: {
+        nodes: [
+          {
+            issue: { id: issueId, title: "Current issue" },
+            selectedPath: true,
+          },
+        ],
+      },
+    });
+    const setRelationFocus = vi.fn();
+    const transport = createRouterTransport(() => {});
+    const queryClient = new QueryClient();
+    const container = document.createElement("div");
+    const root = createRoot(container);
+
+    await act(async () => {
+      root.render(
+        <TransportProvider transport={transport}>
+          <QueryClientProvider client={queryClient}>
+            <MemoryRouter>
+              <RelationshipBand
+                addDependency={vi.fn()}
+                dependencyQuery=""
+                detail={detail}
+                pending={false}
+                relationFocus="hierarchy"
+                relationsOpen
+                removeDependency={vi.fn()}
+                setDependencyQuery={vi.fn()}
+                setRelationFocus={setRelationFocus}
+                setRelationsOpen={vi.fn()}
+              />
+            </MemoryRouter>
+          </QueryClientProvider>
+        </TransportProvider>,
+      );
+    });
+
+    const relationTabs = [...container.querySelectorAll<HTMLElement>(
+      '[role="tab"]',
+    )];
+    expect(relationTabs.map((tab) => tab.getAttribute("aria-label"))).toEqual([
+      "Dependencies 0",
+      "Hierarchy 1",
+      "Dependents 1",
+    ]);
+    expect(relationTabs[1]?.getAttribute("aria-selected")).toBe("true");
+
+    await act(async () => relationTabs[2]?.click());
+
+    expect(setRelationFocus).toHaveBeenCalledWith("dependents");
 
     await act(async () => root.unmount());
   });

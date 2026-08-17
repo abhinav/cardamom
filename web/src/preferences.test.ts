@@ -27,6 +27,7 @@ describe("preferences", () => {
         sort: "title" as const,
         direction: "ascending" as const,
       },
+      relationFocus: "dependents" as const,
       relationsOpen: false,
     };
 
@@ -75,6 +76,7 @@ describe("preferences", () => {
       boardView: defaultBoardView,
       collapsedIssueDetailsBoardIds: [],
       listView: defaultListView,
+      relationFocus: "hierarchy",
       relationsOpen: true,
     });
   });
@@ -106,6 +108,34 @@ describe("preferences", () => {
     });
 
     expect(loadPreferences(currentVersion).relationsOpen).toBe(true);
+  });
+
+  it("focuses Hierarchy by default and remembers the selected relation", () => {
+    const noPreference = new MemoryStorage();
+    const previousVersion = new MemoryStorage(
+      JSON.stringify({
+        version: 5,
+        actor: "captain",
+        theme: "dark",
+      }),
+    );
+    const currentVersion = new MemoryStorage();
+
+    expect(loadPreferences(noPreference)).toMatchObject({
+      relationFocus: "hierarchy",
+    });
+    expect(loadPreferences(previousVersion)).toMatchObject({
+      relationFocus: "hierarchy",
+    });
+
+    savePreferences(currentVersion, {
+      ...defaultPreferences,
+      relationFocus: "dependents",
+    });
+
+    expect(loadPreferences(currentVersion)).toMatchObject({
+      relationFocus: "dependents",
+    });
   });
 
   it("shares Details disclosure by board without changing other boards", () => {

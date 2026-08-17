@@ -118,8 +118,7 @@
   margin-top: 1rem;
 }
 
-.issue-detail-section h2,
-.issue-relationship-panel h2 {
+.issue-detail-section h2 {
   margin: 0 0 0.85rem;
   font-size: 1rem;
 }
@@ -400,8 +399,6 @@ button:disabled {
 
 .issue-relationship-band {
   min-width: 0;
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   border-block: 1px solid var(--border);
 }
 
@@ -409,24 +406,54 @@ button:disabled {
   min-width: 0;
 }
 
+.issue-relationship-tabs {
+  min-width: 0;
+  gap: 0;
+}
+
+.issue-relationship-tabs-list {
+  width: 100%;
+  height: auto;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--border);
+}
+
+button.issue-relationship-tab {
+  min-width: 0;
+  min-height: 2.75rem;
+  padding: 0.65rem 0.75rem;
+  border-radius: 0;
+  font-size: 0.82rem;
+}
+
+button.issue-relationship-tab + button.issue-relationship-tab {
+  border-inline-start-color: var(--border);
+}
+
+.issue-relationship-count {
+  min-width: 1.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: var(--radius-pill);
+  background: var(--secondary);
+  color: var(--muted-foreground);
+  font-size: 0.7rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.2;
+}
+
 .issue-relationship-panel {
   min-width: 0;
   padding: 1rem;
 }
 
-.issue-relationship-panel + .issue-relationship-panel {
-  border-inline-start: 1px solid var(--border);
-}
-
-.issue-panel-heading {
+.issue-panel-toolbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: 0.75rem;
-}
-
-.issue-panel-heading h2 {
-  margin-bottom: 0;
 }
 
 button.issue-add-dependency {
@@ -703,8 +730,7 @@ button.issue-add-dependency {
 }
 
 @media (max-width: 900px) {
-  .issue-checkpoint,
-  .issue-relationship-band {
+  .issue-checkpoint {
     grid-template-columns: minmax(0, 1fr);
   }
 
@@ -712,9 +738,14 @@ button.issue-add-dependency {
     grid-column: auto;
   }
 
-  .issue-relationship-panel + .issue-relationship-panel {
-    border-inline-start: 0;
-    border-top: 1px solid var(--border);
+}
+
+@media (max-width: 420px) {
+  button.issue-relationship-tab {
+    flex-direction: column;
+    gap: 0.2rem;
+    padding-inline: 0.25rem;
+    font-size: 0.72rem;
   }
 }
 

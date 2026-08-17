@@ -918,8 +918,12 @@ function IssuePage({
       issueId={issueId}
       projects={projects}
       readOnly={!canMutateServer}
+      relationFocus={preferences.relationFocus}
       relationsOpen={preferences.relationsOpen}
       selectLabel={selectLabel}
+      setRelationFocus={(relationFocus) =>
+        updatePreferences({ ...preferences, relationFocus })
+      }
       setRelationsOpen={(relationsOpen) =>
         updatePreferences({ ...preferences, relationsOpen })
       }
