@@ -27,6 +27,12 @@ import {
 } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 
 import type {
@@ -92,6 +98,10 @@ import {
 } from "../query-runtime.ts";
 import { useServerAccess } from "../server-access.tsx";
 import { issueProvenance } from "../provenance.ts";
+import {
+  parseRelationFocus,
+  type RelationFocus,
+} from "../preferences.ts";
 import { IssueHierarchy } from "./hierarchy.tsx";
 import { IssueReferenceLink } from "./issue-reference.tsx";
 import {
@@ -118,9 +128,11 @@ interface IssueDetailPageProps {
   issueId: string;
   projects?: readonly Project[];
   readOnly?: boolean;
+  relationFocus: RelationFocus;
   relationsOpen: boolean;
   selectLabel: SelectLabel;
   setDetailsCollapsed: (boardId: string, collapsed: boolean) => void;
+  setRelationFocus: (focus: RelationFocus) => void;
   setRelationsOpen: (open: boolean) => void;
 }
 
@@ -372,9 +384,11 @@ export function IssueDetailPage({
   issueId,
   projects = [],
   readOnly = false,
+  relationFocus,
   relationsOpen,
   selectLabel,
   setDetailsCollapsed,
+  setRelationFocus,
   setRelationsOpen,
 }: IssueDetailPageProps) {
   const { canMutateServer: serverCanMutate } = useServerAccess();
@@ -679,9 +693,11 @@ export function IssueDetailPage({
           dependencyQuery={dependencyQuery}
           detail={detail}
           pending={mutation.status === "pending"}
+          relationFocus={relationFocus}
           relationsOpen={relationsOpen}
           removeDependency={(id) => void changeDependency(id, "remove")}
           setDependencyQuery={setDependencyQuery}
+          setRelationFocus={setRelationFocus}
           setRelationsOpen={setRelationsOpen}
           addDependency={(id) => void changeDependency(id, "add")}
         />
@@ -1194,9 +1210,11 @@ export function RelationshipBand({
   dependencyQuery,
   detail,
   pending,
+  relationFocus,
   relationsOpen,
   removeDependency,
   setDependencyQuery,
+  setRelationFocus,
   setRelationsOpen,
 }: {
   addDependency: (id: string) => void;
@@ -1205,9 +1223,11 @@ export function RelationshipBand({
   dependencyQuery: string;
   detail: IssueDetail;
   pending: boolean;
+  relationFocus: RelationFocus;
   relationsOpen: boolean;
   removeDependency: (id: string) => void;
   setDependencyQuery: (query: string) => void;
+  setRelationFocus: (focus: RelationFocus) => void;
   setRelationsOpen: (open: boolean) => void;
 }) {
   const issue = detail.issue;
@@ -1220,9 +1240,12 @@ export function RelationshipBand({
     detail.containment?.nodes.some(
       (node) => node.issue !== undefined && node.issue.id !== issue.id,
     ) === true;
-  if (!hasRelations) {
+  if (!hasRelations && !canMutate) {
     return null;
   }
+  const hierarchyNodes = (detail.containment?.nodes ?? []).filter(
+    (node) => node.issue !== undefined,
+  );
   return (
     <Collapsible
       className="issue-detail-section issue-relations"
@@ -1240,28 +1263,83 @@ export function RelationshipBand({
         className="issue-relationship-band"
         aria-labelledby="relations-title"
       >
-        <DependencyPanel
-          add={canMutate ? addDependency : undefined}
-          boardId={issue.boardId}
-          source={source}
-          currentIssueId={issue.id}
-          dependencies={detail.prerequisites}
-          pending={pending}
-          query={dependencyQuery}
-          remove={canMutate ? removeDependency : undefined}
-          setQuery={setDependencyQuery}
-        />
-        <HierarchyPanel detail={detail} />
-        <section className="issue-relationship-panel" aria-labelledby="dependents-title">
-          <h2 id="dependents-title">Dependents</h2>
-          <RelationshipList
-            empty="No dependents."
-            issues={detail.dependents}
-            pending={pending}
-          />
-        </section>
+        <Tabs
+          className="issue-relationship-tabs"
+          value={relationFocus}
+          onValueChange={(value) =>
+            setRelationFocus(parseRelationFocus(value))
+          }
+        >
+          <TabsList
+            className="issue-relationship-tabs-list"
+            variant="line"
+            aria-label="Relation type"
+          >
+            <RelationTab
+              count={detail.prerequisites.length}
+              label="Dependencies"
+              value="dependencies"
+            />
+            <RelationTab
+              count={hierarchyNodes.length}
+              label="Hierarchy"
+              value="hierarchy"
+            />
+            <RelationTab
+              count={detail.dependents.length}
+              label="Dependents"
+              value="dependents"
+            />
+          </TabsList>
+          <TabsContent keepMounted value="dependencies">
+            <DependencyPanel
+              add={canMutate ? addDependency : undefined}
+              boardId={issue.boardId}
+              source={source}
+              currentIssueId={issue.id}
+              dependencies={detail.prerequisites}
+              pending={pending}
+              query={dependencyQuery}
+              remove={canMutate ? removeDependency : undefined}
+              setQuery={setDependencyQuery}
+            />
+          </TabsContent>
+          <TabsContent keepMounted value="hierarchy">
+            <HierarchyPanel detail={detail} />
+          </TabsContent>
+          <TabsContent keepMounted value="dependents">
+            <div className="issue-relationship-panel">
+              <RelationshipList
+                empty="No dependents."
+                issues={detail.dependents}
+                pending={pending}
+              />
+            </div>
+          </TabsContent>
+        </Tabs>
       </CollapsibleContent>
     </Collapsible>
+  );
+}
+
+function RelationTab({
+  count,
+  label,
+  value,
+}: {
+  count: number;
+  label: string;
+  value: RelationFocus;
+}) {
+  return (
+    <TabsTrigger
+      className="issue-relationship-tab"
+      value={value}
+      aria-label={`${label} ${count}`}
+    >
+      <span>{label}</span>
+      <span className="issue-relationship-count">{count}</span>
+    </TabsTrigger>
   );
 }
 
@@ -1306,9 +1384,8 @@ function DependencyPanel({
   const results = candidates.data ?? [];
 
   return (
-    <section className="issue-relationship-panel" aria-labelledby="dependencies-title">
-      <div className="issue-panel-heading">
-        <h2 id="dependencies-title">Dependencies</h2>
+    <div className="issue-relationship-panel">
+      <div className="issue-panel-toolbar">
         {add !== undefined && (
           <Button
             type="button"
@@ -1384,7 +1461,7 @@ function DependencyPanel({
           )}
         </form>
       )}
-    </section>
+    </div>
   );
 }
 
@@ -1431,13 +1508,12 @@ function HierarchyPanel({ detail }: { detail: IssueDetail }) {
   }
   const nodes = detail.containment?.nodes ?? [];
   return (
-    <section className="issue-relationship-panel" aria-labelledby="hierarchy-title">
-      <h2 id="hierarchy-title">Hierarchy</h2>
+    <div className="issue-relationship-panel">
       <IssueHierarchy
         nodes={nodes}
         selectedIssueId={issue.id}
       />
-    </section>
+    </div>
   );
 }
 

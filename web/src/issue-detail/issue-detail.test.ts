@@ -400,9 +400,11 @@ describe("issue detail presentation", () => {
                 collapsedDetailsBoardIds: [],
                 expectedBoardId: "board-1",
                 issueId,
+                relationFocus: "hierarchy",
                 relationsOpen: true,
                 selectLabel: vi.fn(),
                 setDetailsCollapsed: vi.fn(),
+                setRelationFocus: vi.fn(),
                 setRelationsOpen: vi.fn(),
               }),
             ),
@@ -426,9 +428,10 @@ describe("issue detail presentation", () => {
 
     expect(positions).toEqual([...positions].sort((left, right) => left - right));
     expect(positions).not.toContain(-1);
-    expect(markup).toContain("<h2 id=\"dependencies-title\">Dependencies</h2>");
-    expect(markup).toContain("<h2 id=\"hierarchy-title\">Hierarchy</h2>");
-    expect(markup).toContain("<h2 id=\"dependents-title\">Dependents</h2>");
+    expect(markup).toContain('role="tablist"');
+    expect(markup).toContain('aria-label="Dependencies 1"');
+    expect(markup).toContain('aria-label="Hierarchy 0"');
+    expect(markup).toContain('aria-label="Dependents 0"');
     expect(markup.indexOf("Service first.")).toBeLessThan(
       markup.indexOf("Service second."),
     );
@@ -452,7 +455,7 @@ describe("issue detail presentation", () => {
     expect(readOnlyMarkup).not.toContain("Add a file");
   });
 
-  it("omits Relations when hierarchy contains only the current issue", () => {
+  it("keeps dependency creation available when an issue has no relations", () => {
     const issueId = "cm-unrelated";
     const detail = create(IssueDetailSchema, {
       issue: create(IssueSummarySchema, {
@@ -488,9 +491,11 @@ describe("issue detail presentation", () => {
               dependencyQuery: "",
               detail,
               pending: false,
+              relationFocus: "hierarchy",
               relationsOpen: true,
               removeDependency: vi.fn(),
               setDependencyQuery: vi.fn(),
+              setRelationFocus: vi.fn(),
               setRelationsOpen: vi.fn(),
             }),
           ),
@@ -498,10 +503,12 @@ describe("issue detail presentation", () => {
       ),
     );
 
-    expect(markup).not.toContain('id="relations-title"');
-    expect(markup).not.toContain("Dependencies");
-    expect(markup).not.toContain("Hierarchy");
-    expect(markup).not.toContain("Dependents");
+    expect(markup).toContain('id="relations-title"');
+    expect(markup).toContain('role="tablist"');
+    expect(markup).toContain('aria-label="Dependencies 0"');
+    expect(markup).toContain('aria-label="Hierarchy 1"');
+    expect(markup).toContain('aria-label="Dependents 0"');
+    expect(markup).toContain('aria-label="Add dependency"');
   });
 
   it("keeps Relations collapsed when the remembered preference is closed", () => {
@@ -535,9 +542,11 @@ describe("issue detail presentation", () => {
               dependencyQuery: "",
               detail,
               pending: false,
+              relationFocus: "hierarchy",
               relationsOpen: false,
               removeDependency: vi.fn(),
               setDependencyQuery: vi.fn(),
+              setRelationFocus: vi.fn(),
               setRelationsOpen: vi.fn(),
             }),
           ),
@@ -605,9 +614,11 @@ describe("issue detail presentation", () => {
               collapsedDetailsBoardIds: [],
               expectedBoardId: "board-1",
               issueId,
+              relationFocus: "hierarchy",
               relationsOpen: true,
               selectLabel: vi.fn(),
               setDetailsCollapsed: vi.fn(),
+              setRelationFocus: vi.fn(),
               setRelationsOpen: vi.fn(),
             }),
           ),
