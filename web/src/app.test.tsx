@@ -5,10 +5,10 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createElement, type ReactNode } from "react";
 import { renderToReadableStream } from "react-dom/server";
 import { MemoryRouter } from "react-router";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import { createWebClient } from "./api.ts";
-import { App, boardSettingsOpener } from "./app.tsx";
+import { App, boardConfigurationActor } from "./app.tsx";
 import {
   IssueDetailSchema,
   IssueService,
@@ -27,14 +27,10 @@ import {
 } from "./query-runtime.ts";
 
 describe("application shell", () => {
-  it("offers local board settings without requiring a concrete scope", () => {
-    const open = vi.fn();
-
-    boardSettingsOpener(false, true, open)?.("board-2");
-
-    expect(open).toHaveBeenCalledExactlyOnceWith("board-2");
-    expect(boardSettingsOpener(true, true, open)).toBeUndefined();
-    expect(boardSettingsOpener(false, false, open)).toBeUndefined();
+  it("enables board configuration edits only on a writable local server", () => {
+    expect(boardConfigurationActor(false, true, "captain")).toBe("captain");
+    expect(boardConfigurationActor(true, true, "captain")).toBeUndefined();
+    expect(boardConfigurationActor(false, false, "captain")).toBeUndefined();
   });
 
   it("names Cardamom while startup metadata is loading", async () => {

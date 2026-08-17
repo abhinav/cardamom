@@ -3,8 +3,13 @@ import {
   keepPreviousData,
   useQueryClient,
 } from "@tanstack/react-query";
-import type { FormEvent } from "react";
-import { useEffect, useState } from "react";
+import { FileUp } from "lucide-react";
+import type { ChangeEventHandler, FormEvent } from "react";
+import { useEffect, useId, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 import type { AttachmentClient } from "./api.ts";
 import { AttachmentIdentity } from "./attachment-identity.tsx";
@@ -187,6 +192,57 @@ interface AttachmentPanelProps {
   issueId?: string;
 }
 
+interface AttachmentFilePickerProps {
+  disabled?: boolean;
+  id: string;
+  label: string;
+  multiple?: boolean;
+  selection: string;
+  onChange: ChangeEventHandler<HTMLInputElement>;
+}
+
+/**
+ * AttachmentFilePicker keeps the native file-selection boundary accessible
+ * while presenting the action and selected filenames as application controls.
+ */
+export function AttachmentFilePicker({
+  disabled = false,
+  id,
+  label,
+  multiple = false,
+  selection,
+  onChange,
+}: AttachmentFilePickerProps) {
+  const selectionId = `${id}-selection`;
+  return (
+    <div className="attachment-file-picker">
+      <Label htmlFor={id}>{label}</Label>
+      <div className="attachment-file-control">
+        <Input
+          id={id}
+          className="attachment-file-input sr-only"
+          type="file"
+          multiple={multiple}
+          disabled={disabled}
+          aria-describedby={selectionId}
+          onChange={onChange}
+        />
+        <Label
+          className="attachment-file-trigger"
+          htmlFor={id}
+          data-disabled={disabled || undefined}
+        >
+          <FileUp aria-hidden="true" />
+          {multiple ? "Choose files" : "Choose file"}
+        </Label>
+        <span id={selectionId} className="attachment-file-selection">
+          {selection}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** AttachmentPanel composes attachment reading and one-at-a-time browser uploads. */
 export function AttachmentPanel({
   actor,
@@ -262,9 +318,9 @@ export function AttachmentRecords({
       {request.isError && attachments === undefined && (
         <div className="attachment-state" role="alert">
           <span>{request.error.message}</span>
-          <button type="button" onClick={() => void request.refetch()}>
+          <Button type="button" onClick={() => void request.refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
       {attachments !== undefined && (
@@ -286,6 +342,7 @@ export function AttachmentUploadPanel({
   issueId,
 }: AttachmentPanelProps) {
   const queryClient = useQueryClient();
+  const fileInputId = useId();
   const [file, setFile] = useState<File>();
   const [fileInputKey, setFileInputKey] = useState(0);
   const [upload, setUpload] = useState<AttachmentUploadState>({ kind: "idle" });
@@ -324,21 +381,20 @@ export function AttachmentUploadPanel({
   return (
     <section className="attachment-upload-panel" aria-label="Attachment controls">
       <form className="attachment-upload" onSubmit={(event) => void submit(event)}>
-        <label>
-          <span>Add a file</span>
-          <input
-            key={fileInputKey}
-            type="file"
-            disabled={uploading}
-            onChange={(event) => {
-              setFile(event.currentTarget.files?.[0]);
-              setUpload({ kind: "idle" });
-            }}
-          />
-        </label>
-        <button type="submit" disabled={file === undefined || uploading || actorMissing}>
+        <AttachmentFilePicker
+          label="Add a file"
+          id={fileInputId}
+          key={fileInputKey}
+          disabled={uploading}
+          selection={file?.name ?? "No file selected"}
+          onChange={(event) => {
+            setFile(event.currentTarget.files?.[0]);
+            setUpload({ kind: "idle" });
+          }}
+        />
+        <Button type="submit" disabled={file === undefined || uploading || actorMissing}>
           {uploading ? "Uploading" : "Upload"}
-        </button>
+        </Button>
       </form>
       {actorMissing && (
         <p className="attachment-note">Set an actor in Settings to upload.</p>

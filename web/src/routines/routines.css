@@ -1,6 +1,8 @@
 .routines-route {
+  width: min(100%, 72rem);
   display: grid;
   gap: 1.25rem;
+  margin-inline: auto;
 }
 
 .routines-route h1,
@@ -27,7 +29,7 @@
   padding: 0.45rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface);
+  background: var(--card);
   cursor: pointer;
   font-size: 0.8rem;
   font-weight: 700;
@@ -37,7 +39,7 @@
   width: 1rem;
   height: 1rem;
   margin: 0;
-  accent-color: var(--accent);
+  accent-color: var(--primary);
 }
 
 .routines-notice,
@@ -46,9 +48,9 @@
 .routines-empty {
   margin: 0;
   padding: 0.8rem 1rem;
-  border-left: 3px solid var(--focus);
-  background: var(--surface-subtle);
-  color: var(--text);
+  border-left: 3px solid var(--ring);
+  background: var(--secondary);
+  color: var(--foreground);
 }
 
 .routines-error {
@@ -76,8 +78,10 @@
   flex-direction: column;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 7%);
 }
 
 .routine-card-heading {
@@ -96,7 +100,7 @@
 }
 
 .routine-card-heading a {
-  color: var(--text);
+  color: var(--foreground);
   font-weight: 750;
   overflow-wrap: anywhere;
   text-decoration-thickness: 1px;
@@ -105,7 +109,7 @@
 
 .routine-card-title p {
   margin: 0.3rem 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.72rem;
   overflow-wrap: anywhere;
@@ -127,7 +131,7 @@
 }
 
 .routine-updated {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.7rem;
   white-space: nowrap;
 }
@@ -151,21 +155,21 @@
   border-top: 1px solid var(--border);
 }
 
-.routine-actions summary {
+.routine-actions > [data-slot="collapsible-trigger"] {
   width: fit-content;
   margin-left: auto;
   padding: 0.3rem 0.5rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface-subtle);
-  color: var(--muted);
+  background: var(--secondary);
+  color: var(--muted-foreground);
   cursor: pointer;
   font-size: 0.75rem;
   font-weight: 750;
 }
 
-.routine-actions[open] summary {
-  color: var(--text);
+.routine-actions[data-open] > [data-slot="collapsible-trigger"] {
+  color: var(--foreground);
 }
 
 .routine-action-menu {
@@ -195,7 +199,7 @@
 
 .routines-empty p {
   margin-bottom: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 @media (max-width: 560px) {

@@ -1,6 +1,8 @@
 .configuration-page {
+  width: min(100%, 72rem);
   display: grid;
   gap: 1.75rem;
+  margin-inline: auto;
 }
 
 .configuration-heading {
@@ -21,7 +23,7 @@
 .configuration-intro {
   max-width: 44rem;
   margin: 0.35rem 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.9rem;
   line-height: 1.45;
 }
@@ -32,7 +34,7 @@
   justify-items: end;
   gap: 0.2rem;
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.72rem;
 }
@@ -65,7 +67,7 @@
 
 .configuration-section-heading p {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.76rem;
 }
 
@@ -74,7 +76,7 @@
   grid-template-columns: repeat(5, minmax(0, 1fr));
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface);
+  background: var(--card);
   overflow: hidden;
 }
 
@@ -91,7 +93,7 @@
 }
 
 .configuration-field-label {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.7rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -110,7 +112,7 @@
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
 }
 
@@ -119,7 +121,7 @@
   height: 0.42rem;
   flex: none;
   border-radius: 50%;
-  background: var(--accent);
+  background: var(--primary);
 }
 
 .configuration-layer-list {
@@ -132,8 +134,10 @@
   display: grid;
   grid-template-columns: 13rem minmax(0, 1fr);
   border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 7%);
   overflow: hidden;
 }
 
@@ -145,7 +149,7 @@
   gap: 0.5rem 0.65rem;
   padding: 0.9rem;
   border-right: 1px solid var(--border);
-  background: var(--surface-subtle);
+  background: var(--secondary);
 }
 
 .configuration-layer-number {
@@ -155,7 +159,7 @@
   place-items: center;
   border: 1px solid var(--border);
   border-radius: 50%;
-  color: var(--accent);
+  color: var(--primary);
   font-size: 0.7rem;
   font-weight: 800;
 }
@@ -168,7 +172,7 @@
 
 .configuration-layer-heading p {
   margin: 0.25rem 0 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.7rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -202,13 +206,13 @@
 }
 
 .configuration-layer-field code {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.65rem;
   overflow-wrap: anywhere;
 }
 
 .configuration-layer-effective {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.7rem;
   line-height: 1.35;
   overflow-wrap: anywhere;
@@ -243,13 +247,13 @@
 
 .configuration-reset-summary p {
   margin: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.84rem;
   line-height: 1.45;
 }
 
 .configuration-reset-summary strong {
-  color: var(--text);
+  color: var(--foreground);
 }
 
 .configuration-preview {
@@ -260,11 +264,11 @@
   padding: 0.75rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface-subtle);
+  background: var(--secondary);
 }
 
 .configuration-preview span {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
 }
 
@@ -278,7 +282,7 @@
   place-content: center;
   justify-items: center;
   gap: 0.75rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 .configuration-load-state p {

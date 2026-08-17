@@ -31,8 +31,8 @@
   min-width: 1.5rem;
   padding: 0.1rem 0.35rem;
   border-radius: var(--radius-pill);
-  background: var(--surface-subtle);
-  color: var(--muted);
+  background: var(--secondary);
+  color: var(--muted-foreground);
   font-size: 0.68rem;
   text-align: center;
 }
@@ -70,7 +70,7 @@
 .attachment-state,
 .attachment-note,
 .attachment-progress {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.72rem;
 }
 
@@ -113,25 +113,72 @@
   gap: 0.65rem;
 }
 
-.attachment-upload label {
+.attachment-file-picker {
   min-width: 0;
   display: grid;
   gap: 0.25rem;
-  color: var(--muted);
+}
+
+.attachment-file-picker > label {
+  color: var(--muted-foreground);
   font-size: 0.72rem;
   font-weight: 700;
 }
 
-.attachment-upload input {
+.attachment-file-control {
   width: 100%;
   min-width: 0;
-  padding: 0.35rem;
+  min-height: 2.35rem;
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.2rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface-subtle);
-  color: var(--text);
-  font-size: 0.76rem;
-  font-weight: 500;
+  background: var(--background);
+}
+
+.attachment-file-trigger {
+  min-height: 1.85rem;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.55rem;
+  border-radius: var(--radius-md);
+  background: var(--secondary);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 650;
+}
+
+.attachment-file-trigger svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+
+.attachment-file-trigger:hover {
+  background: var(--muted);
+}
+
+.attachment-file-trigger[data-disabled="true"] {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.attachment-file-input:focus-visible + .attachment-file-trigger {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.attachment-file-selection {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted-foreground);
+  font-size: 0.74rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .attachment-upload button {
@@ -147,7 +194,7 @@
 
 .attachment-progress progress {
   width: min(16rem, 60%);
-  accent-color: var(--accent);
+  accent-color: var(--primary);
 }
 
 .attachment-note[data-status="error"] {

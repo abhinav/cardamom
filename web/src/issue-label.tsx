@@ -10,13 +10,16 @@ export function IssueLabel({
   select: SelectLabel;
 }) {
   return (
-    <button
+    <Button
       type="button"
       className="metadata-chip issue-label"
+      variant="secondary"
+      size="xs"
       title={`Show all issues labeled ${label}`}
       onClick={() => select(label)}
     >
       {label}
-    </button>
+    </Button>
   );
 }
+import { Button } from "@/components/ui/button";

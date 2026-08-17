@@ -1,14 +1,20 @@
-import { renderToStaticMarkup } from "react-dom/server";
-import { describe, expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+
+import "@testing-library/jest-dom/vitest";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { IssueFormDialog } from "./issue-form-dialog.tsx";
 
+afterEach(cleanup);
+
 describe("issue form dialog", () => {
   it("keeps the heading and actions outside the scrollable form body", () => {
-    const markup = renderToStaticMarkup(
+    render(
       <IssueFormDialog
         actions={<button type="submit">Save issue</button>}
         description="cm-task"
+        onDismiss={vi.fn()}
         title="Edit issue"
         titleId="edit-issue-title"
         onSubmit={vi.fn()}
@@ -20,23 +26,40 @@ describe("issue form dialog", () => {
       </IssueFormDialog>,
     );
 
-    expect(markup).toContain('role="dialog"');
-    expect(markup).toContain('aria-labelledby="edit-issue-title"');
-    expect(markup).toContain('class="modal-header issue-form-dialog-header"');
-    expect(markup).toContain(
-      'class="workflow-form issue-form-dialog-body"',
+    const dialog = screen.getByRole("dialog", { name: "Edit issue" });
+    const form = dialog.querySelector("form");
+    const body = dialog.querySelector(".issue-form-dialog-body");
+    const actions = dialog.querySelector(".issue-form-dialog-actions");
+
+    expect(form).not.toBeNull();
+    expect(body?.parentElement).toBe(form);
+    expect(actions?.parentElement).toBe(form);
+    expect(body?.compareDocumentPosition(actions!)).toBe(
+      Node.DOCUMENT_POSITION_FOLLOWING,
     );
-    expect(markup).toContain(
-      'class="modal-actions issue-form-dialog-actions"',
+    expect(screen.getByRole("button", { name: "Save issue" })).toBeInTheDocument();
+  });
+
+  it("dismisses from the keyboard", () => {
+    const onDismiss = vi.fn();
+    render(
+      <IssueFormDialog
+        actions={<button type="submit">Save issue</button>}
+        description="cm-task"
+        onDismiss={onDismiss}
+        title="Edit issue"
+        titleId="edit-issue-title"
+        onSubmit={vi.fn()}
+      >
+        <label>
+          Title
+          <input name="title" />
+        </label>
+      </IssueFormDialog>,
     );
 
-    const formStart = markup.indexOf("<form");
-    const bodyStart = markup.indexOf("issue-form-dialog-body");
-    const actionsStart = markup.indexOf("issue-form-dialog-actions");
-    const formEnd = markup.indexOf("</form>");
-    expect(formStart).toBeGreaterThan(-1);
-    expect(bodyStart).toBeGreaterThan(formStart);
-    expect(actionsStart).toBeGreaterThan(bodyStart);
-    expect(formEnd).toBeGreaterThan(actionsStart);
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+
+    expect(onDismiss).toHaveBeenCalledOnce();
   });
 });

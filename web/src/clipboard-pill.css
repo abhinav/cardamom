@@ -5,8 +5,8 @@
   overflow: hidden;
   border: 1px solid var(--border);
   border-radius: var(--radius-detail);
-  background: var(--surface-subtle);
-  color: var(--muted);
+  background: var(--secondary);
+  color: var(--muted-foreground);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.72rem;
   line-height: 1;
@@ -22,7 +22,7 @@
 }
 
 .clipboard-pill-content a {
-  color: var(--accent-strong);
+  color: var(--ring);
   text-decoration: none;
 }
 
@@ -41,11 +41,11 @@
   border-inline-start: 1px solid var(--border);
   border-radius: 0;
   background: transparent;
-  color: var(--accent-strong);
+  color: var(--ring);
 }
 
 .clipboard-pill > button:hover {
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  background: color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .clipboard-pill > button svg {

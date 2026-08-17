@@ -1,6 +1,8 @@
 .approvals-route {
+  width: min(100%, 72rem);
   display: grid;
   gap: 1.25rem;
+  margin-inline: auto;
 }
 
 .approvals-route h1,
@@ -13,7 +15,7 @@
 
 .approvals-summary {
   margin-bottom: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.8rem;
 }
 
@@ -23,9 +25,9 @@
 .approvals-empty {
   margin: 0;
   padding: 0.8rem 1rem;
-  border-left: 3px solid var(--focus);
-  background: var(--surface-subtle);
-  color: var(--text);
+  border-left: 3px solid var(--ring);
+  background: var(--secondary);
+  color: var(--foreground);
 }
 
 .approvals-error {
@@ -49,8 +51,10 @@
   min-width: 0;
   overflow: hidden;
   border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
+  border-radius: var(--radius-xl);
+  background: var(--card);
+  color: var(--card-foreground);
+  box-shadow: 0 1px 3px rgb(0 0 0 / 7%);
 }
 
 .approval-card-heading {
@@ -68,7 +72,7 @@
 }
 
 .approval-card-heading a {
-  color: var(--text);
+  color: var(--foreground);
   font-size: 1.05rem;
   font-weight: 750;
   overflow-wrap: anywhere;
@@ -78,7 +82,7 @@
 
 .approval-issue-id {
   margin-bottom: 0.3rem;
-  color: var(--accent);
+  color: var(--primary);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.72rem;
   font-weight: 750;
@@ -86,7 +90,7 @@
 
 .approval-markdown {
   padding: 0.9rem 1.1rem 0;
-  color: var(--text);
+  color: var(--foreground);
   line-height: 1.55;
   overflow-x: auto;
   overflow-wrap: anywhere;
@@ -104,7 +108,7 @@
   max-width: 100%;
   overflow: auto;
   padding: 0.75rem;
-  background: var(--bg);
+  background: var(--background);
 }
 
 .approval-decision {
@@ -116,7 +120,7 @@
 
 .approval-decision label {
   grid-column: 1;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.76rem;
   font-weight: 750;
 }
@@ -129,13 +133,13 @@
   padding: 0.55rem;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface-subtle);
-  color: var(--text);
+  background: var(--secondary);
+  color: var(--foreground);
   font: inherit;
 }
 
 .approval-decision textarea:focus-visible {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--focus) 45%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--ring) 45%, transparent);
   outline: none;
 }
 
@@ -167,7 +171,7 @@
 
 .approvals-empty p {
   margin-bottom: 0;
-  color: var(--muted);
+  color: var(--muted-foreground);
 }
 
 @media (max-width: 680px) {

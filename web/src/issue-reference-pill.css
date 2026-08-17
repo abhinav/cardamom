@@ -5,6 +5,12 @@
   vertical-align: baseline;
 }
 
+.issue-reference-pill a {
+  color: var(--foreground);
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-weight: 650;
+}
+
 .issue-reference-preview {
   position: fixed;
   z-index: 20;
@@ -13,10 +19,10 @@
   gap: 0.45rem;
   padding: 0.7rem;
   border: 1px solid var(--border);
-  border-radius: var(--radius-overlay);
-  background: var(--surface);
-  box-shadow: var(--shadow-overlay);
-  color: var(--text);
+  border-radius: var(--radius-lg);
+  background: var(--popover);
+  box-shadow: 0 16px 40px rgb(0 0 0 / 18%);
+  color: var(--popover-foreground);
   font-family: inherit;
   line-height: 1.35;
   text-align: start;
@@ -27,7 +33,7 @@
 }
 
 .issue-reference-preview-id {
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   font-size: 0.72rem;
 }
@@ -47,7 +53,7 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 0.35rem 0.6rem;
-  color: var(--muted);
+  color: var(--muted-foreground);
   font-size: 0.7rem;
 }
 

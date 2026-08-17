@@ -2,10 +2,15 @@ import { useMutation } from "@connectrpc/connect-query";
 import { useQueryClient } from "@tanstack/react-query";
 import { X } from "lucide-react";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useId, useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 import type { AttachmentClient } from "./api.ts";
 import {
+  AttachmentFilePicker,
   uploadAttachment,
   type AttachmentUploadFile,
   type AttachmentUploadProgress,
@@ -129,6 +134,8 @@ export function CreateIssueDialog({
   onCreated,
   onDismiss,
 }: CreateIssueDialogProps) {
+  const prerequisitesId = useId();
+  const attachmentsId = useId();
   const queryClient = useQueryClient();
   const createIssue = useMutation(PlanningService.method.createIssue);
   const [draft, setDraft] = useState<IssueCreationDraft>(emptyDraft);
@@ -197,30 +204,31 @@ export function CreateIssueDialog({
     <IssueFormDialog
       actions={
         <>
-          <button
+          <Button
             type="button"
-            className="secondary-button"
+            variant="outline"
             disabled={submitting}
             onClick={onDismiss}
           >
             {issueCreated ? "Close" : "Cancel"}
-          </button>
+          </Button>
           {submission.kind === "upload-error" ? (
-            <button type="button" onClick={() => onCreated(submission.issueId)}>
+            <Button type="button" onClick={() => onCreated(submission.issueId)}>
               Open {submission.issueId}
-            </button>
+            </Button>
           ) : (
-            <button type="submit" disabled={submitting}>
+            <Button type="submit" disabled={submitting}>
               {submission.kind === "creating"
                 ? "Creating"
                 : submission.kind === "uploading"
                   ? "Uploading"
                   : "Create issue"}
-            </button>
+            </Button>
           )}
         </>
       }
       description={`Board ${boardId}`}
+      onDismiss={onDismiss}
       title="Create issue"
       titleId="create-issue-title"
       onSubmit={submit}
@@ -233,25 +241,31 @@ export function CreateIssueDialog({
           setDraft((current) => ({ ...current, [field]: value }))
         }
       />
-      <label className="form-field">
-        <span>Prerequisites</span>
-        <input
+      <div className="form-field">
+        <Label htmlFor={prerequisitesId}>Prerequisites</Label>
+        <Input
+          id={prerequisitesId}
           type="text"
           disabled={fieldsDisabled}
           placeholder="Issue IDs"
           value={draft.prerequisites}
-          onInput={(event) =>
+          onChange={(event) =>
             setDraft({ ...draft, prerequisites: event.currentTarget.value })
           }
         />
-      </label>
-      <label className="form-field form-field-wide">
-        <span>Attachments</span>
-        <input
+      </div>
+      <div className="form-field form-field-wide">
+        <AttachmentFilePicker
+          label="Attachments"
+          id={attachmentsId}
           key={fileInputKey}
-          type="file"
           multiple
           disabled={fieldsDisabled}
+          selection={
+            files.length === 0
+              ? "No files selected"
+              : `${files.length} ${files.length === 1 ? "file" : "files"} selected`
+          }
           onChange={(event) => {
             const selected = Array.from(event.currentTarget.files ?? []);
             setFiles((current) => [...current, ...selected]);
@@ -259,7 +273,7 @@ export function CreateIssueDialog({
             setSubmission({ kind: "idle" });
           }}
         />
-      </label>
+      </div>
       {files.length > 0 && !fieldsDisabled && (
         <div className="create-attachment-stage form-field-wide">
           <p>{files.length} {files.length === 1 ? "file" : "files"} staged</p>
@@ -267,9 +281,11 @@ export function CreateIssueDialog({
             {files.map((file, index) => (
               <li key={`${file.name}-${file.size}-${file.lastModified}-${index}`}>
                 <span>{file.name}</span>
-                <button
+                <Button
                   type="button"
-                  className="create-attachment-remove secondary-button"
+                  className="create-attachment-remove"
+                  variant="ghost"
+                  size="icon-sm"
                   aria-label={`Remove ${file.name}`}
                   title={`Remove ${file.name}`}
                   disabled={fieldsDisabled}
@@ -280,7 +296,7 @@ export function CreateIssueDialog({
                   }
                 >
                   <X aria-hidden="true" size={15} strokeWidth={2} />
-                </button>
+                </Button>
               </li>
             ))}
           </ul>

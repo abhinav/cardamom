@@ -5,6 +5,10 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
 
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
 import { issuePath } from "../board-scope.ts";
 import type {
   ActionableCheckpoint,
@@ -114,9 +118,9 @@ export function ApprovalsRoute({
   if (data === undefined && approvals.isError) {
     return (
       <RouteState title="Approvals" error={approvals.error.message}>
-        <button type="button" onClick={() => void approvals.refetch()}>
+        <Button type="button" onClick={() => void approvals.refetch()}>
           Retry
-        </button>
+        </Button>
       </RouteState>
     );
   }
@@ -184,9 +188,9 @@ export function ApprovalsRoute({
       {approvals.isError && data !== undefined && (
         <div className="approvals-error" role="alert">
           <span>Could not refresh approvals: {approvals.error.message}</span>
-          <button type="button" onClick={() => void approvals.refetch()}>
+          <Button type="button" variant="outline" onClick={() => void approvals.refetch()}>
             Retry
-          </button>
+          </Button>
         </div>
       )}
       {outcome !== "" && (
@@ -299,13 +303,13 @@ function ApprovalCard({
 
       {showDecisionControls && (
         <div className="approval-decision">
-          <label htmlFor={presentation.reasonID}>Reason (optional)</label>
-          <textarea
+          <Label htmlFor={presentation.reasonID}>Reason (optional)</Label>
+          <Textarea
             id={presentation.reasonID}
             value={reason}
             rows={2}
             disabled={disabled || pending}
-            onInput={(event) => setReason(event.currentTarget.value)}
+            onChange={(event) => setReason(event.currentTarget.value)}
           />
           {error !== undefined && (
             <p className="approval-mutation-error" role="alert">
@@ -313,21 +317,21 @@ function ApprovalCard({
             </p>
           )}
           <div className="approval-actions">
-            <button
+            <Button
               type="button"
               disabled={disabled || pending}
               onClick={() => void resolve(checkpoint, CheckpointOutcome.APPROVED, reason)}
             >
               {pending ? "Recording..." : "Approve"}
-            </button>
-            <button
-              className="danger-button"
+            </Button>
+            <Button
+              variant="destructive"
               type="button"
               disabled={disabled || pending}
               onClick={() => void resolve(checkpoint, CheckpointOutcome.DENIED, reason)}
             >
               Deny
-            </button>
+            </Button>
           </div>
         </div>
       )}

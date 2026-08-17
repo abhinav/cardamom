@@ -19,6 +19,16 @@ import {
 import { createRoot } from "react-dom/client";
 import { Link } from "react-router";
 
+import { Button } from "@/components/ui/button";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "@/components/ui/collapsible";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+
 import type {
   AttachmentClient,
 } from "../api.ts";
@@ -877,16 +887,21 @@ export function PrimaryRecord({
       </section>
 
       {hasMarkdown(detail.details) && (
-        <details
+        <Collapsible
           className="issue-detail-section issue-details"
           open={detailsOpen}
-          onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
+          onOpenChange={setDetailsOpen}
         >
-          <summary>
+          <CollapsibleTrigger
+            className="issue-detail-disclosure"
+            render={<Button variant="ghost" />}
+          >
             <h2 id="details-title">Details</h2>
-          </summary>
-          <Markdown content={detail.details} />
-        </details>
+          </CollapsibleTrigger>
+          <CollapsibleContent keepMounted>
+            <Markdown content={detail.details} />
+          </CollapsibleContent>
+        </Collapsible>
       )}
 
       {hasMarkdown(detail.result) && (
@@ -928,21 +943,29 @@ export function IssueActions({
       ? "Unpin from board"
       : "Pin to board";
   return (
-    <details className="issue-actions">
-      <summary>Issue actions</summary>
-      <div className="issue-action-row" aria-label="Issue changes">
-        <button
+    <Collapsible className="issue-actions">
+      <CollapsibleTrigger render={<Button variant="outline" size="sm" />}>
+        Issue actions
+      </CollapsibleTrigger>
+      <CollapsibleContent
+        keepMounted
+        className="issue-action-row"
+        aria-label="Issue changes"
+      >
+        <Button
           type="button"
           className="issue-action-quiet"
+          variant="ghost"
           disabled={pending}
           onClick={edit}
         >
           <Pencil aria-hidden="true" size={14} strokeWidth={2} />
           Edit issue
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
           className="issue-action-quiet"
+          variant="ghost"
           disabled={pending || actorMissing}
           onClick={changePin}
         >
@@ -952,24 +975,22 @@ export function IssueActions({
             <Pin aria-hidden="true" size={14} strokeWidth={2} />
           )}
           {pinLabel}
-        </button>
+        </Button>
         {actions.map((action) => (
-          <button
+          <Button
             key={action}
             type="button"
-            className={
-              action === LifecycleAction.CANCEL
-                ? "danger-button"
-                : undefined
+            variant={
+              action === LifecycleAction.CANCEL ? "destructive" : "default"
             }
             disabled={pending}
             onClick={() => changeLifecycle(action)}
           >
             {lifecycleActionLabel(action)}
-          </button>
+          </Button>
         ))}
-      </div>
-    </details>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -997,20 +1018,21 @@ function EditIssueDialog({
     <IssueFormDialog
       actions={
         <>
-          <button
+          <Button
             type="button"
-            className="secondary-button"
+            variant="outline"
             disabled={pending}
             onClick={onDismiss}
           >
             Cancel
-          </button>
-          <button type="submit" disabled={pending || actorMissing}>
+          </Button>
+          <Button type="submit" disabled={pending || actorMissing}>
             {pending ? "Saving" : "Save issue"}
-          </button>
+          </Button>
         </>
       }
       description={issueId}
+      onDismiss={onDismiss}
       title="Edit issue"
       titleId="edit-issue-title"
       onSubmit={(event) => {
@@ -1114,35 +1136,37 @@ function CheckpointControls({
         <h2 id="checkpoint-title">Checkpoint decision</h2>
         <p>Record the human decision for this checkpoint.</p>
       </div>
-      <label htmlFor="checkpoint-reason">
-        Reason <span>(optional)</span>
-        <textarea
+      <div>
+        <Label htmlFor="checkpoint-reason">
+          Reason <span>(optional)</span>
+        </Label>
+        <Textarea
           id="checkpoint-reason"
           rows={2}
           value={reason}
           disabled={pending}
-          onInput={(event) => setReason(event.currentTarget.value)}
+          onChange={(event) => setReason(event.currentTarget.value)}
         />
-      </label>
+      </div>
       {actorMissing && (
         <p className="issue-control-note">Set an actor in Settings to record a decision.</p>
       )}
       <div className="issue-action-row">
-        <button
+        <Button
           type="button"
           disabled={pending || actorMissing}
           onClick={() => decide(CheckpointOutcome.APPROVED)}
         >
           Approve
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="danger-button"
+          variant="destructive"
           disabled={pending || actorMissing}
           onClick={() => decide(CheckpointOutcome.DENIED)}
         >
           Deny
-        </button>
+        </Button>
       </div>
     </section>
   );
@@ -1200,15 +1224,22 @@ export function RelationshipBand({
     return null;
   }
   return (
-    <details
+    <Collapsible
       className="issue-detail-section issue-relations"
       open={relationsOpen}
-      onToggle={(event) => setRelationsOpen(event.currentTarget.open)}
+      onOpenChange={setRelationsOpen}
     >
-      <summary>
+      <CollapsibleTrigger
+        className="issue-detail-disclosure"
+        render={<Button variant="ghost" />}
+      >
         <h2 id="relations-title">Relations</h2>
-      </summary>
-      <div className="issue-relationship-band" aria-labelledby="relations-title">
+      </CollapsibleTrigger>
+      <CollapsibleContent
+        keepMounted
+        className="issue-relationship-band"
+        aria-labelledby="relations-title"
+      >
         <DependencyPanel
           add={canMutate ? addDependency : undefined}
           boardId={issue.boardId}
@@ -1229,8 +1260,8 @@ export function RelationshipBand({
             pending={pending}
           />
         </section>
-      </div>
-    </details>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -1279,9 +1310,11 @@ function DependencyPanel({
       <div className="issue-panel-heading">
         <h2 id="dependencies-title">Dependencies</h2>
         {add !== undefined && (
-          <button
+          <Button
             type="button"
             className="issue-add-dependency"
+            variant="outline"
+            size="icon-sm"
             aria-expanded={searchOpen}
             aria-controls="dependency-search"
             aria-label="Add dependency"
@@ -1289,7 +1322,7 @@ function DependencyPanel({
             onClick={() => setSearchOpen((open) => !open)}
           >
             +
-          </button>
+          </Button>
         )}
       </div>
       <RelationshipList
@@ -1310,17 +1343,17 @@ function DependencyPanel({
             }
           }}
         >
-          <label htmlFor="dependency-query">Search by title or enter an issue ID</label>
-          <input
+          <Label htmlFor="dependency-query">Search by title or enter an issue ID</Label>
+          <Input
             id="dependency-query"
             type="search"
             value={query}
             placeholder="Search issues"
-            onInput={(event) => setQuery(event.currentTarget.value)}
+            onChange={(event) => setQuery(event.currentTarget.value)}
           />
-          <button type="submit" disabled={pending || query.trim() === ""}>
+          <Button type="submit" disabled={pending || query.trim() === ""}>
             Add issue ID
-          </button>
+          </Button>
           {candidates.isFetching && query.trim() !== "" && (
             <p className="issue-detail-empty" role="status">Searching...</p>
           )}
@@ -1336,14 +1369,15 @@ function DependencyPanel({
             <ul className="issue-dependency-results">
               {results.map((candidate) => (
                 <li key={candidate.id}>
-                  <button
+                  <Button
                     type="button"
+                    variant="ghost"
                     disabled={pending}
                     onClick={() => add(candidate.id)}
                   >
                     <span>{candidate.title}</span>
                     <small>{candidate.id}</small>
-                  </button>
+                  </Button>
                 </li>
               ))}
             </ul>
@@ -1374,14 +1408,15 @@ export function RelationshipList({
         <li key={issue.id}>
           <IssueReferenceLink issue={issue} />
           {remove !== undefined && (
-            <button
+            <Button
               type="button"
               className="issue-action-quiet"
+              variant="ghost"
               disabled={pending}
               onClick={() => remove(issue.id)}
             >
               Remove
-            </button>
+            </Button>
           )}
         </li>
       ))}
@@ -1437,9 +1472,9 @@ function IssueLog({
       </div>
       <RequestRefreshError request={request} recordName="log" />
       {request.isError && request.data === undefined && (
-        <button type="button" className="issue-action-quiet" onClick={retry}>
+        <Button type="button" variant="ghost" className="issue-action-quiet" onClick={retry}>
           Retry log
-        </button>
+        </Button>
       )}
       {entries === undefined ? (
         !request.isError && <p role="status">Loading log...</p>
@@ -1466,16 +1501,16 @@ function IssueLogComposer({
   return (
     <section className="issue-log-composer" aria-label="Log composer">
       <form className="issue-log-form" onSubmit={submit}>
-        <label htmlFor="log-body">Add log entry</label>
-        <textarea
+        <Label htmlFor="log-body">Add log entry</Label>
+        <Textarea
           id="log-body"
           rows={5}
           value={body}
-          onInput={(event) => setBody(event.currentTarget.value)}
+          onChange={(event) => setBody(event.currentTarget.value)}
         />
-        <button type="submit" disabled={pending || body.trim() === ""}>
+        <Button type="submit" disabled={pending || body.trim() === ""}>
           Add log entry
-        </button>
+        </Button>
       </form>
     </section>
   );
@@ -1784,9 +1819,9 @@ function InitialRequestState<T>({
     <section className="issue-detail-state" role="alert">
       <h1>Issue could not be loaded</h1>
       <p>{request.error?.message}</p>
-      <button type="button" onClick={retry}>
+      <Button type="button" onClick={retry}>
         Retry
-      </button>
+      </Button>
     </section>
   );
 }
