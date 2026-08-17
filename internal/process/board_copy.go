@@ -8,6 +8,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/cli"
+	"go.abhg.dev/cardamom/internal/configuration/yamlstore"
 	"go.abhg.dev/cardamom/internal/project"
 	repositoryboard "go.abhg.dev/cardamom/internal/repository/board"
 	"go.abhg.dev/cardamom/internal/storelocation"
@@ -102,7 +103,7 @@ func (o *boardCopyOperation) Copy(
 		Destination:      destinationRepository,
 		SourceBlobs:      sourceAttachments,
 		DestinationBlobs: destinationAttachments,
-		Configuration:    settingsStore{directory: o.source.directory},
+		Configuration:    &yamlstore.Store{Directory: o.source.directory},
 	})
 	return service.Copy(ctx, boardcopy.CopyRequest{
 		SourceBoardID: o.board.ID(),

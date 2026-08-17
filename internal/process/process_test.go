@@ -22,6 +22,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/cli"
 	"go.abhg.dev/cardamom/internal/configuration"
+	"go.abhg.dev/cardamom/internal/configuration/yamlstore"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1/privatev1connect"
 	"go.abhg.dev/cardamom/internal/issue"
@@ -150,8 +151,7 @@ func TestNamespaceRuntimeResolvesConfigurationForEachIssueOperation(t *testing.T
 	firstSummaryLimit, err := configuration.NewByteLimit(4)
 	require.NoError(t, err)
 	strategy := configuration.IDStrategySequential
-	require.NoError(t, writeSettings(
-		settingsPath(directory),
+	replaceStoreConfiguration(t, directory,
 		configuration.Overrides{
 			Issue: configuration.IssueOverrides{
 				ID: configuration.IssueIDOverrides{
@@ -160,7 +160,7 @@ func TestNamespaceRuntimeResolvesConfigurationForEachIssueOperation(t *testing.T
 				Summary: configuration.SummaryOverrides{MaxBytes: &firstSummaryLimit},
 			},
 		},
-	))
+	)
 	initialized := execute(t, cfg, "--json", "init", "--board-name", "Bridge")
 	require.Equal(t, cli.ExitSuccess, initialized.code, initialized.stderr)
 	var namespace cli.InitResult
@@ -191,8 +191,7 @@ func TestNamespaceRuntimeResolvesConfigurationForEachIssueOperation(t *testing.T
 	require.NoError(t, err)
 	secondSummaryLimit, err := configuration.NewByteLimit(2)
 	require.NoError(t, err)
-	require.NoError(t, writeSettings(
-		settingsPath(runtime.directory),
+	replaceStoreConfiguration(t, runtime.directory,
 		configuration.Overrides{
 			Issue: configuration.IssueOverrides{
 				ID: configuration.IssueIDOverrides{
@@ -201,7 +200,7 @@ func TestNamespaceRuntimeResolvesConfigurationForEachIssueOperation(t *testing.T
 				Summary: configuration.SummaryOverrides{MaxBytes: &secondSummaryLimit},
 			},
 		},
-	))
+	)
 	_, err = planner.CreateIssue(
 		t.Context(),
 		issue.NewInvocation("tester"),
@@ -536,6 +535,26 @@ func execute(t *testing.T, cfg Config, args ...string) executionResult {
 	cfg.Stderr = &stderr
 	code := Execute(t.Context(), cfg)
 	return executionResult{code: code, stdout: stdout.String(), stderr: stderr.String()}
+}
+
+func replaceStoreConfiguration(
+	t *testing.T,
+	directory string,
+	overrides configuration.Overrides,
+) {
+	t.Helper()
+	store := &yamlstore.Store{Directory: directory}
+	_, err := store.UpdateStoreConfiguration(t.Context(), configuration.Patch{
+		Fields: []configuration.Field{
+			configuration.FieldIssueIDPrefix,
+			configuration.FieldIssueIDStrategy,
+			configuration.FieldIssueSummaryMaxBytes,
+			configuration.FieldAttachmentMaxBytes,
+			configuration.FieldBoardPinsMaxCount,
+		},
+		Overrides: overrides,
+	})
+	require.NoError(t, err)
 }
 
 func testConfig(t *testing.T) Config {

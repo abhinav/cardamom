@@ -1,4 +1,4 @@
-package process
+package yamlstore
 
 import (
 	"os"
@@ -11,22 +11,26 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 )
 
-func TestReadSettings_missingAndCommentOnlyInheritBuiltIns(t *testing.T) {
-	directory := newSettingsStoreDirectory(t)
+func TestStore_ReadStoreConfiguration_missingAndCommentOnlyInheritBuiltIns(t *testing.T) {
+	directory := newStoreDirectory(t)
+	store := &Store{Directory: directory}
 
-	overrides, err := readSettings(directory)
+	overrides, err := store.ReadStoreConfiguration(t.Context())
 	require.NoError(t, err)
 	assert.True(t, overrides.Empty())
+	hasDocument, err := store.HasDocument()
+	require.NoError(t, err)
+	assert.False(t, hasDocument)
 
-	require.NoError(t, writeSettings(
-		settingsPath(directory),
-		configuration.Overrides{},
-	))
-	overrides, err = readSettings(directory)
+	require.NoError(t, store.WriteInitializationTemplate())
+	overrides, err = store.ReadStoreConfiguration(t.Context())
 	require.NoError(t, err)
 	assert.True(t, overrides.Empty())
+	hasDocument, err = store.HasDocument()
+	require.NoError(t, err)
+	assert.True(t, hasDocument)
 
-	body, err := os.ReadFile(settingsPath(directory))
+	body, err := os.ReadFile(store.path())
 	require.NoError(t, err)
 	for line := range strings.SplitSeq(string(body), "\n") {
 		assert.True(t, line == "" || strings.HasPrefix(line, "#"), line)
@@ -39,33 +43,35 @@ func TestReadSettings_missingAndCommentOnlyInheritBuiltIns(t *testing.T) {
 	assert.Contains(t, string(body), "card config unset --scope store")
 }
 
-func TestReadSettings_readsPhysicalStoreConfiguration(t *testing.T) {
+func TestStore_ReadStoreConfiguration_readsPhysicalStoreConfiguration(t *testing.T) {
 	projectDirectory := t.TempDir()
 	storeDirectory := filepath.Join(projectDirectory, ".cardamom")
 	require.NoError(t, os.Mkdir(storeDirectory, 0o755))
+	store := &Store{Directory: storeDirectory}
 	require.NoError(t, os.WriteFile(
-		settingsPath(storeDirectory),
+		store.path(),
 		[]byte("version: 1\nissue:\n  id:\n    prefix: project-\n"),
 		0o644,
 	))
 
-	overrides, err := readSettings(storeDirectory)
+	overrides, err := store.ReadStoreConfiguration(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, overrides.Issue.ID.Prefix)
 	assert.Equal(t, "project-", overrides.Issue.ID.Prefix.String())
 }
 
 func TestTrackedSettingsTemplate_matchesRenderedDefaults(t *testing.T) {
-	tracked, err := os.ReadFile(filepath.Join("..", "..", ".cardamom", settingsFilename))
+	tracked, err := os.ReadFile(filepath.Join("..", "..", "..", ".cardamom", filename))
 	require.NoError(t, err)
 
-	assert.Equal(t, string(renderSettings(configuration.Overrides{})), string(tracked))
+	assert.Equal(t, string(render(configuration.Overrides{})), string(tracked))
 }
 
-func TestReadSettings_nestedOverrides(t *testing.T) {
-	directory := newSettingsStoreDirectory(t)
+func TestStore_ReadStoreConfiguration_nestedOverrides(t *testing.T) {
+	directory := newStoreDirectory(t)
+	store := &Store{Directory: directory}
 	require.NoError(t, os.WriteFile(
-		settingsPath(directory),
+		store.path(),
 		[]byte(`version: 1
 issue:
   id:
@@ -82,7 +88,7 @@ board:
 		0o644,
 	))
 
-	overrides, err := readSettings(directory)
+	overrides, err := store.ReadStoreConfiguration(t.Context())
 	require.NoError(t, err)
 	require.NotNil(t, overrides.Issue.ID.Prefix)
 	require.NotNil(t, overrides.Issue.ID.Strategy)
@@ -96,47 +102,51 @@ board:
 	assert.Equal(t, uint64(5), overrides.Board.Pins.MaxCount.Uint64())
 }
 
-func TestReadSettings_requiresVersionForActiveValues(t *testing.T) {
-	directory := newSettingsStoreDirectory(t)
+func TestStore_ReadStoreConfiguration_requiresVersionForActiveValues(t *testing.T) {
+	directory := newStoreDirectory(t)
+	store := &Store{Directory: directory}
 	require.NoError(t, os.WriteFile(
-		settingsPath(directory),
+		store.path(),
 		[]byte("issue:\n  id:\n    prefix: mission-\n"),
 		0o644,
 	))
 
-	_, err := readSettings(directory)
+	_, err := store.ReadStoreConfiguration(t.Context())
 
 	assert.ErrorContains(t, err, "version must be 1 when configuration values are active")
 }
 
-func TestReadSettings_rejectsUnknownNestedKey(t *testing.T) {
-	directory := newSettingsStoreDirectory(t)
+func TestStore_ReadStoreConfiguration_rejectsUnknownNestedKey(t *testing.T) {
+	directory := newStoreDirectory(t)
+	store := &Store{Directory: directory}
 	require.NoError(t, os.WriteFile(
-		settingsPath(directory),
+		store.path(),
 		[]byte("version: 1\nissue:\n  id:\n    unknown: true\n"),
 		0o644,
 	))
 
-	_, err := readSettings(directory)
+	_, err := store.ReadStoreConfiguration(t.Context())
 
 	assert.ErrorContains(t, err, `unknown field "unknown"`)
 }
 
-func TestWriteSettings_activePrefixUsesVersionedNestedShape(t *testing.T) {
-	directory := newSettingsStoreDirectory(t)
+func TestStore_UpdateStoreConfiguration_activePrefixUsesVersionedNestedShape(t *testing.T) {
+	directory := newStoreDirectory(t)
+	store := &Store{Directory: directory}
 	prefix, err := configuration.NewPrefix("mission-")
 	require.NoError(t, err)
 
-	require.NoError(t, writeSettings(
-		settingsPath(directory),
-		configuration.Overrides{
+	_, err = store.UpdateStoreConfiguration(t.Context(), configuration.Patch{
+		Fields: []configuration.Field{configuration.FieldIssueIDPrefix},
+		Overrides: configuration.Overrides{
 			Issue: configuration.IssueOverrides{
 				ID: configuration.IssueIDOverrides{Prefix: &prefix},
 			},
 		},
-	))
+	})
+	require.NoError(t, err)
 
-	body, err := os.ReadFile(settingsPath(directory))
+	body, err := os.ReadFile(store.path())
 	require.NoError(t, err)
 	assert.Contains(t, string(body), "version: 1\n")
 	assert.Contains(t, string(body), "issue:\n  id:\n    prefix: mission-\n")
@@ -145,7 +155,7 @@ func TestWriteSettings_activePrefixUsesVersionedNestedShape(t *testing.T) {
 	assert.Contains(t, string(body), "#     strategy: random")
 }
 
-func newSettingsStoreDirectory(t *testing.T) string {
+func newStoreDirectory(t *testing.T) string {
 	t.Helper()
 	directory := filepath.Join(t.TempDir(), ".cardamom")
 	require.NoError(t, os.Mkdir(directory, 0o755))
