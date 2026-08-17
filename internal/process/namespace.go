@@ -9,6 +9,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board/selection"
 	"go.abhg.dev/cardamom/internal/cli"
 	"go.abhg.dev/cardamom/internal/configuration"
+	"go.abhg.dev/cardamom/internal/configuration/yamlstore"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/issue/planning"
@@ -86,14 +87,15 @@ func composeNamespace(
 	catalog := repositoryproject.New(persistence, repositoryproject.Config{
 		Clock: cfg.Clock, IDSource: cfg.ProjectIDs,
 	})
+	configurationStore := &yamlstore.Store{Directory: directory}
 	configurationService := configuration.NewService(
-		settingsStore{directory: directory},
+		configurationStore,
 		catalog,
 	)
 	configurationService.SetStoreIdentity(directory)
 	projects := project.NewService(catalog, catalog)
 	projectCreator := projectcreation.NewService(
-		settingsStore{directory: directory},
+		configurationStore,
 		catalog,
 	)
 	projectInspector := projectinspection.NewService(

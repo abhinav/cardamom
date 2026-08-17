@@ -12,6 +12,7 @@ import (
 
 	"go.abhg.dev/cardamom/internal/cli"
 	"go.abhg.dev/cardamom/internal/configuration"
+	"go.abhg.dev/cardamom/internal/configuration/yamlstore"
 	"go.abhg.dev/cardamom/internal/project"
 	repositoryproject "go.abhg.dev/cardamom/internal/repository/project"
 	"go.abhg.dev/cardamom/internal/storelocation"
@@ -48,6 +49,7 @@ func (i *initializer) Initialize(
 		return cli.InitResult{}, fmt.Errorf("create store directory %q: %w", directory, err)
 	}
 	settings, err := i.ensureSettings(
+		ctx,
 		directory,
 		projectName,
 		request.IDPrefix,
@@ -75,7 +77,7 @@ func (i *initializer) Initialize(
 	if err != nil {
 		return cli.InitResult{}, err
 	}
-	effective := storeConfiguration(settings.store)
+	effective := resolveStoreConfiguration(settings.storeOverrides)
 	if initialized.ProjectIDPrefix != nil {
 		prefix, err := configuration.NewPrefix(*initialized.ProjectIDPrefix)
 		if err != nil {
@@ -116,8 +118,8 @@ func (i *initializer) Initialize(
 // initializationSettings carries initialization configuration across store-file
 // and project-database publication.
 type initializationSettings struct {
-	// store contains the active physical-store overrides.
-	store configuration.Overrides
+	// storeOverrides contains the active physical-store overrides.
+	storeOverrides configuration.Overrides
 
 	// prefix contains the selected effective prefix and project-layer writes.
 	prefix configuration.InitializationPrefix
@@ -127,21 +129,22 @@ type initializationSettings struct {
 }
 
 func (i *initializer) ensureSettings(
+	ctx context.Context,
 	directory string,
 	projectName string,
 	requested *string,
 	mode cli.InitConfigMode,
 ) (initializationSettings, error) {
-	path := settingsPath(directory)
-	overrides, err := readSettings(directory)
+	store := &yamlstore.Store{Directory: directory}
+	overrides, err := store.ReadStoreConfiguration(ctx)
 	if err != nil {
 		return initializationSettings{}, err
 	}
-	_, statErr := os.Stat(path)
-	if statErr != nil && !errors.Is(statErr, os.ErrNotExist) {
-		return initializationSettings{}, fmt.Errorf("stat %q: %w", path, statErr)
+	hasDocument, err := store.HasDocument()
+	if err != nil {
+		return initializationSettings{}, err
 	}
-	if errors.Is(statErr, os.ErrNotExist) {
+	if !hasDocument {
 		overrides = configuration.Overrides{}
 	}
 	prefix, err := configuration.SelectInitializationPrefix(
@@ -152,13 +155,13 @@ func (i *initializer) ensureSettings(
 	if err != nil {
 		return initializationSettings{}, err
 	}
-	settings := initializationSettings{store: overrides, prefix: prefix}
-	if statErr == nil {
+	settings := initializationSettings{storeOverrides: overrides, prefix: prefix}
+	if hasDocument {
 		return settings, nil
 	}
 	switch mode {
 	case cli.InitConfigWriteMissing:
-		if err := writeSettings(path, overrides); err != nil {
+		if err := store.WriteInitializationTemplate(); err != nil {
 			return initializationSettings{}, err
 		}
 		settings.configWritten = true
@@ -178,6 +181,26 @@ func prefixString(prefix *configuration.Prefix) *string {
 		return nil
 	}
 	return new(prefix.String())
+}
+
+func resolveStoreConfiguration(overrides configuration.Overrides) configuration.Configuration {
+	defaults := configuration.Defaults()
+	if overrides.Issue.ID.Prefix != nil {
+		defaults.Issue.ID.Prefix = *overrides.Issue.ID.Prefix
+	}
+	if overrides.Issue.ID.Strategy != nil {
+		defaults.Issue.ID.Strategy = *overrides.Issue.ID.Strategy
+	}
+	if overrides.Issue.Summary.MaxBytes != nil {
+		defaults.Issue.Summary.MaxBytes = *overrides.Issue.Summary.MaxBytes
+	}
+	if overrides.Attachment.MaxBytes != nil {
+		defaults.Attachment.MaxBytes = *overrides.Attachment.MaxBytes
+	}
+	if overrides.Board.Pins.MaxCount != nil {
+		defaults.Board.Pins.MaxCount = *overrides.Board.Pins.MaxCount
+	}
+	return defaults
 }
 
 func configureGitIgnore(projectDirectory, storeDirectory string) cli.InitIgnoreOutcome {

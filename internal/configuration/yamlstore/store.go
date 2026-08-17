@@ -1,4 +1,4 @@
-package process
+package yamlstore
 
 import (
 	"bytes"
@@ -13,81 +13,109 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 )
 
-const settingsFilename = "config.yaml"
+const filename = "config.yaml"
 
-// settingsDocument is the optional versioned YAML representation at the
-// physical-store boundary. Domain code receives validated typed overrides.
-type settingsDocument struct {
-	Version    *int                        `yaml:"version,omitempty"`
-	Issue      *settingsIssueDocument      `yaml:"issue,omitempty"`
-	Attachment *settingsAttachmentDocument `yaml:"attachment,omitempty"`
-	Board      *settingsBoardDocument      `yaml:"board,omitempty"`
+var _ configuration.Store = (*Store)(nil)
+
+// Store persists one physical store's optional configuration overrides in
+// config.yaml.
+type Store struct {
+	Directory string // required
 }
 
-type settingsIssueDocument struct {
-	ID      *settingsIssueIDDocument `yaml:"id,omitempty"`
-	Summary *settingsSummaryDocument `yaml:"summary,omitempty"`
-}
-
-type settingsIssueIDDocument struct {
-	Prefix   *string `yaml:"prefix,omitempty"`
-	Strategy *string `yaml:"strategy,omitempty"`
-}
-
-type settingsSummaryDocument struct {
-	MaxBytes *uint64 `yaml:"max_bytes,omitempty"`
-}
-
-type settingsAttachmentDocument struct {
-	MaxBytes *uint64 `yaml:"max_bytes,omitempty"`
-}
-
-type settingsBoardDocument struct {
-	Pins *settingsPinsDocument `yaml:"pins,omitempty"`
-}
-
-type settingsPinsDocument struct {
-	MaxCount *uint64 `yaml:"max_count,omitempty"`
-}
-
-// settingsStore adapts the optional YAML file to configuration.Store.
-type settingsStore struct{ directory string }
-
-func (s settingsStore) ReadStoreConfiguration(
+// ReadStoreConfiguration rereads the current config.yaml overrides.
+// A missing document represents an empty override layer.
+func (s *Store) ReadStoreConfiguration(
 	context.Context,
 ) (configuration.Overrides, error) {
-	return readSettings(s.directory)
+	return s.read()
 }
 
-func (s settingsStore) UpdateStoreConfiguration(
+// UpdateStoreConfiguration atomically applies patch to config.yaml.
+// An empty resulting layer removes the document.
+func (s *Store) UpdateStoreConfiguration(
 	_ context.Context,
 	patch configuration.Patch,
 ) (configuration.Overrides, error) {
-	current, err := readSettings(s.directory)
+	current, err := s.read()
 	if err != nil {
 		return configuration.Overrides{}, err
 	}
 	updated := patch.Apply(current)
-	path := settingsPath(s.directory)
+	path := s.path()
 	if updated.Empty() {
 		if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 			return configuration.Overrides{}, fmt.Errorf("remove %q: %w", path, err)
 		}
 		return updated, nil
 	}
-	if err := writeSettings(path, updated); err != nil {
+	if err := write(path, updated); err != nil {
 		return configuration.Overrides{}, err
 	}
 	return updated, nil
 }
 
-// writeSettings atomically writes active nested YAML or a fully commented
+// HasDocument reports whether config.yaml exists in the physical store.
+func (s *Store) HasDocument() (bool, error) {
+	path := s.path()
+	_, err := os.Stat(path)
+	if err == nil {
+		return true, nil
+	}
+	if errors.Is(err, os.ErrNotExist) {
+		return false, nil
+	}
+	return false, fmt.Errorf("stat %q: %w", path, err)
+}
+
+// WriteInitializationTemplate atomically replaces config.yaml with a commented
+// document containing Cardamom's built-in defaults.
+func (s *Store) WriteInitializationTemplate() error {
+	return write(s.path(), configuration.Overrides{})
+}
+
+// document is the optional versioned YAML representation at the
+// physical-store boundary. Domain code receives validated typed overrides.
+type document struct {
+	Version    *int                `yaml:"version,omitempty"`
+	Issue      *issueDocument      `yaml:"issue,omitempty"`
+	Attachment *attachmentDocument `yaml:"attachment,omitempty"`
+	Board      *boardDocument      `yaml:"board,omitempty"`
+}
+
+type issueDocument struct {
+	ID      *issueIDDocument `yaml:"id,omitempty"`
+	Summary *summaryDocument `yaml:"summary,omitempty"`
+}
+
+type issueIDDocument struct {
+	Prefix   *string `yaml:"prefix,omitempty"`
+	Strategy *string `yaml:"strategy,omitempty"`
+}
+
+type summaryDocument struct {
+	MaxBytes *uint64 `yaml:"max_bytes,omitempty"`
+}
+
+type attachmentDocument struct {
+	MaxBytes *uint64 `yaml:"max_bytes,omitempty"`
+}
+
+type boardDocument struct {
+	Pins *pinsDocument `yaml:"pins,omitempty"`
+}
+
+type pinsDocument struct {
+	MaxCount *uint64 `yaml:"max_count,omitempty"`
+}
+
+// write atomically writes active nested YAML or a fully commented
 // initialization template when overrides is empty.
-func writeSettings(path string, overrides configuration.Overrides) (err error) {
+func write(path string, overrides configuration.Overrides) (err error) {
 	if err := overrides.Validate(); err != nil {
 		return err
 	}
-	body := renderSettings(overrides)
+	body := render(overrides)
 	temporary, err := os.CreateTemp(filepath.Dir(path), ".config-*.yaml")
 	if err != nil {
 		return fmt.Errorf("create temporary configuration: %w", err)
@@ -121,7 +149,7 @@ func writeSettings(path string, overrides configuration.Overrides) (err error) {
 	return nil
 }
 
-func renderSettings(overrides configuration.Overrides) []byte {
+func render(overrides configuration.Overrides) []byte {
 	var body bytes.Buffer
 	_, _ = fmt.Fprintln(&body, "# config.yaml contains local overrides for this physical Cardamom store.")
 	_, _ = fmt.Fprintln(&body, "# Missing or commented values inherit built-in, project, or board values.")
@@ -209,8 +237,8 @@ func renderSettings(overrides configuration.Overrides) []byte {
 	return body.Bytes()
 }
 
-func readSettings(directory string) (configuration.Overrides, error) {
-	path := settingsPath(directory)
+func (s *Store) read() (configuration.Overrides, error) {
+	path := s.path()
 	body, err := os.ReadFile(path)
 	if errors.Is(err, os.ErrNotExist) {
 		return configuration.Overrides{}, nil
@@ -218,7 +246,7 @@ func readSettings(directory string) (configuration.Overrides, error) {
 	if err != nil {
 		return configuration.Overrides{}, fmt.Errorf("read %q: %w", path, err)
 	}
-	var document settingsDocument
+	var document document
 	if err := yaml.UnmarshalWithOptions(body, &document, yaml.Strict()); err != nil {
 		return configuration.Overrides{}, fmt.Errorf("%s: %w", path, err)
 	}
@@ -229,11 +257,11 @@ func readSettings(directory string) (configuration.Overrides, error) {
 	return overrides, nil
 }
 
-func settingsPath(storeDirectory string) string {
-	return filepath.Join(storeDirectory, settingsFilename)
+func (s *Store) path() string {
+	return filepath.Join(s.Directory, filename)
 }
 
-func (d settingsDocument) overrides() (configuration.Overrides, error) {
+func (d document) overrides() (configuration.Overrides, error) {
 	var overrides configuration.Overrides
 	active := false
 	if d.Issue != nil {
@@ -287,24 +315,4 @@ func (d settingsDocument) overrides() (configuration.Overrides, error) {
 		return overrides, fmt.Errorf("unsupported configuration version %d", *d.Version)
 	}
 	return overrides, nil
-}
-
-func storeConfiguration(overrides configuration.Overrides) configuration.Configuration {
-	defaults := configuration.Defaults()
-	if overrides.Issue.ID.Prefix != nil {
-		defaults.Issue.ID.Prefix = *overrides.Issue.ID.Prefix
-	}
-	if overrides.Issue.ID.Strategy != nil {
-		defaults.Issue.ID.Strategy = *overrides.Issue.ID.Strategy
-	}
-	if overrides.Issue.Summary.MaxBytes != nil {
-		defaults.Issue.Summary.MaxBytes = *overrides.Issue.Summary.MaxBytes
-	}
-	if overrides.Attachment.MaxBytes != nil {
-		defaults.Attachment.MaxBytes = *overrides.Attachment.MaxBytes
-	}
-	if overrides.Board.Pins.MaxCount != nil {
-		defaults.Board.Pins.MaxCount = *overrides.Board.Pins.MaxCount
-	}
-	return defaults
 }

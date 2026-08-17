@@ -10,6 +10,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/board/selection"
 	"go.abhg.dev/cardamom/internal/cli"
+	"go.abhg.dev/cardamom/internal/configuration/yamlstore"
 	repositoryattachment "go.abhg.dev/cardamom/internal/repository/attachment"
 	repositorybackup "go.abhg.dev/cardamom/internal/repository/backup"
 	repositoryboard "go.abhg.dev/cardamom/internal/repository/board"
@@ -48,7 +49,7 @@ func (o *backupOperation) Backup(
 	operation := domainbackup.NewOperation(domainbackup.OperationConfig{
 		Source:        repositorybackup.New(runtime.store),
 		Blobs:         blobs,
-		Configuration: settingsStore{directory: runtime.directory},
+		Configuration: &yamlstore.Store{Directory: runtime.directory},
 		Publisher:     &domainbackup.FilePublisher{},
 	})
 	written, err := operation.Write(ctx, domainbackup.WriteRequest{
