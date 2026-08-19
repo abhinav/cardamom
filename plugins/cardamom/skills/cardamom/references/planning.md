@@ -29,8 +29,11 @@ Resolve ambiguous scope with [scope.md](scope.md) before searching.
 | `routine` | Recurring operating contract awakened outside Cardamom |
 
 One actor may plan and execute a workstream directly.
-Create a child only when a bounded outcome benefits from independent custody,
+Create another issue when a bounded outcome needs independent custody,
 sequencing, evidence, artifact, or acceptance.
+Make it a child only when its outcome is a constituent of the parent's promised
+deliverable: without that outcome, the parent's contract would remain
+incomplete.
 Changing actors or ordinary execution phases is not a new outcome.
 
 ## Preserve lineage when outcome boundaries change
@@ -93,11 +96,12 @@ another actor should be able to choose the first safe action from durable
 context and distinguish the intended change from a generic activity.
 Otherwise repair the contract or create an investigation outcome.
 
+When parser repair is a constituent deliverable of a compatibility workstream:
+
 ```bash
 card --actor <actor> create \
   --type task \
   --parent <workstream-id> \
-  --depends-on <prerequisite-id> \
   --label implementation \
   --summary 'Repair quoted-input parsing without changing command syntax.' \
   --details 'Reproduce malformed escapes; preserve syntax; run parser tests.' \
@@ -112,13 +116,20 @@ Read its Result and inspect the resulting system before implementation.
 
 | Question | Mechanism |
 | --- | --- |
-| Which larger outcome owns and supplies inherited context? | `--parent` |
-| Which outcome must finish before this can proceed? | `--depends-on` |
+| Which larger outcome includes this constituent deliverable and supplies inherited context? | `--parent` |
+| Which outcome must finish before this issue can advance from its current executable position? | `--depends-on` |
 | Which classification or automatic action pool applies? | `--label` |
 | Which external authority must decide? | Checkpoint plus dependency |
 
-Discovery alone is not a dependency.
-Containment alone does not block readiness.
+Discovery records provenance rather than a graph relationship.
+For independently tracked work,
+reference the source issue in Details when its origin affects execution,
+or in Log when the origin matters only as history.
+Add containment or dependency only when its criterion independently holds.
+Containment makes a child part of the parent's completion;
+it does not by itself require the parent to wait.
+Add a dependency only when the unfinished outcome prevents the dependent issue's
+current work or acceptance from proceeding.
 
 Use `card create` for a new issue and its initial relationships.
 Use `card edit` for one existing issue.
