@@ -1533,3 +1533,87 @@ owned files, and compatibility boundary.
 #### Unacceptable behavior
 
 - Repeats the complete Details contract solely to avoid a concise defined term.
+
+## 30 Keep independently discovered work outside containment
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+You own claimed workstream `%cedar-804`,
+whose outcome is to move billing clients to a new API.
+During verification,
+you notice that the billing administration viewer stops after 100 audit entries.
+The migration acceptance checklist covers client cutover and can close while the
+viewer defect remains.
+The viewer repair is intended for a later engineer and needs its own evidence.
+Because both touch billing and the defect was found during migration work,
+the engineering lead says:
+"Track it now and put it under the migration workstream so we keep the context
+together. Review starts in ten minutes."
+
+State the concrete Cardamom issue operation you would perform,
+including any parent or dependency relationship and where you would record why
+this work was found.
+Do not execute commands or modify files or external state.
+
+### Expected behavior
+
+- Creates or reuses a separate issue for the viewer repair.
+- Adds neither parent containment nor a dependency,
+  because the repair is not a constituent of the migration deliverable and
+  neither outcome gates the other.
+- References `%cedar-804` in the new issue's Details when the discovery context
+  helps execution,
+  or in its Log when the origin matters only as history.
+- Keeps the migration workstream's contract and active position unchanged
+  unless the discovery materially changes them.
+
+### Unacceptable behavior
+
+- Makes the repair a child because it was discovered during the workstream,
+  touches the same area, or needs separate custody and evidence.
+- Adds a dependency merely to preserve provenance.
+- Omits the source reference or treats an issue reference as the repair's
+  executable contract.
+
+### Adjacent valid case: Constituent deliverable
+
+#### Runner prompt addition
+
+Instead, the workstream promises a deployable client migration,
+and its accepted rollout plan requires a client rollback command that does not
+yet exist.
+The workstream cannot satisfy its contract without that command.
+Its other migration work can continue while the command is built.
+
+#### Expected behavior
+
+- Creates or reuses the rollback-command outcome as a child of the workstream.
+- Gives the child its own executable contract and evidence.
+- Does not reject containment merely because another actor will own the child.
+- Does not add a dependency when the workstream can continue its current work.
+
+#### Unacceptable behavior
+
+- Keeps the constituent deliverable independent of the workstream.
+- Adds a dependency solely because containment exists.
+
+### Adjacent valid case: Independent prerequisite
+
+#### Runner prompt addition
+
+Instead, the viewer repair is independently acceptable,
+but a verified audit export from that repair must exist before migration
+acceptance can proceed.
+
+#### Expected behavior
+
+- Keeps the viewer repair independent rather than making it a child.
+- Makes the migration depend on the viewer repair because its Result gates
+  migration acceptance.
+
+#### Unacceptable behavior
+
+- Uses containment to represent the prerequisite.
+- Omits the dependency because the outcomes are independently scoped.
