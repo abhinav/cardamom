@@ -1,4 +1,0 @@
-kind: Fixed
-body: >-
-  skill: Don't turn discovered work into child issues unless it is part of the parent outcome.
-time: 2026-08-19T14:20:59.155482-04:00
