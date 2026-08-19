@@ -5,6 +5,15 @@ import { describe, expect, it } from "vitest";
 const appStyles = readFileSync(new URL("./app.css", import.meta.url), "utf8");
 
 describe("application shell styles", () => {
+  it("does not force the document wider than a narrow mobile viewport", () => {
+    const bodyRule = appStyles.match(
+      /^body\s*\{(?<declarations>[^}]*)\}/m,
+    )?.groups?.declarations;
+
+    expect(bodyRule).toBeDefined();
+    expect(bodyRule).not.toMatch(/min-width:/);
+  });
+
   it("reserves the mobile navigation footprint once", () => {
     const mobileFrameRule = [...appStyles.matchAll(
       /\.app-frame\s*\{(?<declarations>[^}]*)\}/g,

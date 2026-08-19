@@ -64,7 +64,6 @@ body,
 }
 
 body {
-  min-width: 320px;
   background:
     radial-gradient(circle at top left, color-mix(in oklch, var(--primary) 5%, transparent), transparent 30rem),
     var(--background);
