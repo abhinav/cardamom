@@ -5,6 +5,15 @@ import { describe, expect, it } from "vitest";
 const appStyles = readFileSync(new URL("./app.css", import.meta.url), "utf8");
 
 describe("application shell styles", () => {
+  it("keeps header overlays above collection content", () => {
+    const headerRule = appStyles.match(
+      /\.app-header\s*\{(?<declarations>[^}]*)\}/,
+    )?.groups?.declarations;
+
+    expect(headerRule).toMatch(/position:\s*relative;/);
+    expect(headerRule).toMatch(/z-index:\s*11;/);
+  });
+
   it("does not force the document wider than a narrow mobile viewport", () => {
     const bodyRule = appStyles.match(
       /^body\s*\{(?<declarations>[^}]*)\}/m,
