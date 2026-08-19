@@ -142,6 +142,8 @@ a {
 }
 
 .app-header {
+  position: relative;
+  z-index: 11;
   display: grid;
   grid-template-columns: minmax(0, 1fr) auto auto;
   align-items: center;
@@ -1999,8 +2001,6 @@ button.metadata-chip.issue-label {
   }
 
   .app-header {
-    position: relative;
-    z-index: 11;
     height: 3.75rem;
     min-height: 3.75rem;
     grid-template-columns: minmax(0, 1fr) auto auto;
