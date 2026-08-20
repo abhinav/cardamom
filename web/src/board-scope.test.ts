@@ -33,6 +33,11 @@ describe("board scope routes", () => {
       kind: "board",
       boardId: "board one",
     });
+    expect(routeBoardScope("/source/backup/board/board%20one/list")).toEqual({
+      kind: "board",
+      boardId: "board one",
+      source: create(SourceRefSchema, { sourceId: "backup" }),
+    });
     expect(routeBoardScope("/all/approvals")).toEqual({ kind: "all" });
     expect(routeBoardScope("/alligator")).toEqual({ kind: "unresolved" });
     expect(routeBoardScope("/board/%")).toEqual({ kind: "unresolved" });
@@ -48,6 +53,11 @@ describe("board scope routes", () => {
       .toBe("/board/board-1/list");
     expect(boardScopePath({ kind: "board", boardId: "board-1" }, "settings"))
       .toBe("/board/board-1/settings");
+    expect(boardScopePath({
+      kind: "board",
+      boardId: "board-1",
+      source: create(SourceRefSchema, { sourceId: "backup" }),
+    }, "list")).toBe("/source/backup/board/board-1/list");
     expect(boardScopePath({ kind: "all" }, "board")).toBe("/all");
     expect(boardScopePath({ kind: "all" }, "routines")).toBe(
       "/all/routines",
@@ -59,9 +69,19 @@ describe("board scope routes", () => {
     expect(issuePath("board one", "cm/task")).toBe(
       "/board/board%20one/issue/cm%2Ftask",
     );
+    expect(issuePath(
+      "board one",
+      "cm/task",
+      create(SourceRefSchema, { sourceId: "backup" }),
+    )).toBe("/source/backup/board/board%20one/issue/cm%2Ftask");
     expect(attachmentPath("board one", "att/value")).toBe(
       "/board/board%20one/attachment/att%2Fvalue",
     );
+    expect(attachmentPath(
+      "board one",
+      "att/value",
+      create(SourceRefSchema, { sourceId: "backup" }),
+    )).toBe("/source/backup/board/board%20one/attachment/att%2Fvalue");
   });
 
   it("identifies the collection page preserved by board selection", () => {
@@ -70,6 +90,9 @@ describe("board scope routes", () => {
     expect(routeBoardPage("/all/approvals")).toBe("approvals");
     expect(routeBoardPage("/board/board-1/settings")).toBe("settings");
     expect(routeBoardPage("/board/board-1/issue/cm-task")).toBe("board");
+    expect(routeBoardPage("/source/backup/board/board-1/list")).toBe("list");
+    expect(routeBoardPage("/source/backup/board/board-1/issue/cm-task"))
+      .toBe("board");
   });
 });
 
@@ -141,6 +164,56 @@ describe("board scope boundary", () => {
     expect(toBoardScopeMessage(boardSelection, catalog)?.selection.case).toBe(
       "boardId",
     );
+  });
+
+  it("resolves equal board IDs by the source encoded in the route", () => {
+    const first = create(SourceRefSchema, {
+      sourceId: "first",
+      storeLineageId: "lineage-first",
+    });
+    const second = create(SourceRefSchema, {
+      sourceId: "second",
+      storeLineageId: "lineage-second",
+    });
+    const catalog = {
+      aggregate: true,
+      sources: [
+        create(SourceCatalogEntrySchema, { source: first }),
+        create(SourceCatalogEntrySchema, { source: second }),
+      ],
+      projects: [],
+      boards: [
+        create(BoardSummarySchema, {
+          id: "board-copied",
+          projectId: "project-first",
+          name: "Original",
+          source: first,
+        }),
+        create(BoardSummarySchema, {
+          id: "board-copied",
+          projectId: "project-second",
+          name: "Restored",
+          source: second,
+        }),
+      ],
+    };
+
+    expect(resolveBoardScopeSelection(
+      routeBoardScope("/board/board-copied"),
+      catalog,
+    )).toEqual({ kind: "ambiguous", boardId: "board-copied" });
+
+    const selection = resolveBoardScopeSelection(
+      routeBoardScope("/source/second/board/board-copied"),
+      catalog,
+    );
+    expect(selection).toEqual({
+      kind: "board",
+      boardId: "board-copied",
+      source: second,
+    });
+    expect(toBoardScopeMessage(selection, catalog)?.source).toEqual(second);
+    expect(scopeKey(selection)).toBe("board:second:board-copied");
   });
 
   it("uses all boards for a local catalog that identifies its source", () => {

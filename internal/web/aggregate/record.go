@@ -28,7 +28,7 @@ func (s *Server) listLogs(
 	}
 	response, err := route.source.records.ListLogEntries(ctx, connect.NewRequest(&v1.ListLogEntriesRequest{
 		IssueId: request.Msg.GetIssueId(), Direction: request.Msg.GetDirection(),
-		Presentation: aggregatePresentation(),
+		Presentation: aggregatePresentation(route.source),
 	}))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("source unavailable"))

@@ -107,12 +107,26 @@ func (s *Server) sourceForRef(ref *v1.SourceRef) (*source, error) {
 	return nil, connect.NewError(connect.CodeNotFound, errors.New("source not found"))
 }
 
+// routeForBoard accepts an unqualified board ID only when the catalog contains
+// one route for it. A supplied source always selects within that source.
 func (s *Server) routeForBoard(boardID string, source *source) (boardRoute, error) {
-	route, ok := s.boards[boardID]
-	if !ok || (source != nil && route.source.config.Alias != source.config.Alias) {
+	routes := s.boards[boardID]
+	if source != nil {
+		for _, route := range routes {
+			if route.source == source {
+				return route, nil
+			}
+		}
 		return boardRoute{}, connect.NewError(connect.CodeNotFound, errors.New("board not found"))
 	}
-	return route, nil
+	switch len(routes) {
+	case 0:
+		return boardRoute{}, connect.NewError(connect.CodeNotFound, errors.New("board not found"))
+	case 1:
+		return routes[0], nil
+	default:
+		return boardRoute{}, connect.NewError(connect.CodeFailedPrecondition, errors.New("source-qualified board reference is required"))
+	}
 }
 
 func sourceRefFromEntry(value *source) *v1.SourceRef {

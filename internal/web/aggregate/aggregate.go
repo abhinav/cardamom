@@ -62,11 +62,11 @@ type Binding struct {
 	AttachmentContent http.Handler
 }
 
-// Server owns the immutable source catalog and canonical board routes for one
-// aggregate web invocation.
+// Server owns the immutable source catalog and source-qualified board routes
+// for one aggregate web invocation.
 type Server struct {
 	sources    []source
-	boards     map[string]boardRoute
+	boards     map[string][]boardRoute
 	projects   []*v1.Project
 	boardList  []*v1.BoardSummary
 	version    string
@@ -157,7 +157,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 
 	server := &Server{
 		sources:    configured,
-		boards:     make(map[string]boardRoute),
+		boards:     make(map[string][]boardRoute),
 		cursors:    make(map[string]*issueCursor),
 		version:    cfg.Version,
 		httpClient: client,
@@ -241,13 +241,13 @@ func (s *Server) buildCatalog() error {
 			if board.GetId() == "" {
 				return fmt.Errorf("source %q returned a board without an ID", ref.GetSourceId())
 			}
-			if _, exists := s.boards[board.GetId()]; exists {
-				return fmt.Errorf("duplicate board ID %q across aggregate sources", board.GetId())
-			}
 			boardCopy := proto.Clone(board).(*v1.BoardSummary)
 			boardCopy.Source = proto.Clone(ref).(*v1.SourceRef)
 			s.boardList = append(s.boardList, boardCopy)
-			s.boards[board.GetId()] = boardRoute{source: value, boardID: board.GetId()}
+			s.boards[board.GetId()] = append(
+				s.boards[board.GetId()],
+				boardRoute{source: value, boardID: board.GetId()},
+			)
 		}
 	}
 	slices.SortFunc(s.projects, func(left, right *v1.Project) int {
@@ -286,15 +286,17 @@ func (s *Server) Binding() Binding {
 	})
 	return Binding{
 		Path: path, Handler: handler,
-		AttachmentContentPattern: "/board/{boardID}/attachment/{attachmentID}",
+		AttachmentContentPattern: "/source/{sourceID}/board/{boardID}/attachment/{attachmentID}",
 		AttachmentContent:        http.HandlerFunc(s.serveAttachmentContent),
 	}
 }
 
-const aggregateRoutePrefix = "/board"
-
-func aggregatePresentation() *v1.PresentationContext {
-	return &v1.PresentationContext{RoutePrefix: aggregateRoutePrefix}
+// aggregatePresentation makes source-rendered entity links retain the route
+// needed to distinguish equal board IDs from different stores.
+func aggregatePresentation(value *source) *v1.PresentationContext {
+	return &v1.PresentationContext{
+		RoutePrefix: "/source/" + value.config.Alias + "/board",
+	}
 }
 
 func (s *Server) serveAttachmentContent(w http.ResponseWriter, r *http.Request) {
@@ -313,8 +315,15 @@ func (s *Server) serveAttachmentContent(w http.ResponseWriter, r *http.Request) 
 		http.NotFound(w, r)
 		return
 	}
-	route, ok := s.boards[boardID.String()]
-	if !ok {
+	sourceValue, err := s.sourceForRef(&v1.SourceRef{
+		SourceId: r.PathValue("sourceID"),
+	})
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	route, err := s.routeForBoard(boardID.String(), sourceValue)
+	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
@@ -447,7 +456,7 @@ func (p *projectService) GetBoard(
 	}
 	response, err := route.source.project.GetBoard(ctx, connect.NewRequest(
 		&v1.GetBoardRequest{
-			BoardId: route.boardID, Presentation: aggregatePresentation(),
+			BoardId: route.boardID, Presentation: aggregatePresentation(route.source),
 		},
 	))
 	if err != nil {
@@ -465,18 +474,15 @@ func (s *Server) resolveBoard(request *v1.GetBoardRequest) (boardRoute, error) {
 	if request == nil {
 		return boardRoute{}, connect.NewError(connect.CodeInvalidArgument, errors.New("board request is required"))
 	}
-	boardID := request.GetBoardId()
-	route, ok := s.boards[boardID]
-	if !ok {
-		return boardRoute{}, connect.NewError(connect.CodeNotFound, errors.New("board not found"))
-	}
+	var sourceValue *source
 	if source := request.GetSource(); source != nil {
-		if source.GetSourceId() != route.source.config.Alias ||
-			(source.GetStoreLineageId() != "" && source.GetStoreLineageId() != route.source.entry.GetSource().GetStoreLineageId()) {
-			return boardRoute{}, connect.NewError(connect.CodeNotFound, errors.New("board not found"))
+		var err error
+		sourceValue, err = s.sourceForRef(source)
+		if err != nil {
+			return boardRoute{}, err
 		}
 	}
-	return route, nil
+	return s.routeForBoard(request.GetBoardId(), sourceValue)
 }
 
 func cloneProjects(values []*v1.Project) []*v1.Project {

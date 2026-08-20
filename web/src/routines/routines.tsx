@@ -40,6 +40,7 @@ import {
   type LifecycleAction as LifecycleActionValue,
 } from "../issue-lifecycle.ts";
 import { IssueLabel, type SelectLabel } from "../issue-label.tsx";
+import { issueIdentity } from "../provenance.ts";
 import {
   runInvalidatingMutation,
   unaryRouteQueryOptions,
@@ -363,7 +364,7 @@ export function RoutinesRoute({
         <div className="routines-grid">
           {visibleIssues.map((issue) => (
             <RoutineCard
-              key={issue.id}
+              key={issueIdentity(issue)}
               actor={actor}
               canMutate={canMutateRoutines}
               error={mutationErrors[issue.id]}
@@ -405,7 +406,10 @@ function RoutineCard({
       <header className="routine-card-heading">
         <div className="routine-card-title">
           <h2>
-            <a id={`routine-${issue.id}`} href={issuePath(issue.boardId, issue.id)}>
+            <a
+              id={`routine-${issue.id}`}
+              href={issuePath(issue.boardId, issue.id, issue.source)}
+            >
               {issue.title}
             </a>
           </h2>

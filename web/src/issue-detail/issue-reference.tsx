@@ -15,7 +15,7 @@ export function IssueReferenceLink({
   return (
     <Link
       className="issue-reference-link"
-      to={issuePath(issue.boardId, issue.id)}
+      to={issuePath(issue.boardId, issue.id, issue.source)}
       aria-current={current ? "page" : undefined}
     >
       <span className="issue-reference-title">

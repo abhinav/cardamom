@@ -193,19 +193,70 @@ func TestAggregateRejectsStateForAnotherBoard(t *testing.T) {
 	assert.Equal(t, connect.CodeNotFound, connect.CodeOf(err))
 }
 
-func TestNewRejectsDuplicateBoardIDs(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-duplicate", ProjectId: "project", Name: "Duplicate"}
-	first := newSourceServer(t, sourceBootstrap(board, true), nil)
-	secondBootstrap := sourceBootstrap(board, true)
+func TestNewAllowsDuplicateBoardIDsAcrossStoreLineages(t *testing.T) {
+	boardID := "board-copied"
+	originalBoard := &v1.BoardSummary{
+		Id: boardID, ProjectId: "project-original", Name: "Original",
+		Archived: &v1.BoardArchive{Actor: "operator"},
+	}
+	restoredBoard := &v1.BoardSummary{
+		Id: boardID, ProjectId: "project-restored", Name: "Restored",
+	}
+	first := newSourceServer(t, sourceBootstrap(originalBoard, true), &v1.Board{
+		Id: boardID, ProjectId: originalBoard.GetProjectId(), Name: originalBoard.GetName(),
+		Archived: originalBoard.GetArchived(),
+	})
+	secondBootstrap := sourceBootstrap(restoredBoard, true)
 	secondBootstrap.Sources[0].Source.StoreLineageId = "lineage-second"
-	second := newSourceServer(t, secondBootstrap, nil)
+	second := newSourceServer(t, secondBootstrap, &v1.Board{
+		Id: boardID, ProjectId: restoredBoard.GetProjectId(), Name: restoredBoard.GetName(),
+	})
+
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{
+		{Alias: "first", URL: mustURL(t, first.URL)},
+		{Alias: "second", URL: mustURL(t, second.URL)},
+	}})
+	require.NoError(t, err)
+
+	client := newAggregateClient(t, aggregate)
+	bootstrap, err := client.GetBootstrap(
+		t.Context(), connect.NewRequest(&v1.GetBootstrapRequest{}),
+	)
+	require.NoError(t, err)
+	require.Len(t, bootstrap.Msg.GetBoards(), 2)
+	assert.NotNil(t, bootstrap.Msg.GetBoards()[0].GetArchived())
+	assert.Nil(t, bootstrap.Msg.GetBoards()[1].GetArchived())
+
+	_, err = client.GetBoard(
+		t.Context(), connect.NewRequest(&v1.GetBoardRequest{BoardId: boardID}),
+	)
+	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+
+	response, err := client.GetBoard(t.Context(), connect.NewRequest(&v1.GetBoardRequest{
+		BoardId: boardID,
+		Source: &v1.SourceRef{
+			SourceId: "second", StoreLineageId: "lineage-second",
+		},
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, "Restored", response.Msg.GetBoard().GetName())
+	assert.Equal(t, "second", response.Msg.GetBoard().GetSource().GetSourceId())
+}
+
+func TestNewRejectsDuplicateStoreLineages(t *testing.T) {
+	first := newSourceServer(t, sourceBootstrap(&v1.BoardSummary{
+		Id: "board-first", ProjectId: "project-first", Name: "First",
+	}, true), nil)
+	second := newSourceServer(t, sourceBootstrap(&v1.BoardSummary{
+		Id: "board-second", ProjectId: "project-second", Name: "Second",
+	}, true), nil)
 
 	_, err := New(t.Context(), Config{Sources: []SourceConfig{
 		{Alias: "first", URL: mustURL(t, first.URL)},
 		{Alias: "second", URL: mustURL(t, second.URL)},
 	}})
 	require.Error(t, err)
-	assert.Contains(t, err.Error(), `duplicate board ID "board-duplicate"`)
+	assert.Contains(t, err.Error(), `store lineage "lineage-primary" is configured under sources "first" and "second"`)
 }
 
 func TestNewKeepsUnavailableSourceInBootstrap(t *testing.T) {
@@ -287,7 +338,7 @@ func TestAttachmentContentProxyPreservesRangeAndConditionalHeaders(t *testing.T)
 
 	request := httptest.NewRequest(
 		http.MethodGet,
-		"/board/board-attach/attachment/"+attachmentID,
+		"/source/media/board/board-attach/attachment/"+attachmentID,
 		nil,
 	)
 	request.Header.Set("Range", "bytes=2-5")
@@ -305,7 +356,7 @@ func TestAttachmentContentProxyPreservesRangeAndConditionalHeaders(t *testing.T)
 
 	request = httptest.NewRequest(
 		http.MethodGet,
-		"/board/board-attach/attachment/"+attachmentID,
+		"/source/media/board/board-attach/attachment/"+attachmentID,
 		nil,
 	)
 	request.Header.Set("If-None-Match", `"source-v1"`)
@@ -315,6 +366,43 @@ func TestAttachmentContentProxyPreservesRangeAndConditionalHeaders(t *testing.T)
 	assert.Equal(t, http.StatusNotModified, response.Code)
 	assert.Empty(t, response.Body.String())
 	assert.Equal(t, `"source-v1"`, gotIfNoneMatch)
+}
+
+func TestAttachmentContentProxyUsesSourceQualifiedBoardRoute(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-copied", ProjectId: "project", Name: "Copied"}
+	firstBootstrap := sourceBootstrap(board, true)
+	firstBootstrap.Sources[0].Source.StoreLineageId = "lineage-first"
+	first := newConfiguredSourceServerWithRoutes(t, &sourceHandler{
+		bootstrap: firstBootstrap,
+	}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "first")
+	}))
+	secondBootstrap := sourceBootstrap(board, true)
+	secondBootstrap.Sources[0].Source.StoreLineageId = "lineage-second"
+	second := newConfiguredSourceServerWithRoutes(t, &sourceHandler{
+		bootstrap: secondBootstrap,
+	}, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = io.WriteString(w, "second")
+	}))
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{
+		{Alias: "first", URL: mustURL(t, first.URL)},
+		{Alias: "second", URL: mustURL(t, second.URL)},
+	}})
+	require.NoError(t, err)
+	binding := aggregate.Binding()
+	mux := http.NewServeMux()
+	mux.Handle(binding.AttachmentContentPattern, binding.AttachmentContent)
+
+	request := httptest.NewRequest(
+		http.MethodGet,
+		"/source/second/board/board-copied/attachment/att_aaaaaaaaaaaaaaaaaaaaaaaaaa",
+		nil,
+	)
+	response := httptest.NewRecorder()
+	mux.ServeHTTP(response, request)
+
+	assert.Equal(t, http.StatusOK, response.Code)
+	assert.Equal(t, "second", response.Body.String())
 }
 
 func TestAttachmentContentProxyPropagatesCancellation(t *testing.T) {
@@ -340,10 +428,11 @@ func TestAttachmentContentProxyPropagatesCancellation(t *testing.T) {
 	defer cancel()
 	request := httptest.NewRequest(
 		http.MethodGet,
-		"/board/board-cancel/attachment/"+attachmentID,
+		"/source/cancel/board/board-cancel/attachment/"+attachmentID,
 		nil,
 	)
 	request = request.WithContext(ctx)
+	request.SetPathValue("sourceID", "cancel")
 	request.SetPathValue("boardID", board.GetId())
 	request.SetPathValue("attachmentID", attachmentID)
 	response := httptest.NewRecorder()
@@ -625,6 +714,54 @@ func TestAggregateBoardPinsPreserveOrderAndQualifySource(t *testing.T) {
 	}
 }
 
+func TestAggregateBoardPinsUseSourceQualifiedBoardRoute(t *testing.T) {
+	board := &v1.BoardSummary{Id: "board-copied", ProjectId: "project", Name: "Copied"}
+	firstBootstrap := sourceBootstrap(board, true)
+	firstBootstrap.Sources[0].Source.StoreLineageId = "lineage-first"
+	first := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: firstBootstrap,
+		pins: func(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
+			return connect.NewResponse(&v1.ListBoardPinsResponse{Issues: []*v1.RelatedIssue{{
+				Id: "first-issue", BoardId: board.GetId(), Title: "First",
+			}}}), nil
+		},
+	})
+	secondBootstrap := sourceBootstrap(board, true)
+	secondBootstrap.Sources[0].Source.StoreLineageId = "lineage-second"
+	second := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrap: secondBootstrap,
+		pins: func(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
+			return connect.NewResponse(&v1.ListBoardPinsResponse{Issues: []*v1.RelatedIssue{{
+				Id: "second-issue", BoardId: board.GetId(), Title: "Second",
+			}}}), nil
+		},
+	})
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{
+		{Alias: "first", URL: mustURL(t, first.URL)},
+		{Alias: "second", URL: mustURL(t, second.URL)},
+	}})
+	require.NoError(t, err)
+	client := newAggregateIssueClient(t, aggregate)
+
+	_, err = client.ListBoardPins(t.Context(), connect.NewRequest(
+		&v1.ListBoardPinsRequest{BoardId: board.GetId()},
+	))
+	assert.Equal(t, connect.CodeFailedPrecondition, connect.CodeOf(err))
+
+	response, err := client.ListBoardPins(t.Context(), connect.NewRequest(
+		&v1.ListBoardPinsRequest{
+			BoardId: board.GetId(),
+			Source: &v1.SourceRef{
+				SourceId: "second", StoreLineageId: "lineage-second",
+			},
+		},
+	))
+	require.NoError(t, err)
+	require.Len(t, response.Msg.GetIssues(), 1)
+	assert.Equal(t, "second-issue", response.Msg.GetIssues()[0].GetId())
+	assert.Equal(t, "second", response.Msg.GetIssues()[0].GetSource().GetSourceId())
+}
+
 func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
 	board := &v1.BoardSummary{Id: "board-detail", ProjectId: "project", Name: "Detail"}
 	bootstrap := sourceBootstrap(board, true)
@@ -632,13 +769,13 @@ func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
 	server := newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: bootstrap,
 		issue: func(_ context.Context, request *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {
-			assert.Equal(t, "/board", request.Msg.GetPresentation().GetRoutePrefix())
+			assert.Equal(t, "/source/detail/board", request.Msg.GetPresentation().GetRoutePrefix())
 			return connect.NewResponse(&v1.GetIssueResponse{Issue: &v1.IssueDetail{
 				Issue: &v1.IssueSummary{Id: "issue-detail", BoardId: board.GetId(), Title: "Detail"},
 			}}), nil
 		},
 		logs: func(_ context.Context, request *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error) {
-			assert.Equal(t, "/board", request.Msg.GetPresentation().GetRoutePrefix())
+			assert.Equal(t, "/source/detail/board", request.Msg.GetPresentation().GetRoutePrefix())
 			return connect.NewResponse(&v1.ListLogEntriesResponse{LogEntries: []*v1.LogEntry{{
 				Id: "log-1", IssueId: "issue-detail",
 				Payload: &v1.LogEntry_Post{Post: &v1.LogPost{Actor: "actor", Body: &v1.MarkdownContent{Source: "body"}}},

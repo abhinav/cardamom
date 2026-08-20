@@ -33,10 +33,10 @@ export function issueProvenance(
   catalog: ProvenanceCatalog,
 ): Provenance {
   const source = issue.source;
-  const board = findBoard(catalog.boards, issue.boardId, source);
+  const board = boardForIdentity(catalog.boards, issue.boardId, source);
   const project = board === undefined
     ? undefined
-    : findProject(catalog.projects, board.projectId, source);
+    : projectForIdentity(catalog.projects, board.projectId, source);
   return {
     source: sourceLabel(source),
     project: project?.name ?? board?.projectId,
@@ -68,18 +68,21 @@ export function sourceLabel(source: SourceRef | undefined): string | undefined {
   return value === undefined || value === "" ? undefined : value;
 }
 
-function findBoard(
-  boards: readonly BoardSummary[],
+/** boardForIdentity resolves a board without collapsing equal IDs from different sources. */
+export function boardForIdentity<
+  T extends Pick<BoardSummary, "id" | "source">,
+>(
+  boards: readonly T[],
   boardId: string,
   source: SourceRef | undefined,
-): BoardSummary | undefined {
+): T | undefined {
   return boards.find((board) =>
     board.id === boardId &&
     (source === undefined || board.source?.sourceId === source.sourceId),
   );
 }
 
-function findProject(
+function projectForIdentity(
   projects: readonly Project[],
   projectId: string,
   source: SourceRef | undefined,

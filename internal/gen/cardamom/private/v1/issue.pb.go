@@ -1829,7 +1829,9 @@ func (x *GetIssueResponse) GetIssue() *IssueDetail {
 type ListBoardPinsRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// board_id identifies the board whose pins are read.
-	BoardId       string `protobuf:"bytes,1,opt,name=board_id,json=boardId,proto3" json:"board_id,omitempty"`
+	BoardId string `protobuf:"bytes,1,opt,name=board_id,json=boardId,proto3" json:"board_id,omitempty"`
+	// source identifies the aggregate source that owns board_id when present.
+	Source        *SourceRef `protobuf:"bytes,2,opt,name=source,proto3,oneof" json:"source,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1869,6 +1871,13 @@ func (x *ListBoardPinsRequest) GetBoardId() string {
 		return x.BoardId
 	}
 	return ""
+}
+
+func (x *ListBoardPinsRequest) GetSource() *SourceRef {
+	if x != nil {
+		return x.Source
+	}
+	return nil
 }
 
 // ListBoardPinsResponse contains current issues in board pin order.
@@ -2301,9 +2310,11 @@ const file_cardamom_private_v1_issue_proto_rawDesc = "" +
 	"\t_board_idB\x0f\n" +
 	"\r_presentation\"J\n" +
 	"\x10GetIssueResponse\x126\n" +
-	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue\"1\n" +
+	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue\"y\n" +
 	"\x14ListBoardPinsRequest\x12\x19\n" +
-	"\bboard_id\x18\x01 \x01(\tR\aboardId\"R\n" +
+	"\bboard_id\x18\x01 \x01(\tR\aboardId\x12;\n" +
+	"\x06source\x18\x02 \x01(\v2\x1e.cardamom.private.v1.SourceRefH\x00R\x06source\x88\x01\x01B\t\n" +
+	"\a_source\"R\n" +
 	"\x15ListBoardPinsResponse\x129\n" +
 	"\x06issues\x18\x01 \x03(\v2!.cardamom.private.v1.RelatedIssueR\x06issues\"q\n" +
 	"\x14PinBoardIssueRequest\x12\x19\n" +
@@ -2467,26 +2478,27 @@ var file_cardamom_private_v1_issue_proto_depIdxs = []int32{
 	31, // 50: cardamom.private.v1.GetIssueRequest.source:type_name -> cardamom.private.v1.SourceRef
 	34, // 51: cardamom.private.v1.GetIssueRequest.presentation:type_name -> cardamom.private.v1.PresentationContext
 	17, // 52: cardamom.private.v1.GetIssueResponse.issue:type_name -> cardamom.private.v1.IssueDetail
-	10, // 53: cardamom.private.v1.ListBoardPinsResponse.issues:type_name -> cardamom.private.v1.RelatedIssue
-	35, // 54: cardamom.private.v1.PinBoardIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
-	10, // 55: cardamom.private.v1.PinBoardIssueResponse.issue:type_name -> cardamom.private.v1.RelatedIssue
-	35, // 56: cardamom.private.v1.UnpinBoardIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
-	10, // 57: cardamom.private.v1.UnpinBoardIssueResponse.issue:type_name -> cardamom.private.v1.RelatedIssue
-	19, // 58: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest
-	21, // 59: cardamom.private.v1.IssueService.GetIssue:input_type -> cardamom.private.v1.GetIssueRequest
-	23, // 60: cardamom.private.v1.IssueService.ListBoardPins:input_type -> cardamom.private.v1.ListBoardPinsRequest
-	25, // 61: cardamom.private.v1.IssueService.PinBoardIssue:input_type -> cardamom.private.v1.PinBoardIssueRequest
-	27, // 62: cardamom.private.v1.IssueService.UnpinBoardIssue:input_type -> cardamom.private.v1.UnpinBoardIssueRequest
-	20, // 63: cardamom.private.v1.IssueService.ListIssues:output_type -> cardamom.private.v1.ListIssuesResponse
-	22, // 64: cardamom.private.v1.IssueService.GetIssue:output_type -> cardamom.private.v1.GetIssueResponse
-	24, // 65: cardamom.private.v1.IssueService.ListBoardPins:output_type -> cardamom.private.v1.ListBoardPinsResponse
-	26, // 66: cardamom.private.v1.IssueService.PinBoardIssue:output_type -> cardamom.private.v1.PinBoardIssueResponse
-	28, // 67: cardamom.private.v1.IssueService.UnpinBoardIssue:output_type -> cardamom.private.v1.UnpinBoardIssueResponse
-	63, // [63:68] is the sub-list for method output_type
-	58, // [58:63] is the sub-list for method input_type
-	58, // [58:58] is the sub-list for extension type_name
-	58, // [58:58] is the sub-list for extension extendee
-	0,  // [0:58] is the sub-list for field type_name
+	31, // 53: cardamom.private.v1.ListBoardPinsRequest.source:type_name -> cardamom.private.v1.SourceRef
+	10, // 54: cardamom.private.v1.ListBoardPinsResponse.issues:type_name -> cardamom.private.v1.RelatedIssue
+	35, // 55: cardamom.private.v1.PinBoardIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
+	10, // 56: cardamom.private.v1.PinBoardIssueResponse.issue:type_name -> cardamom.private.v1.RelatedIssue
+	35, // 57: cardamom.private.v1.UnpinBoardIssueRequest.context:type_name -> cardamom.private.v1.MutationContext
+	10, // 58: cardamom.private.v1.UnpinBoardIssueResponse.issue:type_name -> cardamom.private.v1.RelatedIssue
+	19, // 59: cardamom.private.v1.IssueService.ListIssues:input_type -> cardamom.private.v1.ListIssuesRequest
+	21, // 60: cardamom.private.v1.IssueService.GetIssue:input_type -> cardamom.private.v1.GetIssueRequest
+	23, // 61: cardamom.private.v1.IssueService.ListBoardPins:input_type -> cardamom.private.v1.ListBoardPinsRequest
+	25, // 62: cardamom.private.v1.IssueService.PinBoardIssue:input_type -> cardamom.private.v1.PinBoardIssueRequest
+	27, // 63: cardamom.private.v1.IssueService.UnpinBoardIssue:input_type -> cardamom.private.v1.UnpinBoardIssueRequest
+	20, // 64: cardamom.private.v1.IssueService.ListIssues:output_type -> cardamom.private.v1.ListIssuesResponse
+	22, // 65: cardamom.private.v1.IssueService.GetIssue:output_type -> cardamom.private.v1.GetIssueResponse
+	24, // 66: cardamom.private.v1.IssueService.ListBoardPins:output_type -> cardamom.private.v1.ListBoardPinsResponse
+	26, // 67: cardamom.private.v1.IssueService.PinBoardIssue:output_type -> cardamom.private.v1.PinBoardIssueResponse
+	28, // 68: cardamom.private.v1.IssueService.UnpinBoardIssue:output_type -> cardamom.private.v1.UnpinBoardIssueResponse
+	64, // [64:69] is the sub-list for method output_type
+	59, // [59:64] is the sub-list for method input_type
+	59, // [59:59] is the sub-list for extension type_name
+	59, // [59:59] is the sub-list for extension extendee
+	0,  // [0:59] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_issue_proto_init() }
@@ -2507,6 +2519,7 @@ func file_cardamom_private_v1_issue_proto_init() {
 	file_cardamom_private_v1_issue_proto_msgTypes[13].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[14].OneofWrappers = []any{}
 	file_cardamom_private_v1_issue_proto_msgTypes[15].OneofWrappers = []any{}
+	file_cardamom_private_v1_issue_proto_msgTypes[17].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

@@ -436,6 +436,9 @@ message GetIssueResponse {
 message ListBoardPinsRequest {
   // board_id identifies the board whose pins are read.
   string board_id = 1;
+
+  // source identifies the aggregate source that owns board_id when present.
+  optional SourceRef source = 2;
 }
 
 // ListBoardPinsResponse contains current issues in board pin order.

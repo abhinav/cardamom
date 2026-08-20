@@ -28,7 +28,7 @@ func (s *Server) listApprovals(
 	for _, target := range targets {
 		response, err := target.source.checkpoints.ListActionableCheckpoints(ctx, connect.NewRequest(
 			&v1.ListActionableCheckpointsRequest{
-				Scope: targetScope(target), Presentation: aggregatePresentation(),
+				Scope: targetScope(target), Presentation: aggregatePresentation(target.source),
 			},
 		))
 		if err != nil || response == nil || response.Msg == nil {
@@ -80,7 +80,7 @@ func qualifyRelatedForTarget(server *Server, target readTarget, value *v1.Relate
 	}
 	route := boardRoute{source: target.source, boardID: value.GetBoardId()}
 	if server != nil {
-		if known, ok := server.boards[value.GetBoardId()]; ok && known.source.config.Alias == target.source.config.Alias {
+		if known, err := server.routeForBoard(value.GetBoardId(), target.source); err == nil {
 			route = known
 		}
 	}
