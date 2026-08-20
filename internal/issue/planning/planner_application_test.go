@@ -273,7 +273,7 @@ func TestApplyDocumentPublishesRepositoryReceipt(t *testing.T) {
 			}},
 			Counts: ApplyCounts{Create: 1},
 		},
-		CommittedRevision: CommittedRevision{Revision: 9},
+		Revision: 9,
 	}
 	changes.EXPECT().ApplyDocument(gomock.Any(), gomock.Any(), gomock.Any(), gomock.Any()).Return(outcome, nil)
 	planner := newTestPlanner(t, changes)
@@ -316,8 +316,8 @@ func TestEditIssuePublishesCompletePostCommitView(t *testing.T) {
 	issue := applicationTestIssue(t, "an-1", issuekernel.StatusReady)
 	changes := NewMockChanges(gomock.NewController(t))
 	editOutcome := IssueEdited{
-		Issue:             issue,
-		CommittedRevision: CommittedRevision{Revision: 9},
+		Issue:    issue,
+		Revision: 9,
 	}
 	changes.EXPECT().EditIssue(gomock.Any(), gomock.Any()).Return(editOutcome, nil)
 	view := issuekernel.View{Detail: issuekernel.Detail{

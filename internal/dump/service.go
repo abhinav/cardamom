@@ -293,10 +293,8 @@ func selectSnapshot(
 	selected map[string]struct{},
 ) Snapshot {
 	result := Snapshot{
-		BoardSnapshot: BoardSnapshot{
-			BoardID: board.BoardID, Revision: board.Revision,
-			Description: board.Description,
-		},
+		BoardID: board.BoardID, Revision: board.Revision,
+		Description:      board.Description,
 		Provenance:       provenance,
 		Selection:        selection,
 		referenceTargets: newReferenceTargets(board, selected),

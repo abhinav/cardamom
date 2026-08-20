@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"reflect"
 	"slices"
 
 	"github.com/alecthomas/kong"
@@ -188,8 +189,7 @@ func (a *Application) Run(ctx context.Context, args []string) int {
 
 	parsed, err := a.parse(ctx, args)
 	if err != nil {
-		var requested requestedExitError
-		if errors.As(err, &requested) {
+		if requested, ok := errors.AsType[requestedExitError](err); ok {
 			return requested.code
 		}
 		return a.reportError(err)
@@ -290,12 +290,12 @@ func parsedBoardIssueIDs(context *kong.Context) []string {
 			continue
 		}
 		if command.Target.CanInterface() {
-			if source, ok := command.Target.Interface().(issueReferencingCommand); ok {
+			if source, ok := reflect.TypeAssert[issueReferencingCommand](command.Target); ok {
 				return source.referencedIssueIDs()
 			}
 		}
 		if command.Target.CanAddr() && command.Target.Addr().CanInterface() {
-			if source, ok := command.Target.Addr().Interface().(issueReferencingCommand); ok {
+			if source, ok := reflect.TypeAssert[issueReferencingCommand](command.Target.Addr()); ok {
 				return source.referencedIssueIDs()
 			}
 		}
@@ -343,12 +343,10 @@ func ExitCode(err error) int {
 		return ExitCanceled
 	}
 
-	var usage usageError
-	if errors.As(err, &usage) {
+	if _, ok := errors.AsType[usageError](err); ok {
 		return ExitUsage
 	}
-	var parseError *kong.ParseError
-	if errors.As(err, &parseError) {
+	if _, ok := errors.AsType[*kong.ParseError](err); ok {
 		return ExitUsage
 	}
 	return ExitOperation

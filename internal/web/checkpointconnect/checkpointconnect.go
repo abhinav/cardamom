@@ -290,8 +290,8 @@ func (s *Service) commandsForIssue(
 		return scopedBoardCommands{}, fmt.Errorf("open board commands %q: %w", board.ID(), err)
 	}
 	return scopedBoardCommands{
-		scopedBoardReader: scopedBoardReader{board: board, reader: reader},
-		commands:          commands,
+		board: board, reader: reader,
+		commands: commands,
 	}, nil
 }
 
