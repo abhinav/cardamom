@@ -280,13 +280,11 @@ func (r *Repository) readIssueStory(
 			parentID = &value
 		}
 		containment = append(containment, issue.ContainmentNode{
-			Reference: issue.Reference{
-				ID:       id.String(),
-				Title:    index.states[id].state.Title(),
-				Type:     index.states[id].state.Kind().String(),
-				Status:   index.summary(id).Issue.Status,
-				Priority: index.states[id].state.Priority().Int(),
-			},
+			ID:       id.String(),
+			Title:    index.states[id].state.Title(),
+			Type:     index.states[id].state.Kind().String(),
+			Status:   index.summary(id).Issue.Status,
+			Priority: index.states[id].state.Priority().Int(),
 			ParentID: parentID,
 		})
 	}

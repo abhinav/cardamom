@@ -118,8 +118,7 @@ func FromError(err error) error {
 	if err == nil {
 		return nil
 	}
-	var connectErr *connect.Error
-	if errors.As(err, &connectErr) {
+	if connectErr, ok := errors.AsType[*connect.Error](err); ok {
 		return connectErr
 	}
 	code := connect.CodeInternal

@@ -19,22 +19,20 @@ func TestRenderProducesDeterministicLinkedMarkdown(t *testing.T) {
 	closed := int64(1_752_148_200)
 	parentID := "an-parent"
 	snapshot := Snapshot{
-		BoardSnapshot: BoardSnapshot{
-			BoardID: "board-1", Revision: 42, Description: &description,
-			Issues: []Issue{
-				{ID: "an-b", Title: "Child [beta]", Type: "task", Status: "closed", Priority: 2, Created: 1_752_144_000, Updated: 1_752_148_200, StartedAt: &started, Closed: &closed, Revision: 41},
-				{ID: "an-a", Title: "Root | alpha", Type: "workstream", Status: "ready", Priority: 1, Assignee: &assignee, Created: 1_752_140_400, Updated: 1_752_144_000, Summary: new("Authored **Markdown**.\n\n- stays a list"), Details: new("Expanded material."), State: new("Run `card show`."), NextAction: new("Inspect the output."), Revision: 40, Labels: []string{"zeta", "a`b"}},
-			},
-			Containment:  []Containment{{ChildID: "an-a", ParentID: parentID}, {ChildID: "an-b", ParentID: "an-a"}},
-			Dependencies: []Dependency{{ChildID: "an-a", ParentID: "an-dep"}, {ChildID: "an-blocked", ParentID: "an-a"}},
-			Results:      []Result{{IssueID: "an-a", Body: "Result *body*."}},
-			LogEntries: []LogEntry{{
-				ID:      "cmt_00000000000000000000000000000007",
-				IssueID: "an-a", Kind: "post",
-				Author: new("reviewer_[1]"), Committer: new("reviewer_[1]"),
-				Body: "LogEntry **body**.", Created: new(int64(1_752_144_600)),
-			}},
+		BoardID: "board-1", Revision: 42, Description: &description,
+		Issues: []Issue{
+			{ID: "an-b", Title: "Child [beta]", Type: "task", Status: "closed", Priority: 2, Created: 1_752_144_000, Updated: 1_752_148_200, StartedAt: &started, Closed: &closed, Revision: 41},
+			{ID: "an-a", Title: "Root | alpha", Type: "workstream", Status: "ready", Priority: 1, Assignee: &assignee, Created: 1_752_140_400, Updated: 1_752_144_000, Summary: new("Authored **Markdown**.\n\n- stays a list"), Details: new("Expanded material."), State: new("Run `card show`."), NextAction: new("Inspect the output."), Revision: 40, Labels: []string{"zeta", "a`b"}},
 		},
+		Containment:  []Containment{{ChildID: "an-a", ParentID: parentID}, {ChildID: "an-b", ParentID: "an-a"}},
+		Dependencies: []Dependency{{ChildID: "an-a", ParentID: "an-dep"}, {ChildID: "an-blocked", ParentID: "an-a"}},
+		Results:      []Result{{IssueID: "an-a", Body: "Result *body*."}},
+		LogEntries: []LogEntry{{
+			ID:      "cmt_00000000000000000000000000000007",
+			IssueID: "an-a", Kind: "post",
+			Author: new("reviewer_[1]"), Committer: new("reviewer_[1]"),
+			Body: "LogEntry **body**.", Created: new(int64(1_752_144_600)),
+		}},
 		Provenance: testProvenance("board-1"),
 		Selection:  SelectedIssues("an-a"),
 	}
@@ -94,9 +92,9 @@ func TestRenderProducesDeterministicLinkedMarkdown(t *testing.T) {
 
 func TestRenderEmptyBoardUsesExplicitAbsenceText(t *testing.T) {
 	rendered, err := render(Snapshot{
-		BoardSnapshot: BoardSnapshot{BoardID: "empty-board", Revision: 0},
-		Provenance:    testProvenance("empty-board"),
-		Selection:     WholeBoard(),
+		BoardID: "empty-board", Revision: 0,
+		Provenance: testProvenance("empty-board"),
+		Selection:  WholeBoard(),
 	})
 	require.NoError(t, err)
 	require.Len(t, rendered.Files, 1)
@@ -109,12 +107,10 @@ func TestRenderEmptyBoardUsesExplicitAbsenceText(t *testing.T) {
 
 func TestRenderWholeBoardUsesCanonicalPathsAndREADME(t *testing.T) {
 	rendered, err := render(Snapshot{
-		BoardSnapshot: BoardSnapshot{
-			BoardID: "board-1",
-			Issues: []Issue{
-				{ID: "an-w", Title: "Workstream", Type: "workstream", Status: "cancelled"},
-				{ID: "an-t", Title: "Task", Type: "task", Status: "closed"},
-			},
+		BoardID: "board-1",
+		Issues: []Issue{
+			{ID: "an-w", Title: "Workstream", Type: "workstream", Status: "cancelled"},
+			{ID: "an-t", Title: "Task", Type: "task", Status: "closed"},
 		},
 		Provenance: testProvenance("board-1"),
 		Selection:  WholeBoard(),
@@ -128,21 +124,19 @@ func TestRenderWholeBoardUsesCanonicalPathsAndREADME(t *testing.T) {
 
 func TestRenderOrdersIssuePresentationByCreation(t *testing.T) {
 	rendered, err := render(Snapshot{
-		BoardSnapshot: BoardSnapshot{
-			BoardID: "board-1",
-			Issues: []Issue{
-				{ID: "issue-a", Title: "Newer", Type: "task", Status: "ready", Priority: 0, Created: 3},
-				{ID: "issue-m", Title: "Parent", Type: "workstream", Status: "ready", Priority: 2, Created: 1},
-				{ID: "issue-z", Title: "Older", Type: "task", Status: "ready", Priority: 4, Created: 2},
-			},
-			Containment: []Containment{
-				{ChildID: "issue-z", ParentID: "issue-m"},
-				{ChildID: "issue-a", ParentID: "issue-m"},
-			},
-			Dependencies: []Dependency{
-				{ChildID: "issue-z", ParentID: "issue-m"},
-				{ChildID: "issue-a", ParentID: "issue-m"},
-			},
+		BoardID: "board-1",
+		Issues: []Issue{
+			{ID: "issue-a", Title: "Newer", Type: "task", Status: "ready", Priority: 0, Created: 3},
+			{ID: "issue-m", Title: "Parent", Type: "workstream", Status: "ready", Priority: 2, Created: 1},
+			{ID: "issue-z", Title: "Older", Type: "task", Status: "ready", Priority: 4, Created: 2},
+		},
+		Containment: []Containment{
+			{ChildID: "issue-z", ParentID: "issue-m"},
+			{ChildID: "issue-a", ParentID: "issue-m"},
+		},
+		Dependencies: []Dependency{
+			{ChildID: "issue-z", ParentID: "issue-m"},
+			{ChildID: "issue-a", ParentID: "issue-m"},
 		},
 		Provenance: testProvenance("board-1"),
 		Selection:  WholeBoard(),
@@ -173,17 +167,15 @@ func TestRenderOrdersIssuePresentationByCreation(t *testing.T) {
 
 func TestRenderIssueWithDescendantsIsCollectionEntrypoint(t *testing.T) {
 	rendered, err := render(Snapshot{
-		BoardSnapshot: BoardSnapshot{
-			BoardID: "board-1",
-			Issues: []Issue{
-				{ID: "an-root", Title: "Root task", Type: "task", Status: "ready"},
-				{ID: "an-child", Title: "Child workstream", Type: "workstream", Status: "in_progress"},
-				{ID: "an-leaf", Title: "Leaf", Type: "task", Status: "cancelled"},
-			},
-			Containment: []Containment{
-				{ChildID: "an-child", ParentID: "an-root"},
-				{ChildID: "an-leaf", ParentID: "an-child"},
-			},
+		BoardID: "board-1",
+		Issues: []Issue{
+			{ID: "an-root", Title: "Root task", Type: "task", Status: "ready"},
+			{ID: "an-child", Title: "Child workstream", Type: "workstream", Status: "in_progress"},
+			{ID: "an-leaf", Title: "Leaf", Type: "task", Status: "cancelled"},
+		},
+		Containment: []Containment{
+			{ChildID: "an-child", ParentID: "an-root"},
+			{ChildID: "an-leaf", ParentID: "an-child"},
 		},
 		Provenance: testProvenance("board-1"),
 		Selection:  SelectedIssues("an-root"),
@@ -200,16 +192,14 @@ func TestRenderIssueWithDescendantsIsCollectionEntrypoint(t *testing.T) {
 
 func TestRenderNamedIssuesOnlyOmitsDescendantSummary(t *testing.T) {
 	rendered, err := render(Snapshot{
-		BoardSnapshot: BoardSnapshot{
-			BoardID: "board-1",
-			Issues: []Issue{
-				{ID: "an-parent", Title: "Parent", Type: "task", Status: "ready"},
-				{ID: "an-child", Title: "Child", Type: "task", Status: "closed"},
-			},
-			Containment: []Containment{{ChildID: "an-child", ParentID: "an-parent"}},
+		BoardID: "board-1",
+		Issues: []Issue{
+			{ID: "an-parent", Title: "Parent", Type: "task", Status: "ready"},
+			{ID: "an-child", Title: "Child", Type: "task", Status: "closed"},
 		},
-		Provenance: testProvenance("board-1"),
-		Selection:  NamedIssuesOnly("an-parent", "an-child"),
+		Containment: []Containment{{ChildID: "an-child", ParentID: "an-parent"}},
+		Provenance:  testProvenance("board-1"),
+		Selection:   NamedIssuesOnly("an-parent", "an-child"),
 	})
 	require.NoError(t, err)
 
@@ -221,19 +211,17 @@ func TestRenderNamedIssuesOnlyOmitsDescendantSummary(t *testing.T) {
 func TestRenderLogEntriesUseStableExplicitAnchors(t *testing.T) {
 	const logID = issue.LogID("log_0123456789abcdef0123456789abcdef")
 	rendered, err := render(Snapshot{
-		BoardSnapshot: BoardSnapshot{
-			BoardID: "board-1",
-			Issues:  []Issue{{ID: "an-issue", Title: "Issue"}},
-			LogEntries: []LogEntry{{
-				ID: logID, IssueID: "an-issue", Kind: "post",
-				Author: new("captain"), Committer: new("captain"),
-				Body: "Entry body.", Created: new(int64(1)),
-			}, {
-				ID:      "log_11111111111111111111111111111111",
-				IssueID: "an-issue", Kind: "state_snapshot",
-				Body: "State body.", NextAction: new("Planned action."),
-			}},
-		},
+		BoardID: "board-1",
+		Issues:  []Issue{{ID: "an-issue", Title: "Issue"}},
+		LogEntries: []LogEntry{{
+			ID: logID, IssueID: "an-issue", Kind: "post",
+			Author: new("captain"), Committer: new("captain"),
+			Body: "Entry body.", Created: new(int64(1)),
+		}, {
+			ID:      "log_11111111111111111111111111111111",
+			IssueID: "an-issue", Kind: "state_snapshot",
+			Body: "State body.", NextAction: new("Planned action."),
+		}},
 		Provenance: testProvenance("board-1"),
 		Selection:  NamedIssuesOnly("an-issue"),
 	})
@@ -258,9 +246,9 @@ func TestRenderLogEntriesUseStableExplicitAnchors(t *testing.T) {
 
 func TestRenderRejectsUnsafeIssuePath(t *testing.T) {
 	_, err := render(Snapshot{
-		BoardSnapshot: BoardSnapshot{BoardID: "board-1", Issues: []Issue{{ID: "../escape", Title: "Escape"}}},
-		Provenance:    testProvenance("board-1"),
-		Selection:     WholeBoard(),
+		BoardID: "board-1", Issues: []Issue{{ID: "../escape", Title: "Escape"}},
+		Provenance: testProvenance("board-1"),
+		Selection:  WholeBoard(),
 	})
 	assert.EqualError(t, err, `render issue "../escape": issue ID is not safe for a dump path`)
 }

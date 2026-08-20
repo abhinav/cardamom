@@ -624,8 +624,7 @@ func presentLeaseError(
 	name string,
 	err error,
 ) error {
-	var held *lease.HeldError
-	if errors.As(err, &held) {
+	if _, ok := errors.AsType[*lease.HeldError](err); ok {
 		return err
 	}
 	return fmt.Errorf("%s lease %q: %w", operation, name, err)

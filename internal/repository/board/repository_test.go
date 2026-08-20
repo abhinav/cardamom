@@ -97,8 +97,8 @@ func TestRepositoryCreatesAndReadsBoardIssues(t *testing.T) {
 		ParentID:   new("task-1"),
 		Story: issue.Story{
 			Containment: []issue.ContainmentNode{
-				{Reference: issue.Reference{ID: "task-1", Title: "Program", Type: "workstream", Status: "ready", Priority: 1}},
-				{Reference: issue.Reference{ID: "task-2", Title: "Implementation", Type: "task", Status: "blocked", Priority: 2}, ParentID: new("task-1")},
+				{ID: "task-1", Title: "Program", Type: "workstream", Status: "ready", Priority: 1},
+				{ID: "task-2", Title: "Implementation", Type: "task", Status: "blocked", Priority: 2, ParentID: new("task-1")},
 			},
 			DependsOn: []issue.Reference{{ID: "task-1", Title: "Program", Type: "workstream", Status: "ready", Priority: 1}},
 			Blocks:    []issue.Reference{},

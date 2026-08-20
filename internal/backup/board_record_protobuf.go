@@ -13,7 +13,6 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 	backupv1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/backup/v1"
 	"google.golang.org/protobuf/encoding/protodelim"
-	"google.golang.org/protobuf/proto"
 )
 
 // BoardRecordEncoder writes deterministic length-delimited protobuf records.
@@ -35,9 +34,9 @@ func (e *BoardRecordEncoder) Write(record boardcopy.Record) error {
 	if err != nil {
 		return err
 	}
-	_, err = (protodelim.MarshalOptions{MarshalOptions: proto.MarshalOptions{
+	_, err = (protodelim.MarshalOptions{
 		Deterministic: true,
-	}}).MarshalTo(e.destination, encoded)
+	}).MarshalTo(e.destination, encoded)
 	if err != nil {
 		return fmt.Errorf("write board record: %w", err)
 	}

@@ -128,7 +128,7 @@ func TestExecutorExposesEligibilityReads(t *testing.T) {
 
 	readyIssues := []issue.Summary{{Issue: issue.Issue{ID: "an-ready"}}}
 	blockedIssues := []issue.Summary{{Issue: issue.Issue{ID: "an-blocked"}}}
-	expectedCheckpoints := []issue.CheckpointView{{Issue: issue.Issue{ID: "an-gate"}}}
+	expectedCheckpoints := []issue.CheckpointView{{ID: "an-gate"}}
 	reader := NewMockIssueReader(gomock.NewController(t))
 	reader.EXPECT().ListReadyIssues(gomock.Any(), issue.ListReadyRequest{Limit: 3}).Return(readyIssues, nil)
 	reader.EXPECT().ListBlockedIssues(gomock.Any(), issue.ListBlockedRequest{Limit: 4}).Return(blockedIssues, nil)

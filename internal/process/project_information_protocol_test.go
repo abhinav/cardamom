@@ -211,7 +211,7 @@ func TestWebProtocolReadOnlyAccess(t *testing.T) {
 		attachmentPath,
 	)
 	require.Equal(t, cli.ExitSuccess, added.code, added.stderr)
-	attachmentID := strings.SplitN(added.stdout, "\n", 2)[0]
+	attachmentID, _, _ := strings.Cut(added.stdout, "\n")
 
 	operation := &webOperation{config: cfg}
 	binding, closeStore, err := operation.open(t.Context(), cli.WebRequest{
