@@ -27,7 +27,7 @@ func (s *Server) getIssue(
 		return nil, err
 	}
 	response, err := route.source.issues.GetIssue(ctx, connect.NewRequest(&v1.GetIssueRequest{
-		IssueId: request.Msg.GetIssueId(), Presentation: aggregatePresentation(),
+		IssueId: request.Msg.GetIssueId(), Presentation: aggregatePresentation(route.source),
 	}))
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("source unavailable"))
@@ -92,7 +92,7 @@ func (s *Server) findIssueRoute(
 	unavailable := false
 	for _, source := range sources {
 		response, err := source.issues.GetIssue(ctx, connect.NewRequest(&v1.GetIssueRequest{
-			IssueId: issueID, Presentation: aggregatePresentation(),
+			IssueId: issueID, Presentation: aggregatePresentation(source),
 		}))
 		if err != nil {
 			if connect.CodeOf(err) == connect.CodeNotFound {
@@ -105,8 +105,8 @@ func (s *Server) findIssueRoute(
 			continue
 		}
 		boardID := response.Msg.GetIssue().GetIssue().GetBoardId()
-		route, ok := s.boards[boardID]
-		if !ok || route.source.config.Alias != source.config.Alias {
+		route, err := s.routeForBoard(boardID, source)
+		if err != nil {
 			continue
 		}
 		found, foundCount = route, foundCount+1

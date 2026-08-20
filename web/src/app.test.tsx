@@ -20,6 +20,7 @@ import {
   AccessMode,
   BoardArchiveSchema,
 } from "./gen/cardamom/private/v1/project_pb.ts";
+import { SourceRefSchema } from "./gen/cardamom/private/v1/source_pb.ts";
 import {
   bootstrapQueryOptions,
   unaryRouteQueryOptions,
@@ -175,6 +176,72 @@ describe("application shell", () => {
     expect(markup).toContain('aria-label="Select board scope: Primary"');
     expect(markup).toContain('href="/board/board-1"');
     expect(markup).not.toContain("Page not found");
+  });
+
+  it("keeps copied board IDs distinct in aggregate source routes", async () => {
+    const first = create(SourceRefSchema, {
+      sourceId: "first",
+      storeLineageId: "lineage-first",
+    });
+    const second = create(SourceRefSchema, {
+      sourceId: "second",
+      storeLineageId: "lineage-second",
+    });
+    const queryClient = new QueryClient();
+    const transport = createRouterTransport(() => {});
+    queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
+      aggregateStatus: { complete: true },
+      sources: [{ source: first }, { source: second }],
+      boards: [
+        {
+          id: "board-copied",
+          projectId: "project-first",
+          name: "Original",
+          source: first,
+        },
+        {
+          id: "board-copied",
+          projectId: "project-second",
+          name: "Restored",
+          source: second,
+        },
+      ],
+      projects: [
+        { id: "project-first", name: "First", source: first },
+        { id: "project-second", name: "Second", source: second },
+      ],
+    });
+    queryClient.setQueryData(
+      unaryScopeQueryOptions(
+        IssueService.method.listBoardPins,
+        { boardId: "board-copied", source: second },
+        transport,
+      ).queryKey,
+      create(ListBoardPinsResponseSchema, {
+        issues: [
+          create(RelatedIssueSchema, {
+            id: "card-restored",
+            boardId: "board-copied",
+            title: "Restored board issue",
+            source: second,
+          }),
+        ],
+      }),
+    );
+
+    const markup = await renderApp(
+      queryClient,
+      transport,
+      "/source/second/board/board-copied",
+    );
+
+    expect(markup).toContain("Select board scope: Restored");
+    expect(markup).toContain('href="/source/second/board/board-copied"');
+    expect(markup).toContain(
+      'href="/source/second/board/board-copied/issue/card-restored"',
+    );
+    expect(markup).toContain("Restored board issue");
+    expect(markup).not.toContain("Board ID is ambiguous");
   });
 
   it("shows board pins while the issue columns are still loading", async () => {

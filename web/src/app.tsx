@@ -94,6 +94,7 @@ import {
   ServerAccessProvider,
   useServerAccess,
 } from "./server-access.tsx";
+import { boardForIdentity } from "./provenance.ts";
 
 const ApprovalsRoute = lazy(() =>
   import("./approvals/approvals.tsx").then(({ ApprovalsRoute }) => ({
@@ -297,7 +298,7 @@ function ApplicationShell({
   }, [selectionIdentity]);
   const selectedBoard =
     selection.kind === "board"
-      ? boards.find((board) => board.id === selection.boardId)
+      ? boardForIdentity(boards, selection.boardId, selection.source)
       : undefined;
   // Archived boards remain explicit read targets, but the shell must not offer
   // mutations that the repository lifecycle guard will reject.
@@ -351,7 +352,11 @@ function ApplicationShell({
   return (
     <>
       <ScrollToTopAfterPushNavigation />
-      <DocumentTitle boardName={boardName} boards={boards} />
+      <DocumentTitle
+        boardName={boardName}
+        boards={boards}
+        selection={selection}
+      />
       <div
         className={`app-frame${collectionRoute ? " app-frame-collection" : ""}`}
       >
@@ -476,6 +481,8 @@ export function isCollectionRoute(pathname: string): boolean {
     "/all/list",
     "/board/:boardId",
     "/board/:boardId/list",
+    "/source/:sourceId/board/:boardId",
+    "/source/:sourceId/board/:boardId/list",
   ].some((path) => matchPath({ path, end: true }, pathname) !== null);
 }
 
@@ -763,12 +770,25 @@ function RouteContent({
           }
         />
         <Route path="/board/:boardId" element={boardRoute} />
+        <Route path="/source/:sourceId/board/:boardId" element={boardRoute} />
         <Route path="/all" element={boardRoute} />
         <Route path="/board/:boardId/approvals" element={approvalsRoute} />
+        <Route
+          path="/source/:sourceId/board/:boardId/approvals"
+          element={approvalsRoute}
+        />
         <Route path="/all/approvals" element={approvalsRoute} />
         <Route path="/board/:boardId/list" element={listRoute} />
+        <Route
+          path="/source/:sourceId/board/:boardId/list"
+          element={listRoute}
+        />
         <Route path="/all/list" element={listRoute} />
         <Route path="/board/:boardId/routines" element={routinesRoute} />
+        <Route
+          path="/source/:sourceId/board/:boardId/routines"
+          element={routinesRoute}
+        />
         <Route path="/all/routines" element={routinesRoute} />
         <Route
           path="/board/:boardId/settings"
@@ -781,7 +801,11 @@ function RouteContent({
                   boardId={selection.kind === "board" ? selection.boardId : undefined}
                   boardName={
                     selection.kind === "board"
-                      ? boards.find((board) => board.id === selection.boardId)?.name
+                      ? boardForIdentity(
+                        boards,
+                        selection.boardId,
+                        selection.source,
+                      )?.name
                       : undefined
                   }
                   canMutateServer={canMutateServer}
@@ -791,6 +815,21 @@ function RouteContent({
         />
         <Route
           path="/board/:boardId/issue/:issueId"
+          element={
+            <IssuePage
+              attachmentClient={attachmentClient}
+              boards={boards}
+              preferences={preferences}
+              projects={projects}
+              canMutateServer={canMutateServer}
+              selection={selection}
+              selectLabel={selectLabel}
+              updatePreferences={updatePreferences}
+            />
+          }
+        />
+        <Route
+          path="/source/:sourceId/board/:boardId/issue/:issueId"
           element={
             <IssuePage
               attachmentClient={attachmentClient}
@@ -908,7 +947,7 @@ function IssuePage({
   }
   return (
     <IssueDetailPage
-      key={`${boardId}:${issueId}`}
+      key={`${selection.kind === "board" ? selection.source?.sourceId ?? "" : ""}:${boardId}:${issueId}`}
       actor={preferences.actor}
       attachmentClient={attachmentClient}
       source={selection.kind === "board" ? selection.source : undefined}

@@ -97,7 +97,7 @@ import {
   unaryRouteQueryOptions,
 } from "../query-runtime.ts";
 import { useServerAccess } from "../server-access.tsx";
-import { issueProvenance } from "../provenance.ts";
+import { issueIdentity, issueProvenance } from "../provenance.ts";
 import {
   parseRelationFocus,
   type RelationFocus,
@@ -805,11 +805,11 @@ export function IssueBreadcrumbs({
         {ancestorIssues.map((issue) => {
           const reference = `%${issue.id}`;
           return (
-            <li key={issue.id}>
+            <li key={issueIdentity(issue)}>
               <IssueReferencePill issue={issue} issueID={issue.id}>
                 <Link
                   className="issue-containment-link"
-                  to={issuePath(issue.boardId, issue.id)}
+                  to={issuePath(issue.boardId, issue.id, issue.source)}
                 >
                   {reference}
                 </Link>
@@ -1482,7 +1482,7 @@ export function RelationshipList({
   return (
     <ul className="issue-relationship-list">
       {issues.map((issue) => (
-        <li key={issue.id}>
+        <li key={issueIdentity(issue)}>
           <IssueReferenceLink issue={issue} />
           {remove !== undefined && (
             <Button

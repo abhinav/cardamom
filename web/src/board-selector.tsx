@@ -142,7 +142,14 @@ export function BoardPickerRoute({
             </header>
             <div className="board-picker-links">
               {unit.boards.map((board) => (
-                <Link key={board.id} to={boardScopePath({ kind: "board", boardId: board.id })}>
+                <Link
+                  key={boardCatalogKey(board)}
+                  to={boardScopePath({
+                    kind: "board",
+                    boardId: board.id,
+                    source: board.source,
+                  })}
+                >
                   <span>{board.name}</span>
                   <span>{board.archived === undefined ? board.id : `${board.id} · Archived`}</span>
                 </Link>
@@ -348,11 +355,7 @@ export function BoardSelectorView({
                           key={unit.boards[0]?.id}
                           board={unit.boards[0]!}
                           projectName={unit.project.name}
-                          selectedBoardId={
-                            selection.kind === "board"
-                              ? selection.boardId
-                              : undefined
-                          }
+                          selection={selection}
                           onOpenBoardConfiguration={onOpenBoardConfiguration}
                           onSelectScope={onSelectScope}
                         />
@@ -374,14 +377,10 @@ export function BoardSelectorView({
                           </div>
                           {unit.boards.map((board) => (
                             <BoardSelectorBoardRow
-                              key={board.id}
+                              key={boardCatalogKey(board)}
                               board={board}
                               projectName={unit.project.name}
-                              selectedBoardId={
-                                selection.kind === "board"
-                                  ? selection.boardId
-                                  : undefined
-                              }
+                              selection={selection}
                               onOpenBoardConfiguration={onOpenBoardConfiguration}
                               onSelectScope={onSelectScope}
                             />
@@ -408,7 +407,7 @@ export function BoardSelectorView({
 interface BoardSelectorBoardRowProps {
   board: AvailableBoard;
   projectName: string;
-  selectedBoardId: string | undefined;
+  selection: BoardScopeSelection;
   onOpenBoardConfiguration?: (board: BoardConfigurationTarget) => void;
   onSelectScope: (selection: ResolvedBoardScope) => void;
 }
@@ -416,11 +415,13 @@ interface BoardSelectorBoardRowProps {
 export function BoardSelectorBoardRow({
   board,
   projectName,
-  selectedBoardId,
+  selection,
   onOpenBoardConfiguration,
   onSelectScope,
 }: BoardSelectorBoardRowProps) {
-  const selected = board.id === selectedBoardId;
+  const selected = selection.kind === "board" &&
+    board.id === selection.boardId &&
+    board.source?.sourceId === selection.source?.sourceId;
   return (
     <div className="board-selector-row">
       <Button
@@ -602,10 +603,10 @@ function renderAggregateUnits(
             </Button>
             {unit.boards.map((board) => (
               <BoardSelectorBoardRow
-                key={board.id}
+                key={boardCatalogKey(board)}
                 board={board}
                 projectName={unit.project.name}
-                selectedBoardId={selection.kind === "board" ? selection.boardId : undefined}
+                selection={selection}
                 onOpenBoardConfiguration={onOpenBoardConfiguration}
                 onSelectScope={onSelectScope}
               />
@@ -667,7 +668,10 @@ function selectedScopeLabels(
   if (selection.kind === "ambiguous") {
     return { primary: selection.boardId, secondary: "Board ID is ambiguous" };
   }
-  const board = boards.find((candidate) => candidate.id === selection.boardId);
+  const board = boards.find((candidate) =>
+    candidate.id === selection.boardId &&
+    candidate.source?.sourceId === selection.source?.sourceId
+  );
   if (board === undefined) {
     return {
       primary: selection.boardId,
@@ -689,6 +693,10 @@ function selectedScopeLabels(
 
 function projectKey(sourceId: string | undefined, projectId: string): string {
   return `${sourceId ?? "local"}:${projectId}`;
+}
+
+function boardCatalogKey(board: AvailableBoard): string {
+  return `${board.source?.sourceId ?? "local"}:${board.id}`;
 }
 
 function sourceHealthLabel(health: SourceHealth): string {

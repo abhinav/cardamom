@@ -7,9 +7,10 @@ import {
   type BoardScope,
 } from "./gen/cardamom/private/v1/scope_pb.ts";
 import type { BoardSummary, Project } from "./gen/cardamom/private/v1/project_pb.ts";
-import type {
-  SourceCatalogEntry,
-  SourceRef,
+import {
+  SourceRefSchema,
+  type SourceCatalogEntry,
+  type SourceRef,
 } from "./gen/cardamom/private/v1/source_pb.ts";
 
 /** ResolvedBoardScope identifies a board or aggregate scope in a route. */
@@ -57,11 +58,31 @@ export function routeBoardScope(
         : { projectId: nonblankSearchValue(search, "project") }),
     };
   }
-  if (segments[1] !== "board" || segments[2] === undefined || segments[2] === "") {
-    return { kind: "unresolved" };
-  }
   try {
-    return { kind: "board", boardId: decodeURIComponent(segments[2]) };
+    if (
+      segments[1] === "source" &&
+      segments[2] !== undefined &&
+      segments[2] !== "" &&
+      segments[3] === "board" &&
+      segments[4] !== undefined &&
+      segments[4] !== ""
+    ) {
+      return {
+        kind: "board",
+        boardId: decodeURIComponent(segments[4]),
+        source: create(SourceRefSchema, {
+          sourceId: decodeURIComponent(segments[2]),
+        }),
+      };
+    }
+    if (
+      segments[1] === "board" &&
+      segments[2] !== undefined &&
+      segments[2] !== ""
+    ) {
+      return { kind: "board", boardId: decodeURIComponent(segments[2]) };
+    }
+    return { kind: "unresolved" };
   } catch {
     return { kind: "unresolved" };
   }
@@ -71,7 +92,10 @@ export function routeBoardScope(
 export function routeBoardPage(pathname: string): BoardPage {
   const segments = pathname.split("/");
   const scope = routeBoardScope(pathname);
-  const page = scope.kind === "board" ? segments[3] : segments[2];
+  let page = segments[2];
+  if (scope.kind === "board") {
+    page = segments[1] === "source" ? segments[5] : segments[3];
+  }
   if (
     page === "list" ||
     page === "approvals" ||
@@ -88,9 +112,13 @@ export function boardScopePath(
   selection: ResolvedBoardScope,
   page: BoardPage = "board",
 ): string {
-  const base = selection.kind === "all"
-    ? "/all"
-    : `/board/${encodeURIComponent(selection.boardId)}`;
+  let base = "/all";
+  if (selection.kind === "board") {
+    const sourceID = sourceRouteID(selection.source);
+    base = sourceID === undefined
+      ? `/board/${encodeURIComponent(selection.boardId)}`
+      : `/source/${encodeURIComponent(sourceID)}/board/${encodeURIComponent(selection.boardId)}`;
+  }
   if (page === "board" || (page === "settings" && selection.kind === "all")) {
     return base;
   }
@@ -129,7 +157,11 @@ export function resolveBoardScopeSelection(
   if (selection.kind !== "board") {
     return selection;
   }
-  const matches = catalog.boards.filter((board) => board.id === selection.boardId);
+  const routeSourceID = sourceRouteID(selection.source);
+  const matches = catalog.boards.filter((board) =>
+    board.id === selection.boardId &&
+    (routeSourceID === undefined || board.source?.sourceId === routeSourceID)
+  );
   if (matches.length > 1 && catalog.aggregate) {
     return { kind: "ambiguous", boardId: selection.boardId };
   }
@@ -140,13 +172,21 @@ export function resolveBoardScopeSelection(
 }
 
 /** issuePath builds the canonical route for one board-owned issue. */
-export function issuePath(boardId: string, issueId: string): string {
-  return `${boardScopePath({ kind: "board", boardId })}/issue/${encodeURIComponent(issueId)}`;
+export function issuePath(
+  boardId: string,
+  issueId: string,
+  source?: SourceRef,
+): string {
+  return `${boardScopePath({ kind: "board", boardId, source })}/issue/${encodeURIComponent(issueId)}`;
 }
 
 /** attachmentPath builds the canonical raw route for one board-owned attachment. */
-export function attachmentPath(boardId: string, attachmentId: string): string {
-  return `${boardScopePath({ kind: "board", boardId })}/attachment/${encodeURIComponent(attachmentId)}`;
+export function attachmentPath(
+  boardId: string,
+  attachmentId: string,
+  source?: SourceRef,
+): string {
+  return `${boardScopePath({ kind: "board", boardId, source })}/attachment/${encodeURIComponent(attachmentId)}`;
 }
 
 export function toBoardScopeMessage(
@@ -197,8 +237,8 @@ export function toBoardScopeMessage(
       },
     });
   }
-  const source = selection.source ?? catalog?.boards.find(
-    (candidate) => candidate.id === selection.boardId,
+  const source = selection.source ?? catalog?.boards.find((candidate) =>
+    candidate.id === selection.boardId
   )?.source;
   return create(BoardScopeSchema, {
     ...(source === undefined ? {} : { source }),
@@ -230,4 +270,9 @@ function nonblankSearchValue(
 ): string | undefined {
   const value = search.get(key)?.trim();
   return value === undefined || value === "" ? undefined : value;
+}
+
+function sourceRouteID(source: SourceRef | undefined): string | undefined {
+  const sourceID = source?.sourceId.trim();
+  return sourceID === undefined || sourceID === "" ? undefined : sourceID;
 }

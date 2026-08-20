@@ -230,7 +230,7 @@ describe("board selector", () => {
       <BoardSelectorBoardRow
         board={sourceBoard}
         projectName="Alpha"
-        selectedBoardId="board-a2"
+        selection={{ kind: "board", boardId: "board-a2", source }}
         onOpenBoardConfiguration={onOpenBoardConfiguration}
         onSelectScope={onSelectScope}
       />,

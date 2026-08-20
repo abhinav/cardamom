@@ -171,7 +171,7 @@ export function attachmentContent(
     case BlobAvailability.VERIFIED:
       return {
         available: true,
-        href: attachmentPath(boardId, attachment.id),
+        href: attachmentPath(boardId, attachment.id, attachment.source),
         label: "Download",
       };
     case BlobAvailability.MISSING:

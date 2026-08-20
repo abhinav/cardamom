@@ -43,7 +43,10 @@ import {
 } from "./gen/cardamom/private/v1/issue_pb.ts";
 import type { BoardSummary } from "./gen/cardamom/private/v1/project_pb.ts";
 import type { Project } from "./gen/cardamom/private/v1/project_pb.ts";
-import type { SourceCatalogEntry } from "./gen/cardamom/private/v1/source_pb.ts";
+import type {
+  SourceCatalogEntry,
+  SourceRef,
+} from "./gen/cardamom/private/v1/source_pb.ts";
 import {
   clearIssueFilters,
   issueTypeLabel,
@@ -58,7 +61,11 @@ import {
 import { IssueLabel, type SelectLabel } from "./issue-label.tsx";
 import { IssueStatusBadge } from "./issue-status.tsx";
 import { IssueWaitingReason } from "./issue-waiting.tsx";
-import { issueIdentity, visibleIssueProvenance } from "./provenance.ts";
+import {
+  boardForIdentity,
+  issueIdentity,
+  visibleIssueProvenance,
+} from "./provenance.ts";
 import { unaryScopeQueryOptions } from "./query-runtime.ts";
 import {
   buildIssueStreams,
@@ -203,7 +210,12 @@ function LoadedIssueCollection(props: LoadedIssueCollectionProps) {
         {props.mode === "board" && (
           <div className="kanban-surface">
             {initialPinsBoardId !== undefined && (
-              <BoardPins boardId={initialPinsBoardId} />
+              <BoardPins
+                boardId={initialPinsBoardId}
+                source={props.selection.kind === "board"
+                  ? props.selection.source
+                  : undefined}
+              />
             )}
             <RouteState title="Board" message="Loading issues" />
           </div>
@@ -282,7 +294,14 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
 
       {props.mode === "board" ? (
         <div className="kanban-surface">
-          {pinsBoardId !== undefined && <BoardPins boardId={pinsBoardId} />}
+          {pinsBoardId !== undefined && (
+            <BoardPins
+              boardId={pinsBoardId}
+              source={props.selection.kind === "board"
+                ? props.selection.source
+                : undefined}
+            />
+          )}
           <KanbanBoard
             boards={props.boards}
             projects={props.projects}
@@ -316,7 +335,13 @@ function IssueCollectionSurface(props: IssueCollectionSurfaceProps) {
           boardId={creationBoardId}
           onCreated={(issueId) => {
             setCreating(false);
-            navigate(issuePath(creationBoardId, issueId));
+            navigate(issuePath(
+              creationBoardId,
+              issueId,
+              props.selection.kind === "board"
+                ? props.selection.source
+                : undefined,
+            ));
           }}
           onDismiss={() => setCreating(false)}
         />
@@ -335,12 +360,18 @@ export function boardPinsBoardId(
     : undefined;
 }
 
-function BoardPins({ boardId }: { boardId: string }) {
+function BoardPins({
+  boardId,
+  source,
+}: {
+  boardId: string;
+  source?: SourceRef;
+}) {
   const transport = useTransport();
   const request = useQuery({
     ...unaryScopeQueryOptions(
       IssueService.method.listBoardPins,
-      { boardId },
+      { boardId, ...(source === undefined ? {} : { source }) },
       transport,
     ),
     select: (response) => response.issues,
@@ -399,15 +430,21 @@ export function BoardPinCarousel({
       <div className="board-pins-scroll" tabIndex={0} aria-label="Pinned issues">
         <div className="board-pins-track">
           {issues.map((issue) => (
-            <article className="board-pin-card" key={issue.id}>
+            <article className="board-pin-card" key={issueIdentity(issue)}>
               <div className="board-pin-card-heading">
-                <Link className="issue-id" to={issuePath(boardId, issue.id)}>
+                <Link
+                  className="issue-id"
+                  to={issuePath(boardId, issue.id, issue.source)}
+                >
                   {issue.id}
                 </Link>
                 <IssueStatusBadge status={issue.status} />
               </div>
               <h3>
-                <Link title={issue.title} to={issuePath(boardId, issue.id)}>
+                <Link
+                  title={issue.title}
+                  to={issuePath(boardId, issue.id, issue.source)}
+                >
                   {issue.title}
                 </Link>
               </h3>
@@ -810,14 +847,14 @@ function IssueCard({
       <div className="issue-card-topline">
         <Link
           className="issue-id"
-          to={issuePath(issue.boardId, issue.id)}
+          to={issuePath(issue.boardId, issue.id, issue.source)}
         >
           {issue.id}
         </Link>
         <span className="issue-priority">P{issue.priority}</span>
       </div>
       <h3>
-        <Link to={issuePath(issue.boardId, issue.id)}>
+        <Link to={issuePath(issue.boardId, issue.id, issue.source)}>
           {issue.title}
         </Link>
       </h3>
@@ -878,13 +915,13 @@ export function IssueList({
                 <td>
                   <Link
                     className="issue-id"
-                    to={issuePath(issue.boardId, issue.id)}
+                    to={issuePath(issue.boardId, issue.id, issue.source)}
                   >
                     {issue.id}
                   </Link>
                 </td>
                 <td className="issue-title-cell">
-                  <Link to={issuePath(issue.boardId, issue.id)}>
+                  <Link to={issuePath(issue.boardId, issue.id, issue.source)}>
                     {issue.title}
                   </Link>
                   <IssueWaitingReason issue={issue} />
@@ -899,7 +936,7 @@ export function IssueList({
                 {showBoard && (
                   <td>
                     {visibleIssueProvenance(issue, { boards, projects }, scope) ??
-                      boardName(boards, issue.boardId)}
+                      boardName(boards, issue.boardId, issue.source)}
                   </td>
                 )}
                 <td><IssueStatusBadge status={issue.status} /></td>
@@ -918,7 +955,7 @@ export function IssueList({
             <div className="issue-record-heading">
               <Link
                 className="issue-id"
-                to={issuePath(issue.boardId, issue.id)}
+                to={issuePath(issue.boardId, issue.id, issue.source)}
               >
                 {issue.id}
               </Link>
@@ -927,7 +964,7 @@ export function IssueList({
             </div>
             <Link
               className="issue-record-title"
-              to={issuePath(issue.boardId, issue.id)}
+              to={issuePath(issue.boardId, issue.id, issue.source)}
             >
               {issue.title}
             </Link>
@@ -1036,7 +1073,7 @@ function IssueMetadata({
       {showBoard && (
         <span>
           {visibleIssueProvenance(issue, { boards, projects }, scope) ??
-            boardName(boards, issue.boardId)}
+            boardName(boards, issue.boardId, issue.source)}
         </span>
       )}
       <IssueTime issue={issue} compact labeled />
@@ -1130,8 +1167,12 @@ function enumFilter(value: string): number | "all" {
   return value === "all" ? value : Number(value);
 }
 
-function boardName(boards: readonly BoardSummary[], boardId: string): string {
-  return boards.find((board) => board.id === boardId)?.name ?? boardId;
+function boardName(
+  boards: readonly BoardSummary[],
+  boardId: string,
+  source: SourceRef | undefined,
+): string {
+  return boardForIdentity(boards, boardId, source)?.name ?? boardId;
 }
 
 const compactDateTime = new Intl.DateTimeFormat(undefined, {

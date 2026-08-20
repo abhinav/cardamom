@@ -1,6 +1,8 @@
+import { create } from "@bufbuild/protobuf";
 import { describe, expect, it } from "vitest";
 
 import { routeDocumentTitle } from "./document-title.tsx";
+import { SourceRefSchema } from "./gen/cardamom/private/v1/source_pb.ts";
 
 const boards = [
   { id: "board-primary", name: "Primary" },
@@ -66,5 +68,27 @@ describe("route document title", () => {
         previousIssue,
       ),
     ).toBe("Settings - Primary - Cardamom");
+  });
+
+  it("uses issue source identity when copied boards share an ID", () => {
+    const first = create(SourceRefSchema, { sourceId: "first" });
+    const second = create(SourceRefSchema, { sourceId: "second" });
+
+    expect(routeDocumentTitle(
+      "/source/second/board/board-copied/issue/card-1",
+      "Restored",
+      [
+        { id: "board-copied", name: "Original", source: first },
+        { id: "board-copied", name: "Restored", source: second },
+      ],
+      {
+        id: "card-1",
+        boardId: "board-copied",
+        title: "Continue restored work",
+        source: second,
+      },
+    )).toBe(
+      "card-1: Continue restored work - Restored - Cardamom",
+    );
   });
 });

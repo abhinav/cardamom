@@ -288,6 +288,20 @@ describe("attachment web workflow", () => {
       available: false,
       label: "Digest mismatch",
     });
+
+    const aggregateAttachment = attachment(
+      "aggregate.png",
+      BlobAvailability.VERIFIED,
+    );
+    aggregateAttachment.source = create(SourceRefSchema, {
+      sourceId: "restored",
+      storeLineageId: "lineage-restored",
+    });
+    expect(attachmentContent(aggregateAttachment, "board-1")).toEqual({
+      available: true,
+      href: "/source/restored/board/board-1/attachment/attachment-id",
+      label: "Download",
+    });
   });
 });
 

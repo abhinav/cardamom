@@ -258,7 +258,7 @@ export function approvalPresentation(
   }
   return {
     description: checkpoint.summary,
-    issueHref: issuePath(summary.boardId, summary.id),
+    issueHref: issuePath(summary.boardId, summary.id, summary.source),
     issueID: summary.id,
     readiness: "Ready",
     reasonID: `approval-reason-${summary.id}`,
