@@ -1,3 +1,0 @@
-kind: Fixed
-body: Restore visible underlines for Markdown links in issue records without changing hierarchy breadcrumb styling.
-time: 2026-08-24T08:49:57.974922-07:00
