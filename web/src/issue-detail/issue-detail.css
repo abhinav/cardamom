@@ -259,6 +259,16 @@
   color: var(--muted-foreground);
 }
 
+.issue-markdown a {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.issue-markdown .clipboard-pill-content a {
+  text-decoration: none;
+}
+
 .issue-reference-link {
   display: grid;
   gap: 0.08rem;

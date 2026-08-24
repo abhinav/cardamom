@@ -8,6 +8,19 @@ const issueDetailStyles = readFileSync(
 );
 
 describe("issue Markdown styles", () => {
+  it("distinguishes prose links while leaving reference pills unadorned", () => {
+    const linkRule = issueDetailStyles.match(
+      /\.issue-markdown a\s*\{(?<declarations>[^}]*)\}/,
+    )?.groups?.declarations;
+    const referencePillRule = issueDetailStyles.match(
+      /\.issue-markdown \.clipboard-pill-content a\s*\{(?<declarations>[^}]*)\}/,
+    )?.groups?.declarations;
+
+    expect(linkRule).toMatch(/text-decoration-line:\s*underline;/);
+    expect(linkRule).toMatch(/text-underline-offset:/);
+    expect(referencePillRule).toMatch(/text-decoration:\s*none;/);
+  });
+
   it("constrains images to the record width without distortion", () => {
     const imageRule = issueDetailStyles.match(
       /\.issue-markdown img\s*\{(?<declarations>[^}]*)\}/,
