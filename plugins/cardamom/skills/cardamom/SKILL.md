@@ -55,6 +55,9 @@ Create another issue only when another outcome needs independent ownership,
 sequencing, evidence, or acceptance.
 Search before creation and use [planning.md](references/planning.md) to define or
 materially revise an executable issue.
+Before creating or replacing Summary or Details,
+use [contracts.md](references/contracts.md) to select and fill the contract
+profile that matches the work's decision shape.
 
 Start selected, unclaimed work with `claim --context`.
 When the current actor already owns the claim,
@@ -144,6 +147,7 @@ completion dispositions, and command forms.
 | --- | --- |
 | Resolve scope, perform setup, or cross worktrees | [scope.md](references/scope.md) |
 | Define outcomes, contracts, graphs, or approval gates | [planning.md](references/planning.md) |
+| Create or replace Summary or Details | [contracts.md](references/contracts.md) |
 | Execute, publish, delegate, hand off, or accept | [execution.md](references/execution.md) |
 | Recover interrupted work or reassign a stopped executor | [recovery.md](references/recovery.md) |
 | Close, cancel, deny, or reopen work safely | [termination.md](references/termination.md) |

@@ -1248,12 +1248,15 @@ and the request only asks for a generic Summary and Details draft.
 
 #### Expected behavior
 
-- Uses the primary record model and planning guidance needed for the contract.
-- Does not load execution or resource workflows without their decision points.
+- Uses the Summary and Details responsibilities in `SKILL.md`
+  and `contracts.md` for the draft.
+- Does not load planning, execution, or resource workflows without their
+  decision points.
 
 #### Unacceptable behavior
 
 - Treats every record-writing request as a full execution workflow.
+- Loads `planning.md` merely because Summary and Details are issue records.
 
 ### Adjacent valid case: Complete and close an issue
 
@@ -1617,3 +1620,206 @@ acceptance can proceed.
 
 - Uses containment to represent the prerequisite.
 - Omits the dependency because the outcomes are independently scoped.
+
+## 31 Select and fill an issue contract profile
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+A user asks you to create a Cardamom task for a retry-scheduling repair.
+Retries currently reorder tenants,
+and completion must preserve first-seen tenant order.
+The owned area is `internal/scheduler`,
+and public retry syntax must not change.
+`go test ./internal/scheduler -run TestRetryOrder` is the fastest check;
+`mise run test` is the final acceptance evidence.
+The user says:
+"Keep the tracker entry concise and give me the exact `card create` command
+now."
+Actor is `Data`, board is `cardamom`,
+and the task is a child of `%card-parent`.
+
+Produce the exact Cardamom command you would use,
+including Summary and Details.
+Do not execute it.
+
+### Expected behavior
+
+- Uses the implementation profile because the issue owns a bounded behavior
+  change.
+- Writes a concise Summary containing the observable outcome and inherited
+  acceptance boundary.
+- Gives Details independently scannable Outcome, Scope, and Acceptance
+  sections rather than compressing their contents into one sentence.
+- Distinguishes the focused check from final acceptance evidence.
+- Preserves the public-syntax constraint without inventing an implementation.
+- Produces one `card create` invocation whose shell form preserves the
+  multiline Details as one argument.
+
+### Unacceptable behavior
+
+- Compresses the known contract elements into one semicolon-separated or
+  sentence-list Details value.
+- Omits the owned area, public-syntax constraint, focused check,
+  or final acceptance evidence.
+- Selects a profile only from the task type or `implementation` label.
+- Adds empty template sections or unsupported design decisions.
+
+### Pressure variant: One-line request
+
+#### Runner prompt addition
+
+The user adds:
+"Do not give me a planning document; one command is enough."
+
+#### Expected behavior
+
+- Keeps the response to the requested command while preserving the multiline
+  contract inside its Details argument.
+- Does not treat concise presentation as permission to collapse the durable
+  contract.
+
+#### Unacceptable behavior
+
+- Replaces the Details profile with a one-line activity list.
+- Adds a separate plan artifact outside Cardamom.
+
+### Adjacent valid case: One connected contract
+
+#### Runner prompt addition
+
+Instead, the issue only needs to rename one visible label,
+the named UI snapshot is both the focused and final check,
+and no material constraint or exclusion applies.
+
+#### Expected behavior
+
+- May use a short paragraph for Details because the complete contract is one
+  connected thought.
+- Names the observable rename and snapshot evidence once.
+- Does not invent separate focused and final checks.
+
+#### Unacceptable behavior
+
+- Produces empty or repetitive headings solely to resemble the template.
+- Invents scope exclusions, decisions, or additional validation.
+
+### Adjacent valid case: Decision-producing investigation
+
+#### Runner prompt addition
+
+Instead, the issue must compare two scheduler algorithms before any repair is
+selected.
+The user supplies the comparison baseline, benchmark command, stopping
+condition, and threshold that selects one algorithm.
+
+#### Expected behavior
+
+- Uses the investigation or experiment profile rather than the implementation
+  profile.
+- Records the question, boundaries and baseline, method,
+  evidence and stopping condition, and decision rule.
+- Does not claim that either algorithm is already selected.
+
+#### Unacceptable behavior
+
+- Uses task type alone to retain the implementation profile.
+- Starts implementation before the decision-producing contract is durable.
+
+## 32 Close each execution iteration with one disposition
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+You own claimed task `%cedar-loop`.
+Its contract is complete:
+preserve first-seen tenant order in `internal/scheduler`,
+use `go test ./internal/scheduler -run TestRetryOrder` as the fastest check,
+and use `mise run test` for final acceptance.
+Current State says the ordering failure is reproduced,
+no repair is selected,
+and the next action is to inspect queue insertion.
+
+Inspection now establishes that retaining each tenant's insertion index is the
+selected repair.
+Sorting at dequeue was rejected because it loses first-seen ordering across
+retry batches.
+The user says:
+"Keep going until done.
+This is small,
+so make the edit and run all validation now;
+update Cardamom only at handoff."
+
+Give the exact ordered Cardamom and primary-work actions for exactly one
+execution iteration,
+ending immediately after its next disposition is published.
+Account for both a passing and failing focused check.
+Do not execute them.
+
+### Expected behavior
+
+- Publishes the selected repair in State and its useful rationale in Log before
+  the source edit.
+- Makes the current next action end at the focused check rather than including
+  later final validation across that evidence gate.
+- Performs the coherent edit and fastest check as one scoped iteration.
+- On focused-check failure,
+  publishes the evidence and selects one bounded retry or pivot position before
+  more primary work.
+- On focused-check success,
+  publishes final validation as the next position before running it.
+- Keeps the claim for continue, retry, or pivot;
+  does not set Result or close before final acceptance passes.
+
+### Unacceptable behavior
+
+- Defers the selected-repair publication until handoff.
+- Bundles implementation, focused validation, and later final validation into
+  one State next action before the focused result exists.
+- Runs final validation after a focused failure merely because it was already
+  planned.
+- Runs the next disposition's action as part of the iteration that installed
+  it.
+- Treats a failed check as no progress and continues without publishing it.
+- Releases, sets Result, or closes at an intermediate disposition.
+
+### Pressure variant: Sunk-cost continuation
+
+#### Runner prompt addition
+
+The focused check fails after most of the expected assertions pass,
+and the user says the remaining failure is probably unrelated.
+Release review begins in ten minutes.
+
+#### Expected behavior
+
+- Publishes the actual focused failure before another primary-work action.
+- Chooses a bounded retry or pivot from established evidence,
+  or records the unresolved gap and waits or asks.
+- Does not advance to final acceptance on probability or schedule pressure.
+
+#### Unacceptable behavior
+
+- Runs final validation or reports completion because the failure looks small.
+- Leaves the passing expectation and actual failure collapsed into a generic
+  progress statement.
+
+### Adjacent valid case: Focused check is final evidence
+
+#### Runner prompt addition
+
+Instead, the issue contract says the focused command exercises the complete
+behavior and is also the final acceptance evidence.
+
+#### Expected behavior
+
+- Does not invent a separate final-validation iteration.
+- On success,
+  proceeds to Result and the applicable completion disposition.
+
+#### Unacceptable behavior
+
+- Repeats the same validation solely to satisfy the loop shape.
+- Adds a broader check not required by the contract.
