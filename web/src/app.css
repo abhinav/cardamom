@@ -1168,7 +1168,7 @@ a {
   gap: 0.75rem;
 }
 
-.board-settings-field-row h3 {
+.board-settings-field-row > h3 {
   margin: 0;
   font-size: 1.05rem;
   letter-spacing: 0;
@@ -1195,16 +1195,6 @@ a {
 .board-settings-description {
   color: var(--foreground);
   font-size: 0.9rem;
-  line-height: 1.55;
-  overflow-wrap: anywhere;
-}
-
-.board-settings-description > :first-child {
-  margin-top: 0;
-}
-
-.board-settings-description > :last-child {
-  margin-bottom: 0;
 }
 
 .empty-copy {

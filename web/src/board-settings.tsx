@@ -490,7 +490,7 @@ export function BoardContextContent({
           <p className="empty-copy">No description.</p>
         ) : (
           <div
-            className="markdown-content board-settings-description"
+            className="rendered-markdown board-settings-description"
             dangerouslySetInnerHTML={{ __html: renderedDescription }}
           />
         )}

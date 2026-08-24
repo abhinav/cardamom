@@ -1700,7 +1700,12 @@ export function Markdown({
       <p className="issue-detail-empty">{empty}</p>
     );
   }
-  return <div className="issue-markdown" {...enhancementProps} />;
+  return (
+    <div
+      className="rendered-markdown issue-markdown"
+      {...enhancementProps}
+    />
+  );
 }
 
 /**
@@ -1860,7 +1865,10 @@ function mountMarkdownObjectReferences(root: HTMLDivElement): () => void {
   };
 }
 
-/** linkMarkdownImages makes each rendered image open its original content. */
+/**
+ * linkMarkdownImages links rendered images and replaces load failures
+ * with their alt text.
+ */
 export function linkMarkdownImages(root: HTMLDivElement) {
   for (const image of root.querySelectorAll("img")) {
     let link = image.closest("a");
@@ -1872,6 +1880,12 @@ export function linkMarkdownImages(root: HTMLDivElement) {
     link.href = image.src;
     link.target = "_blank";
     link.rel = "noopener noreferrer";
+    image.addEventListener("error", () => {
+      const fallback = root.ownerDocument.createElement("span");
+      fallback.className = "markdown-image-fallback";
+      fallback.textContent = image.alt || "Image could not be loaded";
+      image.replaceWith(fallback);
+    }, { once: true });
   }
 }
 
