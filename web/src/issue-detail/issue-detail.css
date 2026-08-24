@@ -118,7 +118,7 @@
   margin-top: 1rem;
 }
 
-.issue-detail-section h2 {
+:where(.issue-detail-section) h2 {
   margin: 0 0 0.85rem;
   font-size: 1rem;
 }
@@ -191,28 +191,6 @@
   margin-top: 1rem;
 }
 
-.issue-markdown {
-  min-width: 0;
-  max-width: 100%;
-  color: var(--foreground);
-  line-height: 1.65;
-  overflow-wrap: anywhere;
-}
-
-.issue-markdown img {
-  display: block;
-  max-width: 100%;
-  height: auto;
-}
-
-.issue-markdown > :first-child {
-  margin-top: 0;
-}
-
-.issue-markdown > :last-child {
-  margin-bottom: 0;
-}
-
 .issue-next-action {
   margin-top: 1rem;
   padding-top: 0.8rem;
@@ -235,34 +213,6 @@
 .issue-markdown [data-issue-reference],
 .issue-markdown [data-cardamom-reference] {
   display: inline;
-}
-
-.issue-markdown pre,
-.issue-markdown code {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-}
-
-.issue-markdown pre {
-  max-width: 100%;
-  padding: 0.75rem;
-  overflow-x: auto;
-  overflow-y: hidden;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--secondary);
-}
-
-.issue-markdown blockquote {
-  margin-inline: 0;
-  padding-inline-start: 1rem;
-  border-inline-start: 3px solid var(--border);
-  color: var(--muted-foreground);
-}
-
-.issue-markdown a {
-  text-decoration-line: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 0.18em;
 }
 
 .issue-markdown .clipboard-pill-content a {

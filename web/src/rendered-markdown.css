@@ -1,0 +1,222 @@
+.rendered-markdown {
+  min-width: 0;
+  max-width: 100%;
+  color: var(--foreground);
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.rendered-markdown > * {
+  margin-block: 0;
+}
+
+.rendered-markdown > * + * {
+  margin-block-start: 1rem;
+}
+
+.rendered-markdown > * + :is(h1, h2, h3, h4, h5, h6) {
+  margin-block-start: 1.75rem;
+}
+
+.rendered-markdown > :is(h1, h2, h3, h4, h5, h6) + * {
+  margin-block-start: 0.5rem;
+}
+
+.rendered-markdown > :is(p, h1, h2, h3, h4, h5, h6, ul, ol, blockquote) {
+  max-inline-size: 75ch;
+}
+
+.rendered-markdown h1,
+.rendered-markdown h2,
+.rendered-markdown h3,
+.rendered-markdown h4,
+.rendered-markdown h5,
+.rendered-markdown h6 {
+  color: var(--foreground);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.rendered-markdown h1 {
+  font-size: 1.5rem;
+  line-height: 1.25;
+}
+
+.rendered-markdown h2 {
+  font-size: 1.3rem;
+  line-height: 1.3;
+}
+
+.rendered-markdown h3 {
+  font-size: 1.125rem;
+  line-height: 1.35;
+}
+
+.rendered-markdown h4 {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.rendered-markdown h5,
+.rendered-markdown h6 {
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.rendered-markdown h6 {
+  color: var(--muted-foreground);
+}
+
+.rendered-markdown ul {
+  list-style: disc;
+}
+
+.rendered-markdown ol {
+  list-style: decimal;
+}
+
+.rendered-markdown ul,
+.rendered-markdown ol {
+  padding-inline-start: 1.5rem;
+}
+
+.rendered-markdown ul ul {
+  list-style: circle;
+}
+
+.rendered-markdown ul ul ul {
+  list-style: square;
+}
+
+.rendered-markdown li {
+  padding-inline-start: 0.2rem;
+}
+
+.rendered-markdown li + li,
+.rendered-markdown li > :is(ul, ol) {
+  margin-block-start: 0.25rem;
+}
+
+.rendered-markdown li::marker {
+  color: var(--muted-foreground);
+}
+
+.rendered-markdown li:has(> input[type="checkbox"]) {
+  list-style: none;
+}
+
+.rendered-markdown input[type="checkbox"] {
+  width: 1rem;
+  height: 1rem;
+  margin: 0 0.45rem 0 0;
+  vertical-align: -0.12rem;
+  accent-color: var(--primary);
+}
+
+.rendered-markdown pre,
+.rendered-markdown code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+
+.rendered-markdown :not(pre) > code {
+  padding: 0.12em 0.35em;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-detail);
+  background: var(--secondary);
+  font-size: 0.9em;
+}
+
+.rendered-markdown pre {
+  max-width: 100%;
+  padding: 0.8rem 1rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--secondary);
+}
+
+.rendered-markdown pre code {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  font-size: inherit;
+}
+
+.rendered-markdown blockquote {
+  margin-inline: 0;
+  padding: 0.2rem 0 0.2rem 1rem;
+  border-inline-start: 3px solid var(--border);
+  color: var(--muted-foreground);
+}
+
+.rendered-markdown blockquote > * {
+  margin-block: 0;
+}
+
+.rendered-markdown blockquote > * + * {
+  margin-block-start: 0.75rem;
+}
+
+.rendered-markdown table {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+.rendered-markdown th,
+.rendered-markdown td {
+  min-width: 8rem;
+  padding: 0.55rem 0.75rem;
+  border-inline-end: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  text-align: start;
+  vertical-align: top;
+}
+
+.rendered-markdown th {
+  background: var(--secondary);
+  font-weight: 700;
+}
+
+.rendered-markdown :is(th, td):last-child {
+  border-inline-end: 0;
+}
+
+.rendered-markdown tr:last-child td {
+  border-bottom: 0;
+}
+
+.rendered-markdown hr {
+  border: 0;
+  border-top: 1px solid var(--border);
+}
+
+.rendered-markdown a {
+  text-decoration-line: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.18em;
+}
+
+.rendered-markdown img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-control);
+}
+
+.rendered-markdown .markdown-image-fallback {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.35rem 0.55rem;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  color: var(--muted-foreground);
+  font-size: 0.9em;
+}

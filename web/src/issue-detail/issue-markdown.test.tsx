@@ -40,20 +40,31 @@ describe("issue Markdown presentation", () => {
   });
 
   it("opens an image through a new-tab link to the original", () => {
+    let handleError: (() => void) | undefined;
     const link = {
       append: vi.fn(),
       href: "",
       rel: "",
       target: "",
     };
+    const fallback = {
+      className: "",
+      textContent: "",
+    };
     const image = {
+      addEventListener: vi.fn((event, listener) => {
+        if (event === "error") {
+          handleError = listener;
+        }
+      }),
+      alt: "Mobile screenshot",
       closest: vi.fn(() => null),
       replaceWith: vi.fn(),
       src: "https://cardamom.test/attachments/mobile.png",
     };
     const root = {
       ownerDocument: {
-        createElement: vi.fn(() => link),
+        createElement: vi.fn((tag) => tag === "a" ? link : fallback),
       },
       querySelectorAll: vi.fn(() => [image]),
     };
@@ -68,6 +79,15 @@ describe("issue Markdown presentation", () => {
       target: "_blank",
       rel: "noopener noreferrer",
     });
+
+    handleError?.();
+
+    expect(root.ownerDocument.createElement).toHaveBeenCalledWith("span");
+    expect(fallback).toEqual({
+      className: "markdown-image-fallback",
+      textContent: "Mobile screenshot",
+    });
+    expect(image.replaceWith).toHaveBeenLastCalledWith(fallback);
   });
 
   it("discovers the same issue marker after repeated enhancement", () => {

@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router";
 import { createWebClient, createWebTransport } from "./api.ts";
 import { App } from "./app.tsx";
 import "./app.css";
+import "./rendered-markdown.css";
 
 const root = document.getElementById("app");
 if (root === null) {

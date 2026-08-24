@@ -89,26 +89,7 @@
 }
 
 .approval-markdown {
-  padding: 0.9rem 1.1rem 0;
-  color: var(--foreground);
-  line-height: 1.55;
-  overflow-x: auto;
-  overflow-wrap: anywhere;
-}
-
-.approval-markdown > :first-child {
-  margin-top: 0;
-}
-
-.approval-markdown > :last-child {
-  margin-bottom: 0.9rem;
-}
-
-.approval-markdown pre {
-  max-width: 100%;
-  overflow: auto;
-  padding: 0.75rem;
-  background: var(--background);
+  padding: 0.9rem 1.1rem;
 }
 
 .approval-decision {

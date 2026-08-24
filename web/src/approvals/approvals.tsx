@@ -346,7 +346,7 @@ function Markdown({ content }: { content: MarkdownContent | undefined }) {
   }
   return (
     <div
-      className="approval-markdown"
+      className="rendered-markdown approval-markdown"
       dangerouslySetInnerHTML={{ __html: content.renderedHtml }}
     />
   );
