@@ -51,12 +51,11 @@ Repeated `--label` values require every label;
 `--label-any` permits any listed label.
 
 Before primary work,
-confirm that the current Summary and Details, ancestor Summaries,
-completed dependency Results, and execution environment establish the intended
-outcome, owned area, constraints, first safe action, and acceptance evidence.
+apply the completed-contract check in [contracts.md](contracts.md) to the
+current Summary and Details, ancestor Summaries,
+completed dependency Results, and execution environment.
 Source inspection may support that contract;
 it must not be the only place that identifies what the issue means.
-Use [planning.md](planning.md) to repair a generic or incomplete contract.
 If established knowledge cannot support safe execution,
 publish the gap and stop.
 
@@ -127,14 +126,45 @@ needed in addition to durable issue records and runtime dispatch.
 
 ## Run the publication loop
 
-The claim owner repeats this loop:
+The claim owner advances one scoped and testable iteration at a time:
 
 1. Compare the issue record with the premise, choice,
-   and recovery position the next action will consume.
-2. Apply every matching publication predicate from the primary skill.
-3. Perform the dependent primary-work action.
-4. Re-enter the loop when evidence, a choice, the active position,
-   or the next action changes.
+   and recovery position the next iteration will consume.
+2. Ensure the issue exposes one current State position and one concrete next
+   action,
+   updating them only when a condition in
+   [Publish before knowledge is consumed](../SKILL.md#publish-before-knowledge-is-consumed)
+   applies.
+3. Perform the scoped primary-work move and gather its fastest useful evidence.
+4. Use that evidence to choose and publish exactly one next disposition:
+
+   - **continue**: keep the claim and install the next scoped position;
+   - **retry**: keep the claim and record the failed evidence plus the bounded
+     correction to try;
+   - **pivot**: keep the claim, replace the invalid approach,
+     and preserve useful rationale in Log;
+   - **wait or ask**: install the blocker and required next decision,
+     then release waiting when execution cannot continue;
+   - **complete**: gather final acceptance evidence,
+     set Result,
+     and follow the applicable completion disposition.
+
+Publishing the disposition closes the current iteration.
+The next action it installs is input to another iteration,
+not part of the iteration just closed.
+Do not put a later implementation step or final validation into State's next
+action before the current focused evidence establishes that it is appropriate.
+The scoped move may still include several coherent commands or mechanical edits
+under one hypothesis and check;
+do not reduce it to a ritual update after every command.
+
+Use the fastest useful check during iteration.
+Run broader final validation when the focused evidence supports a completion
+candidate,
+or earlier when the contract makes that broader evidence the next decision
+gate.
+A failed check is evidence rather than an empty iteration:
+publish the observed position before retrying or pivoting.
 
 State is the complete active position rather than a transcript.
 Because `state set` replaces both State and its optional next action,
@@ -196,13 +226,13 @@ complete accounting.
 
 ## Author durable bodies and references
 
-Write each record for the decision or continuation its reader owns.
-Account for graph context without relying on chat or unstated investigation.
-Introduce prerequisites before dependent claims, reuse stable names,
-and make material scope, causes, evidence, and uncertainty explicit.
-Keep chronology only in records that own history.
-
-Use concrete referents at the granularity needed to act.
+Put inherited outcome and acceptance in Summary,
+the stable issue-local contract in Details,
+the current recoverable position and next action in State,
+useful decision or position history in Log,
+and completed outcome and validation evidence in Result.
+In every record,
+use concrete referents at the granularity its reader needs to act.
 Name the outcome, affected area, command, artifact, evidence, or decision when
 that identity distinguishes the current position or next action from a generic
 activity.
@@ -210,7 +240,7 @@ Reuse a concise domain term after its record establishes what it denotes;
 do not copy the stable contract into State merely to avoid established
 shorthand.
 
-Structure a body for the reader's scanning task.
+Structure a body for that reader's scanning task.
 Use short paragraphs for one connected thought,
 bullets or tables for independent facts,
 and small domain-specific headings when several sections matter.

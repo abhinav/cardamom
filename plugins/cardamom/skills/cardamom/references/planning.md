@@ -63,49 +63,38 @@ Do not invent a successful Result for the replaced outcome.
 
 ## Establish the executable contract
 
-Summary is the concise outcome and inherited acceptance boundary.
-Every descendant receives ancestor Summaries,
-so include a conclusion there only when every descendant needs it.
-
-Details is the issue-local stable contract.
-Record the established problem and intended behavior, owned area,
-constraints, accepted choices, and completion evidence.
-If the implementation is not established,
-define the investigation boundary and evidence needed to choose it.
-For a decision-producing investigation or experiment,
-record the question, method, applicable baseline or comparison,
-evidence or metric, stopping condition, durable artifact when one is needed,
-and decision rule before primary work.
-Include only elements that can change the decision;
-a bounded source inspection does not need invented metrics or thresholds.
-
-Define completion evidence as behavior an acceptor can observe or judge.
-For a qualitative outcome,
-record the criteria an acceptor will apply rather than an unjudgeable quality
-claim.
-When the fastest useful iterative check differs from final acceptance evidence,
-name both and do not treat the iterative check as completion.
-One check may fill both roles when it exercises the complete contract.
+Use [contracts.md](contracts.md) to select and fill the Summary and Details
+profile that matches the work's decision shape.
 If a plan is accepted,
 publish it before execution even when the planner will execute directly.
+When established knowledge cannot produce an executable contract,
+create an investigation outcome for the unresolved decision.
 
-Do not duplicate parent Summaries or dependency Results.
-Do not put chronology or an unstable work diary in Summary or Details.
-Before execution or delegation,
-another actor should be able to choose the first safe action from durable
-context and distinguish the intended change from a generic activity.
-Otherwise repair the contract or create an investigation outcome.
-
-When parser repair is a constituent deliverable of a compatibility workstream:
+When quoted-input parsing is a constituent implementation deliverable,
+create its contract as one multiline Details argument:
 
 ```bash
 card --actor <actor> create \
+  'Repair quoted-input parsing' \
   --type task \
   --parent <workstream-id> \
   --label implementation \
-  --summary 'Repair quoted-input parsing without changing command syntax.' \
-  --details 'Reproduce malformed escapes; preserve syntax; run parser tests.' \
-  'Implement parser repair'
+  --summary 'Reject malformed quoted escapes; accept when parser validation passes.' \
+  --details "$(cat <<'DETAILS'
+## Outcome
+
+Malformed quoted escapes are rejected without changing documented shell syntax.
+
+## Scope
+
+Change the scanner package; do not change documented shell syntax.
+
+## Acceptance
+
+Run parser validation successfully.
+Use the focused malformed-escape regression during implementation.
+DETAILS
+)"
 ```
 
 When an unfinished prerequisite may change the plan,
