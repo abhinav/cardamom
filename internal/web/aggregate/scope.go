@@ -12,13 +12,26 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
+// boardRoute keeps a board, its source, and its source identity from one
+// immutable catalog snapshot.
+type boardRoute struct {
+	source  *source
+	ref     *v1.SourceRef
+	boardID string
+}
+
 // readTarget identifies the source and optional board for one aggregate read.
 type readTarget struct {
 	source  *source
+	ref     *v1.SourceRef
 	boardID string
 }
 
 func (s *Server) targets(scope *v1.BoardScope) ([]readTarget, error) {
+	return s.catalog.snapshot().targets(scope)
+}
+
+func (s *catalogSnapshot) targets(scope *v1.BoardScope) ([]readTarget, error) {
 	if scope == nil || scope.Selection == nil {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid input: board scope is required"))
 	}
@@ -29,30 +42,33 @@ func (s *Server) targets(scope *v1.BoardScope) ([]readTarget, error) {
 		}
 		switch selection := scope.Selection.(type) {
 		case *v1.BoardScope_BoardId:
-			route, err := s.routeForBoard(selection.BoardId, value)
+			route, err := s.routeForBoardSource(selection.BoardId, value)
 			if err != nil {
 				return nil, err
 			}
-			return []readTarget{{source: route.source, boardID: route.boardID}}, nil
+			return []readTarget{{source: route.source, ref: route.ref, boardID: route.boardID}}, nil
 		case *v1.BoardScope_ProjectId:
 			return s.projectTargets(value, selection.ProjectId), nil
 		case *v1.BoardScope_AllBoards:
-			return []readTarget{{source: value}}, nil
+			return []readTarget{{source: value, ref: s.refForSource(value)}}, nil
 		default:
 			return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("invalid input: source scope requires a board, project, or all boards selection"))
 		}
 	}
 	switch selection := scope.Selection.(type) {
 	case *v1.BoardScope_BoardId:
-		route, err := s.routeForBoard(selection.BoardId, nil)
+		route, err := s.routeForBoardSource(selection.BoardId, nil)
 		if err != nil {
 			return nil, err
 		}
-		return []readTarget{{source: route.source, boardID: route.boardID}}, nil
+		return []readTarget{{source: route.source, ref: route.ref, boardID: route.boardID}}, nil
 	case *v1.BoardScope_AllBoards, *v1.BoardScope_AllSources:
 		result := make([]readTarget, 0, len(s.sources))
-		for index := range s.sources {
-			result = append(result, readTarget{source: &s.sources[index]})
+		for _, value := range s.sources {
+			result = append(result, readTarget{
+				source: value.source,
+				ref:    proto.Clone(value.entry.GetSource()).(*v1.SourceRef),
+			})
 		}
 		return result, nil
 	case *v1.BoardScope_ProjectId:
@@ -64,16 +80,20 @@ func (s *Server) targets(scope *v1.BoardScope) ([]readTarget, error) {
 
 // projectTargets expands a project aggregate to active boards. Explicit board
 // routes are resolved elsewhere and continue to admit archived boards for reads.
-func (s *Server) projectTargets(value *source, projectID string) []readTarget {
+func (s *catalogSnapshot) projectTargets(value *source, projectID string) []readTarget {
 	var result []readTarget
-	for _, board := range s.boardList {
+	for _, board := range s.boards {
 		if board.GetArchived() != nil {
 			continue
 		}
 		if board.GetSource().GetSourceId() != value.config.Alias || board.GetProjectId() != projectID {
 			continue
 		}
-		result = append(result, readTarget{source: value, boardID: board.GetId()})
+		result = append(result, readTarget{
+			source:  value,
+			ref:     proto.Clone(board.GetSource()).(*v1.SourceRef),
+			boardID: board.GetId(),
+		})
 	}
 	return result
 }
@@ -91,26 +111,39 @@ func aggregateStatus(problems map[string]string) *v1.AggregateStatus {
 	return result
 }
 
-func (s *Server) sourceForRef(ref *v1.SourceRef) (*source, error) {
+func (s *catalogSnapshot) sourceForRef(ref *v1.SourceRef) (*source, error) {
 	if ref == nil || ref.GetSourceId() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("source reference is required"))
 	}
-	for index := range s.sources {
-		value := &s.sources[index]
-		if value.config.Alias == ref.GetSourceId() {
+	for _, value := range s.sources {
+		if value.source.config.Alias == ref.GetSourceId() {
 			if ref.GetStoreLineageId() != "" && ref.GetStoreLineageId() != value.entry.GetSource().GetStoreLineageId() {
 				break
 			}
-			return value, nil
+			return value.source, nil
 		}
 	}
 	return nil, connect.NewError(connect.CodeNotFound, errors.New("source not found"))
 }
 
-// routeForBoard accepts an unqualified board ID only when the catalog contains
-// one route for it. A supplied source always selects within that source.
-func (s *Server) routeForBoard(boardID string, source *source) (boardRoute, error) {
-	routes := s.boards[boardID]
+// routeForBoard accepts an unqualified board ID only when the current catalog
+// contains one route for it. A supplied source reference selects within that
+// source and is checked against the same snapshot as the board route.
+func (s *Server) routeForBoard(boardID string, ref *v1.SourceRef) (boardRoute, error) {
+	snapshot := s.catalog.snapshot()
+	var source *source
+	if ref != nil {
+		var err error
+		source, err = snapshot.sourceForRef(ref)
+		if err != nil {
+			return boardRoute{}, err
+		}
+	}
+	return snapshot.routeForBoardSource(boardID, source)
+}
+
+func (s *catalogSnapshot) routeForBoardSource(boardID string, source *source) (boardRoute, error) {
+	routes := s.boardByID[boardID]
 	if source != nil {
 		for _, route := range routes {
 			if route.source == source {
@@ -129,20 +162,60 @@ func (s *Server) routeForBoard(boardID string, source *source) (boardRoute, erro
 	}
 }
 
-func sourceRefFromEntry(value *source) *v1.SourceRef {
-	if value.entry != nil && value.entry.GetSource() != nil {
-		return proto.Clone(value.entry.GetSource()).(*v1.SourceRef)
+func (s *catalogSnapshot) refForSource(value *source) *v1.SourceRef {
+	for _, candidate := range s.sources {
+		if candidate.source == value {
+			return proto.Clone(candidate.entry.GetSource()).(*v1.SourceRef)
+		}
 	}
 	return &v1.SourceRef{SourceId: value.config.Alias}
 }
 
+func (s *catalogSnapshot) sourceRef(index int) *v1.SourceRef {
+	return proto.Clone(s.sources[index].entry.GetSource()).(*v1.SourceRef)
+}
+
 func qualifySummary(target readTarget, value *v1.IssueSummary) *v1.IssueSummary {
 	result := proto.Clone(value).(*v1.IssueSummary)
-	result.Source = sourceRefFromEntry(target.source)
+	result.Source = proto.Clone(target.ref).(*v1.SourceRef)
 	if target.boardID != "" {
 		result.BoardId = target.boardID
 	}
 	return result
+}
+
+func (s *catalogSnapshot) matchesChange(
+	scope *v1.BoardScope,
+	change *v1.WatchChangesResponse,
+) bool {
+	if scope == nil || scope.Selection == nil || change == nil {
+		return false
+	}
+	if source := scope.GetSource(); source != nil && !sameSource(source, change.GetSource()) {
+		return false
+	}
+	switch selection := scope.Selection.(type) {
+	case *v1.BoardScope_AllSources, *v1.BoardScope_AllBoards:
+		return true
+	case *v1.BoardScope_BoardId:
+		return selection.BoardId == change.GetBoardId()
+	case *v1.BoardScope_ProjectId:
+		for _, board := range s.boards {
+			if board.GetId() == change.GetBoardId() &&
+				sameSource(board.GetSource(), change.GetSource()) {
+				return board.GetProjectId() == selection.ProjectId
+			}
+		}
+	}
+	return false
+}
+
+func sameSource(left, right *v1.SourceRef) bool {
+	if left == nil || right == nil || left.GetSourceId() != right.GetSourceId() {
+		return false
+	}
+	return left.GetStoreLineageId() == "" || right.GetStoreLineageId() == "" ||
+		left.GetStoreLineageId() == right.GetStoreLineageId()
 }
 
 func comparePriorityIssueSummary(left, right *v1.IssueSummary) int {

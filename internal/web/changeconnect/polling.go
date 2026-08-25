@@ -227,7 +227,7 @@ func (s *pollingSubscription) Receive(
 			s.ticker.Stop()
 			return CommittedChange{}, ctx.Err()
 		case <-s.ticker.C:
-			revision, boardIDs, err := s.source.snapshot(ctx, s.request)
+			revision, err := s.source.canonicalRevision(ctx)
 			if err != nil {
 				s.ticker.Stop()
 				return CommittedChange{}, err
@@ -242,6 +242,19 @@ func (s *pollingSubscription) Receive(
 			}
 			if revision == s.current {
 				continue
+			}
+			revision, boardIDs, err := s.source.snapshot(ctx, s.request)
+			if err != nil {
+				s.ticker.Stop()
+				return CommittedChange{}, err
+			}
+			if revision < s.current {
+				s.ticker.Stop()
+				return CommittedChange{}, fmt.Errorf(
+					"canonical revision moved from %d to %d",
+					s.current,
+					revision,
+				)
 			}
 			s.current = revision
 			s.pending = broadChanges(boardIDs, s.current)

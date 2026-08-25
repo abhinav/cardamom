@@ -15,15 +15,9 @@ func (s *Server) listBoardPins(
 	if request == nil || request.Msg == nil || request.Msg.GetBoardId() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("board ID is required"))
 	}
-	var sourceValue *source
-	if sourceRef := request.Msg.GetSource(); sourceRef != nil {
-		var err error
-		sourceValue, err = s.sourceForRef(sourceRef)
-		if err != nil {
-			return nil, err
-		}
-	}
-	route, err := s.routeForBoard(request.Msg.GetBoardId(), sourceValue)
+	route, err := s.routeForBoard(
+		request.Msg.GetBoardId(), request.Msg.GetSource(),
+	)
 	if err != nil {
 		return nil, err
 	}

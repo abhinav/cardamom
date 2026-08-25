@@ -39,7 +39,7 @@ func (s *Server) listLogs(
 	entries := make([]*v1.LogEntry, 0, len(response.Msg.GetLogEntries()))
 	for _, entry := range response.Msg.GetLogEntries() {
 		value := proto.Clone(entry).(*v1.LogEntry)
-		value.Source = sourceRefFromEntry(route.source)
+		value.Source = proto.Clone(route.ref).(*v1.SourceRef)
 		entries = append(entries, value)
 	}
 	return connect.NewResponse(&v1.ListLogEntriesResponse{

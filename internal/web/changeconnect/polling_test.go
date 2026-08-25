@@ -123,6 +123,35 @@ func TestPollingSourceFindsBoardCreatedAfterEmptySubscription(t *testing.T) {
 	})
 }
 
+func TestPollingSourceDoesNotReadUnchangedBoardCatalog(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		boards := &testChangeBoardLister{}
+		source := NewPollingSource(PollingConfig{
+			Revisions: &testCanonicalRevisionReader{},
+			Boards:    boards,
+			Interval:  time.Second,
+		})
+		subscription, err := source.Subscribe(t.Context(), WatchRequest{
+			AllBoards: true,
+		})
+		require.NoError(t, err)
+		require.Equal(t, 1, boards.reads)
+
+		ctx, cancel := context.WithCancel(t.Context())
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			_, _ = subscription.Receive(ctx)
+		}()
+		synctest.Wait()
+		synctest.Sleep(3 * time.Second)
+		assert.Equal(t, 1, boards.reads)
+
+		cancel()
+		<-done
+	})
+}
+
 type testCanonicalRevisionReader struct {
 	revision int64
 	err      error
@@ -136,9 +165,11 @@ func (r *testCanonicalRevisionReader) CanonicalRevision(context.Context) (int64,
 type testChangeBoardLister struct {
 	boards []*board.State
 	err    error
+	reads  int
 }
 
 // ListAllBoards returns the scripted committed board catalog.
 func (l *testChangeBoardLister) ListAllBoards(context.Context) ([]*board.State, error) {
+	l.reads++
 	return l.boards, l.err
 }
