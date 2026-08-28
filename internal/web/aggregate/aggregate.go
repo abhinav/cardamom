@@ -62,13 +62,11 @@ type Binding struct {
 	AttachmentContent http.Handler
 }
 
-// Server owns the immutable source catalog and source-qualified board routes
-// for one aggregate web invocation.
+// Server owns source monitoring and source-qualified routing for one aggregate
+// web invocation.
 type Server struct {
-	sources    []source
-	boards     map[string][]boardRoute
-	projects   []*v1.Project
-	boardList  []*v1.BoardSummary
+	catalog    *catalog
+	changes    *changeHub
 	version    string
 	httpClient connect.HTTPClient
 	cursorsMu  sync.Mutex
@@ -84,13 +82,6 @@ type source struct {
 	checkpoints privatev1connect.CheckpointServiceClient
 	execution   privatev1connect.ExecutionServiceClient
 	changes     privatev1connect.ChangeServiceClient
-	bootstrap   *v1.GetBootstrapResponse
-	entry       *v1.SourceCatalogEntry
-}
-
-type boardRoute struct {
-	source  *source
-	boardID string
 }
 
 var sourceAliasPattern = regexp.MustCompile(`^[a-zA-Z][a-zA-Z0-9_-]*$`)
@@ -115,6 +106,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			},
 		}
 	}
+	changeClient := sourceChangeHTTPClient(client)
 
 	configured := make([]source, len(cfg.Sources))
 	aliases := make(map[string]struct{}, len(cfg.Sources))
@@ -138,131 +130,58 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			attachments: privatev1connect.NewAttachmentServiceClient(client, baseURL),
 			checkpoints: privatev1connect.NewCheckpointServiceClient(client, baseURL),
 			execution:   privatev1connect.NewExecutionServiceClient(client, baseURL),
-			changes:     privatev1connect.NewChangeServiceClient(client, baseURL),
+			changes:     privatev1connect.NewChangeServiceClient(changeClient, baseURL),
 		}
 	}
 
+	slices.SortFunc(configured, func(left, right source) int {
+		return strings.Compare(left.config.Alias, right.config.Alias)
+	})
+	states := make([]sourceState, len(configured))
 	var wait sync.WaitGroup
 	for index := range configured {
 		wait.Add(1)
 		go func(index int) {
 			defer wait.Done()
-			probeSource(ctx, &configured[index])
+			states[index] = probeSource(ctx, &configured[index])
 		}(index)
 	}
 	wait.Wait()
-	slices.SortFunc(configured, func(left, right source) int {
-		return strings.Compare(left.config.Alias, right.config.Alias)
-	})
 
+	catalog, err := newCatalog(configured, states)
+	if err != nil {
+		return nil, err
+	}
 	server := &Server{
-		sources:    configured,
-		boards:     make(map[string][]boardRoute),
+		catalog:    catalog,
+		changes:    newChangeHub(),
 		cursors:    make(map[string]*issueCursor),
 		version:    cfg.Version,
 		httpClient: client,
 	}
-	if err := server.buildCatalog(); err != nil {
-		return nil, err
+	for index := range configured {
+		go server.monitorSource(ctx, index)
 	}
 	return server, nil
 }
 
-func probeSource(ctx context.Context, value *source) {
-	response, err := value.project.GetBootstrap(
-		ctx, connect.NewRequest(&v1.GetBootstrapRequest{}),
-	)
-	if err != nil {
-		value.entry = unavailableEntry(value.config.Alias, "source unavailable")
-		return
+// sourceChangeHTTPClient removes request and response-header deadlines from
+// source subscriptions because a healthy empty store may not send its first
+// change for an arbitrarily long time. Process cancellation still owns the
+// stream lifetime, while unary source reads retain their bounded client.
+func sourceChangeHTTPClient(client connect.HTTPClient) connect.HTTPClient {
+	value, ok := client.(*http.Client)
+	if !ok {
+		return client
 	}
-	if response == nil {
-		value.entry = unavailableEntry(value.config.Alias, "source returned no bootstrap")
-		return
+	streamClient := *value
+	streamClient.Timeout = 0
+	if transport, ok := value.Transport.(*http.Transport); ok {
+		streamTransport := transport.Clone()
+		streamTransport.ResponseHeaderTimeout = 0
+		streamClient.Transport = streamTransport
 	}
-	bootstrap := response.Msg
-	if bootstrap == nil {
-		value.entry = unavailableEntry(value.config.Alias, "source returned no bootstrap")
-		return
-	}
-	value.bootstrap = bootstrap
-	value.entry = healthyEntry(value.config.Alias, bootstrap)
-}
-
-func healthyEntry(alias string, bootstrap *v1.GetBootstrapResponse) *v1.SourceCatalogEntry {
-	ref := sourceRef(alias, bootstrap)
-	return &v1.SourceCatalogEntry{
-		Source:        ref,
-		Health:        v1.SourceHealth_SOURCE_HEALTH_HEALTHY,
-		Version:       bootstrap.GetVersion(),
-		SchemaVersion: bootstrap.GetSchemaVersion(),
-		ReadOnly:      bootstrap.GetAccessMode() == v1.AccessMode_ACCESS_MODE_READ_ONLY,
-	}
-}
-
-func unavailableEntry(alias, diagnostic string) *v1.SourceCatalogEntry {
-	return &v1.SourceCatalogEntry{
-		Source:     &v1.SourceRef{SourceId: alias},
-		Health:     v1.SourceHealth_SOURCE_HEALTH_UNAVAILABLE,
-		Diagnostic: diagnostic,
-		ReadOnly:   false,
-	}
-}
-
-func sourceRef(alias string, bootstrap *v1.GetBootstrapResponse) *v1.SourceRef {
-	if sources := bootstrap.GetSources(); len(sources) > 0 && sources[0].GetSource() != nil {
-		ref := proto.Clone(sources[0].GetSource()).(*v1.SourceRef)
-		ref.SourceId = alias
-		return ref
-	}
-	return &v1.SourceRef{SourceId: alias}
-}
-
-func (s *Server) buildCatalog() error {
-	lineages := make(map[string]string)
-	for index := range s.sources {
-		value := &s.sources[index]
-		if value.bootstrap == nil {
-			continue
-		}
-		ref := value.entry.GetSource()
-		if lineage := ref.GetStoreLineageId(); lineage != "" {
-			if prior, ok := lineages[lineage]; ok && prior != ref.GetSourceId() {
-				return fmt.Errorf("store lineage %q is configured under sources %q and %q", lineage, prior, ref.GetSourceId())
-			}
-			lineages[lineage] = ref.GetSourceId()
-		}
-		for _, project := range value.bootstrap.GetProjects() {
-			projectCopy := proto.Clone(project).(*v1.Project)
-			projectCopy.Source = proto.Clone(ref).(*v1.SourceRef)
-			s.projects = append(s.projects, projectCopy)
-		}
-		for _, board := range value.bootstrap.GetBoards() {
-			if board.GetId() == "" {
-				return fmt.Errorf("source %q returned a board without an ID", ref.GetSourceId())
-			}
-			boardCopy := proto.Clone(board).(*v1.BoardSummary)
-			boardCopy.Source = proto.Clone(ref).(*v1.SourceRef)
-			s.boardList = append(s.boardList, boardCopy)
-			s.boards[board.GetId()] = append(
-				s.boards[board.GetId()],
-				boardRoute{source: value, boardID: board.GetId()},
-			)
-		}
-	}
-	slices.SortFunc(s.projects, func(left, right *v1.Project) int {
-		if result := strings.Compare(left.GetSource().GetSourceId(), right.GetSource().GetSourceId()); result != 0 {
-			return result
-		}
-		return strings.Compare(left.GetId(), right.GetId())
-	})
-	slices.SortFunc(s.boardList, func(left, right *v1.BoardSummary) int {
-		if result := strings.Compare(left.GetSource().GetSourceId(), right.GetSource().GetSourceId()); result != 0 {
-			return result
-		}
-		return strings.Compare(left.GetId(), right.GetId())
-	})
-	return nil
+	return &streamClient
 }
 
 // Binding mounts the aggregate service through the existing web handler and
@@ -315,14 +234,10 @@ func (s *Server) serveAttachmentContent(w http.ResponseWriter, r *http.Request) 
 		http.NotFound(w, r)
 		return
 	}
-	sourceValue, err := s.sourceForRef(&v1.SourceRef{
+	ref := &v1.SourceRef{
 		SourceId: r.PathValue("sourceID"),
-	})
-	if err != nil {
-		http.NotFound(w, r)
-		return
 	}
-	route, err := s.routeForBoard(boardID.String(), sourceValue)
+	route, err := s.routeForBoard(boardID.String(), ref)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -400,8 +315,9 @@ func (p *projectService) ListProjects(
 	context.Context,
 	*connect.Request[v1.ListProjectsRequest],
 ) (*connect.Response[v1.ListProjectsResponse], error) {
+	snapshot := p.server.catalog.snapshot()
 	return connect.NewResponse(&v1.ListProjectsResponse{
-		Projects: cloneProjects(p.server.projects),
+		Projects: cloneProjects(snapshot.projects),
 	}), nil
 }
 
@@ -409,8 +325,9 @@ func (p *projectService) ListBoards(
 	context.Context,
 	*connect.Request[v1.ListBoardsRequest],
 ) (*connect.Response[v1.ListBoardsResponse], error) {
+	snapshot := p.server.catalog.snapshot()
 	return connect.NewResponse(&v1.ListBoardsResponse{
-		Boards: cloneBoards(p.server.boardList),
+		Boards: cloneBoards(snapshot.boards),
 	}), nil
 }
 
@@ -418,22 +335,23 @@ func (p *projectService) GetBootstrap(
 	context.Context,
 	*connect.Request[v1.GetBootstrapRequest],
 ) (*connect.Response[v1.GetBootstrapResponse], error) {
-	entries := make([]*v1.SourceCatalogEntry, 0, len(p.server.sources))
+	snapshot := p.server.catalog.snapshot()
+	entries := make([]*v1.SourceCatalogEntry, 0, len(snapshot.sources))
 	complete := true
 	problems := make([]*v1.SourceProblem, 0)
-	for _, source := range p.server.sources {
+	for _, source := range snapshot.sources {
 		entries = append(entries, proto.Clone(source.entry).(*v1.SourceCatalogEntry))
 		if source.entry.GetHealth() != v1.SourceHealth_SOURCE_HEALTH_HEALTHY {
 			complete = false
 			problems = append(problems, &v1.SourceProblem{
-				SourceId: source.config.Alias,
+				SourceId: source.entry.GetSource().GetSourceId(),
 				Summary:  source.entry.GetDiagnostic(),
 			})
 		}
 	}
 	return connect.NewResponse(&v1.GetBootstrapResponse{
-		Projects:        cloneProjects(p.server.projects),
-		Boards:          cloneBoards(p.server.boardList),
+		Projects:        cloneProjects(snapshot.projects),
+		Boards:          cloneBoards(snapshot.boards),
 		IssueTypes:      aggregateIssueTypes(),
 		IssueStatuses:   aggregateIssueStatuses(),
 		Version:         p.server.version,
@@ -466,7 +384,7 @@ func (p *projectService) GetBoard(
 		return nil, connect.NewError(connect.CodeInternal, errors.New("source returned no board"))
 	}
 	board := proto.Clone(response.Msg.GetBoard()).(*v1.Board)
-	board.Source = sourceRefFromEntry(route.source)
+	board.Source = proto.Clone(route.ref).(*v1.SourceRef)
 	return connect.NewResponse(&v1.GetBoardResponse{Board: board}), nil
 }
 
@@ -474,15 +392,7 @@ func (s *Server) resolveBoard(request *v1.GetBoardRequest) (boardRoute, error) {
 	if request == nil {
 		return boardRoute{}, connect.NewError(connect.CodeInvalidArgument, errors.New("board request is required"))
 	}
-	var sourceValue *source
-	if source := request.GetSource(); source != nil {
-		var err error
-		sourceValue, err = s.sourceForRef(source)
-		if err != nil {
-			return boardRoute{}, err
-		}
-	}
-	return s.routeForBoard(request.GetBoardId(), sourceValue)
+	return s.routeForBoard(request.GetBoardId(), request.GetSource())
 }
 
 func cloneProjects(values []*v1.Project) []*v1.Project {

@@ -46,16 +46,19 @@ func (s *Server) issueRoute(
 	sourceRef *v1.SourceRef,
 	boardID string,
 ) (boardRoute, error) {
+	snapshot := s.catalog.snapshot()
 	if sourceRef != nil && boardID != "" {
-		sourceValue, err := s.sourceForRef(sourceRef)
+		sourceValue, err := snapshot.sourceForRef(sourceRef)
 		if err != nil {
 			return boardRoute{}, err
 		}
-		route, err := s.routeForBoard(boardID, sourceValue)
+		route, err := snapshot.routeForBoardSource(boardID, sourceValue)
 		if err != nil {
 			return boardRoute{}, err
 		}
-		found, err := s.findIssueRoute(ctx, issueID, []*source{sourceValue})
+		found, err := s.findIssueRoute(
+			ctx, snapshot, issueID, []*source{sourceValue},
+		)
 		if err != nil {
 			return boardRoute{}, err
 		}
@@ -65,25 +68,28 @@ func (s *Server) issueRoute(
 		return route, nil
 	}
 	if sourceRef != nil {
-		sourceValue, err := s.sourceForRef(sourceRef)
+		sourceValue, err := snapshot.sourceForRef(sourceRef)
 		if err != nil {
 			return boardRoute{}, err
 		}
-		return s.findIssueRoute(ctx, issueID, []*source{sourceValue})
+		return s.findIssueRoute(
+			ctx, snapshot, issueID, []*source{sourceValue},
+		)
 	}
-	return s.findIssueRoute(ctx, issueID, s.sourcePointers())
+	return s.findIssueRoute(ctx, snapshot, issueID, snapshot.sourcePointers())
 }
 
-func (s *Server) sourcePointers() []*source {
+func (s *catalogSnapshot) sourcePointers() []*source {
 	result := make([]*source, 0, len(s.sources))
-	for index := range s.sources {
-		result = append(result, &s.sources[index])
+	for _, value := range s.sources {
+		result = append(result, value.source)
 	}
 	return result
 }
 
 func (s *Server) findIssueRoute(
 	ctx context.Context,
+	snapshot *catalogSnapshot,
 	issueID string,
 	sources []*source,
 ) (boardRoute, error) {
@@ -105,7 +111,7 @@ func (s *Server) findIssueRoute(
 			continue
 		}
 		boardID := response.Msg.GetIssue().GetIssue().GetBoardId()
-		route, err := s.routeForBoard(boardID, source)
+		route, err := snapshot.routeForBoardSource(boardID, source)
 		if err != nil {
 			continue
 		}
@@ -151,7 +157,7 @@ func qualifyRelated(route boardRoute, value *v1.RelatedIssue) *v1.RelatedIssue {
 		return nil
 	}
 	result := proto.Clone(value).(*v1.RelatedIssue)
-	result.Source = sourceRefFromEntry(route.source)
+	result.Source = proto.Clone(route.ref).(*v1.SourceRef)
 	return result
 }
 

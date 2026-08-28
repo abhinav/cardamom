@@ -78,9 +78,11 @@ func qualifyRelatedForTarget(server *Server, target readTarget, value *v1.Relate
 	if value == nil {
 		return nil
 	}
-	route := boardRoute{source: target.source, boardID: value.GetBoardId()}
+	route := boardRoute{
+		source: target.source, ref: target.ref, boardID: value.GetBoardId(),
+	}
 	if server != nil {
-		if known, err := server.routeForBoard(value.GetBoardId(), target.source); err == nil {
+		if known, err := server.routeForBoard(value.GetBoardId(), target.ref); err == nil {
 			route = known
 		}
 	}

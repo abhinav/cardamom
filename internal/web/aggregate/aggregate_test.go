@@ -9,7 +9,10 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	"connectrpc.com/connect"
@@ -18,6 +21,7 @@ import (
 	v1 "go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1/privatev1connect"
 	"go.abhg.dev/cardamom/internal/web"
+	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -78,6 +82,302 @@ func TestNewStartsEmptyAggregate(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, issues.Msg.GetIssues())
 	assert.True(t, issues.Msg.GetAggregateStatus().GetComplete())
+}
+
+func TestSourceChangeHTTPClientAllowsIdleSubscriptions(t *testing.T) {
+	transport := http.DefaultTransport.(*http.Transport).Clone()
+	transport.ResponseHeaderTimeout = 10 * time.Second
+	unary := &http.Client{Transport: transport, Timeout: 15 * time.Second}
+
+	streaming, ok := sourceChangeHTTPClient(unary).(*http.Client)
+	require.True(t, ok)
+	assert.Zero(t, streaming.Timeout)
+	streamTransport, ok := streaming.Transport.(*http.Transport)
+	require.True(t, ok)
+	assert.Zero(t, streamTransport.ResponseHeaderTimeout)
+	assert.Equal(t, 15*time.Second, unary.Timeout)
+	assert.Equal(t, 10*time.Second, transport.ResponseHeaderTimeout)
+}
+
+func TestAggregateCatalogFindsBoardCreatedAfterStartup(t *testing.T) {
+	var bootstrap atomic.Pointer[v1.GetBootstrapResponse]
+	bootstrap.Store(sourceBootstrap(nil, true))
+	changes := make(chan *v1.WatchChangesResponse, 1)
+	watching := make(chan struct{})
+	var watchingOnce sync.Once
+	source := &sourceHandler{
+		bootstrapRead: func() *v1.GetBootstrapResponse {
+			return proto.Clone(bootstrap.Load()).(*v1.GetBootstrapResponse)
+		},
+		changes: func(ctx context.Context, _ *connect.Request[v1.WatchChangesRequest], stream *connect.ServerStream[v1.WatchChangesResponse]) error {
+			watchingOnce.Do(func() { close(watching) })
+			for {
+				select {
+				case change := <-changes:
+					if err := stream.Send(change); err != nil {
+						return err
+					}
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+		},
+	}
+	server := newConfiguredSourceServer(t, source)
+	aggregate, err := New(t.Context(), Config{
+		Sources: []SourceConfig{{Alias: "live", URL: mustURL(t, server.URL)}},
+	})
+	require.NoError(t, err)
+	select {
+	case <-watching:
+	case <-time.After(time.Second):
+		t.Fatal("aggregate source monitor did not connect")
+	}
+	aggregateHTTP := httptest.NewServer(aggregate.Binding().Handler)
+	t.Cleanup(aggregateHTTP.Close)
+	changeClient := privatev1connect.NewChangeServiceClient(
+		&http.Client{}, aggregateHTTP.URL,
+	)
+	received := receiveAggregateChanges(
+		t.Context(), changeClient,
+		&v1.BoardScope{Selection: &v1.BoardScope_AllSources{
+			AllSources: &v1.AllSources{},
+		}},
+		1,
+	)
+	require.Eventually(t, func() bool {
+		aggregate.changes.mu.Lock()
+		defer aggregate.changes.mu.Unlock()
+		return len(aggregate.changes.subscribers) == 1
+	}, time.Second, 10*time.Millisecond)
+
+	created := &v1.BoardSummary{
+		Id: "board-created", ProjectId: "project-created", Name: "Created",
+	}
+	source.board = &v1.Board{
+		Id: created.GetId(), ProjectId: created.GetProjectId(), Name: created.GetName(),
+	}
+	bootstrap.Store(sourceBootstrap(created, true))
+	require.True(t, aggregate.refreshSource(t.Context(), 0))
+	select {
+	case result := <-received:
+		require.NoError(t, result.err)
+		require.NotNil(t, result.value)
+		assert.Equal(t, []v1.WatchResource{
+			v1.WatchResource_WATCH_RESOURCE_BOARD_CATALOG,
+		}, result.value.GetResources())
+	case <-time.After(time.Second):
+		t.Fatal("aggregate catalog change was not delivered")
+	}
+
+	client := newAggregateClient(t, aggregate)
+	bootstrapResponse, err := client.GetBootstrap(
+		t.Context(), connect.NewRequest(&v1.GetBootstrapRequest{}),
+	)
+	require.NoError(t, err)
+	require.Len(t, bootstrapResponse.Msg.GetBoards(), 1)
+	assert.Equal(t, created.GetId(), bootstrapResponse.Msg.GetBoards()[0].GetId())
+	assert.Equal(t, "live", bootstrapResponse.Msg.GetBoards()[0].GetSource().GetSourceId())
+
+	response, err := client.GetBoard(t.Context(), connect.NewRequest(&v1.GetBoardRequest{
+		BoardId: created.GetId(), Source: &v1.SourceRef{SourceId: "live"},
+	}))
+	require.NoError(t, err)
+	assert.Equal(t, created.GetId(), response.Msg.GetBoard().GetId())
+}
+
+func TestAggregateCatalogRefreshesOncePerMinute(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		var bootstrap atomic.Pointer[v1.GetBootstrapResponse]
+		initial := sourceBootstrap(nil, true)
+		bootstrap.Store(initial)
+		var bootstrapReads atomic.Int32
+		client := source{
+			config: SourceConfig{Alias: "live", URL: mustURL(t, "http://source.test")},
+			project: &sourceHandler{bootstrapRead: func() *v1.GetBootstrapResponse {
+				bootstrapReads.Add(1)
+				return proto.Clone(bootstrap.Load()).(*v1.GetBootstrapResponse)
+			}},
+		}
+		catalog, err := newCatalog([]source{client}, []sourceState{{
+			bootstrap: initial,
+			entry:     healthyEntry(client.config.Alias, initial),
+		}})
+		require.NoError(t, err)
+		aggregate := &Server{catalog: catalog, changes: newChangeHub()}
+		go aggregate.monitorSourceCatalog(t.Context(), 0)
+		synctest.Wait()
+
+		created := &v1.BoardSummary{
+			Id: "board-created", ProjectId: "project-created", Name: "Created",
+		}
+		bootstrap.Store(sourceBootstrap(created, true))
+		synctest.Sleep(time.Minute - time.Nanosecond)
+		assert.Zero(t, bootstrapReads.Load())
+		assert.Empty(t, aggregate.catalog.snapshot().boards)
+
+		synctest.Sleep(time.Nanosecond)
+		assert.Equal(t, int32(1), bootstrapReads.Load())
+		require.Len(t, aggregate.catalog.snapshot().boards, 1)
+		assert.Equal(t, created.GetId(), aggregate.catalog.snapshot().boards[0].GetId())
+
+		synctest.Sleep(time.Minute)
+		assert.Equal(t, int32(2), bootstrapReads.Load())
+	})
+}
+
+func TestAggregateIssueChangesDoNotRefreshBoardCatalog(t *testing.T) {
+	board := &v1.BoardSummary{
+		Id: "board-live", ProjectId: "project-live", Name: "Live",
+	}
+	var bootstrapReads atomic.Int32
+	changes := make(chan *v1.WatchChangesResponse, 1)
+	watching := make(chan struct{})
+	var watchingOnce sync.Once
+	server := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrapRead: func() *v1.GetBootstrapResponse {
+			bootstrapReads.Add(1)
+			return sourceBootstrap(board, true)
+		},
+		changes: func(ctx context.Context, _ *connect.Request[v1.WatchChangesRequest], stream *connect.ServerStream[v1.WatchChangesResponse]) error {
+			watchingOnce.Do(func() { close(watching) })
+			for {
+				select {
+				case change := <-changes:
+					if err := stream.Send(change); err != nil {
+						return err
+					}
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+		},
+	})
+	aggregate, err := New(t.Context(), Config{
+		Sources: []SourceConfig{{Alias: "live", URL: mustURL(t, server.URL)}},
+	})
+	require.NoError(t, err)
+	select {
+	case <-watching:
+	case <-time.After(time.Second):
+		t.Fatal("aggregate source monitor did not connect")
+	}
+
+	aggregateHTTP := httptest.NewServer(aggregate.Binding().Handler)
+	t.Cleanup(aggregateHTTP.Close)
+	received := receiveAggregateChanges(
+		t.Context(),
+		privatev1connect.NewChangeServiceClient(&http.Client{}, aggregateHTTP.URL),
+		&v1.BoardScope{Selection: &v1.BoardScope_BoardId{BoardId: board.GetId()}},
+		1,
+	)
+	require.Eventually(t, func() bool {
+		aggregate.changes.mu.Lock()
+		defer aggregate.changes.mu.Unlock()
+		return len(aggregate.changes.subscribers) == 1
+	}, time.Second, 10*time.Millisecond)
+	initialBootstrapReads := bootstrapReads.Load()
+	require.Equal(t, int32(1), initialBootstrapReads)
+
+	changes <- &v1.WatchChangesResponse{
+		BoardId: board.GetId(), Revision: 1,
+		Resources: []v1.WatchResource{
+			v1.WatchResource_WATCH_RESOURCE_BOARD_CATALOG,
+			v1.WatchResource_WATCH_RESOURCE_ISSUES,
+		},
+	}
+	select {
+	case result := <-received:
+		require.NoError(t, result.err)
+		require.NotNil(t, result.value)
+		assert.Equal(t, []v1.WatchResource{
+			v1.WatchResource_WATCH_RESOURCE_ISSUES,
+		}, result.value.GetResources())
+	case <-time.After(time.Second):
+		t.Fatal("aggregate issue change was not delivered")
+	}
+	assert.Equal(t, initialBootstrapReads, bootstrapReads.Load())
+}
+
+func TestAggregateCatalogChangeReachesAnotherSourceScope(t *testing.T) {
+	boardA := &v1.BoardSummary{
+		Id: "board-a", ProjectId: "project-a", Name: "Board A",
+	}
+	bootstrapA := sourceBootstrap(boardA, true)
+	bootstrapA.Sources[0].Source.StoreLineageId = "lineage-a"
+	serverA := newSourceServer(t, bootstrapA, nil)
+
+	var bootstrapB atomic.Pointer[v1.GetBootstrapResponse]
+	initialB := sourceBootstrap(nil, true)
+	initialB.Sources[0].Source.StoreLineageId = "lineage-b"
+	bootstrapB.Store(initialB)
+	changesB := make(chan *v1.WatchChangesResponse, 1)
+	watchingB := make(chan struct{})
+	var watchingOnce sync.Once
+	serverB := newConfiguredSourceServer(t, &sourceHandler{
+		bootstrapRead: func() *v1.GetBootstrapResponse {
+			return proto.Clone(bootstrapB.Load()).(*v1.GetBootstrapResponse)
+		},
+		changes: func(ctx context.Context, _ *connect.Request[v1.WatchChangesRequest], stream *connect.ServerStream[v1.WatchChangesResponse]) error {
+			watchingOnce.Do(func() { close(watchingB) })
+			for {
+				select {
+				case change := <-changesB:
+					if err := stream.Send(change); err != nil {
+						return err
+					}
+				case <-ctx.Done():
+					return ctx.Err()
+				}
+			}
+		},
+	})
+	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{
+		{Alias: "a", URL: mustURL(t, serverA.URL)},
+		{Alias: "b", URL: mustURL(t, serverB.URL)},
+	}})
+	require.NoError(t, err)
+	select {
+	case <-watchingB:
+	case <-time.After(time.Second):
+		t.Fatal("aggregate source monitor did not connect")
+	}
+
+	aggregateHTTP := httptest.NewServer(aggregate.Binding().Handler)
+	t.Cleanup(aggregateHTTP.Close)
+	received := receiveAggregateChanges(
+		t.Context(),
+		privatev1connect.NewChangeServiceClient(&http.Client{}, aggregateHTTP.URL),
+		&v1.BoardScope{
+			Source:    &v1.SourceRef{SourceId: "a", StoreLineageId: "lineage-a"},
+			Selection: &v1.BoardScope_BoardId{BoardId: boardA.GetId()},
+		},
+		1,
+	)
+	require.Eventually(t, func() bool {
+		aggregate.changes.mu.Lock()
+		defer aggregate.changes.mu.Unlock()
+		return len(aggregate.changes.subscribers) == 1
+	}, time.Second, 10*time.Millisecond)
+
+	boardB := &v1.BoardSummary{
+		Id: "board-b", ProjectId: "project-b", Name: "Board B",
+	}
+	updatedB := sourceBootstrap(boardB, true)
+	updatedB.Sources[0].Source.StoreLineageId = "lineage-b"
+	bootstrapB.Store(updatedB)
+	require.True(t, aggregate.refreshSource(t.Context(), 1))
+	select {
+	case result := <-received:
+		require.NoError(t, result.err)
+		require.NotNil(t, result.value)
+		assert.Equal(t, "b", result.value.GetSource().GetSourceId())
+		assert.Equal(t, []v1.WatchResource{
+			v1.WatchResource_WATCH_RESOURCE_BOARD_CATALOG,
+		}, result.value.GetResources())
+	case <-time.After(time.Second):
+		t.Fatal("catalog change from another source was not delivered")
+	}
 }
 
 func TestNewAcceptsWritableSource(t *testing.T) {
@@ -846,10 +1146,22 @@ func TestAggregateChangeStreamReportsDegradedSource(t *testing.T) {
 	board := &v1.BoardSummary{Id: "board-live", ProjectId: "project", Name: "Live"}
 	bootstrap := sourceBootstrap(board, true)
 	bootstrap.Sources[0].Source.StoreLineageId = "lineage-live"
+	release := make(chan struct{})
+	watching := make(chan struct{})
+	var watchingOnce sync.Once
 	server := newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: bootstrap,
-		changes: func(_ context.Context, _ *connect.Request[v1.WatchChangesRequest], stream *connect.ServerStream[v1.WatchChangesResponse]) error {
-			if err := stream.Send(&v1.WatchChangesResponse{BoardId: board.GetId(), Revision: 7}); err != nil {
+		changes: func(ctx context.Context, _ *connect.Request[v1.WatchChangesRequest], stream *connect.ServerStream[v1.WatchChangesResponse]) error {
+			watchingOnce.Do(func() { close(watching) })
+			select {
+			case <-release:
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+			if err := stream.Send(&v1.WatchChangesResponse{
+				BoardId: board.GetId(), Revision: 7,
+				Resources: []v1.WatchResource{v1.WatchResource_WATCH_RESOURCE_ISSUES},
+			}); err != nil {
 				return err
 			}
 			return errors.New("source stream ended")
@@ -857,19 +1169,52 @@ func TestAggregateChangeStreamReportsDegradedSource(t *testing.T) {
 	})
 	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{{Alias: "live", URL: mustURL(t, server.URL)}}})
 	require.NoError(t, err)
+	select {
+	case <-watching:
+	case <-time.After(time.Second):
+		t.Fatal("aggregate source monitor did not connect")
+	}
 	aggregateHTTP := httptest.NewServer(aggregate.Binding().Handler)
 	t.Cleanup(aggregateHTTP.Close)
 	client := privatev1connect.NewChangeServiceClient(&http.Client{}, aggregateHTTP.URL)
-	stream, err := client.WatchChanges(t.Context(), connect.NewRequest(&v1.WatchChangesRequest{
-		Scope: &v1.BoardScope{Selection: &v1.BoardScope_BoardId{BoardId: board.GetId()}},
-	}))
+	received := receiveAggregateChanges(
+		t.Context(), client,
+		&v1.BoardScope{Selection: &v1.BoardScope_BoardId{
+			BoardId: board.GetId(),
+		}},
+		2,
+	)
+	require.Eventually(t, func() bool {
+		aggregate.changes.mu.Lock()
+		defer aggregate.changes.mu.Unlock()
+		return len(aggregate.changes.subscribers) == 1
+	}, time.Second, 10*time.Millisecond)
+	close(release)
+	var first receivedAggregateChange
+	select {
+	case first = <-received:
+		require.NoError(t, first.err)
+		require.NotNil(t, first.value)
+	case <-time.After(time.Second):
+		t.Fatal("aggregate source change was not delivered")
+	}
+	assert.Equal(t, "live", first.value.GetSource().GetSourceId())
+	var second receivedAggregateChange
+	select {
+	case second = <-received:
+		require.NoError(t, second.err)
+		require.NotNil(t, second.value)
+	case <-time.After(time.Second):
+		t.Fatal("aggregate source health change was not delivered")
+	}
+	assert.Equal(t, v1.SourceHealth_SOURCE_HEALTH_DEGRADED, second.value.GetHealth().GetHealth())
+	assert.Equal(t, "live", second.value.GetHealth().GetSource().GetSourceId())
+	bootstrapResponse, err := newAggregateClient(t, aggregate).GetBootstrap(
+		t.Context(), connect.NewRequest(&v1.GetBootstrapRequest{}),
+	)
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, stream.Close()) })
-	require.True(t, stream.Receive())
-	assert.Equal(t, "live", stream.Msg().GetSource().GetSourceId())
-	require.True(t, stream.Receive())
-	assert.Equal(t, v1.SourceHealth_SOURCE_HEALTH_DEGRADED, stream.Msg().GetHealth().GetHealth())
-	assert.Equal(t, "live", stream.Msg().GetHealth().GetSource().GetSourceId())
+	assert.Equal(t, v1.SourceHealth_SOURCE_HEALTH_DEGRADED, bootstrapResponse.Msg.GetSources()[0].GetHealth())
+	assert.Equal(t, board.GetId(), bootstrapResponse.Msg.GetBoards()[0].GetId())
 }
 
 type sourceHandler struct {
@@ -880,22 +1225,26 @@ type sourceHandler struct {
 	privatev1connect.UnimplementedExecutionServiceHandler
 	privatev1connect.UnimplementedChangeServiceHandler
 	privatev1connect.UnimplementedAttachmentServiceHandler
-	bootstrap   *v1.GetBootstrapResponse
-	board       *v1.Board
-	issues      func(context.Context, *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error)
-	issue       func(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
-	pins        func(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error)
-	logs        func(context.Context, *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error)
-	state       func(context.Context, *connect.Request[v1.GetStateRequest]) (*connect.Response[v1.GetStateResponse], error)
-	attachments func(context.Context, *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error)
-	approvals   func(context.Context, *connect.Request[v1.ListActionableCheckpointsRequest]) (*connect.Response[v1.ListActionableCheckpointsResponse], error)
-	changes     func(context.Context, *connect.Request[v1.WatchChangesRequest], *connect.ServerStream[v1.WatchChangesResponse]) error
+	bootstrap     *v1.GetBootstrapResponse
+	bootstrapRead func() *v1.GetBootstrapResponse
+	board         *v1.Board
+	issues        func(context.Context, *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error)
+	issue         func(context.Context, *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error)
+	pins          func(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error)
+	logs          func(context.Context, *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error)
+	state         func(context.Context, *connect.Request[v1.GetStateRequest]) (*connect.Response[v1.GetStateResponse], error)
+	attachments   func(context.Context, *connect.Request[v1.ListAttachmentsRequest]) (*connect.Response[v1.ListAttachmentsResponse], error)
+	approvals     func(context.Context, *connect.Request[v1.ListActionableCheckpointsRequest]) (*connect.Response[v1.ListActionableCheckpointsResponse], error)
+	changes       func(context.Context, *connect.Request[v1.WatchChangesRequest], *connect.ServerStream[v1.WatchChangesResponse]) error
 }
 
 func (s *sourceHandler) GetBootstrap(
 	context.Context,
 	*connect.Request[v1.GetBootstrapRequest],
 ) (*connect.Response[v1.GetBootstrapResponse], error) {
+	if s.bootstrapRead != nil {
+		return connect.NewResponse(s.bootstrapRead()), nil
+	}
 	return connect.NewResponse(s.bootstrap), nil
 }
 
@@ -985,7 +1334,8 @@ func (s *sourceHandler) WatchChanges(
 	stream *connect.ServerStream[v1.WatchChangesResponse],
 ) error {
 	if s.changes == nil {
-		return connect.NewError(connect.CodeUnimplemented, errors.New("changes not scripted"))
+		<-ctx.Done()
+		return ctx.Err()
 	}
 	return s.changes(ctx, request, stream)
 }
@@ -1084,6 +1434,41 @@ func newAggregateAttachmentClient(t *testing.T, aggregate *Server) privatev1conn
 	t.Helper()
 	client := &http.Client{Transport: handlerTransport{handler: aggregate.Binding().Handler}}
 	return privatev1connect.NewAttachmentServiceClient(client, "http://aggregate.test")
+}
+
+type receivedAggregateChange struct {
+	value *v1.WatchChangesResponse
+	err   error
+}
+
+func receiveAggregateChanges(
+	ctx context.Context,
+	client privatev1connect.ChangeServiceClient,
+	scope *v1.BoardScope,
+	count int,
+) <-chan receivedAggregateChange {
+	results := make(chan receivedAggregateChange, count)
+	go func() {
+		defer close(results)
+		stream, err := client.WatchChanges(ctx, connect.NewRequest(
+			&v1.WatchChangesRequest{Scope: scope},
+		))
+		if err != nil {
+			results <- receivedAggregateChange{err: err}
+			return
+		}
+		defer func() { _ = stream.Close() }()
+		for range count {
+			if !stream.Receive() {
+				results <- receivedAggregateChange{err: stream.Err()}
+				return
+			}
+			results <- receivedAggregateChange{
+				value: proto.Clone(stream.Msg()).(*v1.WatchChangesResponse),
+			}
+		}
+	}()
+	return results
 }
 
 func issueTitles(values []*v1.IssueSummary) []string {

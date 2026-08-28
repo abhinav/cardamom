@@ -17,15 +17,9 @@ func (s *Server) listAttachments(
 	if request == nil || request.Msg == nil || request.Msg.GetBoardId() == "" {
 		return nil, connect.NewError(connect.CodeInvalidArgument, errors.New("board ID is required"))
 	}
-	var sourceValue *source
-	if sourceRef := request.Msg.GetSource(); sourceRef != nil {
-		var err error
-		sourceValue, err = s.sourceForRef(sourceRef)
-		if err != nil {
-			return nil, err
-		}
-	}
-	route, err := s.routeForBoard(request.Msg.GetBoardId(), sourceValue)
+	route, err := s.routeForBoard(
+		request.Msg.GetBoardId(), request.Msg.GetSource(),
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +40,7 @@ func (s *Server) listAttachments(
 	}
 	result := proto.Clone(response.Msg).(*v1.ListAttachmentsResponse)
 	for _, attachment := range result.GetAttachments() {
-		attachment.Source = sourceRefFromEntry(route.source)
+		attachment.Source = proto.Clone(route.ref).(*v1.SourceRef)
 	}
 	return connect.NewResponse(result), nil
 }

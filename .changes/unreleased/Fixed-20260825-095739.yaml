@@ -1,0 +1,4 @@
+kind: Fixed
+body: >-
+  web: In aggregate mode, refresh board catalogs when monitored sources add boards.
+time: 2026-08-25T09:57:39.119802-07:00
