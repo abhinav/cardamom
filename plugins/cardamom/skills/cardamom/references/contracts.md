@@ -42,15 +42,31 @@ One check may fill both roles when it exercises the complete contract.
 ### Implementation
 
 Use for a bounded behavior or artifact change.
+When the outcome, current behavior, owned change, and acceptance form one
+connected thought with no separate decision or recovery concern,
+write that complete contract as a short paragraph.
+Otherwise use this profile:
 
 ```markdown
 ## Outcome
 
 <Behavior or artifact that must exist.>
 
+## Context
+
+<Why the outcome matters, the relevant current behavior,
+the issue-local terms an executor must understand,
+and the components or interfaces that govern the behavior.>
+
 ## Scope
 
 <Owned area and material exclusions.>
+
+## Plan of work
+
+<Ordered material stages that name the affected areas and intended changes,
+the commands or actions to perform,
+and the evidence expected after each stage.>
 
 ## Acceptance
 
@@ -61,10 +77,30 @@ Use for a bounded behavior or artifact change.
 ## Constraints and accepted decisions
 
 <Only constraints and choices that affect execution.>
+
+## Recovery
+
+<Safe retry or rollback for a materially risky or non-idempotent step.>
 ```
 
-`Outcome`, `Scope`, and `Acceptance` are required.
-`Constraints and accepted decisions` is conditional.
+`Outcome`, `Context`, `Scope`, `Plan of work`, and `Acceptance` information is
+required for the expanded profile.
+`Constraints and accepted decisions` and `Recovery` are conditional.
+
+Context orients a capable executor to the need and the part of the current
+system that the plan changes.
+Name the relevant behavior, files, modules, interfaces, commands, or artifacts
+when their identity prevents rediscovery or a misplaced change.
+Define issue-local terms that inherited context does not already establish.
+Plan of work describes the material path from that system to the outcome.
+Name exact commands and expected observations when an executor needs them to
+perform or judge a stage.
+It is not mutable progress or a command transcript:
+State owns current progress,
+and Log owns discoveries or decision reasoning that should remain replayable.
+Keep Context and Plan of work concise when the implementation is narrow,
+but make the resulting contract sufficient for another actor to execute without
+reconstructing the approach from chat.
 
 ### Investigation or experiment
 
@@ -182,10 +218,13 @@ routine contract.
 ## Check the completed contract
 
 Before execution or delegation,
-confirm that another actor can identify the outcome,
+confirm that a capable executor with assembled Cardamom context but no chat
+history can identify why the outcome matters,
+the relevant current behavior,
 the owned boundary,
-the first safe action,
-and the final acceptance evidence from assembled context.
+the material path from the current system to the outcome,
+any unresolved decisions,
+and the iterative and final acceptance evidence from assembled context.
 Confirm that the chosen profile has no missing required section,
 no unsupported choice,
 and no copied parent or dependency material.
