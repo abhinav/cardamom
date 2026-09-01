@@ -166,7 +166,16 @@ gate.
 A failed check is evidence rather than an empty iteration:
 publish the observed position before retrying or pivoting.
 
-State is the complete active position rather than a transcript.
+State is the complete current progress and recovery snapshot rather than a
+transcript.
+Relate the active position to the accepted plan:
+retain completed material progress and its evidence when they affect
+continuation,
+identify the work or decision now active,
+state operative uncertainty or blockers,
+and give one concrete next action whose result can advance the position.
+Omit settled history that no longer affects continuation;
+committed State snapshots and Log preserve history with replay value.
 Because `state set` replaces both State and its optional next action,
 every update retains facts that remain operative.
 
@@ -288,6 +297,13 @@ Use [attachments.md](attachments.md) when later work needs produced file bytes.
 ## Choose the next disposition
 
 Result owns the completed outcome and validation.
+Compare what was delivered with the promised outcome and acceptance boundary.
+Identify the material scope actually delivered,
+the evidence gathered and what it proves,
+and any deviation, unverified boundary, or remaining gap that affects
+acceptance or dependent work.
+Include a durable consequence or lesson when it changes a later decision;
+omit generic retrospective commentary.
 Choose the disposition from the issue contract and actual execution state:
 
 When active work will stop because focus changes,

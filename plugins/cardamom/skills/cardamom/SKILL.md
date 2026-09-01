@@ -84,10 +84,21 @@ Its future reader and lifetime determine the record:
 | Record | Reader | Record establishes |
 | --- | --- | --- |
 | Summary | Descendants and reviewers | Inherited outcome and acceptance boundary |
-| Details | Executors and reviewers | Issue-local contract, area, decisions, and evidence |
-| State | Execution and recovery | Current position, uncertainty, and next action |
-| Log | Recovery and review | Useful decision or position history |
-| Result | Acceptors and dependents | Outcome, validation, scope, and gaps |
+| Details | Executors and reviewers | Stable issue-local contract, plan, boundaries, and acceptance evidence |
+| State | Execution and recovery | Current progress, evidence, uncertainty, and next action |
+| Log | Recovery and review | Material decisions, discoveries, and position history |
+| Result | Acceptors and dependents | Delivered outcome, validation, deviations, and gaps |
+
+Together the issue and its records form one living plan without making one
+record serve every reader or lifetime.
+Issue status and claim expose lifecycle and custody.
+The issue graph exposes constituent outcomes, dependencies, and approval gates.
+Summary and Details establish the promised outcome and stable working contract.
+State is the current progress and recovery snapshot.
+Log preserves material discoveries and decision reasoning.
+Attachments preserve artifacts whose bytes must outlive their original path.
+Result compares the delivered outcome with the promise for acceptance and
+dependent work.
 
 Write each Markdown body as a self-contained durable reference for that reader.
 Include needed prerequisites, keep names stable,

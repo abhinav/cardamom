@@ -1632,6 +1632,8 @@ Retries currently reorder tenants,
 and completion must preserve first-seen tenant order.
 The owned area is `internal/scheduler`,
 and public retry syntax must not change.
+`internal/scheduler/queue.go` currently sorts tenants before batching,
+and `internal/scheduler/queue_test.go` owns retry-order regressions.
 `go test ./internal/scheduler -run TestRetryOrder` is the fastest check;
 `mise run test` is the final acceptance evidence.
 The user says:
@@ -1650,8 +1652,14 @@ Do not execute it.
   change.
 - Writes a concise Summary containing the observable outcome and inherited
   acceptance boundary.
-- Gives Details independently scannable Outcome, Scope, and Acceptance
-  sections rather than compressing their contents into one sentence.
+- Gives Details independently scannable Outcome,
+  Context,
+  Scope,
+  Plan of work,
+  and Acceptance sections rather than compressing their contents into one
+  sentence.
+- Uses the supplied queue behavior and test boundary to describe a material
+  implementation path without inventing the repair.
 - Distinguishes the focused check from final acceptance evidence.
 - Preserves the public-syntax constraint without inventing an implementation.
 - Produces one `card create` invocation whose shell form preserves the
@@ -1823,3 +1831,112 @@ behavior and is also the final acceptance evidence.
 
 - Repeats the same validation solely to satisfy the loop shape.
 - Adds a broader check not required by the contract.
+
+## 33 Produce a complete living issue record set
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+Issue `cedar-export` is a ready, unclaimed task titled
+"stream archive exports."
+Its current Summary is "Improve exports" and Details is empty.
+The user wants archive exports to stream records instead of accumulating every
+record in memory.
+Export order and cancellation behavior must remain unchanged,
+and the CLI syntax must not change.
+
+Repository evidence available to the planner:
+
+- `internal/export/runner.go` currently calls `Repository.List`,
+  then writes the returned slice.
+- `internal/export/repository.go` already defines `Scan(ctx, visit)` and
+  documents stable record order and cancellation propagation.
+- `internal/export/runner_test.go` covers order and cancellation but has no
+  regression proving that `Runner` uses the streaming path.
+- `cmd/acorn/export.go` translates CLI arguments and renders errors;
+  export policy belongs in `internal/export`.
+- `mise run test:export` is the fastest focused check.
+- `mise run test` is required final validation.
+
+First, draft the replacement Summary and Details that should exist before
+implementation.
+
+Then draft a later State plus its separate next action after these facts become
+true:
+
+- the regression test failed because `Runner` still called `List`;
+- `Runner` has been changed to use `Scan`;
+- the focused streaming, order, and cancellation tests pass;
+- full validation has not run; and
+- no blocker is known.
+
+Draft one Log entry for the material implementation decision.
+
+Finally, draft the Result that should be set after `mise run test` also passes.
+No production-sized archive was measured,
+and the work intentionally did not alter CLI syntax or repository ordering.
+
+Do not execute commands or modify files.
+
+### Expected behavior
+
+- Gives Summary the inherited streaming outcome and concise acceptance
+  boundary.
+- Gives Details the current non-streaming behavior,
+  relevant ownership boundaries,
+  an ordered repository-grounded plan,
+  focused evidence,
+  and final acceptance evidence.
+- Makes State a current progress snapshot that retains the reproduced failure,
+  implemented change,
+  passing focused evidence,
+  and outstanding final validation.
+- Makes the next action run final validation rather than repeat a passing
+  focused check or include later completion actions.
+- Does not invent a blocker when the supplied position has none.
+- Uses Log for the selected repository interface and material ownership
+  rationale rather than progress.
+- Makes Result compare the delivered streaming behavior with the contract,
+  name the passing validation,
+  preserve intentionally unchanged behavior,
+  and disclose the unmeasured production-sized boundary.
+- Keeps every body independently understandable without chat while avoiding
+  duplicated mutable history.
+
+### Unacceptable behavior
+
+- Restates Outcome, Scope, and Acceptance without a material implementation
+  plan.
+- Makes State a generic activity report,
+  omits evidence or outstanding work,
+  or selects a next action contradicted by the supplied progress.
+- Uses Log as another State or command transcript.
+- Reports completion without the final validation or presents production-scale
+  memory behavior as measured.
+- Adds progress, decision-history, or retrospective headings to Details merely
+  to imitate a single-file plan.
+
+### Adjacent valid case: One connected mechanical change
+
+#### Runner prompt addition
+
+Replace the base task and requested record set with this request:
+draft Summary and Details for a task that renames one visible export label.
+The named UI snapshot is both the focused and final check,
+and no material constraint, decision, recovery concern, or separate execution
+stage applies.
+No execution has begun, so do not draft State, Log, or Result.
+
+#### Expected behavior
+
+- Uses a short connected Details paragraph rather than the implementation
+  headings.
+- Names the visible outcome and snapshot evidence once.
+- Does not invent Context, Plan of work, State history, Log decisions,
+  or retrospective material that the task does not have.
+
+#### Unacceptable behavior
+
+- Expands the mechanical rename into ceremonial planning stages.
+- Invents separate focused and final validation or unsupported risks.

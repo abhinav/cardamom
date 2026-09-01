@@ -85,9 +85,20 @@ card --actor <actor> create \
 
 Malformed quoted escapes are rejected without changing documented shell syntax.
 
+## Context
+
+The scanner retains the raw escape spelling used by parser validation.
+The token reader consumes scanner output but does not own escape validity.
+
 ## Scope
 
 Change the scanner package; do not change documented shell syntax.
+
+## Plan of work
+
+Add a focused regression that distinguishes malformed from valid escapes.
+Preserve escape state in the scanner until validation,
+then run the focused regression before parser validation.
 
 ## Acceptance
 
