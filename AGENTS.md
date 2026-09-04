@@ -19,11 +19,24 @@ then inspect the finished work against the same guide before handoff.
 | Testscript scenarios | `.agents/docs/test-script.md` |
 | Web layout, components, and styles | `.agents/docs/web.md` |
 | Cardamom skill maintenance | `.agents/docs/skill.md` |
+| Architecture decisions | `design/AGENTS.md` |
 | Documentation and other external prose | `.agents/docs/docs.md` |
 | Branches, commits, and pushes | `.agents/docs/git-workflow.md` |
 
 Before changing files or Git state, verify the working directory
 and preserve unrelated dirty, staged, and untracked files.
+
+## Architecture decisions
+
+Before making, revising, or implementing an architectural decision,
+read `design/AGENTS.md` and every relevant current record in `design/`.
+Create or propose a record when future maintainers will need the rationale from
+the time of the decision to evaluate or safely change the system.
+This commonly applies to decisions about system structure, ownership,
+interfaces, persistence, coupling, quality attributes, or construction methods
+that are costly to reverse or likely to recur in discussion.
+Do not create a record for a routine local choice,
+an implementation plan, or a description that records no decision.
 
 ## Quick reference
 
