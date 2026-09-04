@@ -1,0 +1,52 @@
+exec git init -b main
+at 2026-09-04T12:00:00Z
+env TZ=UTC
+exec card init --prefix search-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card create --type workstream 'Search program'
+exec card create --parent search-1 --label selected --summary 'Stable launch context.' --details 'Expanded nebula design.' 'Alpha launch'
+exec card create --parent search-1 --label archived --summary 'Alpha appears in summary.' 'Other task'
+exec card state set search-3 'Alpha recovery record.' --next 'Inspect the waypoint.'
+exec card --actor worker log post search-3 'Archived waypoint observation.'
+exec card result set search-3 'Alpha outcome.'
+exec card close search-3
+
+# Search spans every record family and every status by default.
+exec card search alpha
+stdout '^2 matches$'
+stdout 'search-2 +ready +title'
+stdout 'search-3 +closed +summary,result,log'
+
+# Field, status, containment, label, and limit filters compose.
+exec card search alpha --in title --under search-1 --label selected
+stdout '^1 match$'
+stdout 'search-2 +ready +title'
+! stdout 'search-3'
+exec card search alpha --status closed --label archived --limit 1
+stdout '^1 match$'
+stdout 'search-3 +closed'
+
+# The total remains visible when the result collection is bounded.
+exec card search alpha --limit 1
+stdout '^2 matches \(showing 1\)$'
+
+# A Log match exposes the stable ID for an exact follow-up read.
+exec card search waypoint
+stdout 'log_00000000000000000000000000000001'
+exec card log show log_00000000000000000000000000000001
+stdout '^Post log_00000000000000000000000000000001 by worker$'
+stdout '^Archived waypoint observation\.$'
+
+# Structured output is one envelope rather than JSON Lines.
+exec card --json search alpha --in title
+cmpjson stdout $WORK/golden/title.json
+
+# Literal mode does not interpret public query operators.
+exec card create 'Document alpha OR beta syntax'
+exec card search 'alpha OR beta' --literal
+stdout '^1 match$'
+stdout 'search-4'
+
+-- golden/title.json --
+{"total":1,"matches":[{"id":"search-2","title":"Alpha launch","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1788523200,"updated":1788523200,"summary":"Stable launch context.","details":"Expanded nebula design.","revision":3,"labels":["selected"],"blocked":false,"matched_in":["title"],"excerpt":{"field":"title","text":"[Alpha] launch"}}]}

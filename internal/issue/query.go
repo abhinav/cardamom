@@ -21,6 +21,9 @@ type QueryReader interface {
 	// ListIssuesSnapshot reads issue summaries and their canonical board cursor.
 	ListIssuesSnapshot(context.Context, ListRequest) (ListSnapshot, error)
 
+	// SearchIssues returns issue matches ordered by the requested search mode.
+	SearchIssues(context.Context, SearchRequest) (SearchResult, error)
+
 	// ReadIssue reads one issue and its optional inherited context.
 	ReadIssue(context.Context, ReadRequest) (View, error)
 }
@@ -63,20 +66,35 @@ func (q *Queries) ListIssuesSnapshot(ctx context.Context, req ListRequest) (List
 // normalizeListRequestLabels validates and normalizes every label group before
 // query readers receive it.
 func normalizeListRequestLabels(req ListRequest) (ListRequest, error) {
-	req.LabelsAll = slices.Clone(req.LabelsAll)
-	req.LabelsAny = slices.Clone(req.LabelsAny)
-	req.LabelsNone = slices.Clone(req.LabelsNone)
-	groups := [][]string{req.LabelsAll, req.LabelsAny, req.LabelsNone}
+	all, anyOf, none, err := normalizeLabelGroups(
+		req.LabelsAll,
+		req.LabelsAny,
+		req.LabelsNone,
+	)
+	if err != nil {
+		return ListRequest{}, err
+	}
+	req.LabelsAll = all
+	req.LabelsAny = anyOf
+	req.LabelsNone = none
+	return req, nil
+}
+
+func normalizeLabelGroups(all, anyOf, none []string) ([]string, []string, []string, error) {
+	all = slices.Clone(all)
+	anyOf = slices.Clone(anyOf)
+	none = slices.Clone(none)
+	groups := [][]string{all, anyOf, none}
 	for _, values := range groups {
 		for index, value := range values {
 			label, err := NewLabel(value)
 			if err != nil {
-				return ListRequest{}, err
+				return nil, nil, nil, err
 			}
 			values[index] = label.String()
 		}
 	}
-	return req, nil
+	return all, anyOf, none, nil
 }
 
 // ReadIssue returns one issue and optional inherited current context.

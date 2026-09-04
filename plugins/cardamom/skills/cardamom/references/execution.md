@@ -63,7 +63,9 @@ Treat accepted issue records as durable task knowledge.
 Before repeating investigation,
 identify the record that owns the needed conclusion and decide whether its
 scope, provenance, and relevant conditions still support the next action.
-When they do,
+When the owning issue or Log entry is unknown,
+use [search.md](search.md) before reopening the investigation.
+When the record remains supported,
 use the recorded conclusion rather than reopening its cited sources merely for
 confidence.
 Investigate again when the needed conclusion or provenance is missing or

@@ -194,3 +194,42 @@ func (c *MockQueryReaderResolveExternalKeyCall) DoAndReturn(f func(context.Conte
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }
+
+// SearchIssues mocks base method.
+func (m *MockQueryReader) SearchIssues(arg0 context.Context, arg1 SearchRequest) (SearchResult, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "SearchIssues", arg0, arg1)
+	ret0, _ := ret[0].(SearchResult)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// SearchIssues indicates an expected call of SearchIssues.
+func (mr *MockQueryReaderMockRecorder) SearchIssues(arg0, arg1 any) *MockQueryReaderSearchIssuesCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "SearchIssues", reflect.TypeOf((*MockQueryReader)(nil).SearchIssues), arg0, arg1)
+	return &MockQueryReaderSearchIssuesCall{Call: call}
+}
+
+// MockQueryReaderSearchIssuesCall wrap *gomock.Call
+type MockQueryReaderSearchIssuesCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockQueryReaderSearchIssuesCall) Return(arg0 SearchResult, arg1 error) *MockQueryReaderSearchIssuesCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockQueryReaderSearchIssuesCall) Do(f func(context.Context, SearchRequest) (SearchResult, error)) *MockQueryReaderSearchIssuesCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockQueryReaderSearchIssuesCall) DoAndReturn(f func(context.Context, SearchRequest) (SearchResult, error)) *MockQueryReaderSearchIssuesCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}

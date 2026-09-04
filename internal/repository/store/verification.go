@@ -78,6 +78,20 @@ func verifyStore(
 		)
 	}
 
+	invalidSearchDocuments, err := queries.StoreCountInvalidIssueSearchDocuments(ctx)
+	if err != nil {
+		return fmt.Errorf("verify issue search documents: %w", err)
+	}
+	if invalidSearchDocuments != 0 {
+		return fmt.Errorf(
+			"verify issue search documents: found %d inconsistent rows",
+			invalidSearchDocuments,
+		)
+	}
+	if err := queries.StoreCheckIssueSearchIndex(ctx); err != nil {
+		return fmt.Errorf("verify issue search index: %w", err)
+	}
+
 	// Claim eligibility spans issue workflow and current custody projections.
 	invalidClaims, err := queries.StoreCountInvalidClaims(ctx)
 	if err != nil {

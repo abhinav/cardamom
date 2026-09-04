@@ -3,9 +3,10 @@ name: cardamom
 description: >-
   Use when the user explicitly asks to use Cardamom or the card command,
   operate on an existing Cardamom store, board, or issue, or coordinate local
-  or agent work through Cardamom. Do not use for ordinary tasks merely because
-  they could be tracked, or for explanation alone when no Cardamom operation or
-  skill change is requested.
+  or agent work through Cardamom, or asks about prior work or decisions recorded
+  on a Cardamom board. Do not use for ordinary tasks merely because they could
+  be tracked, or for explaining Cardamom concepts when no store, board, issue,
+  or skill change is requested.
 ---
 
 # Cardamom
@@ -53,8 +54,11 @@ Continue the issue that owns the same outcome across actors, sessions,
 and ordinary execution phases.
 Create another issue only when another outcome needs independent ownership,
 sequencing, evidence, or acceptance.
-Search before creation and use [planning.md](references/planning.md) to define or
-materially revise an executable issue.
+When the issue or record that owns existing work or historical board context is
+unknown,
+use [search.md](references/search.md) to find and inspect it.
+Use [planning.md](references/planning.md) to define or materially revise an
+executable issue.
 Before creating or replacing Summary or Details,
 use [contracts.md](references/contracts.md) to select and fill the contract
 profile that matches the work's decision shape.
@@ -157,6 +161,7 @@ completion dispositions, and command forms.
 | Decision or task | Reference |
 | --- | --- |
 | Resolve scope, perform setup, or cross worktrees | [scope.md](references/scope.md) |
+| Find existing work or historical board context | [search.md](references/search.md) |
 | Define outcomes, contracts, graphs, or approval gates | [planning.md](references/planning.md) |
 | Create or replace Summary or Details | [contracts.md](references/contracts.md) |
 | Execute, publish, delegate, hand off, or accept | [execution.md](references/execution.md) |

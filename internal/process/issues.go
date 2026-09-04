@@ -62,6 +62,12 @@ func provideListIssuesOperation(
 	return queries
 }
 
+func provideSearchIssuesOperation(
+	queries *issue.Queries,
+) cli.SearchIssuesOperation {
+	return queries
+}
+
 func provideListReadyIssuesOperation(
 	executor *execution.Executor,
 ) cli.ListReadyIssuesOperation {

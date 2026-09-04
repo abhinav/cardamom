@@ -1,0 +1,3 @@
+kind: Changed
+body: Allow `card log show` to read one Log entry by its stable `log_` or historical `cmt_` ID.
+time: 2026-09-04T16:16:00.975503-07:00

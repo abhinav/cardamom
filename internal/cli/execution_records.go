@@ -13,7 +13,7 @@ import (
 // Generate typed mocks for command operation contracts whose tests only
 // configure calls and results.
 //
-//go:generate go tool mockgen -destination mocks_test.go -package cli -typed -write_package_comment=false . BackupOperation,RestoreOperation,DumpOperation,LeaseOperations,InitOperation,InfoOperation,WebOperation,ListIssuesOperation,ListReadyIssuesOperation,ListBlockedIssuesOperation,ReadIssueOperation,CreateIssueOperation,ApplyDocumentOperation,EditIssueOperation,ClaimOperations,ReleaseOperations,CloseOperations,CancelOperations,ReopenOperations,CheckpointOperations,LogEntryWriteOperations,LogEntryReadOperations,StateWriteOperations,StateReadOperations,StateCommitOperations,ResultWriteOperations,ResultReadOperations
+//go:generate go tool mockgen -destination mocks_test.go -package cli -typed -write_package_comment=false . BackupOperation,RestoreOperation,DumpOperation,LeaseOperations,InitOperation,InfoOperation,WebOperation,ListIssuesOperation,ListReadyIssuesOperation,ListBlockedIssuesOperation,ReadIssueOperation,CreateIssueOperation,ApplyDocumentOperation,EditIssueOperation,ClaimOperations,ReleaseOperations,CloseOperations,CancelOperations,ReopenOperations,CheckpointOperations,StateWriteOperations,StateReadOperations,StateCommitOperations,ResultWriteOperations,ResultReadOperations
 
 // ClaimOperations supplies the two domain-owned claim modes.
 type ClaimOperations interface {
@@ -370,128 +370,6 @@ func renderCheckpointResult(output *Output, id string, approved bool, result exe
 	return writeParentNotices(output, result.ParentsWithoutOpenChildren)
 }
 
-type logCommand struct {
-	Post logPostCommand `cmd:"" help:"Post an immutable issue log entry."`
-	Show logShowCommand `cmd:"" help:"Show issue log entries."`
-}
-
-// Help distinguishes immutable log entries from mutable recovery state.
-func (*logCommand) Help() string {
-	return "Post and show immutable attributed Markdown log entries."
-}
-
-// LogEntryWriteOperations appends immutable issue log entries.
-type LogEntryWriteOperations interface {
-	AddLogEntry(context.Context, issue.Invocation, record.AddLogEntryRequest) (record.AddLogEntryResult, error)
-}
-
-var _ LogEntryWriteOperations = (*record.Recorder)(nil)
-
-type logPostCommand struct {
-	ID   issueID `arg:"" name:"id" help:"Issue receiving the log entry."`
-	Body *string `arg:"" optional:"" name:"body" help:"Markdown body. Use - or omit with piped input to read standard input."`
-}
-
-func (c *logPostCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
-
-// Help describes immutable log input and attribution.
-func (*logPostCommand) Help() string {
-	return "Post one immutable Markdown log entry attributed to the invocation actor."
-}
-
-// Run selects Markdown input and posts one log entry.
-func (c *logPostCommand) Run(inv *Invocation, markdown *MarkdownInput, operations LogEntryWriteOperations) error {
-	body, provided, err := markdown.Read(c.Body)
-	if err != nil {
-		return err
-	}
-	if !provided {
-		return UsageErrorf("log body is required as an argument or standard input")
-	}
-	result, err := operations.AddLogEntry(
-		inv.Context,
-		issue.NewInvocation(inv.Actor),
-		record.AddLogEntryRequest{IssueID: c.ID.String(), Body: body},
-	)
-	if err != nil {
-		return err
-	}
-	if inv.Output.JSON() {
-		return inv.Output.WriteJSON(newLogEntryOutput(result.LogEntry))
-	}
-	return inv.Output.Noticef("Posted log entry %s to %s.", result.LogEntry.ID, result.LogEntry.IssueID)
-}
-
-// LogEntryReadOperations reads issue log entries in durable order.
-type LogEntryReadOperations interface {
-	ListLogEntries(context.Context, issue.LogListRequest) ([]issue.LogEntry, error)
-}
-
-var _ LogEntryReadOperations = (*record.Recorder)(nil)
-
-type logShowCommand struct {
-	ID          issueID `arg:"" name:"id" help:"Issue whose log entries will be shown."`
-	Limit       int     `name:"limit" default:"0" placeholder:"COUNT" help:"Maximum entries after ordering; 0 lists all."`
-	OldestFirst bool    `name:"oldest-first" help:"Show entries in chronological order."`
-}
-
-func (c *logShowCommand) referencedIssueIDs() []string { return []string{c.ID.String()} }
-
-// Help describes durable log ordering and limits.
-func (*logShowCommand) Help() string {
-	return "Show immutable log entries. Newest entries are shown first; --limit applies after ordering."
-}
-
-// Run shows log entries as human records or JSON Lines.
-func (c *logShowCommand) Run(inv *Invocation, operations LogEntryReadOperations) error {
-	entries, err := operations.ListLogEntries(inv.Context, issue.LogListRequest{
-		IssueID: c.ID.String(), Reverse: !c.OldestFirst, Limit: c.Limit,
-	})
-	if err != nil {
-		return err
-	}
-	if inv.Output.JSON() {
-		output := make([]logEntryOutput, len(entries))
-		for i, entry := range entries {
-			output[i] = newLogEntryOutput(entry)
-		}
-		return WriteJSONLines(inv.Output, output)
-	}
-	var output strings.Builder
-	for i, entry := range entries {
-		if i > 0 {
-			output.WriteByte('\n')
-		}
-		writeLogEntryHeading(&output, entry)
-		writeMarkdown(&output, entry.Body)
-		if entry.NextAction != nil {
-			output.WriteString("\n**Planned next action**\n\n")
-			writeMarkdown(&output, *entry.NextAction)
-		}
-	}
-	return inv.Output.WriteString(output.String())
-}
-
-func writeLogEntryHeading(output *strings.Builder, entry issue.LogEntry) {
-	switch entry.Kind {
-	case issue.LogEntryKindPost.String():
-		fmt.Fprintf(output, "Post %s", entry.ID)
-	case issue.LogEntryKindStateSnapshot.String():
-		fmt.Fprintf(output, "State snapshot %s", entry.ID)
-	default:
-		fmt.Fprintf(output, "Log entry %s", entry.ID)
-	}
-	if entry.Author != nil {
-		fmt.Fprintf(output, " by %s", *entry.Author)
-	}
-	if entry.Kind == issue.LogEntryKindStateSnapshot.String() &&
-		entry.Committer != nil &&
-		(entry.Author == nil || *entry.Committer != *entry.Author) {
-		fmt.Fprintf(output, " committed by %s", *entry.Committer)
-	}
-	output.WriteByte('\n')
-}
-
 type stateCommand struct {
 	Show   stateShowCommand   `cmd:"" help:"Show the issue recovery State."`
 	Set    stateSetCommand    `cmd:"" help:"Set or clear the issue recovery State."`
@@ -835,30 +713,6 @@ type resultOutput struct {
 	IssueID string `json:"issue_id"`
 	Title   string `json:"title,omitempty"`
 	Body    string `json:"body"`
-}
-
-type logEntryOutput struct {
-	ID         issue.LogID `json:"id"`
-	IssueID    string      `json:"issue_id"`
-	Kind       string      `json:"kind"`
-	Author     *string     `json:"author,omitempty"`
-	Committer  *string     `json:"committer,omitempty"`
-	Body       string      `json:"body"`
-	NextAction *string     `json:"next_action,omitempty"`
-	Created    *int64      `json:"created,omitempty"`
-}
-
-func newLogEntryOutput(entry issue.LogEntry) logEntryOutput {
-	return logEntryOutput{
-		ID:         entry.ID,
-		IssueID:    entry.IssueID,
-		Kind:       entry.Kind,
-		Author:     entry.Author,
-		Committer:  entry.Committer,
-		Body:       entry.Body,
-		NextAction: entry.NextAction,
-		Created:    entry.Created,
-	}
 }
 
 func newResultOutput(result issue.Result) resultOutput {

@@ -14,6 +14,7 @@ Read the owning package before adding another package or cross-package API.
 | `internal/issue/execution` | Eligibility, custody, lifecycle transitions, and checkpoint resolution. |
 | `internal/issue/record` | Mutable notes, immutable comments, and durable results. |
 | `internal/project` | Project identity, selection, and initialization contracts. |
+| `internal/searchquery` | Public full-text search language parsing and validated expressions. |
 | `internal/mail`, `lease`, `dump`, `information` | Domain-scoped product operations. |
 | `internal/repository/store` | Store lifetime, migrations, and explicit read and write scopes. |
 | `internal/repository/internal/query` | Generated low-level SQL operations shared only by repository implementations. |

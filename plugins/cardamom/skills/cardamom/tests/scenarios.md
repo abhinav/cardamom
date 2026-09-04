@@ -10,7 +10,10 @@ The available skill catalog contains:
 
 - `cardamom`: use when the user explicitly asks to use Cardamom or `card`,
   operate on an existing Cardamom store, board, or issue,
-  or coordinate work through Cardamom.
+  coordinate work through Cardamom,
+  or asks about prior work or decisions recorded there.
+  Do not use for ordinary tasks merely because they could be tracked,
+  or for explaining Cardamom concepts when no Cardamom operation is requested.
 - `commit`: use for Git commits and branches.
 
 For each request,
@@ -20,18 +23,21 @@ state which skill or skills you would load:
 2. "Fix this typo."
 3. "Explain what a Cardamom claim is; do not operate on anything."
 4. "Update the Cardamom skill documentation."
+5. "This project uses Cardamom. Why was retry batching changed?"
 
 ### Expected behavior
 
-- Selects Cardamom for requests 1 and 4.
+- Selects Cardamom for requests 1, 4, and 5.
 - Does not select Cardamom merely as generic task tracking for request 2.
-- Does not select operational Cardamom guidance for explanation-only request 3.
+- Does not select operational Cardamom guidance merely to explain the Cardamom
+  concept in request 3.
 - Does not select the commit skill without Git work.
 
 ### Unacceptable behavior
 
 - Selects Cardamom for every multi-step task.
-- Misses explicit issue operation or skill maintenance.
+- Misses explicit issue operation, historical-work retrieval,
+  or skill maintenance.
 
 ## 02 Resolve scope and reuse an existing outcome
 
@@ -310,6 +316,28 @@ State what you inspect and what you do before implementation.
 - Repeats research as a confidence check.
 - Treats every citation as a command to reread the source.
 - Ignores missing provenance or contradictory evidence.
+
+### Adjacent valid case: Unknown conclusion owner
+
+#### Runner prompt addition
+
+The current issue, its ancestors, and dependency Results do not identify
+which issue established the retry-key compatibility conclusion.
+The conclusion was recorded somewhere on the selected board,
+and the cited protocol has not changed.
+
+#### Expected behavior
+
+- Searches the selected board with distinctive decision, component, or artifact
+  terms before reopening the protocol.
+- Inspects the matching issue or Log entry before using its conclusion.
+- Uses the accepted conclusion when its scope and provenance support the work.
+
+#### Unacceptable behavior
+
+- Reopens the protocol without first looking for the accepted board record.
+- Treats a search result alone as sufficient evidence without inspecting its
+  source record.
 
 ### Adjacent valid case: Changed authoritative source
 
@@ -1940,3 +1968,58 @@ No execution has begun, so do not draft State, Log, or Result.
 
 - Expands the mechanical rename into ceremonial planning stages.
 - Invents separate focused and final validation or unsupported risks.
+
+## 34 Explain historical work from durable records
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+A selected Cardamom board is configured for this repository.
+The user asks why retry batching was changed to preserve first-seen tenant
+order,
+but supplies no issue or Log ID.
+The current implementation shows the resulting algorithm,
+but not why that alternative was chosen.
+
+Describe the Cardamom operations and evidence you would use before answering.
+Do not execute commands or modify files.
+
+### Expected behavior
+
+- Searches the selected board using distinctive decision and component terms.
+- Inspects the matching issue or Log entry before relying on its conclusion.
+- Uses the durable record as primary evidence for the historical rationale.
+- Inspects source only if the question also requires current behavior,
+  or the records are missing, contradictory, or insufficient.
+- Reports an evidence gap instead of inferring historical intent from current
+  code when no adequate record exists.
+
+### Unacceptable behavior
+
+- Reconstructs the historical decision from source before searching Cardamom.
+- Treats a search excerpt as the complete source record.
+- Presents an inference from current implementation as recorded rationale.
+
+### Adjacent valid case: Compose a historical query
+
+#### Runner prompt addition
+
+The user remembers the exact phrase `schema version`.
+The decision may have described either migration or upgrade work,
+and it did not concern legacy behavior.
+Show the initial search command without consulting command help.
+
+#### Expected behavior
+
+- Uses phrase quoting for `"schema version"`.
+- Groups the migration and upgrade alternatives with uppercase `OR`.
+- Excludes legacy with uppercase `NOT`.
+- Produces a query equivalent to
+  `"schema version" (migration OR upgrade) NOT legacy`.
+
+#### Unacceptable behavior
+
+- Runs `card search --help` before composing the basic query.
+- Uses explicit `AND` instead of adjacency.
+- Loses the phrase, alternative, exclusion, or grouping semantics.

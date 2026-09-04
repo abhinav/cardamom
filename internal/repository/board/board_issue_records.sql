@@ -76,6 +76,12 @@ WHERE board_id = sqlc.arg(board_id)
 ORDER BY local_sequence DESC
 LIMIT sqlc.arg(limit_count);
 
+-- name: BoardReadIssueLogEntry :one
+SELECT id, issue_id, kind, author, committer, body, next_action, created_at
+FROM issue_log_entries
+WHERE board_id = sqlc.arg(board_id)
+    AND id = sqlc.arg(log_id);
+
 -- name: BoardReadIssueResult :one
 SELECT issue.id, issue.title, result.body
 FROM issues AS issue

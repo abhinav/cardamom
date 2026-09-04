@@ -73,10 +73,14 @@ func TestRecorderExposesRecordReads(t *testing.T) {
 	expectedLogEntries := []issue.LogEntry{{
 		ID: "cmt_00000000000000000000000000000001", IssueID: "an-1",
 	}}
+	expectedLogEntry := expectedLogEntries[0]
 	expectedResult := issue.Result{IssueID: "an-1", Body: "done"}
 	reader := NewMockReader(gomock.NewController(t))
 	reader.EXPECT().ReadIssue(gomock.Any(), issue.ReadRequest{IssueID: "an-1"}).Return(issueView, nil)
 	reader.EXPECT().ListLogEntries(gomock.Any(), issue.LogListRequest{IssueID: "an-1"}).Return(expectedLogEntries, nil)
+	reader.EXPECT().ReadLogEntry(gomock.Any(), GetLogEntryRequest{
+		LogID: "cmt_00000000000000000000000000000001",
+	}).Return(expectedLogEntry, nil)
 	reader.EXPECT().ReadResult(gomock.Any(), issue.ResultRequest{IssueID: "an-1"}).Return(expectedResult, nil)
 	recorder := NewRecorder(NewMockChanges(gomock.NewController(t)), reader)
 
@@ -94,10 +98,30 @@ func TestRecorderExposesRecordReads(t *testing.T) {
 	assert.Equal(t, []issue.LogEntry{{
 		ID: "cmt_00000000000000000000000000000001", IssueID: "an-1",
 	}}, logEntries)
+	logEntry, err := recorder.GetLogEntry(t.Context(), GetLogEntryRequest{
+		LogID: "cmt_00000000000000000000000000000001",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, expectedLogEntry, logEntry)
 
 	result, err := recorder.GetResult(t.Context(), GetResultRequest{IssueID: "an-1"})
 	require.NoError(t, err)
 	assert.Equal(t, issue.Result{IssueID: "an-1", Body: "done"}, result)
+}
+
+func TestRecorderRejectsInvalidLogReadIdentity(t *testing.T) {
+	t.Parallel()
+
+	recorder := NewRecorder(
+		NewMockChanges(gomock.NewController(t)),
+		NewMockReader(gomock.NewController(t)),
+	)
+
+	_, err := recorder.GetLogEntry(
+		t.Context(),
+		GetLogEntryRequest{LogID: "an-1"},
+	)
+	assert.ErrorContains(t, err, `invalid log ID "an-1"`)
 }
 
 func TestPolicyRejectsInvalidLogEntries(t *testing.T) {

@@ -62,6 +62,30 @@ func TestOpenExistingMigratesBaselineStore(t *testing.T) {
 	require.NoError(t, err)
 	_, err = provider.Up(t.Context())
 	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `
+INSERT INTO projects(id, name, created_at)
+VALUES ('project', 'Project', 1);
+INSERT INTO boards(id, project_id, name, created_at)
+VALUES ('board', 'project', 'Board', 1);
+INSERT INTO issues(
+    id, board_id, title, kind, lifecycle, priority,
+    created_at, updated_at, summary, details
+) VALUES (
+    'an-issue', 'board', 'Backfilltoken title', 'task', 'open', 2,
+    1, 1, 'Backfilltoken summary', 'Backfilltoken details'
+);
+INSERT INTO issue_states(issue_id, board_id, body, next_action)
+VALUES ('an-issue', 'board', 'Backfilltoken state', 'Backfilltoken next');
+INSERT INTO issue_results(issue_id, board_id, body)
+VALUES ('an-issue', 'board', 'Backfilltoken result');
+INSERT INTO issue_log_entries(
+    id, board_id, issue_id, kind, author, committer, body, created_at
+) VALUES (
+    'cmt_11111111111111111111111111111111', 'board', 'an-issue',
+    'post', 'author', 'author', 'Backfilltoken log', 1
+)
+`)
+	require.NoError(t, err)
 	require.NoError(t, db.Close())
 
 	persistence, err := OpenExisting(t.Context(), Config{Path: path})
@@ -74,6 +98,15 @@ func TestOpenExistingMigratesBaselineStore(t *testing.T) {
 	information, err := view.ReadInformation(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, SchemaVersion(), information.DatabaseSchemaVersion)
+	var documents, indexed int
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+SELECT count(*) FROM issue_search_documents WHERE issue_id = 'an-issue'
+`).Scan(&documents))
+	assert.Equal(t, 6, documents)
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+SELECT count(*) FROM issue_search_fts WHERE body MATCH 'backfilltoken'
+`).Scan(&indexed))
+	assert.Equal(t, 6, indexed)
 }
 
 func TestOpenProvidesNativeUnixTimestamps(t *testing.T) {

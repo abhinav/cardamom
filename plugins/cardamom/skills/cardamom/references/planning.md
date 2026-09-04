@@ -6,18 +6,10 @@ owner, prerequisites, evidence, and acceptance decision.
 ## Reuse the outcome that already owns the work
 
 When matching work may exist,
-search the selected board and inspect plausible issues before creation:
-
-```bash
-card --actor <actor> --board <board-id> --json list \
-  --status ready,blocked,in_progress,waiting,closed,cancelled \
-  --title-regexp '<title-regexp>' --limit 0
-card --actor <actor> --board <board-id> --json show <candidate-id> --context
-```
+use [search.md](search.md) to find and inspect plausible issues before creation.
 
 Continue the issue with the same durable outcome across actors, sessions,
 and ordinary phases.
-Resolve ambiguous scope with [scope.md](scope.md) before searching.
 
 ## Choose an outcome boundary
 

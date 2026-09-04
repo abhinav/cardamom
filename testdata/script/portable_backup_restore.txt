@@ -42,6 +42,9 @@ exec card --store $WORK/destination --board Primary --json show eng-1
 cp stdout $WORK/primary-issue.json
 exec jq -c 'del(.revision, .attachments[0].id, .attachments[0].created.revision)' $WORK/primary-issue.json
 cmp stdout $WORK/golden/primary-issue.json
+exec card --store $WORK/destination --board Primary search calibration
+stdout '^1 match$'
+stdout 'eng-1 +ready +summary'
 
 exec sh -c 'card --store "$1" --board Primary attachment get "$(cat "$2")" restored-report.txt' get-restored $WORK/destination $WORK/attachment-id.txt
 cmp stdout $WORK/golden/attachment-get.txt

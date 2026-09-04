@@ -193,6 +193,45 @@ func (q *Queries) BoardListIssueLogEntriesDescending(ctx context.Context, arg Bo
 	return items, nil
 }
 
+const boardReadIssueLogEntry = `-- name: BoardReadIssueLogEntry :one
+SELECT id, issue_id, kind, author, committer, body, next_action, created_at
+FROM issue_log_entries
+WHERE board_id = ?1
+    AND id = ?2
+`
+
+type BoardReadIssueLogEntryParams struct {
+	BoardID string
+	LogID   string
+}
+
+type BoardReadIssueLogEntryRow struct {
+	ID         string
+	IssueID    string
+	Kind       string
+	Author     *string
+	Committer  *string
+	Body       string
+	NextAction *string
+	CreatedAt  *time.Time
+}
+
+func (q *Queries) BoardReadIssueLogEntry(ctx context.Context, arg BoardReadIssueLogEntryParams) (BoardReadIssueLogEntryRow, error) {
+	row := q.db.QueryRowContext(ctx, boardReadIssueLogEntry, arg.BoardID, arg.LogID)
+	var i BoardReadIssueLogEntryRow
+	err := row.Scan(
+		&i.ID,
+		&i.IssueID,
+		&i.Kind,
+		&i.Author,
+		&i.Committer,
+		&i.Body,
+		&i.NextAction,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const boardReadIssueResult = `-- name: BoardReadIssueResult :one
 SELECT issue.id, issue.title, result.body
 FROM issues AS issue

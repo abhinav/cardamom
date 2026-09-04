@@ -82,3 +82,62 @@ func TestOpenRejectsCrossBoardRelationshipCorruption(t *testing.T) {
 	assert.Nil(t, persistence)
 	assert.ErrorContains(t, err, "foreign keys")
 }
+
+func TestOpenRejectsIssueSearchProjectionCorruption(t *testing.T) {
+	path := openSearchVerificationStore(t)
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.Exec(`
+DELETE FROM issue_search_documents
+WHERE issue_id = 'an-issue' AND field = 'title'
+`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	persistence, err := Open(t.Context(), Config{Path: path})
+	assert.Nil(t, persistence)
+	assert.ErrorContains(t, err, "issue search documents")
+}
+
+func TestOpenRejectsIssueSearchIndexCorruption(t *testing.T) {
+	path := openSearchVerificationStore(t)
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.Exec(`
+DELETE FROM issue_search_fts
+WHERE rowid = (
+    SELECT rowid
+    FROM issue_search_documents
+    WHERE issue_id = 'an-issue' AND field = 'title'
+)
+`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	persistence, err := Open(t.Context(), Config{Path: path})
+	assert.Nil(t, persistence)
+	assert.ErrorContains(t, err, "issue search index")
+}
+
+func openSearchVerificationStore(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "issue-search.db")
+	persistence, err := Open(t.Context(), Config{Path: path})
+	require.NoError(t, err)
+	change, err := persistence.Change(t.Context())
+	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+INSERT INTO projects(id, name, created_at)
+VALUES ('project', 'Project', 1);
+INSERT INTO boards(id, project_id, name, created_at)
+VALUES ('board', 'project', 'Board', 1);
+INSERT INTO issues(
+    id, board_id, title, kind, lifecycle, priority, created_at, updated_at
+) VALUES ('an-issue', 'board', 'Indexed title', 'task', 'open', 2, 1, 1)
+`)
+	require.NoError(t, err)
+	require.NoError(t, change.Commit())
+	require.NoError(t, change.Done())
+	require.NoError(t, persistence.Close())
+	return path
+}
