@@ -59,7 +59,7 @@ description = "Format Go source"
 run = "golangci-lint fmt"
 
 [tasks.lint]
-description = "Run Go lint checks"
+description = "Run all lint checks"
 depends = ["lint:*"]
 
 [tasks."lint:golangci-lint"]
@@ -85,6 +85,10 @@ run = "buf lint"
 [tasks."lint:sqlc"]
 description = "Check generated repository code"
 run = "sqlc diff"
+
+[tasks."lint:adr-table"]
+description = "Check that the architecture decision index is up to date"
+run = "./tools/update-adr-table.sh --diff"
 
 [tasks."lint:readme"]
 description = "Check that README.md is up to date"
