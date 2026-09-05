@@ -1,6 +1,6 @@
 {
   "name": "cardamom",
-  "version": "0.9.5",
+  "version": "0.10.0",
   "description": "Cardamom coordination workflows for coding agents",
   "author": {
     "name": "Abhinav Gupta"
