@@ -6,7 +6,7 @@ if ($Installed) {
     exit $LASTEXITCODE
 }
 
-$Version = "0.9.5"
+$Version = "0.10.0"
 
 $CacheRoot = $env:LOCALAPPDATA
 if (-not $CacheRoot) {
