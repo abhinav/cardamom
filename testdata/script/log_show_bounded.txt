@@ -17,11 +17,15 @@ cmp stdout $WORK/golden/newest-two.txt
 exec card --json log show log-1 --oldest-first --limit 2
 cmp stdout $WORK/golden/oldest-two.jsonl
 
+# A stable Log ID selects one record without its owning issue ID.
+exec card --json log show log_00000000000000000000000000000002
+cmp stdout $WORK/golden/second.json
+
 ! exec card log show log-1 --reverse
 stderr 'unknown flag --reverse'
 
 exec card log show --help
-stdout 'Newest entries are shown first'
+stdout 'list an issue.s Log newest-first'
 stdout '--oldest-first'
 stdout 'Maximum entries after ordering'
 
@@ -35,4 +39,6 @@ Post log_00000000000000000000000000000003 by geordi
 Third observation.
 -- golden/oldest-two.jsonl --
 {"id":"log_00000000000000000000000000000001","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"First observation.","created":1783857600}
+{"id":"log_00000000000000000000000000000002","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"Second observation.","created":1783857600}
+-- golden/second.json --
 {"id":"log_00000000000000000000000000000002","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"Second observation.","created":1783857600}

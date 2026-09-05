@@ -127,6 +127,20 @@ The private `local_sequence` preserves local chronological ordering and does
 not cross the repository boundary.
 Issue-owned projections and records cascade if an issue row is removed.
 
+### Issue search
+
+`issue_search_documents` projects the canonical issue text into one row per
+searchable field or Log entry.
+`issue_search_fts` is an external-content FTS5 index over those documents.
+Database triggers update both derived structures in the transaction that
+changes the canonical record.
+Store verification compares the document projection with the canonical rows
+and asks FTS5 to verify the index before a store is published.
+
+The derived search tables are not portable state.
+Backup, restore, and board copy operate on canonical records; the same triggers
+construct search documents for inserted records.
+
 ### Attachments
 
 `attachment_blobs`, `attachments`, and `attachment_uploads` retain logical

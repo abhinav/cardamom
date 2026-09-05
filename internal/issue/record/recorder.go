@@ -48,6 +48,9 @@ type Reader interface {
 	// ListLogEntries reads one issue's log entries in durable order.
 	ListLogEntries(context.Context, issue.LogListRequest) ([]issue.LogEntry, error)
 
+	// ReadLogEntry reads one immutable Log entry by its stable ID.
+	ReadLogEntry(context.Context, GetLogEntryRequest) (issue.LogEntry, error)
+
 	// ReadResult reads one issue's current durable outcome.
 	ReadResult(context.Context, issue.ResultRequest) (issue.Result, error)
 }
@@ -104,6 +107,23 @@ func (r *Recorder) ListLogEntries(
 	req issue.LogListRequest,
 ) ([]issue.LogEntry, error) {
 	return r.issues.ListLogEntries(ctx, req)
+}
+
+// GetLogEntryRequest identifies one immutable Log entry by its stable ID.
+type GetLogEntryRequest struct {
+	// LogID identifies a current log_ or historical cmt_ record.
+	LogID string
+}
+
+// GetLogEntry returns one immutable Log entry by its stable ID.
+func (r *Recorder) GetLogEntry(
+	ctx context.Context,
+	req GetLogEntryRequest,
+) (issue.LogEntry, error) {
+	if _, err := issue.NewLogID(req.LogID); err != nil {
+		return issue.LogEntry{}, err
+	}
+	return r.issues.ReadLogEntry(ctx, req)
 }
 
 // GetResultRequest identifies the issue whose durable result should be read.

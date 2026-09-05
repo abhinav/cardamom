@@ -350,29 +350,6 @@ func (r *Repository) ListLogEntries(ctx context.Context, request issue.LogListRe
 		limit = int64(request.Limit)
 	}
 	out = make([]issue.LogEntry, 0)
-	appendEntry := func(
-		logID, issueID, kind string,
-		author, committer *string,
-		body string,
-		nextAction *string,
-		created *time.Time,
-	) error {
-		parsed, err := issue.NewLogID(logID)
-		if err != nil {
-			return err
-		}
-		parsedKind, err := issue.NewLogEntryKind(kind)
-		if err != nil {
-			return err
-		}
-		out = append(out, issue.LogEntry{
-			ID: parsed, IssueID: issueID, Kind: parsedKind.String(),
-			Author: author, Committer: committer, Body: body,
-			NextAction: nextAction,
-			Created:    optionalUnixTime(created),
-		})
-		return nil
-	}
 	queries := query.New(view)
 	if request.Reverse {
 		rows, err := queries.BoardListIssueLogEntriesDescending(
@@ -385,7 +362,7 @@ func (r *Repository) ListLogEntries(ctx context.Context, request issue.LogListRe
 			return nil, err
 		}
 		for _, row := range rows {
-			if err := appendEntry(
+			entry, err := newIssueLogEntry(
 				row.ID,
 				row.IssueID,
 				row.Kind,
@@ -394,9 +371,11 @@ func (r *Repository) ListLogEntries(ctx context.Context, request issue.LogListRe
 				row.Body,
 				row.NextAction,
 				row.CreatedAt,
-			); err != nil {
+			)
+			if err != nil {
 				return nil, err
 			}
+			out = append(out, entry)
 		}
 		return out, nil
 	}
@@ -410,7 +389,7 @@ func (r *Repository) ListLogEntries(ctx context.Context, request issue.LogListRe
 		return nil, err
 	}
 	for _, row := range rows {
-		if err := appendEntry(
+		entry, err := newIssueLogEntry(
 			row.ID,
 			row.IssueID,
 			row.Kind,
@@ -419,11 +398,75 @@ func (r *Repository) ListLogEntries(ctx context.Context, request issue.LogListRe
 			row.Body,
 			row.NextAction,
 			row.CreatedAt,
-		); err != nil {
+		)
+		if err != nil {
 			return nil, err
 		}
+		out = append(out, entry)
 	}
 	return out, nil
+}
+
+// ReadLogEntry reads one immutable Log entry by its stable ID.
+func (r *Repository) ReadLogEntry(
+	ctx context.Context,
+	request record.GetLogEntryRequest,
+) (out issue.LogEntry, err error) {
+	view, err := r.store.View(ctx)
+	if err != nil {
+		return out, err
+	}
+	defer func() { err = errors.Join(err, view.Done()) }()
+	logID, err := issue.NewLogID(request.LogID)
+	if err != nil {
+		return out, err
+	}
+	row, err := query.New(view).BoardReadIssueLogEntry(
+		ctx,
+		query.BoardReadIssueLogEntryParams{
+			BoardID: r.boardID.String(),
+			LogID:   logID.String(),
+		},
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return out, errkind.Errorf(errkind.NotFound, "log entry not found: %s", logID)
+	}
+	if err != nil {
+		return out, err
+	}
+	return newIssueLogEntry(
+		row.ID,
+		row.IssueID,
+		row.Kind,
+		row.Author,
+		row.Committer,
+		row.Body,
+		row.NextAction,
+		row.CreatedAt,
+	)
+}
+
+func newIssueLogEntry(
+	logID, issueID, kind string,
+	author, committer *string,
+	body string,
+	nextAction *string,
+	created *time.Time,
+) (issue.LogEntry, error) {
+	parsed, err := issue.NewLogID(logID)
+	if err != nil {
+		return issue.LogEntry{}, err
+	}
+	parsedKind, err := issue.NewLogEntryKind(kind)
+	if err != nil {
+		return issue.LogEntry{}, err
+	}
+	return issue.LogEntry{
+		ID: parsed, IssueID: issueID, Kind: parsedKind.String(),
+		Author: author, Committer: committer, Body: body,
+		NextAction: nextAction,
+		Created:    optionalUnixTime(created),
+	}, nil
 }
 
 func optionalActorString(actor issue.Actor) *string {

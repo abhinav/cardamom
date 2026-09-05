@@ -68,6 +68,9 @@ and identify a material unresolved question when the gap affects evaluation.
 
 Name each record `YYYY-MM-DD-slug.md`.
 Use the decision date and a short lowercase slug that identifies the decision.
+When several records share a decision date and their sequence matters,
+the slug may start with a two-digit sequence,
+as in `YYYY-MM-DD-01-slug.md` and `YYYY-MM-DD-02-slug.md`.
 Start with one level-one heading for the title,
 then put `Date` and `Status` on plain metadata lines.
 The date must match the filename.

@@ -48,6 +48,9 @@ exec card --store $WORK/destination --board Source --json state show src-2
 cmpjson stdout $WORK/golden/copied-state.json
 exec card --store $WORK/destination --board Source log show src-2
 stdout 'Log for %src-2\.'
+exec card --store $WORK/destination --board Source search 'Result for'
+stdout '^1 match$'
+stdout 'src-2 +waiting +result'
 
 # Every portable value is an explicit board override in the destination.
 exec card --store $WORK/destination --board Source config show --scope board

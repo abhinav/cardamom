@@ -45,6 +45,9 @@ Use at your own risk.
   Agents record decisions with Cardamom as they work.
   If an agent is lost, another agent can replay the history
   and end up roughly where the lost agent left off.
+- **Full-text issue discovery**:
+  Ranked board search spans issue plans, progress, outcomes, and Log history,
+  with filters and excerpts that lead to focused follow-up reads.
 - **Multiple sub-agents or processes**:
   Cardamom supports coordination of work across
   multiple sub-agents in the same process,

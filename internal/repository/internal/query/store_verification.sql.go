@@ -9,6 +9,16 @@ import (
 	"context"
 )
 
+const storeCheckIssueSearchIndex = `-- name: StoreCheckIssueSearchIndex :exec
+INSERT INTO issue_search_fts(issue_search_fts, rank)
+VALUES ('integrity-check', 1)
+`
+
+func (q *Queries) StoreCheckIssueSearchIndex(ctx context.Context) error {
+	_, err := q.db.ExecContext(ctx, storeCheckIssueSearchIndex)
+	return err
+}
+
 const storeCountInvalidClaims = `-- name: StoreCountInvalidClaims :one
 SELECT count(*)
 FROM active_claims AS claim
@@ -22,6 +32,84 @@ func (q *Queries) StoreCountInvalidClaims(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const storeCountInvalidIssueSearchDocuments = `-- name: StoreCountInvalidIssueSearchDocuments :one
+WITH expected AS (
+    SELECT
+        board_id AS board_id,
+        id AS issue_id,
+        CAST('title' AS TEXT) AS field,
+        CAST('' AS TEXT) AS record_id,
+        title AS body
+    FROM issues
+    UNION ALL
+    SELECT board_id, id, 'summary', '', summary
+    FROM issues
+    WHERE summary IS NOT NULL
+    UNION ALL
+    SELECT board_id, id, 'details', '', details
+    FROM issues
+    WHERE details IS NOT NULL
+    UNION ALL
+    SELECT
+        board_id,
+        issue_id,
+        'state',
+        '',
+        body || CASE
+            WHEN next_action IS NULL THEN ''
+            ELSE char(10) || char(10) || next_action
+        END
+    FROM issue_states
+    UNION ALL
+    SELECT board_id, issue_id, 'result', '', body
+    FROM issue_results
+    UNION ALL
+    SELECT
+        board_id,
+        issue_id,
+        'log',
+        id,
+        body || CASE
+            WHEN next_action IS NULL THEN ''
+            ELSE char(10) || char(10) || next_action
+        END
+    FROM issue_log_entries
+)
+SELECT
+    (
+        SELECT count(*)
+        FROM expected
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM issue_search_documents AS document
+            WHERE document.board_id = expected.board_id
+                AND document.issue_id = expected.issue_id
+                AND document.field = expected.field
+                AND document.record_id = expected.record_id
+                AND document.body = expected.body
+        )
+    ) + (
+        SELECT count(*)
+        FROM issue_search_documents AS document
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM expected
+            WHERE expected.board_id = document.board_id
+                AND expected.issue_id = document.issue_id
+                AND expected.field = document.field
+                AND expected.record_id = document.record_id
+                AND expected.body = document.body
+        )
+    )
+`
+
+func (q *Queries) StoreCountInvalidIssueSearchDocuments(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, storeCountInvalidIssueSearchDocuments)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const storeCountInvalidProjectionRevisions = `-- name: StoreCountInvalidProjectionRevisions :one

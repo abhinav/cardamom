@@ -376,6 +376,45 @@ func (c *MockReaderReadIssueCall) DoAndReturn(f func(context.Context, issue.Read
 	return c
 }
 
+// ReadLogEntry mocks base method.
+func (m *MockReader) ReadLogEntry(arg0 context.Context, arg1 GetLogEntryRequest) (issue.LogEntry, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "ReadLogEntry", arg0, arg1)
+	ret0, _ := ret[0].(issue.LogEntry)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// ReadLogEntry indicates an expected call of ReadLogEntry.
+func (mr *MockReaderMockRecorder) ReadLogEntry(arg0, arg1 any) *MockReaderReadLogEntryCall {
+	mr.mock.ctrl.T.Helper()
+	call := mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "ReadLogEntry", reflect.TypeOf((*MockReader)(nil).ReadLogEntry), arg0, arg1)
+	return &MockReaderReadLogEntryCall{Call: call}
+}
+
+// MockReaderReadLogEntryCall wrap *gomock.Call
+type MockReaderReadLogEntryCall struct {
+	*gomock.Call
+}
+
+// Return rewrite *gomock.Call.Return
+func (c *MockReaderReadLogEntryCall) Return(arg0 issue.LogEntry, arg1 error) *MockReaderReadLogEntryCall {
+	c.Call = c.Call.Return(arg0, arg1)
+	return c
+}
+
+// Do rewrite *gomock.Call.Do
+func (c *MockReaderReadLogEntryCall) Do(f func(context.Context, GetLogEntryRequest) (issue.LogEntry, error)) *MockReaderReadLogEntryCall {
+	c.Call = c.Call.Do(f)
+	return c
+}
+
+// DoAndReturn rewrite *gomock.Call.DoAndReturn
+func (c *MockReaderReadLogEntryCall) DoAndReturn(f func(context.Context, GetLogEntryRequest) (issue.LogEntry, error)) *MockReaderReadLogEntryCall {
+	c.Call = c.Call.DoAndReturn(f)
+	return c
+}
+
 // ReadResult mocks base method.
 func (m *MockReader) ReadResult(arg0 context.Context, arg1 issue.ResultRequest) (issue.Result, error) {
 	m.ctrl.T.Helper()

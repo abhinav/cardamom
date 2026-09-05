@@ -44,7 +44,7 @@ exec card create 'Updated prefix'
 stdout '^new-[a-z2-7]+$'
 
 -- golden/no-config-init.json --
-{"dir":".cardamom","id_prefix":"local-","id_strategy":"random","schema_version":20260812120000,"config_written":false,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"no-config","board_created":true,"board_id":"board_00000000000000000000","board_name":"no-config","already_initialized":false}
+{"dir":".cardamom","id_prefix":"local-","id_strategy":"random","schema_version":20260904120000,"config_written":false,"db_written":true,"project_created":true,"project_id":"project_00000000000000000000","project_name":"no-config","board_created":true,"board_id":"board_00000000000000000000","board_name":"no-config","already_initialized":false}
 -- golden/exclude --
 existing-pattern
 .cardamom/board.sqlite3*
@@ -55,4 +55,4 @@ issue:
   id:
     prefix: existing-
 -- golden/retained-init.json --
-{"dir":".cardamom","id_prefix":"new-","id_strategy":"random","schema_version":20260812120000,"config_written":false,"db_written":false,"project_created":false,"project_id":null,"project_name":null,"board_created":false,"board_id":null,"board_name":null,"already_initialized":true}
+{"dir":".cardamom","id_prefix":"new-","id_strategy":"random","schema_version":20260904120000,"config_written":false,"db_written":false,"project_created":false,"project_id":null,"project_name":null,"board_created":false,"board_id":null,"board_name":null,"already_initialized":true}

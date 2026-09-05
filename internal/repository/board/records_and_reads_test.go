@@ -65,6 +65,11 @@ func TestRepositoryPersistsRecordsAndCompletionValues(t *testing.T) {
 		Author: new("engineer"), Committer: new("engineer"),
 		Body: "Second observation.", Created: new(int64(1_700_000_000)),
 	}}, entries)
+	selected, err := repository.ReadLogEntry(t.Context(), record.GetLogEntryRequest{
+		LogID: second.LogEntry.ID.String(),
+	})
+	require.NoError(t, err)
+	assert.Equal(t, entries[0], selected)
 
 	result, err := repository.ReadResult(t.Context(), issue.ResultRequest{IssueID: "record-1"})
 	require.NoError(t, err)
@@ -84,6 +89,51 @@ func TestRepositoryPersistsRecordsAndCompletionValues(t *testing.T) {
 	actors, err := repository.ListActors(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, []string{"captain", "engineer"}, actors)
+}
+
+func TestRepositoryReadsHistoricalLogIdentity(t *testing.T) {
+	repository := openBoardRepository(t, Config{
+		BoardID: mustBoardID(t, "board-test"), IDPrefix: "record-",
+		IDStrategy: "sequential",
+	})
+	planner := planning.NewPlanner(repository, repository, nil)
+	_, err := planner.CreateIssue(
+		t.Context(),
+		issue.NewInvocation("captain"),
+		planning.CreateIssueRequest{
+			Title: "Imported issue", Type: "task", Priority: 2,
+		},
+	)
+	require.NoError(t, err)
+
+	change, err := repository.store.Change(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, change.Done()) }()
+	_, err = change.ExecContext(t.Context(), `
+INSERT INTO issue_log_entries(
+    id, board_id, issue_id, kind, author, committer, body, created_at
+) VALUES (
+    'cmt_11111111111111111111111111111111',
+    'board-test',
+    'record-1',
+    'post',
+    'importer',
+    'importer',
+    'Historical record.',
+    1700000000
+)`)
+	require.NoError(t, err)
+	require.NoError(t, change.Commit())
+
+	entry, err := repository.ReadLogEntry(t.Context(), record.GetLogEntryRequest{
+		LogID: "cmt_11111111111111111111111111111111",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, issue.LogEntry{
+		ID: "cmt_11111111111111111111111111111111", IssueID: "record-1",
+		Kind: "post", Author: new("importer"), Committer: new("importer"),
+		Body: "Historical record.", Created: new(int64(1_700_000_000)),
+	}, entry)
 }
 
 func TestRepositoryCommitsEachMaterialStateVersionOnce(t *testing.T) {
