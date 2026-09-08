@@ -96,7 +96,8 @@ func (r *Repository) filterIssueSummaries(
 	return out, total
 }
 
-// ListReadyIssues reads executable work without unresolved prerequisites.
+// ListReadyIssues reads claimable executable issues followed by requested
+// waiting executable issues.
 func (r *Repository) ListReadyIssues(ctx context.Context, request issue.ListReadyRequest) (out []issue.Summary, err error) {
 	view, err := r.store.View(ctx)
 	if err != nil {
@@ -108,6 +109,7 @@ func (r *Repository) ListReadyIssues(ctx context.Context, request issue.ListRead
 		return nil, err
 	}
 	ready := make([]issue.Summary, 0)
+	waiting := make([]issue.Summary, 0)
 	for _, value := range values {
 		eligibility, err := execution.EvaluateEligibility(value)
 		if err != nil {
@@ -115,12 +117,18 @@ func (r *Repository) ListReadyIssues(ctx context.Context, request issue.ListRead
 		}
 		if eligibility.ReadyForClaim() {
 			ready = append(ready, value)
+		} else if request.Mode == issue.ReadyListClaimableAndWaiting &&
+			eligibility.WaitingForContinuation() {
+			waiting = append(waiting, value)
 		}
 	}
 	if request.Limit > 0 && len(ready) > request.Limit {
 		ready = ready[:request.Limit]
 	}
-	return ready, nil
+	if request.Limit > 0 && len(waiting) > request.Limit {
+		waiting = waiting[:request.Limit]
+	}
+	return append(ready, waiting...), nil
 }
 
 // ListBlockedIssues reads open non-routine issues with unresolved prerequisites.

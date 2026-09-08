@@ -1,0 +1,31 @@
+exec git init -b main
+at 2026-09-07T12:00:00Z
+exec card init --prefix ready-
+exec card config set --scope store issue.id.strategy sequential
+
+exec card create --priority 1 'Claimable work'
+cmp stdout $WORK/golden/claimable.txt
+exec card create --priority 0 'Waiting work'
+cmp stdout $WORK/golden/waiting.txt
+exec card --actor worker claim ready-2
+exec card --actor worker release ready-2 --waiting 'independent acceptance'
+
+# The ready view keeps waiting work visible with its reason.
+exec card ready
+cmp stdout $WORK/golden/all.txt
+
+# Callers may request the strictly claimable pool.
+exec card ready --no-waiting
+cmp stdout $WORK/golden/claimable-only.txt
+
+-- golden/claimable.txt --
+ready-1
+-- golden/waiting.txt --
+ready-2
+-- golden/all.txt --
+ID       PRI  STATUS   TYPE  TITLE           WAITING FOR
+ready-1  1    ready    task  Claimable work  -
+ready-2  0    waiting  task  Waiting work    independent acceptance
+-- golden/claimable-only.txt --
+ID       PRI  STATUS  TYPE  TITLE
+ready-1  1    ready   task  Claimable work

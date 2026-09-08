@@ -119,7 +119,7 @@ func TestReadyAndBlockedCommandsPassDomainLimits(t *testing.T) {
 	readyOperation := NewMockListReadyIssuesOperation(gomock.NewController(t))
 	readyOperation.EXPECT().ListReadyIssues(
 		gomock.Any(),
-		issue.ListReadyRequest{Limit: 7},
+		issue.ListReadyRequest{Mode: issue.ReadyListClaimableAndWaiting, Limit: 7},
 	).Return(nil, nil)
 	app := newInspectionApplication(
 		t,
@@ -128,7 +128,7 @@ func TestReadyAndBlockedCommandsPassDomainLimits(t *testing.T) {
 	)
 
 	assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"ready", "--limit", "7"}))
-	assert.Equal(t, "ID  PRI  STATUS  TYPE  TITLE\n", readyOut.String())
+	assert.Equal(t, "ID  PRI  STATUS  TYPE  TITLE  WAITING FOR\n", readyOut.String())
 	assert.Empty(t, readyErr.String())
 
 	var blockedOut, blockedErr bytes.Buffer
@@ -145,6 +145,26 @@ func TestReadyAndBlockedCommandsPassDomainLimits(t *testing.T) {
 	assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"blocked", "--limit", "8"}))
 	assert.Equal(t, "ID  PRI  STATUS  TYPE  TITLE\n", blockedOut.String())
 	assert.Empty(t, blockedErr.String())
+}
+
+func TestReadyCommandCanExcludeWaitingIssues(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	operation := NewMockListReadyIssuesOperation(gomock.NewController(t))
+	operation.EXPECT().ListReadyIssues(
+		gomock.Any(),
+		issue.ListReadyRequest{Limit: 20},
+	).Return(nil, nil)
+	app := newInspectionApplication(
+		t,
+		testConfig(&stdout, &stderr),
+		kong.BindTo(operation, (*ListReadyIssuesOperation)(nil)),
+	)
+
+	exitCode := app.Run(t.Context(), []string{"ready", "--no-waiting"})
+
+	assert.Equal(t, ExitSuccess, exitCode)
+	assert.Equal(t, "ID  PRI  STATUS  TYPE  TITLE\n", stdout.String())
+	assert.Empty(t, stderr.String())
 }
 
 func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {

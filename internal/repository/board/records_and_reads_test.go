@@ -554,6 +554,11 @@ func TestRepositoryReadsReadyBlockedAndActionableCheckpoints(t *testing.T) {
 	ready, err := repository.ListReadyIssues(t.Context(), issue.ListReadyRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"pool-1"}, summaryIDs(ready))
+	readyAndWaiting, err := repository.ListReadyIssues(t.Context(), issue.ListReadyRequest{
+		Mode: issue.ReadyListClaimableAndWaiting,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, []string{"pool-1", "pool-6"}, summaryIDs(readyAndWaiting))
 	blocked, err := repository.ListBlockedIssues(t.Context(), issue.ListBlockedRequest{})
 	require.NoError(t, err)
 	assert.Equal(t, []string{"pool-4", "pool-2"}, summaryIDs(blocked))

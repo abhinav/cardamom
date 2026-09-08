@@ -50,7 +50,8 @@ type IssueReader interface {
 	// ReadIssue returns one issue view from the Executor's board.
 	ReadIssue(context.Context, issue.ReadRequest) (issue.View, error)
 
-	// ListReadyIssues returns claimable executable issues in domain order.
+	// ListReadyIssues returns claimable executable issues followed by requested
+	// waiting executable issues in domain order.
 	ListReadyIssues(context.Context, issue.ListReadyRequest) ([]issue.Summary, error)
 
 	// ListBlockedIssues returns unfinished issues with unresolved prerequisites.
@@ -85,7 +86,8 @@ func (e *Executor) readIssue(
 	})
 }
 
-// ListReadyIssues returns claimable executable issues in domain order.
+// ListReadyIssues returns claimable executable issues followed by requested
+// waiting executable issues in domain order.
 func (e *Executor) ListReadyIssues(
 	ctx context.Context,
 	req issue.ListReadyRequest,

@@ -87,16 +87,17 @@ func (c *listCommand) Run(inv *Invocation, operation ListIssuesOperation) error 
 }
 
 type readyCommand struct {
-	Limit int `name:"limit" default:"20" placeholder:"COUNT" help:"Maximum results; must be positive. Defaults to 20."`
+	Limit     int  `name:"limit" default:"20" placeholder:"COUNT" help:"Maximum results per status; must be positive. Defaults to 20."`
+	NoWaiting bool `name:"no-waiting" help:"Exclude waiting issues."`
 }
 
 func (*readyCommand) Help() string {
-	return "List ready executable issues whose prerequisites are closed."
+	return "List claimable issues and waiting issues that may be ready to resume. Waiting rows include their reason."
 }
 
-// ListReadyIssuesOperation selects executable issues without blockers.
+// ListReadyIssuesOperation selects claimable and requested waiting issues.
 type ListReadyIssuesOperation interface {
-	// ListReadyIssues returns ready issues in claim order.
+	// ListReadyIssues returns ready and requested waiting issues in domain order.
 	ListReadyIssues(context.Context, issue.ListReadyRequest) ([]issue.Summary, error)
 }
 
@@ -104,11 +105,50 @@ func (c *readyCommand) Run(inv *Invocation, operation ListReadyIssuesOperation) 
 	if c.Limit <= 0 {
 		return UsageErrorf("--limit must be positive")
 	}
-	result, err := operation.ListReadyIssues(inv.Context, issue.ListReadyRequest{Limit: c.Limit})
+	mode := issue.ReadyListClaimableAndWaiting
+	if c.NoWaiting {
+		mode = issue.ReadyListClaimable
+	}
+	result, err := operation.ListReadyIssues(inv.Context, issue.ListReadyRequest{
+		Mode:  mode,
+		Limit: c.Limit,
+	})
 	if err != nil {
 		return err
 	}
-	return renderIssueSummaries(inv.Output, result)
+	if c.NoWaiting {
+		return renderIssueSummaries(inv.Output, result)
+	}
+	return renderReadyIssueSummaries(inv.Output, result)
+}
+
+func renderReadyIssueSummaries(output *Output, summaries []issue.Summary) error {
+	if output.JSON() {
+		return renderIssueSummaries(output, summaries)
+	}
+
+	writer := tabwriter.NewWriter(output.Stdout(), 0, 4, 2, ' ', 0)
+	if _, err := fmt.Fprintln(writer, "ID\tPRI\tSTATUS\tTYPE\tTITLE\tWAITING FOR"); err != nil {
+		return fmt.Errorf("write ready issue list header: %w", err)
+	}
+	for _, summary := range summaries {
+		waitingReason := "-"
+		if summary.Issue.Waiting != nil {
+			waitingReason = summary.Issue.Waiting.Reason
+		}
+		if _, err := fmt.Fprintf(
+			writer, "%s\t%d\t%s\t%s\t%s\t%s\n",
+			summary.Issue.ID, summary.Issue.Priority, summary.Issue.Status,
+			summary.Issue.Type, singleLine(summary.Issue.Title),
+			singleLine(waitingReason),
+		); err != nil {
+			return fmt.Errorf("write ready issue list: %w", err)
+		}
+	}
+	if err := writer.Flush(); err != nil {
+		return fmt.Errorf("flush ready issue list: %w", err)
+	}
+	return nil
 }
 
 type blockedCommand struct {

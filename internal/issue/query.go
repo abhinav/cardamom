@@ -115,7 +115,8 @@ type Reader interface {
 	ViewReader
 	// ListIssues reads issue summaries from one coherent board snapshot.
 	ListIssues(context.Context, ListRequest) ([]Summary, error)
-	// ListReadyIssues reads ready non-routine issues from one coherent board snapshot.
+	// ListReadyIssues reads claimable executable issues followed by requested
+	// waiting executable issues from one coherent board snapshot.
 	ListReadyIssues(context.Context, ListReadyRequest) ([]Summary, error)
 	// ListBlockedIssues reads blocked non-routine issues from one coherent board snapshot.
 	ListBlockedIssues(context.Context, ListBlockedRequest) ([]Summary, error)
@@ -202,8 +203,26 @@ type ListSnapshot struct {
 	Cursor ChangeCursor
 }
 
-// ListReadyRequest limits ready issue results.
-type ListReadyRequest struct{ Limit int }
+// ReadyListMode selects whether a ready-issue query also returns waiting work.
+type ReadyListMode uint8
+
+const (
+	// ReadyListClaimable returns only issues eligible for automatic claim.
+	ReadyListClaimable ReadyListMode = iota
+
+	// ReadyListClaimableAndWaiting appends waiting issues after claimable issues.
+	ReadyListClaimableAndWaiting
+)
+
+// ListReadyRequest selects ready issue results.
+type ListReadyRequest struct {
+	// Mode selects whether waiting issues follow the claimable issues.
+	Mode ReadyListMode
+
+	// Limit applies independently to the ready and waiting groups.
+	// Zero returns every issue in each requested group.
+	Limit int
+}
 
 // ListBlockedRequest limits blocked issue results.
 type ListBlockedRequest struct{ Limit int }

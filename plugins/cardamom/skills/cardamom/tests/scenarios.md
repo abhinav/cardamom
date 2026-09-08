@@ -2023,3 +2023,32 @@ Show the initial search command without consulting command help.
 - Runs `card search --help` before composing the basic query.
 - Uses explicit `AND` instead of adjacency.
 - Loses the phrase, alternative, exclusion, or grouping semantics.
+
+## 35 Reconsider waiting work during selection
+
+### Prompt
+
+Use the skill at `{SKILL_PATH}`.
+
+A selected Cardamom board contains ordinary claimable work and work that was
+released waiting for an external condition.
+The condition may now be satisfied,
+but the user did not supply either issue ID.
+
+Give the first Cardamom command used to discover work needing attention and
+explain what its output includes.
+Do not execute commands or modify files.
+
+### Expected behavior
+
+- Uses `card --actor <actor> ready`.
+- Explains that the result includes claimable and waiting issues.
+- Uses the waiting reason to explain why deferred work remains visible for
+  reconsideration.
+
+### Unacceptable behavior
+
+- Assumes the ready view contains only automatically claimable work.
+- Uses a separate search or broad list solely to discover waiting work.
+- Treats appearance in the ready view as proof that a waiting condition has
+  been satisfied.
