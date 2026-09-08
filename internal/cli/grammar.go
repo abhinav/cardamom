@@ -29,7 +29,7 @@ type commandTree struct {
 
 	List    listCommand    `cmd:"" group:"inspection" help:"List issues."`
 	Search  searchCommand  `cmd:"" group:"inspection" help:"Search issue text."`
-	Ready   readyCommand   `cmd:"" group:"inspection" help:"List issues that are ready to work on."`
+	Ready   readyCommand   `cmd:"" group:"inspection" help:"List ready and waiting work."`
 	Blocked blockedCommand `cmd:"" group:"inspection" help:"List issues with open dependencies."`
 	Show    showCommand    `cmd:"" group:"inspection" help:"Show details for one issue."`
 	Dump    dumpCommand    `cmd:"" group:"inspection" help:"Publish a human-readable Markdown dump."`

@@ -16,6 +16,7 @@ const (
 	eligibilityExcluded eligibilityState = iota
 	eligibilityBlocked
 	eligibilityAvailable
+	eligibilityWaiting
 )
 
 // EvaluateEligibility classifies one issue summary for execution pools.
@@ -30,7 +31,11 @@ func EvaluateEligibility(summary issue.Summary) (Eligibility, error) {
 	}
 	eligibility := Eligibility{kind: kind}
 	if lifecycle != issue.LifecycleOpen || summary.Issue.ActiveClaim != nil ||
-		summary.Issue.Waiting != nil || kind == issue.KindRoutine {
+		kind == issue.KindRoutine {
+		return eligibility, nil
+	}
+	if summary.Issue.Waiting != nil {
+		eligibility.state = eligibilityWaiting
 		return eligibility, nil
 	}
 	if summary.Blocked {
@@ -44,6 +49,12 @@ func EvaluateEligibility(summary issue.Summary) (Eligibility, error) {
 // ReadyForClaim reports whether an issue belongs in the unclaimed work pool.
 func (e Eligibility) ReadyForClaim() bool {
 	return e.state == eligibilityAvailable && e.kind.Executable()
+}
+
+// WaitingForContinuation reports whether an executable issue is waiting for
+// its reason to be reconsidered before work continues.
+func (e Eligibility) WaitingForContinuation() bool {
+	return e.state == eligibilityWaiting && e.kind.Executable()
 }
 
 // Blocked reports whether unresolved prerequisites prevent an otherwise

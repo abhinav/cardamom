@@ -57,6 +57,7 @@ Attachments: -
 {"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"waiting","priority":1,"active_claim":null,"waiting":{"reason":"Awaiting root review","since":1783857600},"created":1783857600,"updated":1783857600,"revision":5,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null}
 -- golden/ready-pool.jsonl --
 {"id":"claim-2","title":"Ready pool work","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783857600,"updated":1783857600,"revision":3,"labels":[],"blocked":false}
+{"id":"claim-1","title":"Waiting handoff","type":"task","lifecycle":"open","status":"waiting","priority":1,"active_claim":null,"created":1783857600,"updated":1783857600,"waiting":{"reason":"Awaiting root review","since":1783857600},"revision":5,"labels":[],"blocked":false}
 -- golden/pool-claim.txt --
 Claimed claim-2 as pool.
 Issue claim-2

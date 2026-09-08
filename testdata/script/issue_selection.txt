@@ -69,8 +69,8 @@ ID     PRI  STATUS  TYPE        TITLE
 sel-1  0    ready   workstream  Program
 sel-3  2    ready   task        Independent task
 -- golden/ready.txt --
-ID     PRI  STATUS  TYPE        TITLE
-sel-1  0    ready   workstream  Program
+ID     PRI  STATUS  TYPE        TITLE    WAITING FOR
+sel-1  0    ready   workstream  Program  -
 -- golden/ready-limit-error.txt --
 error: --limit must be positive
 -- golden/blocked.txt --

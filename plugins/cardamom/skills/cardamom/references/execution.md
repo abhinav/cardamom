@@ -24,6 +24,12 @@ or contradicted.
 
 ## Establish custody and a usable contract
 
+When selecting work,
+`card --actor <actor> ready` lists claimable issues and waiting issues with
+their reasons.
+Including waiting work keeps deferred issues visible when their continuation
+may have become possible.
+
 Claim selected unclaimed work by ID and receive its assembled context:
 
 ```bash

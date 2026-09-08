@@ -17,6 +17,7 @@ func TestEligibility(t *testing.T) {
 		issue      issue.Issue
 		blocked    bool
 		ready      bool
+		waiting    bool
 		isBlocked  bool
 		checkpoint bool
 	}{
@@ -27,10 +28,11 @@ func TestEligibility(t *testing.T) {
 		{name: "Closed", issue: eligibilityIssue("task", "closed")},
 		{name: "Cancelled", issue: eligibilityIssue("task", "cancelled")},
 		{name: "Claimed", issue: issue.Issue{Type: "task", Lifecycle: "open", ActiveClaim: claimed}},
-		{name: "Waiting", issue: issue.Issue{Type: "task", Lifecycle: "open", Waiting: waiting}},
+		{name: "Waiting", issue: issue.Issue{Type: "task", Lifecycle: "open", Waiting: waiting}, waiting: true},
+		{name: "WaitingRoutine", issue: issue.Issue{Type: "routine", Lifecycle: "open", Waiting: waiting}},
 		{name: "BlockedTask", issue: eligibilityIssue("task", "open"), blocked: true, isBlocked: true},
 		{name: "BlockedCheckpoint", issue: eligibilityIssue("checkpoint", "open"), blocked: true, isBlocked: true},
-		{name: "WaitingBlockedTask", issue: issue.Issue{Type: "task", Lifecycle: "open", Waiting: waiting}, blocked: true},
+		{name: "WaitingBlockedTask", issue: issue.Issue{Type: "task", Lifecycle: "open", Waiting: waiting}, blocked: true, waiting: true},
 		{name: "BlockedRoutine", issue: eligibilityIssue("routine", "open"), blocked: true},
 	}
 	for _, tt := range tests {
@@ -40,6 +42,7 @@ func TestEligibility(t *testing.T) {
 			})
 			require.NoError(t, err)
 			assert.Equal(t, tt.ready, eligibility.ReadyForClaim())
+			assert.Equal(t, tt.waiting, eligibility.WaitingForContinuation())
 			assert.Equal(t, tt.isBlocked, eligibility.Blocked())
 			assert.Equal(t, tt.checkpoint, eligibility.ActionableCheckpoint())
 		})
