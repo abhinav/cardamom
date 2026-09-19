@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	boardpkg "go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/errkind"
@@ -32,7 +33,10 @@ type CopyRepositoryConfig struct {
 	Entropy io.Reader
 }
 
-// CopyRepository owns atomic destination metadata publication for board copy.
+// CopyRepository owns atomic publication for independent board duplication.
+// Copy and restore imports assign new logical board, writer, and issue
+// identities. Synchronization clone and file-remote recovery must use a
+// separate operation that preserves logical board and issue identities.
 type CopyRepository struct {
 	store   *store.Store
 	clock   Clock
@@ -148,7 +152,15 @@ func (r *CopyRepository) importCopyRecords(
 		)
 	}
 
-	boardID, err := r.allocateCopyBoardID(ctx, queries, index.Header.Board.ID)
+	boardID, err := r.allocateCopyBoardID(
+		ctx,
+		queries,
+		index.Header.Board.ID,
+	)
+	if err != nil {
+		return result, err
+	}
+	writerUID, err := boardpkg.GenerateWriterUID(r.entropy)
 	if err != nil {
 		return result, err
 	}
@@ -185,7 +197,7 @@ func (r *CopyRepository) importCopyRecords(
 	logIDs := mappingIndex(logMappings)
 	importer := copyRecordImporter{
 		ctx: ctx, queries: queries, projectID: options.ProjectID,
-		name: name, boardID: boardID,
+		name: name, boardID: boardID, writerUID: writerUID,
 		issueIDs: issueIDs, issueUIDs: issueUIDs, logIDs: logIDs,
 		rewrite:       copyReferenceRewriter(issueIDs, logIDs),
 		firstRevision: revisions.FirstRevision(),
@@ -400,13 +412,6 @@ func (r *CopyRepository) allocateCopyBoardID(
 	queries *query.Queries,
 	sourceID string,
 ) (string, error) {
-	exists, err := queries.ProjectCopyBoardIDExists(ctx, sourceID)
-	if err != nil {
-		return "", fmt.Errorf("inspect destination board identity: %w", err)
-	}
-	if !exists {
-		return sourceID, nil
-	}
 	for range 32 {
 		var body [16]byte
 		if _, err := io.ReadFull(r.entropy, body[:]); err != nil {
@@ -414,6 +419,9 @@ func (r *CopyRepository) allocateCopyBoardID(
 		}
 		digest := sha256.Sum256(body[:])
 		candidate := "board_" + hex.EncodeToString(digest[:10])
+		if candidate == sourceID {
+			continue
+		}
 		exists, err := queries.ProjectCopyBoardIDExists(ctx, candidate)
 		if err != nil {
 			return "", fmt.Errorf("inspect destination board identity: %w", err)

@@ -36,6 +36,11 @@ func TestRepositoryBeginAndStatusUpload(t *testing.T) {
 		VALUES ('board-test', 'project-test', 'Test board', 1700000000)
 	`)
 	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+		INSERT INTO board_replica_identities (board_id, writer_uid)
+		VALUES ('board-test', X'01010101010101010101010101010101')
+	`)
+	require.NoError(t, err)
 	require.NoError(t, change.Commit())
 
 	repository, err := New(persistence, Config{
@@ -201,6 +206,11 @@ func openUploadFixture(t *testing.T, entropy []byte) *uploadFixture {
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO boards (id, project_id, name, created_at)
 		VALUES ('board-test', 'project-test', 'Test board', 1700000000)
+	`)
+	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+		INSERT INTO board_replica_identities (board_id, writer_uid)
+		VALUES ('board-test', X'01010101010101010101010101010101')
 	`)
 	require.NoError(t, err)
 	require.NoError(t, change.Commit())

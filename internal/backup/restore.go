@@ -163,7 +163,9 @@ type RestoreServiceConfig struct {
 	Blobs    boardcopy.CopyBlobDestination // required
 }
 
-// RestoreService loads complete portable backups into an existing store.
+// RestoreService loads complete portable backups as independent board copies.
+// It does not create synchronization replicas or preserve the logical board
+// identity, private writer identity, or private issue identities.
 type RestoreService struct {
 	projects ProjectDestination
 	boards   boardcopy.RecordDestination
@@ -195,7 +197,7 @@ type RestoreResult struct {
 }
 
 // Restore validates destination compatibility before applying one prepared
-// archive, then imports each board as an independently restartable operation.
+// archive, then imports each independent board copy as a restartable operation.
 func (s *RestoreService) Restore(
 	ctx context.Context,
 	prepared *PreparedRestore,

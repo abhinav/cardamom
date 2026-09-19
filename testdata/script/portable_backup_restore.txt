@@ -89,11 +89,11 @@ dest-1
 {"id":"project_00000000000000000000","name":"script-portable_backup_restore","created":1785931200}
 -- golden/destination-boards.jsonl --
 {"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Existing","created":1785931200}
-{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
+{"id":"board_cb9a02f579da3ffa03dc","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
 -- golden/destination-issue.json --
 {"id":"dest-1","title":"Keep local issue","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Destination-only record.","revision":2,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[]}
 -- golden/primary-issue.json --
-{"id":"eng-1","title":"Calibrate shields","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Primary shield calibration.","keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[{"board_id":"board_11111111111111111111","origin_issue_id":"eng-1","filename":"report.txt","media_type":"text/plain; charset=utf-8","digest":"sha256:36ab8473a794b13baf3cd48321f6f589fcf7bfe7781899c73c36e1b2602ed515","size_bytes":41,"lifecycle":"active","availability":"present_unverified","created":{"actor":"test-user","at":"2026-08-05T12:00:00Z"},"removed":null}]}
+{"id":"eng-1","title":"Calibrate shields","type":"task","lifecycle":"open","status":"ready","priority":1,"active_claim":null,"created":1785931200,"updated":1785931200,"summary":"Primary shield calibration.","keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":0,"blocked":false,"parent_id":null,"attachments":[{"board_id":"board_cb9a02f579da3ffa03dc","origin_issue_id":"eng-1","filename":"report.txt","media_type":"text/plain; charset=utf-8","digest":"sha256:36ab8473a794b13baf3cd48321f6f589fcf7bfe7781899c73c36e1b2602ed515","size_bytes":41,"lifecycle":"active","availability":"present_unverified","created":{"actor":"test-user","at":"2026-08-05T12:00:00Z"},"removed":null}]}
 -- golden/attachment-get.txt --
 wrote restored-report.txt (41 bytes)
 -- golden/destination-issues.jsonl --

@@ -78,6 +78,19 @@ func verifyStore(
 		)
 	}
 
+	// Every logical board has one store-local writer before repositories may
+	// append mutations attributed to this replica.
+	boardsWithoutReplicaIdentity, err := queries.StoreCountBoardsWithoutReplicaIdentity(ctx)
+	if err != nil {
+		return fmt.Errorf("verify board replica identities: %w", err)
+	}
+	if boardsWithoutReplicaIdentity != 0 {
+		return fmt.Errorf(
+			"verify board replica identities: found %d boards without identities",
+			boardsWithoutReplicaIdentity,
+		)
+	}
+
 	// Private UIDs identify issue rows across repository-owned references.
 	invalidIssueUIDs, err := queries.StoreCountInvalidIssueUIDs(ctx)
 	if err != nil {

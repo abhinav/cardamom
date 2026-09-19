@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"errors"
@@ -317,7 +318,8 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 	require.NoError(t, err)
 	currentResults, err := current.Up(t.Context())
 	require.NoError(t, err)
-	assert.Empty(t, currentResults)
+	require.Len(t, currentResults, 1)
+	assert.Equal(t, int64(20260916172153), currentResults[0].Source.Version)
 
 	var appliedVersions int
 	require.NoError(t, db.QueryRow(`
@@ -332,13 +334,14 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 				20260811090000,
 				20260812120000,
 				20260904120000,
-				20260909120000
+				20260909120000,
+				20260916172153
 			)
 	`).Scan(&appliedVersions))
-	assert.Equal(t, 8, appliedVersions)
+	assert.Equal(t, 9, appliedVersions)
 }
 
-func TestBoardCopyMigrationPreservesBaselineStore(t *testing.T) {
+func TestStoreMigrationsPreserveBaselineStore(t *testing.T) {
 	db := openMigrationTestDatabase(t)
 	baseline, err := migrationFiles.ReadFile(
 		"migrations/20260726181403_baseline.sql",
@@ -354,32 +357,98 @@ func TestBoardCopyMigrationPreservesBaselineStore(t *testing.T) {
 INSERT INTO projects (id, name, created_at)
 VALUES ('project-existing', 'Existing project', 1000);
 INSERT INTO boards (id, project_id, name, created_at)
-VALUES ('board-existing', 'project-existing', 'Existing board', 1000)`)
+VALUES
+	('board-existing', 'project-existing', 'Existing board', 1000),
+	('board-second', 'project-existing', 'Second board', 1000)`)
 	require.NoError(t, err)
 
 	current, err := newStoreMigrationProvider(db)
 	require.NoError(t, err)
 	results, err := current.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, results, 5)
+	require.Len(t, results, 6)
 	assert.Equal(t, int64(20260729090000), results[0].Source.Version)
 	assert.Equal(t, int64(20260811090000), results[1].Source.Version)
 	assert.Equal(t, int64(20260812120000), results[2].Source.Version)
 	assert.Equal(t, int64(20260904120000), results[3].Source.Version)
 	assert.Equal(t, int64(20260909120000), results[4].Source.Version)
+	assert.Equal(t, int64(20260916172153), results[5].Source.Version)
 
 	var projectName, boardName, lineage string
+	var writerUID []byte
 	require.NoError(t, db.QueryRowContext(t.Context(), `
-SELECT project.name, board.name, lineage.id
+SELECT project.name, board.name, lineage.id, replica.writer_uid
 FROM projects AS project
 JOIN boards AS board ON board.project_id = project.id
+JOIN board_replica_identities AS replica ON replica.board_id = board.id
 CROSS JOIN store_lineage AS lineage
-WHERE project.id = 'project-existing'
+WHERE board.id = 'board-existing'
     AND lineage.singleton = 1`,
-	).Scan(&projectName, &boardName, &lineage))
+	).Scan(&projectName, &boardName, &lineage, &writerUID))
 	assert.Equal(t, "Existing project", projectName)
 	assert.Equal(t, "Existing board", boardName)
 	assert.Regexp(t, `^store_[0-9a-f]{32}$`, lineage)
+	assert.Len(t, writerUID, 16)
+	assert.NotEqual(t, make([]byte, 16), writerUID)
+	var distinctWriterUIDs int
+	require.NoError(t, db.QueryRowContext(t.Context(), `
+SELECT count(DISTINCT hex(writer_uid))
+FROM board_replica_identities
+	`).Scan(&distinctWriterUIDs))
+	assert.Equal(t, 2, distinctWriterUIDs)
+}
+
+func TestBoardReplicaIdentityMigrationRollsBackOnCollision(t *testing.T) {
+	db := openMigrationTestDatabase(t)
+	files := make(fstest.MapFS)
+	for _, name := range []string{
+		"20260726181403_baseline.sql",
+		"20260729090000_board_copy.sql",
+		"20260811090000_board_archival.sql",
+		"20260812120000_board_pins.sql",
+		"20260904120000_issue_search.sql",
+		"20260909120000_issue_uids.sql",
+	} {
+		body, err := migrationFiles.ReadFile("migrations/" + name)
+		require.NoError(t, err)
+		files[name] = &fstest.MapFile{Data: body}
+	}
+	provider, err := newMigrationProvider(db, files)
+	require.NoError(t, err)
+	_, err = provider.Up(t.Context())
+	require.NoError(t, err)
+	_, err = db.ExecContext(t.Context(), `
+INSERT INTO projects (id, name, created_at)
+VALUES ('project', 'Project', 1);
+INSERT INTO boards (id, project_id, name, created_at)
+VALUES ('board-one', 'project', 'One', 1),
+    ('board-two', 'project', 'Two', 1)
+	`)
+	require.NoError(t, err)
+
+	migration, err := migrationFiles.ReadFile(
+		"migrations/20260916172153_board_replica_identities.sql",
+	)
+	require.NoError(t, err)
+	migration = bytes.ReplaceAll(
+		migration,
+		[]byte("randomblob(16)"),
+		[]byte("X'01010101010101010101010101010101'"),
+	)
+	failure, err := newMigrationProvider(db, fstest.MapFS{
+		"20260916172153_board_replica_identities.sql": {Data: migration},
+	})
+	require.NoError(t, err)
+
+	_, err = failure.Up(t.Context())
+	assert.ErrorContains(t, err, "UNIQUE constraint failed")
+	assert.False(t, tableExists(t, db, "board_replica_identities"))
+	var boards int
+	require.NoError(t, db.QueryRow(`SELECT count(*) FROM boards`).Scan(&boards))
+	assert.Equal(t, 2, boards)
+	version, err := failure.GetDBVersion(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, int64(20260909120000), version)
 }
 
 func gooseSQL(statements string) []byte {

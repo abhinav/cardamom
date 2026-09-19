@@ -370,6 +370,11 @@ func addAttachmentBoard(t *testing.T, fixture *uploadFixture, value string) boar
 		VALUES (?, 'project-test', ?, 1700000000)
 	`, boardID, value)
 	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+		INSERT INTO board_replica_identities (board_id, writer_uid)
+		VALUES (?, X'02020202020202020202020202020202')
+	`, boardID)
+	require.NoError(t, err)
 	require.NoError(t, change.Commit())
 	return boardID
 }

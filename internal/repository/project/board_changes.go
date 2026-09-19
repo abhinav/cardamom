@@ -26,6 +26,10 @@ func (r *Repository) CreateBoard(
 	if err != nil {
 		return nil, fmt.Errorf("generate board identity: %w", err)
 	}
+	writerUID, err := board.GenerateWriterUID(r.entropy)
+	if err != nil {
+		return nil, err
+	}
 	state, err := board.Load(board.Snapshot{
 		ID: board.ID(boardID), ProjectID: projectID.String(),
 		Name: request.Name, Description: request.Description, Created: r.clock(),
@@ -48,13 +52,22 @@ func (r *Repository) CreateBoard(
 					state.ProjectID(),
 				)
 			}
-			return queries.ProjectCreateBoard(ctx, query.ProjectCreateBoardParams{
+			if err := queries.ProjectCreateBoard(ctx, query.ProjectCreateBoardParams{
 				ID:          state.ID().String(),
 				ProjectID:   state.ProjectID(),
 				Name:        state.Name(),
 				Description: state.Description(),
 				CreatedAt:   state.Created(),
-			})
+			}); err != nil {
+				return err
+			}
+			return queries.ProjectInsertBoardReplicaIdentity(
+				ctx,
+				query.ProjectInsertBoardReplicaIdentityParams{
+					BoardID:   state.ID().String(),
+					WriterUid: writerUID.Bytes(),
+				},
+			)
 		},
 	)
 	if err != nil {

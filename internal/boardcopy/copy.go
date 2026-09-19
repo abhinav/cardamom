@@ -1,5 +1,8 @@
-// Package boardcopy owns non-destructive semantic board transfer between
-// physical Cardamom stores.
+// Package boardcopy owns independent, non-destructive board duplication
+// between physical Cardamom stores.
+// A copy receives new logical board, writer, and private issue identities.
+// Synchronization clone and recovery preserve logical identities and therefore
+// use a different operation.
 package boardcopy
 
 import (
@@ -217,7 +220,8 @@ func NewCopyService(cfg CopyServiceConfig) *CopyService {
 	}
 }
 
-// Copy creates one destination board or returns an identical prior receipt.
+// Copy creates one independent destination board or returns an identical prior
+// receipt.
 func (s *CopyService) Copy(
 	ctx context.Context,
 	request CopyRequest,

@@ -59,8 +59,9 @@ WHERE id = 'log_ffffffffffffffffffffffffffffffff'
 	require.NoError(t, err)
 	results, err := current.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, results, 1)
+	require.Len(t, results, 2)
 	assert.Equal(t, int64(20260909120000), results[0].Source.Version)
+	assert.Equal(t, int64(20260916172153), results[1].Source.Version)
 
 	var uid []byte
 	require.NoError(t, db.QueryRowContext(t.Context(), `

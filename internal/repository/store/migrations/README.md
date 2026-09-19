@@ -84,6 +84,14 @@ graph state.
 Restricted deletes prevent removing a project with boards
 or a board with issues.
 
+`boards.id` is the logical board identity.
+A synchronization clone preserves it across stores,
+while independent creation, copy, and restore operations assign a new value.
+`board_replica_identities` assigns one immutable writer UID to the local board
+replica.
+Future mutation history uses the writer UID to distinguish changes written by
+different replicas of one logical board.
+
 Each board retains the latest committed revision that changed its projection.
 Board revisions provide pagination snapshots and change cursors
 without retaining semantic mutation history.

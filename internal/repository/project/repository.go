@@ -4,6 +4,7 @@ package project
 import (
 	"crypto/rand"
 	"encoding/hex"
+	"io"
 	"time"
 
 	"go.abhg.dev/cardamom/internal/board"
@@ -40,6 +41,9 @@ type Config struct {
 
 	// IDSource supplies store-unique identities. Nil uses crypto/rand.
 	IDSource IDSource
+
+	// Entropy supplies private board writer identities. Nil uses crypto/rand.
+	Entropy io.Reader
 }
 
 // Repository owns finite project reads, board reads, and board mutations over
@@ -53,6 +57,9 @@ type Repository struct {
 
 	// idSource supplies store-unique namespace identities.
 	idSource IDSource // required
+
+	// entropy supplies immutable private board writer identities.
+	entropy io.Reader // required
 }
 
 // New constructs a project namespace repository.
@@ -66,7 +73,13 @@ func New(persistence *store.Store, cfg Config) *Repository {
 	if idSource == nil {
 		idSource = randomIDs{}
 	}
-	return &Repository{store: persistence, clock: clock, idSource: idSource}
+	entropy := cfg.Entropy
+	if entropy == nil {
+		entropy = rand.Reader
+	}
+	return &Repository{
+		store: persistence, clock: clock, idSource: idSource, entropy: entropy,
+	}
 }
 
 // randomIDs supplies namespace identities from cryptographic entropy.

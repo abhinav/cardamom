@@ -31,5 +31,5 @@ cmp stdout $WORK/golden/boards.jsonl
 {"id":"project_11111111111111111111","name":"Research","created":1785931200}
 {"id":"project_00000000000000000000","name":"script-portable_backup_all","created":1785931200}
 -- golden/boards.jsonl --
-{"id":"board_00000000000000000000","project_id":"project_00000000000000000000","name":"Primary","created":1785931200}
-{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Research","created":1785931200}
+{"id":"board_7c3ccd10bb7ec37b46d3","project_id":"project_00000000000000000000","name":"Primary","created":1785931200}
+{"id":"board_8b1ae42fc4b17726106d","project_id":"project_11111111111111111111","name":"Research","created":1785931200}
