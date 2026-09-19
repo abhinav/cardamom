@@ -86,6 +86,7 @@ func TestInitializerInitializesProjectCatalog(t *testing.T) {
 			} else {
 				require.Len(t, boards, 1)
 				assert.Equal(t, test.wantBoard, boards[0].Name())
+				assertBoardHistoryBaseline(t, persistence, boards[0].ID(), 1)
 				view, err := persistence.View(t.Context())
 				require.NoError(t, err)
 				writerUID, err := query.New(view).ProjectGetBoardWriterUID(

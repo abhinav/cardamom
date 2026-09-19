@@ -12,6 +12,8 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
+	repositoryhistory "go.abhg.dev/cardamom/internal/repository/boardhistory"
+	"go.abhg.dev/cardamom/internal/repository/internal/query"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
@@ -41,6 +43,7 @@ func TestRepositoryBeginAndStatusUpload(t *testing.T) {
 		VALUES ('board-test', X'01010101010101010101010101010101')
 	`)
 	require.NoError(t, err)
+	initializeAttachmentTestHistory(t, change, "board-test")
 	require.NoError(t, change.Commit())
 
 	repository, err := New(persistence, Config{
@@ -213,6 +216,7 @@ func openUploadFixture(t *testing.T, entropy []byte) *uploadFixture {
 		VALUES ('board-test', X'01010101010101010101010101010101')
 	`)
 	require.NoError(t, err)
+	initializeAttachmentTestHistory(t, change, "board-test")
 	require.NoError(t, change.Commit())
 
 	clock := &fixedClock{now: time.Unix(1_700_000_100, 0).UTC()}
@@ -239,6 +243,15 @@ func openUploadFixture(t *testing.T, entropy []byte) *uploadFixture {
 		association: association,
 		filename:    filename,
 	}
+}
+
+func initializeAttachmentTestHistory(t *testing.T, db query.DBTX, rawBoardID string) {
+	t.Helper()
+	boardID, err := board.NewID(rawBoardID)
+	require.NoError(t, err)
+	require.NoError(t, repositoryhistory.InitializeV1(
+		t.Context(), db, boardID, time.Unix(1_700_000_000, 0).UTC(),
+	))
 }
 
 func (f *uploadFixture) begin(

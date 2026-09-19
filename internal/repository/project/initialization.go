@@ -8,6 +8,7 @@ import (
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/project"
+	repositoryhistory "go.abhg.dev/cardamom/internal/repository/boardhistory"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 	"go.abhg.dev/cardamom/internal/repository/store"
 	"go.abhg.dev/cardamom/internal/storelocation"
@@ -242,7 +243,9 @@ func initializeFreshProject(
 		); err != nil {
 			return fmt.Errorf("create initial board replica identity: %w", err)
 		}
-		return nil
+		return repositoryhistory.InitializeV1(
+			ctx, change, out.Board.ID(), out.Board.Created(),
+		)
 	})
 	if err != nil {
 		return project.InitializedNamespace{}, err

@@ -185,6 +185,14 @@ func (r *Repository) UpdateBoardConfiguration(
 	); err != nil {
 		return out, fmt.Errorf("update board configuration: %w", err)
 	}
+	if err := appendBoardHistory(
+		ctx,
+		change,
+		boardID,
+		boardConfigurationEvents(r.clock(), current, out)...,
+	); err != nil {
+		return out, err
+	}
 	if err := change.PublishRevision(ctx, reservation); err != nil {
 		return out, err
 	}

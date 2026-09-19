@@ -23,6 +23,7 @@ import (
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/markdown"
 	"go.abhg.dev/cardamom/internal/markdown/reference"
+	repositoryhistory "go.abhg.dev/cardamom/internal/repository/boardhistory"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
@@ -224,6 +225,18 @@ func (r *CopyRepository) importCopyRecords(
 			errkind.Conflict,
 			"source board changed while copying records",
 		)
+	}
+	copyBoardID, err := boardpkg.NewID(boardID)
+	if err != nil {
+		return result, fmt.Errorf("load destination board identity: %w", err)
+	}
+	if err := repositoryhistory.InitializeV1(
+		ctx,
+		change,
+		copyBoardID,
+		r.clock.Now(),
+	); err != nil {
+		return result, err
 	}
 	receiptID, err := insertCopyReceipt(
 		ctx,

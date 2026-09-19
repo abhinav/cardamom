@@ -7,6 +7,7 @@ import (
 	"time"
 
 	domainboard "go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/record"
@@ -90,6 +91,9 @@ func (r *Repository) commitState(
 	state, err := r.persistIssueState(ctx, mutation, state)
 	if err != nil {
 		return state, err
+	}
+	if !mutation.hasHistory() {
+		return state, mutation.commitLocal(ctx, state.ID())
 	}
 	return state, mutation.commit(ctx, state.ID())
 }
@@ -175,6 +179,17 @@ func (r *Repository) insertLogEntry(
 	if err != nil {
 		return "", err
 	}
+	mutation.record(boardhistory.Event{
+		OccurredAt: mutation.occurredAt,
+		Payload: &boardhistory.IssueLog{
+			IssueUID: issueUID,
+			ID:       id.String(), Kind: entry.kind.String(),
+			Author:    optionalHistoryActor(entry.author),
+			Committer: optionalHistoryActor(entry.committer),
+			Body:      entry.body, CreatedAt: entry.created,
+			NextAction: historyTextPointer(entry.nextAction),
+		},
+	})
 	return id, nil
 }
 
@@ -292,6 +307,13 @@ func (r *Repository) SetResult(
 	); err != nil {
 		return out, err
 	}
+	mutation.record(boardhistory.Event{
+		OccurredAt: mutation.occurredAt,
+		Payload: &boardhistory.IssueResult{
+			IssueUID: issueUID,
+			Body:     new(out.Body),
+		},
+	})
 	if err := mutation.commit(ctx, out.IssueID); err != nil {
 		return out, err
 	}

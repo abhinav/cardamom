@@ -13,6 +13,10 @@ func (r *Repository) replaceLabels(
 	issueID issue.ID,
 	labels []issue.Label,
 ) error {
+	before, err := r.readLabels(ctx, mutation.change, issueID)
+	if err != nil {
+		return err
+	}
 	uid, err := r.readIssueUID(ctx, mutation.change, issueID)
 	if err != nil {
 		return err
@@ -39,6 +43,7 @@ func (r *Repository) replaceLabels(
 			return err
 		}
 	}
+	recordLabelChanges(mutation, uid, before, labels)
 	return nil
 }
 

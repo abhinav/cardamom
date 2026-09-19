@@ -49,10 +49,62 @@ func TestRepositoryCreatesAndListsBoards(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, view.Done())
 	assert.Equal(t, bytes.Repeat([]byte{0x42}, 16), writerUID)
+	assertBoardHistoryBaseline(t, persistence, board.ID(), 1)
 	assert.Len(t, allBoards, 2)
 	assert.Equal(t, board, selectedBoard)
 	_, err = repository.SoleBoard(t.Context())
 	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+}
+
+func TestRepositoryRollsBackBoardWhenHistoryCannotCommit(t *testing.T) {
+	persistence, err := store.Open(t.Context(), store.Config{Path: t.TempDir() + "/board.sqlite3"})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+	namespace := initializeProjectCatalog(t, persistence, new("First board"), Config{})
+	change, err := persistence.Change(t.Context())
+	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+CREATE TRIGGER fail_board_history_insert
+BEFORE INSERT ON board_mutation_parts
+BEGIN
+    SELECT RAISE(ABORT, 'history insertion failed');
+END
+`)
+	require.NoError(t, err)
+	require.NoError(t, change.Commit())
+	require.NoError(t, change.Done())
+	repository := New(persistence, Config{
+		Clock:   fixedClock{now: time.Unix(20, 0).UTC()},
+		Entropy: bytes.NewReader(bytes.Repeat([]byte{0x42}, 16)),
+		IDSource: &sequenceIDs{steps: []idStep{
+			{value: "board-history-failure"},
+		}},
+	})
+	before := canonicalRevision(t, persistence)
+
+	_, err = boardpkg.NewService(repository, repository).Create(
+		t.Context(),
+		boardpkg.NewInvocation(""),
+		boardpkg.CreateRequest{
+			ProjectID: namespace.Project.ID().String(),
+			Name:      "Uncommitted board",
+		},
+	)
+	assert.ErrorContains(t, err, "history insertion failed")
+	assert.Equal(t, before, canonicalRevision(t, persistence))
+	view, err := persistence.View(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, view.Done()) }()
+	var boards, replicas, mutations int
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+SELECT
+    (SELECT count(*) FROM boards WHERE id = 'board-history-failure'),
+    (SELECT count(*) FROM board_replica_identities WHERE board_id = 'board-history-failure'),
+    (SELECT count(*) FROM board_mutation_commits WHERE board_id = 'board-history-failure')
+`).Scan(&boards, &replicas, &mutations))
+	assert.Zero(t, boards)
+	assert.Zero(t, replicas)
+	assert.Zero(t, mutations)
 }
 
 func TestCountBoardIssuesReadsUIDBackedStatusRelationships(t *testing.T) {

@@ -16,6 +16,7 @@ import (
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/issue/planning"
 	"go.abhg.dev/cardamom/internal/issue/record"
+	repositoryhistory "go.abhg.dev/cardamom/internal/repository/boardhistory"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
@@ -474,6 +475,12 @@ func openBoardRepositories(t *testing.T, cfg Config, count int) []*Repository {
 		VALUES ('board-test', X'01010101010101010101010101010101')
 	`)
 	require.NoError(t, err)
+	require.NoError(t, repositoryhistory.InitializeV1(
+		t.Context(),
+		change,
+		mustBoardID(t, "board-test"),
+		time.Unix(1_700_000_000, 0).UTC(),
+	))
 	require.NoError(t, change.Commit())
 
 	cfg.Clock = fixedClock{now: time.Unix(1_700_000_000, 0).UTC()}

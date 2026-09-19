@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
@@ -170,6 +171,15 @@ func (r *Repository) resolveCheckpoint(
 	); err != nil {
 		return out, err
 	}
+	mutation.record(boardhistory.Event{
+		OccurredAt: out.Decision.DecidedAt,
+		Payload: &boardhistory.IssueCheckpoint{
+			IssueUID:  state.UID(),
+			Outcome:   out.Decision.Outcome.String(),
+			Reason:    out.Decision.Reason,
+			DecidedAt: out.Decision.DecidedAt,
+		},
+	})
 	transitions := out.Affected
 	if command.approve {
 		transitions = []issue.State{out.Issue}

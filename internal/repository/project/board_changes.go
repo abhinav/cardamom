@@ -7,8 +7,10 @@ import (
 	"fmt"
 
 	"go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/project"
+	repositoryhistory "go.abhg.dev/cardamom/internal/repository/boardhistory"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
@@ -61,12 +63,17 @@ func (r *Repository) CreateBoard(
 			}); err != nil {
 				return err
 			}
-			return queries.ProjectInsertBoardReplicaIdentity(
+			if err := queries.ProjectInsertBoardReplicaIdentity(
 				ctx,
 				query.ProjectInsertBoardReplicaIdentityParams{
 					BoardID:   state.ID().String(),
 					WriterUid: writerUID.Bytes(),
 				},
+			); err != nil {
+				return err
+			}
+			return repositoryhistory.InitializeV1(
+				ctx, change, state.ID(), state.Created(),
 			)
 		},
 	)
@@ -127,6 +134,14 @@ func (r *Repository) EditBoardSettings(
 			Description: out.Description(),
 			ID:          out.ID().String(),
 		},
+	); err != nil {
+		return out, err
+	}
+	if err := appendBoardHistory(
+		ctx,
+		change,
+		out.ID(),
+		boardSettingsEvents(r.clock(), current, out)...,
 	); err != nil {
 		return out, err
 	}
@@ -195,6 +210,21 @@ func (r *Repository) ArchiveBoard(
 	}); err != nil {
 		return out, err
 	}
+	if err := appendBoardHistory(
+		ctx,
+		change,
+		request.BoardID,
+		boardhistory.Event{
+			OccurredAt: archive.At,
+			Payload: &boardhistory.BoardArchiveSet{
+				Archive: &board.Archive{
+					Actor: archive.Actor, At: archive.At, Reason: archive.Reason,
+				},
+			},
+		},
+	); err != nil {
+		return out, err
+	}
 	if err := change.PublishRevision(ctx, reservation); err != nil {
 		return out, err
 	}
@@ -231,6 +261,17 @@ func (r *Repository) UnarchiveBoard(ctx context.Context, id board.ID) (out *boar
 		return nil, false, err
 	}
 	if err := queries.ProjectUnarchiveBoard(ctx, id.String()); err != nil {
+		return nil, false, err
+	}
+	if err := appendBoardHistory(
+		ctx,
+		change,
+		id,
+		boardhistory.Event{
+			OccurredAt: r.clock(),
+			Payload:    &boardhistory.BoardArchiveSet{},
+		},
+	); err != nil {
 		return nil, false, err
 	}
 	if err := change.PublishRevision(ctx, reservation); err != nil {

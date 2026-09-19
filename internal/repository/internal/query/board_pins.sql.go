@@ -90,7 +90,7 @@ func (q *Queries) BoardGetPinIssueReference(ctx context.Context, arg BoardGetPin
 	return i, err
 }
 
-const boardInsertPin = `-- name: BoardInsertPin :exec
+const boardInsertPin = `-- name: BoardInsertPin :one
 INSERT INTO board_pins (board_id, issue_uid, position)
 SELECT
     ?1,
@@ -98,6 +98,7 @@ SELECT
     COALESCE(MAX(position), 0) + 1
 FROM board_pins
 WHERE board_id = ?1
+RETURNING position
 `
 
 type BoardInsertPinParams struct {
@@ -105,9 +106,11 @@ type BoardInsertPinParams struct {
 	IssueUid []byte
 }
 
-func (q *Queries) BoardInsertPin(ctx context.Context, arg BoardInsertPinParams) error {
-	_, err := q.db.ExecContext(ctx, boardInsertPin, arg.BoardID, arg.IssueUid)
-	return err
+func (q *Queries) BoardInsertPin(ctx context.Context, arg BoardInsertPinParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, boardInsertPin, arg.BoardID, arg.IssueUid)
+	var position int64
+	err := row.Scan(&position)
+	return position, err
 }
 
 const boardListPinIDs = `-- name: BoardListPinIDs :many

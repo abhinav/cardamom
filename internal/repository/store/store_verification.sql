@@ -21,6 +21,119 @@ LEFT JOIN board_replica_identities AS replica
     ON replica.board_id = board.id
 WHERE replica.board_id IS NULL;
 
+-- name: StoreCountBoardsWithoutLocalMutationHistory :one
+SELECT count(*)
+FROM boards AS board
+JOIN board_replica_identities AS replica ON replica.board_id = board.id
+LEFT JOIN board_mutation_tips AS tip
+    ON tip.board_id = board.id
+    AND tip.writer_uid = replica.writer_uid
+WHERE tip.board_id IS NULL;
+
+-- name: StoreCountInvalidMutationTopology :one
+SELECT
+    (
+        SELECT count(*)
+        FROM board_mutation_commits AS commit_row
+        WHERE (
+            commit_row.sequence = 1
+            AND commit_row.previous_hash <> zeroblob(32)
+        ) OR (
+            commit_row.sequence > 1
+            AND NOT EXISTS (
+                SELECT 1
+                FROM board_mutation_commits AS predecessor
+                WHERE predecessor.board_id = commit_row.board_id
+                    AND predecessor.writer_uid = commit_row.writer_uid
+                    AND predecessor.sequence = commit_row.sequence - 1
+                    AND predecessor.marker_hash = commit_row.previous_hash
+            )
+        )
+    ) + (
+        SELECT count(*)
+        FROM board_mutation_commits AS commit_row
+        WHERE commit_row.part_count <> (
+            SELECT count(*)
+            FROM board_mutation_parts AS part
+            WHERE part.board_id = commit_row.board_id
+                AND part.writer_uid = commit_row.writer_uid
+                AND part.sequence = commit_row.sequence
+        ) OR commit_row.part_count - 1 <> (
+            SELECT max(part.part_index)
+            FROM board_mutation_parts AS part
+            WHERE part.board_id = commit_row.board_id
+                AND part.writer_uid = commit_row.writer_uid
+                AND part.sequence = commit_row.sequence
+        )
+    ) + (
+        SELECT count(*)
+        FROM board_mutation_tips AS tip
+        WHERE tip.sequence <> (
+            SELECT max(commit_row.sequence)
+            FROM board_mutation_commits AS commit_row
+            WHERE commit_row.board_id = tip.board_id
+                AND commit_row.writer_uid = tip.writer_uid
+        )
+    ) + (
+        SELECT count(*)
+        FROM board_mutation_commits AS commit_row
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM board_mutation_tips AS tip
+            WHERE tip.board_id = commit_row.board_id
+                AND tip.writer_uid = commit_row.writer_uid
+        )
+    );
+
+-- name: StoreNextBoardMutationCommit :one
+SELECT
+    board_id,
+    writer_uid,
+    sequence,
+    previous_hash,
+    marker_hash,
+    marker_bytes,
+    part_count,
+    event_count,
+    payload_hash
+FROM board_mutation_commits
+WHERE board_id > sqlc.arg(after_board_id)
+    OR (
+        board_id = sqlc.arg(after_board_id)
+        AND writer_uid > sqlc.arg(after_writer_uid)
+    )
+    OR (
+        board_id = sqlc.arg(after_board_id)
+        AND writer_uid = sqlc.arg(after_writer_uid)
+        AND sequence > sqlc.arg(after_sequence)
+    )
+ORDER BY board_id, writer_uid, sequence
+LIMIT 1;
+
+-- name: StoreGetBoardMutationPart :one
+SELECT bytes
+FROM board_mutation_parts
+WHERE board_id = sqlc.arg(board_id)
+    AND writer_uid = sqlc.arg(writer_uid)
+    AND sequence = sqlc.arg(sequence)
+    AND part_index = sqlc.arg(part_index);
+
+-- name: StoreListBoardMutationBlobReferences :many
+SELECT digest, size_bytes
+FROM board_mutation_blob_refs
+WHERE board_id = sqlc.arg(board_id)
+    AND writer_uid = sqlc.arg(writer_uid)
+    AND sequence = sqlc.arg(sequence)
+ORDER BY digest;
+
+-- name: StoreCountBoardMutationFrontierCommit :one
+SELECT count(*)
+FROM board_mutation_commits
+WHERE board_id = sqlc.arg(board_id)
+    AND writer_uid = sqlc.arg(writer_uid)
+    AND sequence = sqlc.arg(sequence)
+    AND marker_hash = sqlc.arg(marker_hash);
+
 -- name: StoreCountInvalidIssueUIDs :one
 SELECT count(*)
 FROM issues

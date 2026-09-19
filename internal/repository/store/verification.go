@@ -90,6 +90,9 @@ func verifyStore(
 			boardsWithoutReplicaIdentity,
 		)
 	}
+	if err := verifyBoardMutationHistory(ctx, queries); err != nil {
+		return err
+	}
 
 	// Private UIDs identify issue rows across repository-owned references.
 	invalidIssueUIDs, err := queries.StoreCountInvalidIssueUIDs(ctx)

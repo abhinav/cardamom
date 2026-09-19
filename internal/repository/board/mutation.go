@@ -7,7 +7,9 @@ import (
 	"time"
 
 	domainboard "go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/issue"
+	repositoryhistory "go.abhg.dev/cardamom/internal/repository/boardhistory"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
@@ -38,6 +40,16 @@ type mutation struct {
 	// reservation identifies the store revision reserved after policy accepts a
 	// change.
 	reservation store.RevisionReservation
+
+	// history incrementally retains semantic events in the same transaction as
+	// their projections. The appender reads the frontier only after the first
+	// shared event, so local-only and no-op mutations do no history work.
+	history *repositoryhistory.Appender
+
+	// historyErr preserves the first append failure until the caller reaches a
+	// commit boundary. Projection helpers cannot return history errors directly,
+	// but the transaction cannot publish after one occurs.
+	historyErr error
 }
 
 // beginMutation opens the common issue writer boundary. Reading lifecycle and
@@ -65,6 +77,7 @@ func (r *Repository) beginMutation(
 		reservedIssueUIDs: make(map[issue.UID]struct{}),
 		current:           domainboard.Revision(row.Revision),
 		occurredAt:        r.clock.Now(),
+		history:           repositoryhistory.NewAppender(ctx, change, r.boardID),
 	}, nil
 }
 
@@ -74,9 +87,53 @@ func (m *mutation) reserve(ctx context.Context) error {
 	return err
 }
 
+// record streams semantic events into the transaction and preserves the first
+// append failure for the operation's commit boundary.
+func (m *mutation) record(events ...boardhistory.Event) {
+	for _, event := range events {
+		if m.historyErr != nil {
+			return
+		}
+		m.historyErr = m.history.Append(event)
+	}
+}
+
+func (m *mutation) hasHistory() bool { return m.history.HasEvents() }
+
 // commit publishes scalar issue, board, and store revisions with every
 // projection written through this mutation.
 func (m *mutation) commit(
+	ctx context.Context,
+	affectedIssueIDs ...issue.ID,
+) error {
+	if m.historyErr != nil {
+		return m.historyErr
+	}
+	if !m.hasHistory() {
+		return errors.New("shared board mutation has no semantic history")
+	}
+	if err := m.history.Finish(); err != nil {
+		return err
+	}
+	return m.commitProjection(ctx, affectedIssueIDs...)
+}
+
+// commitLocal publishes a mutation whose effects are replica-local and must
+// not enter shared history, such as active execution custody.
+func (m *mutation) commitLocal(
+	ctx context.Context,
+	affectedIssueIDs ...issue.ID,
+) error {
+	if m.historyErr != nil {
+		return m.historyErr
+	}
+	if m.hasHistory() {
+		return errors.New("local board mutation contains shared semantic history")
+	}
+	return m.commitProjection(ctx, affectedIssueIDs...)
+}
+
+func (m *mutation) commitProjection(
 	ctx context.Context,
 	affectedIssueIDs ...issue.ID,
 ) error {

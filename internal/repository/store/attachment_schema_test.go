@@ -193,6 +193,7 @@ func TestAttachmentSchemaEnforcesPersistenceInvariants(t *testing.T) {
 		assert.ErrorContains(t, err, "attachment tombstones are immutable")
 	})
 
+	initializeTestBoardHistory(t, change, "board-one", "board-two")
 	require.NoError(t, change.Commit())
 	require.NoError(t, persistence.Close())
 

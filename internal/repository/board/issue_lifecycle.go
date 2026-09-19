@@ -151,6 +151,9 @@ func (r *Repository) commitLifecycleIssue(
 	if err := r.replaceActiveClaim(ctx, mutation, after); err != nil {
 		return after, err
 	}
+	if !mutation.hasHistory() {
+		return after, mutation.commitLocal(ctx, after.ID())
+	}
 	return after, mutation.commit(ctx, after.ID())
 }
 

@@ -8,6 +8,18 @@ import (
 	"time"
 )
 
+type BoardMutationCommit struct {
+	BoardID      string
+	WriterUid    []byte
+	Sequence     int64
+	PreviousHash []byte
+	MarkerHash   []byte
+	MarkerBytes  []byte
+	PartCount    int64
+	EventCount   int64
+	PayloadHash  []byte
+}
+
 type Lease struct {
 	Name       string
 	Owner      string
