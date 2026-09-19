@@ -75,6 +75,7 @@ func (q *Queries) BoardGetCopyReceipt(ctx context.Context, arg BoardGetCopyRecei
 
 const boardInsertCopiedIssue = `-- name: BoardInsertCopiedIssue :exec
 INSERT INTO issues (
+    uid,
     id,
     board_id,
     title,
@@ -103,11 +104,13 @@ INSERT INTO issues (
     ?11,
     ?12,
     ?13,
-    ?14
+    ?14,
+    ?15
 )
 `
 
 type BoardInsertCopiedIssueParams struct {
+	Uid           []byte
 	ID            string
 	BoardID       string
 	Title         string
@@ -126,6 +129,7 @@ type BoardInsertCopiedIssueParams struct {
 
 func (q *Queries) BoardInsertCopiedIssue(ctx context.Context, arg BoardInsertCopiedIssueParams) error {
 	_, err := q.db.ExecContext(ctx, boardInsertCopiedIssue,
+		arg.Uid,
 		arg.ID,
 		arg.BoardID,
 		arg.Title,

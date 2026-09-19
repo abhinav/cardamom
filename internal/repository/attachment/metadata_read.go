@@ -2,12 +2,12 @@ package attachment
 
 import (
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"errors"
 	"fmt"
 
 	domainattachment "go.abhg.dev/cardamom/internal/attachment"
-	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
@@ -51,7 +51,22 @@ func (r *Repository) ListAttachments(
 		return domainattachment.Page{}, fmt.Errorf("begin attachment list: %w", err)
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	originIssueID, hasOrigin := request.OriginIssueID, request.OriginIssueID != nil
+	originIssueUID, hasOrigin := []byte(nil), request.OriginIssueID != nil
+	if hasOrigin {
+		originIssueUID, err = query.New(view).AttachmentGetTargetIssueUID(
+			ctx,
+			query.AttachmentGetTargetIssueUIDParams{
+				BoardID: request.BoardID.String(),
+				IssueID: request.OriginIssueID.String(),
+			},
+		)
+		if errors.Is(err, sql.ErrNoRows) {
+			originIssueUID, err = nil, nil
+		}
+		if err != nil {
+			return domainattachment.Page{}, fmt.Errorf("select attachment origin issue: %w", err)
+		}
+	}
 	rows, err := query.New(view).AttachmentListMetadata(
 		ctx,
 		query.AttachmentListMetadataParams{
@@ -59,7 +74,7 @@ func (r *Repository) ListAttachments(
 			AfterID:        afterID.String(),
 			IncludeRemoved: request.IncludeRemoved,
 			HasOriginIssue: hasOrigin,
-			OriginIssueID:  nullableListOrigin(originIssueID),
+			OriginIssueUid: originIssueUID,
 			ResultLimit:    int64(pageSize) + 1,
 		},
 	)
@@ -69,7 +84,7 @@ func (r *Repository) ListAttachments(
 
 	attachments := make([]domainattachment.Attachment, 0, pageSize)
 	for _, row := range rows {
-		value, err := newAttachment(row)
+		value, err := newAttachment(attachmentRowFromList(row))
 		if err != nil {
 			return domainattachment.Page{}, err
 		}
@@ -107,12 +122,4 @@ func decodeAttachmentPageToken(token string) (domainattachment.ID, error) {
 
 func encodeAttachmentPageToken(id domainattachment.ID) string {
 	return base64.RawURLEncoding.EncodeToString([]byte(id.String()))
-}
-
-func nullableListOrigin(originIssueID *issue.ID) *string {
-	if originIssueID == nil {
-		return nil
-	}
-	value := originIssueID.String()
-	return &value
 }

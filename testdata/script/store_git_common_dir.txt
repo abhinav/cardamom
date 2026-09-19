@@ -112,18 +112,18 @@ common-2  2    ready   task  Primary issue
 ID        PRI  STATUS  TYPE  TITLE
 common-1  2    ready   task  Linked issue
 -- golden/direct-send.txt --
-mail_00000000000000000000000000000001	primary-agent	linked-agent		2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
+mail_00000000000000000000000000000003	primary-agent	linked-agent		2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
 direct across worktrees
 -- golden/direct-recv.txt --
-mail_00000000000000000000000000000001	primary-agent	linked-agent		2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
+mail_00000000000000000000000000000003	primary-agent	linked-agent		2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
 direct across worktrees
 -- golden/subscription.txt --
 linked-agent	release.*	2026-07-22T12:00:00Z	2026-07-22T13:00:00Z
 -- golden/topic-publish.txt --
-mail_00000000000000000000000000000002	primary-agent	linked-agent	release.ready	2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
+mail_00000000000000000000000000000004	primary-agent	linked-agent	release.ready	2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
 topic across worktrees
 -- golden/topic-recv.txt --
-mail_00000000000000000000000000000002	primary-agent	linked-agent	release.ready	2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
+mail_00000000000000000000000000000004	primary-agent	linked-agent	release.ready	2026-07-22T12:00:00Z	2026-07-29T12:00:00Z
 topic across worktrees
 -- golden/lease.txt --
 shared-environment	primary-agent	2026-07-22T12:00:00Z	2026-07-22T12:30:00Z

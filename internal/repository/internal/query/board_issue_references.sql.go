@@ -57,10 +57,11 @@ func (q *Queries) BoardResolveIssueReferences(ctx context.Context, arg BoardReso
 }
 
 const boardResolveLogReferences = `-- name: BoardResolveLogReferences :many
-SELECT id, issue_id
-FROM issue_log_entries
-WHERE board_id = ?1
-    AND id IN (/*SLICE:log_ids*/?)
+SELECT log.id, issue.id AS issue_id
+FROM issue_log_entries AS log
+JOIN issues AS issue ON issue.uid = log.issue_uid
+WHERE log.board_id = ?1
+    AND log.id IN (/*SLICE:log_ids*/?)
 `
 
 type BoardResolveLogReferencesParams struct {

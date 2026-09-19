@@ -5,19 +5,17 @@ SELECT EXISTS (
     WHERE id = sqlc.arg(board_id)
 ) AS board_exists;
 
--- name: AttachmentTargetIssueExists :one
-SELECT EXISTS (
-    SELECT 1
-    FROM issues
-    WHERE board_id = sqlc.arg(board_id)
-        AND id = sqlc.arg(issue_id)
-) AS issue_exists;
+-- name: AttachmentGetTargetIssueUID :one
+SELECT uid
+FROM issues
+WHERE board_id = sqlc.arg(board_id)
+    AND id = sqlc.arg(issue_id);
 
 -- name: AttachmentInsertUpload :exec
 INSERT INTO attachment_uploads (
     id,
     board_id,
-    origin_issue_id,
+    origin_issue_uid,
     filename,
     expected_size_bytes,
     expected_digest,
@@ -29,7 +27,7 @@ INSERT INTO attachment_uploads (
 ) VALUES (
     sqlc.arg(id),
     sqlc.arg(board_id),
-    sqlc.narg(origin_issue_id),
+    sqlc.narg(origin_issue_uid),
     sqlc.arg(filename),
     sqlc.narg(expected_size_bytes),
     sqlc.narg(expected_digest),

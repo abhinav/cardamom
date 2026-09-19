@@ -50,14 +50,14 @@ Appended state on mem-3.
 Primary recovery state.
 Secondary detail.
 -- golden/log-post.txt --
-Posted log entry log_00000000000000000000000000000001 to mem-3.
+Posted log entry log_00000000000000000000000000000004 to mem-3.
 -- golden/second-log-post.txt --
-Posted log entry log_00000000000000000000000000000002 to mem-2.
+Posted log entry log_00000000000000000000000000000005 to mem-2.
 -- golden/log.txt --
-Post log_00000000000000000000000000000001 by Jean-Luc Picard
+Post log_00000000000000000000000000000004 by Jean-Luc Picard
 Workstream log entry.
 -- golden/second-log.txt --
-Post log_00000000000000000000000000000002 by riker
+Post log_00000000000000000000000000000005 by riker
 Second task historical detail.
 -- golden/show-context.txt --
 Ancestors:

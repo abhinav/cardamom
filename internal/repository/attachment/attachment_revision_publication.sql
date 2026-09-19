@@ -7,7 +7,7 @@ WHERE id = sqlc.arg(board_id);
 UPDATE issues
 SET revision = sqlc.arg(revision)
 WHERE board_id = sqlc.arg(board_id)
-    AND id = sqlc.arg(issue_id);
+    AND uid = sqlc.arg(issue_uid);
 
 -- name: AttachmentPublishBoardRevision :execresult
 UPDATE boards

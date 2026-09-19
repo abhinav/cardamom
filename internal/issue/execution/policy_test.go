@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
@@ -197,9 +198,19 @@ func TestCheckpointPolicyReportsInvalidResolutionState(t *testing.T) {
 
 func loadExecutionState(t *testing.T, snapshot issue.Snapshot) issue.State {
 	t.Helper()
+	if snapshot.UID == (issue.UID{}) {
+		snapshot.UID = executionTestUID(t)
+	}
 	state, err := issue.Load(snapshot)
 	require.NoError(t, err)
 	return state
+}
+
+func executionTestUID(t *testing.T) issue.UID {
+	t.Helper()
+	uid, err := issue.ParseUID(bytes.Repeat([]byte{1}, 16))
+	require.NoError(t, err)
+	return uid
 }
 
 func mustExecutionBoardID(t *testing.T) board.ID {

@@ -24,10 +24,12 @@ func (q *Queries) BoardGetSnapshotDescription(ctx context.Context, boardID strin
 }
 
 const boardListSnapshotLogEntries = `-- name: BoardListSnapshotLogEntries :many
-SELECT id, issue_id, kind, author, committer, body, next_action, created_at
-FROM issue_log_entries
-WHERE board_id = ?1
-ORDER BY local_sequence
+SELECT log.id, issue.id AS issue_id, log.kind, log.author, log.committer,
+    log.body, log.next_action, log.created_at
+FROM issue_log_entries AS log
+JOIN issues AS issue ON issue.uid = log.issue_uid
+WHERE log.board_id = ?1
+ORDER BY log.local_sequence
 `
 
 type BoardListSnapshotLogEntriesRow struct {
@@ -74,10 +76,11 @@ func (q *Queries) BoardListSnapshotLogEntries(ctx context.Context, boardID strin
 }
 
 const boardListSnapshotResults = `-- name: BoardListSnapshotResults :many
-SELECT issue_id, body
-FROM issue_results
-WHERE board_id = ?1
-ORDER BY issue_id
+SELECT issue.id AS issue_id, result.body
+FROM issue_results AS result
+JOIN issues AS issue ON issue.uid = result.issue_uid
+WHERE result.board_id = ?1
+ORDER BY issue.id
 `
 
 type BoardListSnapshotResultsRow struct {

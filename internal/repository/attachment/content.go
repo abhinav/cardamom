@@ -42,7 +42,7 @@ func (r *Repository) ResolveAttachments(
 
 	attachments := make(map[domainattachment.ID]domainattachment.Attachment)
 	for _, row := range rows {
-		value, err := newAttachment(row)
+		value, err := newAttachment(attachmentRowFromResolution(row))
 		if err != nil {
 			return nil, err
 		}

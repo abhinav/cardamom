@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	domainattachment "go.abhg.dev/cardamom/internal/attachment"
+	"go.abhg.dev/cardamom/internal/issue"
 )
 
 func TestRepositoryCommitAndAbortReturnStableTerminalResults(t *testing.T) {
@@ -99,6 +100,86 @@ func TestRepositoryCommitAndAbortReturnStableTerminalResults(t *testing.T) {
 		assert.Equal(t, aborted, replayed)
 		assert.Zero(t, uploadRevision(t, fixture.persistence))
 	})
+}
+
+func TestRepositoryIssueAttachmentUsesPrivateIdentityAndPublishesRevision(t *testing.T) {
+	body := []byte("issue evidence")
+	fixture := openUploadFixture(t, bytes.Repeat([]byte{8}, 128))
+	issueUID := bytes.Repeat([]byte{9}, 16)
+	change, err := fixture.persistence.Change(t.Context())
+	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+		INSERT INTO issues (
+			uid, id, board_id, title, kind, lifecycle, priority,
+			created_at, updated_at
+		) VALUES (?, 'issue-1', 'board-test', 'Evidence owner', 'task', 'open', 2, 1, 1)
+	`, issueUID)
+	require.NoError(t, err)
+	require.NoError(t, change.Commit())
+	require.NoError(t, change.Done())
+	issueID, err := issue.NewID("issue-1")
+	require.NoError(t, err)
+	association, err := domainattachment.NewIssueAssociation(
+		fixture.association.BoardID(),
+		issueID,
+	)
+	require.NoError(t, err)
+
+	upload, err := fixture.service.BeginUpload(
+		t.Context(),
+		domainattachment.BeginUploadRequest{
+			Invocation:  domainattachment.NewInvocation("captain"),
+			Association: association,
+			Filename:    fixture.filename,
+		},
+	)
+	require.NoError(t, err)
+	_, err = fixture.service.WriteChunk(t.Context(), domainattachment.WriteChunkRequest{
+		Invocation: domainattachment.NewInvocation("captain"), UploadID: upload.ID,
+		ExpectedOffset: 0, Content: body,
+	})
+	require.NoError(t, err)
+	committed, err := fixture.service.CommitUpload(
+		t.Context(),
+		domainattachment.CommitUploadRequest{
+			Invocation: domainattachment.NewInvocation("captain"), UploadID: upload.ID,
+		},
+	)
+	require.NoError(t, err)
+	assert.Equal(t, association, committed.Association)
+	got, err := fixture.service.GetAttachment(t.Context(), domainattachment.GetRequest{
+		BoardID: association.BoardID(), AttachmentID: committed.ID,
+	})
+	require.NoError(t, err)
+	assert.Equal(t, association, got.Association)
+	page, err := fixture.service.ListAttachments(t.Context(), domainattachment.ListRequest{
+		BoardID: association.BoardID(), OriginIssueID: &issueID,
+	})
+	require.NoError(t, err)
+	require.Len(t, page.Attachments, 1)
+	assert.Equal(t, association, page.Attachments[0].Association)
+
+	view, err := fixture.persistence.View(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, view.Done()) }()
+	var uploadOrigin, attachmentOrigin []byte
+	var issueRevision, boardRevision int64
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+		SELECT origin_issue_uid FROM attachment_uploads WHERE id = ?
+	`, upload.ID.String()).Scan(&uploadOrigin))
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+		SELECT origin_issue_uid FROM attachments WHERE board_id = 'board-test' AND id = ?
+	`, committed.ID.String()).Scan(&attachmentOrigin))
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+		SELECT issue.revision, board.revision
+		FROM issues AS issue
+		JOIN boards AS board ON board.id = issue.board_id
+		WHERE issue.id = 'issue-1'
+	`).Scan(&issueRevision, &boardRevision))
+	assert.Equal(t, issueUID, uploadOrigin)
+	assert.Equal(t, issueUID, attachmentOrigin)
+	assert.Equal(t, int64(1), issueRevision)
+	assert.Equal(t, issueRevision, boardRevision)
 }
 
 func TestRepositoryUploadExpiryAndDescriptorFailureRemainRecoverable(t *testing.T) {

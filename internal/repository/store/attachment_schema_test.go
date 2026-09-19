@@ -62,11 +62,11 @@ func TestAttachmentSchemaEnforcesPersistenceInvariants(t *testing.T) {
 			('board-two', 'project', 'Two', 1);
 		UPDATE store_state SET current_revision = 2 WHERE singleton = 1;
 		INSERT INTO issues (
-			id, board_id, title, kind, lifecycle, priority,
+			uid, id, board_id, title, kind, lifecycle, priority,
 			created_at, updated_at
 		) VALUES
-			('issue-one', 'board-one', 'One', 'task', 'open', 2, 1, 1),
-			('issue-two', 'board-two', 'Two', 'task', 'open', 2, 1, 1);
+			(randomblob(16), 'issue-one', 'board-one', 'One', 'task', 'open', 2, 1, 1),
+			(randomblob(16), 'issue-two', 'board-two', 'Two', 'task', 'open', 2, 1, 1);
 	`)
 	require.NoError(t, err)
 
@@ -78,11 +78,11 @@ func TestAttachmentSchemaEnforcesPersistenceInvariants(t *testing.T) {
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO attachments (
-			board_id, id, origin_issue_id, blob_digest, blob_size_bytes,
+			board_id, id, origin_issue_uid, blob_digest, blob_size_bytes,
 			filename, media_type, lifecycle,
 			created_actor, created_at, created_revision
 		) VALUES (
-			'board-one', ?, 'issue-one', ?, 42,
+			'board-one', ?, (SELECT uid FROM issues WHERE id = 'issue-one'), ?, 42,
 			'artifact.txt', 'text/plain; charset=utf-8', 'active',
 			'captain', 10, 1
 		)
@@ -90,11 +90,11 @@ func TestAttachmentSchemaEnforcesPersistenceInvariants(t *testing.T) {
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO attachment_uploads (
-			id, board_id, origin_issue_id, filename,
+			id, board_id, origin_issue_uid, filename,
 			expected_size_bytes, expected_digest, actor, state,
 			accepted_offset, expires_at
 		) VALUES (
-			'upload-one', 'board-one', 'issue-one', 'artifact.txt',
+			'upload-one', 'board-one', (SELECT uid FROM issues WHERE id = 'issue-one'), 'artifact.txt',
 			42, ?, 'captain', 'active', 0, 100
 		)
 	`, digest)
@@ -115,11 +115,12 @@ func TestAttachmentSchemaEnforcesPersistenceInvariants(t *testing.T) {
 	t.Run("BoardScopedOrigin", func(t *testing.T) {
 		_, err := change.ExecContext(t.Context(), `
 			INSERT INTO attachments (
-				board_id, id, origin_issue_id, blob_digest, blob_size_bytes,
+				board_id, id, origin_issue_uid, blob_digest, blob_size_bytes,
 				filename, media_type, lifecycle,
 				created_actor, created_at, created_revision
 			) VALUES (
-				'board-one', 'att_bbbbbbbbbbbbbbbbbbbbbbbbba', 'issue-two', ?, 42,
+				'board-one', 'att_bbbbbbbbbbbbbbbbbbbbbbbbba',
+				(SELECT uid FROM issues WHERE id = 'issue-two'), ?, 42,
 				'artifact.txt', 'text/plain', 'active', 'captain', 10, 1
 			)
 		`, digest)

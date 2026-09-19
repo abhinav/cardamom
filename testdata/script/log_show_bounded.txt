@@ -32,13 +32,13 @@ stdout 'Maximum entries after ordering'
 -- golden/create.txt --
 log-1
 -- golden/newest-two.txt --
-Post log_00000000000000000000000000000004 by geordi
+Post log_00000000000000000000000000000005 by geordi
 Fourth observation.
 
-Post log_00000000000000000000000000000003 by geordi
+Post log_00000000000000000000000000000004 by geordi
 Third observation.
 -- golden/oldest-two.jsonl --
-{"id":"log_00000000000000000000000000000001","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"First observation.","created":1783857600}
-{"id":"log_00000000000000000000000000000002","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"Second observation.","created":1783857600}
+{"id":"log_00000000000000000000000000000002","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"First observation.","created":1783857600}
+{"id":"log_00000000000000000000000000000003","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"Second observation.","created":1783857600}
 -- golden/second.json --
-{"id":"log_00000000000000000000000000000002","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"Second observation.","created":1783857600}
+{"id":"log_00000000000000000000000000000002","issue_id":"log-1","kind":"post","author":"geordi","committer":"geordi","body":"First observation.","created":1783857600}

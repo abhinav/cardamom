@@ -133,9 +133,10 @@ WHERE id = ?`,
 	assert.Equal(t, "Board %src-5", boardDescription)
 
 	rows, err := view.QueryContext(t.Context(), `
-SELECT issue_id
-FROM board_pins
-WHERE board_id = ?
+SELECT issue.id
+FROM board_pins AS pin
+JOIN issues AS issue ON issue.uid = pin.issue_uid
+WHERE pin.board_id = ?
 ORDER BY position`, outcome.DestinationBoardID)
 	require.NoError(t, err)
 	var pinIDs []string
@@ -175,33 +176,39 @@ WHERE board_id = ? AND id = 'src-5'`,
 		nextIssueNumber                 int64
 	)
 	require.NoError(t, view.QueryRowContext(t.Context(), `
-SELECT issue_id, snapshot_log_entry_id
-FROM issue_states
-WHERE board_id = ?`,
+SELECT issue.id, state.snapshot_log_entry_id
+FROM issue_states AS state
+JOIN issues AS issue ON issue.uid = state.issue_uid
+WHERE state.board_id = ?`,
 		outcome.DestinationBoardID,
 	).Scan(&stateIssueID, &stateLogID))
 	assert.Equal(t, "src-5", stateIssueID)
 	assert.Equal(t, mappedLogID, stateLogID)
 	require.NoError(t, view.QueryRowContext(t.Context(), `
-SELECT issue_id, prerequisite_id
-FROM dependencies
-WHERE board_id = ?`,
+SELECT issue.id, prerequisite.id
+FROM dependencies AS dependency
+JOIN issues AS issue ON issue.uid = dependency.issue_uid
+JOIN issues AS prerequisite ON prerequisite.uid = dependency.prerequisite_uid
+WHERE dependency.board_id = ?`,
 		outcome.DestinationBoardID,
 	).Scan(&dependencyIssue, &prerequisiteID))
 	assert.Equal(t, "src-5", dependencyIssue)
 	assert.Equal(t, "src-4", prerequisiteID)
 	require.NoError(t, view.QueryRowContext(t.Context(), `
-SELECT child_id, parent_id
-FROM containment
-WHERE board_id = ?`,
+SELECT child.id, parent.id
+FROM containment AS relation
+JOIN issues AS child ON child.uid = relation.child_uid
+JOIN issues AS parent ON parent.uid = relation.parent_uid
+WHERE relation.board_id = ?`,
 		outcome.DestinationBoardID,
 	).Scan(&containmentChild, &parentID))
 	assert.Equal(t, "src-5", containmentChild)
 	assert.Equal(t, "src-3", parentID)
 	require.NoError(t, view.QueryRowContext(t.Context(), `
 SELECT outcome, reason
-FROM checkpoint_decisions
-WHERE board_id = ? AND issue_id = 'src-4'`,
+FROM checkpoint_decisions AS decision
+JOIN issues AS issue ON issue.uid = decision.issue_uid
+WHERE decision.board_id = ? AND issue.id = 'src-4'`,
 		outcome.DestinationBoardID,
 	).Scan(&checkpointOutcome, &checkpointReason))
 	assert.Equal(t, "approved", checkpointOutcome)
@@ -233,6 +240,27 @@ FROM store_state
 WHERE singleton = 1`,
 	).Scan(&nextIssueNumber))
 	assert.Equal(t, int64(6), nextIssueNumber)
+	var destinationIssueUID, dependencyIssueUID, attachmentOriginUID []byte
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+		SELECT uid FROM issues WHERE board_id = ? AND id = 'src-5'
+	`, outcome.DestinationBoardID).Scan(&destinationIssueUID))
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+		SELECT issue_uid FROM dependencies WHERE board_id = ?
+	`, outcome.DestinationBoardID).Scan(&dependencyIssueUID))
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+		SELECT origin_issue_uid FROM attachments WHERE board_id = ? AND id = ?
+	`, outcome.DestinationBoardID, copyTestAttachmentID).Scan(&attachmentOriginUID))
+	assert.Equal(t, destinationIssueUID, dependencyIssueUID)
+	assert.Equal(t, destinationIssueUID, attachmentOriginUID)
+
+	sourceView, err := sourceStore.View(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, sourceView.Done()) }()
+	var sourceIssueUID []byte
+	require.NoError(t, sourceView.QueryRowContext(t.Context(), `
+		SELECT uid FROM issues WHERE board_id = 'board-source' AND id = 'src-1'
+	`).Scan(&sourceIssueUID))
+	assert.NotEqual(t, sourceIssueUID, destinationIssueUID)
 	require.NoError(t, view.Done())
 
 	reader, err := destinationAttachments.OpenCopyBlob(t.Context(), descriptor)
@@ -390,6 +418,101 @@ FROM board_copy_receipts`).Scan(&receiptCount))
 	assert.Zero(t, receiptCount)
 }
 
+func TestCopyRepositoryPrivateUIDFailureRollsBackPublication(t *testing.T) {
+	tests := []struct {
+		name      string
+		entropy   []byte
+		collision bool
+		wantError string
+	}{
+		{name: "Entropy", wantError: "read issue UID entropy"},
+		{
+			name: "Collision", entropy: bytes.Repeat(bytes.Repeat([]byte{7}, 16), 32),
+			collision: true, wantError: "private issue identity: collision limit reached",
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			root := t.TempDir()
+			sourceDirectory := filepath.Join(root, "source")
+			destinationDirectory := filepath.Join(root, "destination")
+			require.NoError(t, os.MkdirAll(sourceDirectory, 0o700))
+			require.NoError(t, os.MkdirAll(destinationDirectory, 0o700))
+			sourceStore := openCopyTestStore(t, sourceDirectory)
+			destinationStore := openCopyTestStore(t, destinationDirectory)
+			seedCopySource(t, sourceStore, copyTestBlobDescriptor(t))
+
+			change, err := destinationStore.Change(t.Context())
+			require.NoError(t, err)
+			_, err = change.ExecContext(t.Context(), `
+				INSERT INTO projects (id, name, created_at)
+				VALUES ('project-destination', 'Destination', 1000)
+			`)
+			require.NoError(t, err)
+			if tt.collision {
+				_, err = change.ExecContext(t.Context(), `
+					INSERT INTO boards (id, project_id, name, created_at)
+					VALUES ('board-other', 'project-destination', 'Other', 1000);
+					INSERT INTO issues (
+						uid, id, board_id, title, kind, lifecycle, priority,
+						created_at, updated_at
+					) VALUES (?, 'other-issue', 'board-other', 'Other', 'task', 'open', 2, 1000, 1000)
+				`, bytes.Repeat([]byte{7}, 16))
+				require.NoError(t, err)
+			}
+			require.NoError(t, change.Commit())
+			require.NoError(t, change.Done())
+
+			sourceRepository, err := New(sourceStore, Config{BoardID: "board-source"})
+			require.NoError(t, err)
+			destinationRepository, err := NewCopyRepository(
+				destinationStore,
+				CopyRepositoryConfig{Entropy: bytes.NewReader(tt.entropy)},
+			)
+			require.NoError(t, err)
+			sourceAttachments := openCopyAttachmentRepository(t, sourceStore, sourceDirectory)
+			require.NoError(t, sourceAttachments.PublishCopyBlob(
+				t.Context(),
+				copyTestBlobDescriptor(t),
+				strings.NewReader("data"),
+			))
+			service := boardcopy.NewCopyService(boardcopy.CopyServiceConfig{
+				Source: sourceRepository, Destination: destinationRepository,
+				SourceBlobs: sourceAttachments,
+				DestinationBlobs: openCopyAttachmentRepository(
+					t,
+					destinationStore,
+					destinationDirectory,
+				),
+				Configuration: copyTestConfiguration{},
+			})
+
+			_, err = service.Copy(t.Context(), boardcopy.CopyRequest{
+				SourceBoardID: "board-source",
+				Options:       boardcopy.CopyOptions{ProjectID: "project-destination"},
+			})
+			assert.ErrorContains(t, err, tt.wantError)
+
+			view, err := destinationStore.View(t.Context())
+			require.NoError(t, err)
+			defer func() { assert.NoError(t, view.Done()) }()
+			var publishedBoards, receipts, storeRevision int
+			require.NoError(t, view.QueryRowContext(t.Context(), `
+				SELECT count(*) FROM boards WHERE id = 'board-source'
+			`).Scan(&publishedBoards))
+			require.NoError(t, view.QueryRowContext(t.Context(), `
+				SELECT count(*) FROM board_copy_receipts
+			`).Scan(&receipts))
+			require.NoError(t, view.QueryRowContext(t.Context(), `
+				SELECT current_revision FROM store_state WHERE singleton = 1
+			`).Scan(&storeRevision))
+			assert.Zero(t, publishedBoards)
+			assert.Zero(t, receipts)
+			assert.Zero(t, storeRevision)
+		})
+	}
+}
+
 func TestRepository_ReadCopyRecordsRejectsOperationalState(t *testing.T) {
 	t.Run("ActiveClaim", func(t *testing.T) {
 		directory := t.TempDir()
@@ -399,8 +522,8 @@ func TestRepository_ReadCopyRecordsRejectsOperationalState(t *testing.T) {
 		require.NoError(t, err)
 		_, err = change.ExecContext(t.Context(), `
 INSERT INTO active_claims (
-    issue_id, board_id, actor, started_at, started_revision
-) VALUES ('src-1', 'board-source', 'worker', 1002, 2)`)
+    issue_uid, board_id, actor, started_at, started_revision
+) VALUES ((SELECT uid FROM issues WHERE id = 'src-1'), 'board-source', 'worker', 1002, 2)`)
 		require.NoError(t, err)
 		require.NoError(t, change.Commit())
 		repository, err := New(persistence, Config{BoardID: "board-source"})
@@ -455,6 +578,9 @@ func copyTestEntropy() io.Reader {
 	return bytes.NewReader(bytes.Join([][]byte{
 		bytes.Repeat([]byte{0x1f}, 16),
 		bytes.Repeat([]byte{0x11}, 16),
+		bytes.Repeat([]byte{0x12}, 16),
+		bytes.Repeat([]byte{0x13}, 16),
+		bytes.Repeat([]byte{0x14}, 16),
 		bytes.Repeat([]byte{0x22}, 16),
 	}, nil))
 }
@@ -513,19 +639,19 @@ INSERT INTO boards (
     'board-source', 'project-source', 'Source', 'Board %src-1', 1000, 2
 );
 INSERT INTO issues (
-    id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
+    uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
     closed_at, waiting_reason, waiting_since, summary, details, revision
 ) VALUES (
-    'src-1', 'board-source', 'Issue', 'task', 'open', 2, 1000, 1001,
+    randomblob(16), 'src-1', 'board-source', 'Issue', 'task', 'open', 2, 1000, 1001,
     NULL, 'root acceptance', 1001, ?, 'Details %src-1', 2
 ), (
-    'src-2', 'board-source', 'Reserved source identity', 'task', 'open', 2,
+    randomblob(16), 'src-2', 'board-source', 'Reserved source identity', 'task', 'open', 2,
     1000, 1001, NULL, NULL, NULL, NULL, NULL, 2
 ), (
-    'src-3', 'board-source', 'Parent', 'workstream', 'open', 2, 1000, 1001,
+    randomblob(16), 'src-3', 'board-source', 'Parent', 'workstream', 'open', 2, 1000, 1001,
     NULL, NULL, NULL, NULL, NULL, 2
 ), (
-    'src-4', 'board-source', 'Checkpoint', 'checkpoint', 'closed', 2, 1000, 1001,
+    randomblob(16), 'src-4', 'board-source', 'Checkpoint', 'checkpoint', 'closed', 2, 1000, 1001,
     1001, NULL, NULL, NULL, NULL, 2
 );`,
 		"See %src-1 and %"+copyTestLogID+" and %"+copyTestAttachmentID+
@@ -533,43 +659,43 @@ INSERT INTO issues (
 	)
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
-INSERT INTO issue_labels (board_id, issue_id, label)
-VALUES ('board-source', 'src-1', 'area:copy');
-INSERT INTO issue_external_keys (board_id, external_key, issue_id)
-VALUES ('board-source', 'external-1', 'src-1');
-INSERT INTO dependencies (board_id, issue_id, prerequisite_id)
-VALUES ('board-source', 'src-1', 'src-4');
-INSERT INTO containment (board_id, child_id, parent_id)
-VALUES ('board-source', 'src-1', 'src-3');
-INSERT INTO board_pins (board_id, issue_id, position)
+INSERT INTO issue_labels (board_id, issue_uid, label)
+VALUES ('board-source', (SELECT uid FROM issues WHERE id = 'src-1'), 'area:copy');
+INSERT INTO issue_external_keys (board_id, external_key, issue_uid)
+VALUES ('board-source', 'external-1', (SELECT uid FROM issues WHERE id = 'src-1'));
+INSERT INTO dependencies (board_id, issue_uid, prerequisite_uid)
+VALUES ('board-source', (SELECT uid FROM issues WHERE id = 'src-1'), (SELECT uid FROM issues WHERE id = 'src-4'));
+INSERT INTO containment (board_id, child_uid, parent_uid)
+VALUES ('board-source', (SELECT uid FROM issues WHERE id = 'src-1'), (SELECT uid FROM issues WHERE id = 'src-3'));
+INSERT INTO board_pins (board_id, issue_uid, position)
 VALUES
-    ('board-source', 'src-2', 1),
-    ('board-source', 'src-1', 2);
+    ('board-source', (SELECT uid FROM issues WHERE id = 'src-2'), 1),
+    ('board-source', (SELECT uid FROM issues WHERE id = 'src-1'), 2);
 INSERT INTO issue_log_entries (
-    id, board_id, issue_id, kind, author, committer, body, created_at,
+    id, board_id, issue_uid, kind, author, committer, body, created_at,
     next_action
 ) VALUES (
     'log_0123456789abcdef0123456789abcdef',
-    'board-source', 'src-1', 'state_snapshot', 'worker', 'worker',
+    'board-source', (SELECT uid FROM issues WHERE id = 'src-1'), 'state_snapshot', 'worker', 'worker',
     'State %src-1', 1001, 'Continue %src-1'
 ), (
-    ?, 'board-source', 'src-2', 'post', 'worker', 'worker',
+    ?, 'board-source', (SELECT uid FROM issues WHERE id = 'src-2'), 'post', 'worker', 'worker',
     'Later source Log', 1002, NULL
 );
 INSERT INTO issue_states (
-    issue_id, board_id, body, author, updated_at, snapshot_log_entry_id,
+    issue_uid, board_id, body, author, updated_at, snapshot_log_entry_id,
     next_action
 ) VALUES (
-    'src-1', 'board-source', 'State %src-1', 'worker', 1001,
+    (SELECT uid FROM issues WHERE id = 'src-1'), 'board-source', 'State %src-1', 'worker', 1001,
     'log_0123456789abcdef0123456789abcdef',
     'Continue %src-1'
 );
-INSERT INTO issue_results (issue_id, board_id, body)
-VALUES ('src-1', 'board-source', 'Result %src-1');
+INSERT INTO issue_results (issue_uid, board_id, body)
+VALUES ((SELECT uid FROM issues WHERE id = 'src-1'), 'board-source', 'Result %src-1');
 INSERT INTO checkpoint_decisions (
-    issue_id, board_id, outcome, reason, decided_at, revision
+    issue_uid, board_id, outcome, reason, decided_at, revision
 ) VALUES (
-    'src-4', 'board-source', 'approved', 'Ready after %src-1', 1001, 2
+    (SELECT uid FROM issues WHERE id = 'src-4'), 'board-source', 'approved', 'Ready after %src-1', 1001, 2
 )`,
 		copyTestLaterLogID,
 	)
@@ -583,11 +709,11 @@ VALUES (?, ?)`,
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 INSERT INTO attachments (
-    board_id, id, origin_issue_id, blob_digest, blob_size_bytes, filename,
+    board_id, id, origin_issue_uid, blob_digest, blob_size_bytes, filename,
     media_type, lifecycle, created_actor, created_at, created_revision,
     removed_actor, removed_at, removed_revision
 ) VALUES (
-    'board-source', ?, 'src-1', ?, ?, 'evidence.txt', 'text/plain',
+    'board-source', ?, (SELECT uid FROM issues WHERE id = 'src-1'), ?, ?, 'evidence.txt', 'text/plain',
     'removed', 'worker', 1000, 1, 'worker', 1001, 2
 );`,
 		copyTestAttachmentID,
@@ -617,16 +743,16 @@ VALUES ('project-destination', 'Destination project', 1000);
 INSERT INTO boards (id, project_id, name, created_at, revision)
 VALUES ('board-source', 'project-destination', 'Existing', 1000, 1);
 INSERT INTO issues (
-    id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
+    uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
     revision
 ) VALUES (
-    'src-1', 'board-source', 'Existing issue', 'task', 'open', 2, 1000, 1000, 1
+    randomblob(16), 'src-1', 'board-source', 'Existing issue', 'task', 'open', 2, 1000, 1000, 1
 );
 INSERT INTO issue_log_entries (
-    id, board_id, issue_id, kind, author, committer, body, created_at
+    id, board_id, issue_uid, kind, author, committer, body, created_at
 ) VALUES (
     'log_0123456789abcdef0123456789abcdef',
-    'board-source', 'src-1', 'post', 'worker', 'worker', 'Existing', 1000
+    'board-source', (SELECT uid FROM issues WHERE id = 'src-1'), 'post', 'worker', 'worker', 'Existing', 1000
 );
 UPDATE store_state
 SET current_revision = 1, next_issue_number = 2

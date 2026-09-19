@@ -19,6 +19,7 @@ import (
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/errkind"
+	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/markdown"
 	"go.abhg.dev/cardamom/internal/markdown/reference"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
@@ -161,6 +162,10 @@ func (r *CopyRepository) importCopyRecords(
 	if err != nil {
 		return result, err
 	}
+	issueUIDs, err := r.allocateCopyIssueUIDs(ctx, queries, index.IssueIDs)
+	if err != nil {
+		return result, err
+	}
 	logMappings, err := r.allocateCopyLogIDs(ctx, queries, index.LogEntryIDs)
 	if err != nil {
 		return result, err
@@ -181,7 +186,7 @@ func (r *CopyRepository) importCopyRecords(
 	importer := copyRecordImporter{
 		ctx: ctx, queries: queries, projectID: options.ProjectID,
 		name: name, boardID: boardID,
-		issueIDs: issueIDs, logIDs: logIDs,
+		issueIDs: issueIDs, issueUIDs: issueUIDs, logIDs: logIDs,
 		rewrite:       copyReferenceRewriter(issueIDs, logIDs),
 		firstRevision: revisions.FirstRevision(),
 		lastRevision:  revisions.LastRevision(),
@@ -460,6 +465,44 @@ func (r *CopyRepository) allocateCopyIssueIDs(
 			Source: sourceID, Destination: destination,
 		})
 		issueCount++
+	}
+	return out, nil
+}
+
+func (r *CopyRepository) allocateCopyIssueUIDs(
+	ctx context.Context,
+	queries *query.Queries,
+	sourceIDs []string,
+) (map[string]issue.UID, error) {
+	reserved := make(map[issue.UID]struct{}, len(sourceIDs))
+	out := make(map[string]issue.UID, len(sourceIDs))
+	for _, sourceID := range sourceIDs {
+		allocated := false
+		for range 32 {
+			candidate, err := issue.GenerateUID(r.entropy)
+			if err != nil {
+				return nil, err
+			}
+			if _, exists := reserved[candidate]; exists {
+				continue
+			}
+			exists, err := queries.BoardIssueUIDExists(ctx, candidate.Bytes())
+			if err != nil {
+				return nil, fmt.Errorf("inspect destination private issue identity: %w", err)
+			}
+			if exists {
+				continue
+			}
+			reserved[candidate] = struct{}{}
+			out[sourceID] = candidate
+			allocated = true
+			break
+		}
+		if !allocated {
+			return nil, errors.New(
+				"allocate destination private issue identity: collision limit reached",
+			)
+		}
 	}
 	return out, nil
 }

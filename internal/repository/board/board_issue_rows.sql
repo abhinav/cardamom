@@ -1,5 +1,6 @@
 -- name: BoardInsertIssue :exec
 INSERT INTO issues (
+    uid,
     id,
     board_id,
     title,
@@ -14,6 +15,7 @@ INSERT INTO issues (
     summary,
     details
 ) VALUES (
+    sqlc.arg(uid),
     sqlc.arg(id),
     sqlc.arg(board_id),
     sqlc.arg(title),
@@ -42,10 +44,11 @@ SET title = sqlc.arg(title),
     summary = sqlc.narg(summary),
     details = sqlc.narg(details)
 WHERE board_id = sqlc.arg(board_id)
-    AND id = sqlc.arg(id);
+    AND uid = sqlc.arg(uid);
 
 -- name: BoardGetIssueState :one
 SELECT
+    issue.uid,
     issue.id,
     issue.title,
     issue.kind,
@@ -68,14 +71,15 @@ SELECT
     claim.started_at AS claim_started_at,
     result.body AS result_body
 FROM issues AS issue
-LEFT JOIN active_claims AS claim ON claim.issue_id = issue.id
-LEFT JOIN issue_results AS result ON result.issue_id = issue.id
-LEFT JOIN issue_states AS state ON state.issue_id = issue.id
+LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
+LEFT JOIN issue_results AS result ON result.issue_uid = issue.uid
+LEFT JOIN issue_states AS state ON state.issue_uid = issue.uid
 WHERE issue.board_id = sqlc.arg(board_id)
     AND issue.id = sqlc.arg(id);
 
 -- name: BoardListIssueStates :many
 SELECT
+    issue.uid,
     issue.id,
     issue.title,
     issue.kind,
@@ -98,7 +102,7 @@ SELECT
     claim.started_at AS claim_started_at,
     result.body AS result_body
 FROM issues AS issue
-LEFT JOIN active_claims AS claim ON claim.issue_id = issue.id
-LEFT JOIN issue_results AS result ON result.issue_id = issue.id
-LEFT JOIN issue_states AS state ON state.issue_id = issue.id
+LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
+LEFT JOIN issue_results AS result ON result.issue_uid = issue.uid
+LEFT JOIN issue_states AS state ON state.issue_uid = issue.uid
 WHERE issue.board_id = sqlc.arg(board_id);

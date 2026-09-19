@@ -84,11 +84,13 @@ func (q *Queries) BoardGetCopySource(ctx context.Context, boardID string) (Board
 }
 
 const boardListCopyCheckpointPage = `-- name: BoardListCopyCheckpointPage :many
-SELECT issue_id, outcome, reason, decided_at
-FROM checkpoint_decisions
-WHERE board_id = ?1
-    AND issue_id > ?2
-ORDER BY issue_id
+SELECT issue.id AS issue_id, decision.outcome, decision.reason,
+    decision.decided_at
+FROM checkpoint_decisions AS decision
+JOIN issues AS issue ON issue.uid = decision.issue_uid
+WHERE decision.board_id = ?1
+    AND issue.id > ?2
+ORDER BY issue.id
 LIMIT ?3
 `
 
@@ -134,11 +136,13 @@ func (q *Queries) BoardListCopyCheckpointPage(ctx context.Context, arg BoardList
 }
 
 const boardListCopyContainmentPage = `-- name: BoardListCopyContainmentPage :many
-SELECT child_id, parent_id
-FROM containment
-WHERE board_id = ?1
-    AND child_id > ?2
-ORDER BY child_id, parent_id
+SELECT child.id AS child_id, parent.id AS parent_id
+FROM containment AS relation
+JOIN issues AS child ON child.uid = relation.child_uid
+JOIN issues AS parent ON parent.uid = relation.parent_uid
+WHERE relation.board_id = ?1
+    AND child.id > ?2
+ORDER BY child.id, parent.id
 LIMIT ?3
 `
 
@@ -177,17 +181,19 @@ func (q *Queries) BoardListCopyContainmentPage(ctx context.Context, arg BoardLis
 }
 
 const boardListCopyDependencyPage = `-- name: BoardListCopyDependencyPage :many
-SELECT issue_id, prerequisite_id
-FROM dependencies
-WHERE board_id = ?1
+SELECT issue.id AS issue_id, prerequisite.id AS prerequisite_id
+FROM dependencies AS relation
+JOIN issues AS issue ON issue.uid = relation.issue_uid
+JOIN issues AS prerequisite ON prerequisite.uid = relation.prerequisite_uid
+WHERE relation.board_id = ?1
     AND (
-        issue_id > ?2
+        issue.id > ?2
         OR (
-            issue_id = ?2
-            AND prerequisite_id > ?3
+            issue.id = ?2
+            AND prerequisite.id > ?3
         )
     )
-ORDER BY issue_id, prerequisite_id
+ORDER BY issue.id, prerequisite.id
 LIMIT ?4
 `
 
@@ -232,17 +238,18 @@ func (q *Queries) BoardListCopyDependencyPage(ctx context.Context, arg BoardList
 }
 
 const boardListCopyExternalKeyPage = `-- name: BoardListCopyExternalKeyPage :many
-SELECT external_key, issue_id
-FROM issue_external_keys
-WHERE board_id = ?1
+SELECT key.external_key, issue.id AS issue_id
+FROM issue_external_keys AS key
+JOIN issues AS issue ON issue.uid = key.issue_uid
+WHERE key.board_id = ?1
     AND (
-        external_key > ?2
+        key.external_key > ?2
         OR (
-            external_key = ?2
-            AND issue_id > ?3
+            key.external_key = ?2
+            AND issue.id > ?3
         )
     )
-ORDER BY external_key, issue_id
+ORDER BY key.external_key, issue.id
 LIMIT ?4
 `
 
@@ -368,17 +375,18 @@ func (q *Queries) BoardListCopyIssuePage(ctx context.Context, arg BoardListCopyI
 }
 
 const boardListCopyLabelPage = `-- name: BoardListCopyLabelPage :many
-SELECT issue_id, label
-FROM issue_labels
-WHERE board_id = ?1
+SELECT issue.id AS issue_id, label.label
+FROM issue_labels AS label
+JOIN issues AS issue ON issue.uid = label.issue_uid
+WHERE label.board_id = ?1
     AND (
-        issue_id > ?2
+        issue.id > ?2
         OR (
-            issue_id = ?2
-            AND label > ?3
+            issue.id = ?2
+            AND label.label > ?3
         )
     )
-ORDER BY issue_id, label
+ORDER BY issue.id, label.label
 LIMIT ?4
 `
 
@@ -424,19 +432,20 @@ func (q *Queries) BoardListCopyLabelPage(ctx context.Context, arg BoardListCopyL
 
 const boardListCopyLogEntryPage = `-- name: BoardListCopyLogEntryPage :many
 SELECT
-    local_sequence,
-    id,
-    issue_id,
-    kind,
-    author,
-    committer,
-    body,
-    created_at,
-    next_action
-FROM issue_log_entries
-WHERE board_id = ?1
-    AND local_sequence > ?2
-ORDER BY local_sequence, id
+    log.local_sequence,
+    log.id,
+    issue.id AS issue_id,
+    log.kind,
+    log.author,
+    log.committer,
+    log.body,
+    log.created_at,
+    log.next_action
+FROM issue_log_entries AS log
+JOIN issues AS issue ON issue.uid = log.issue_uid
+WHERE log.board_id = ?1
+    AND log.local_sequence > ?2
+ORDER BY log.local_sequence, log.id
 LIMIT ?3
 `
 
@@ -492,11 +501,12 @@ func (q *Queries) BoardListCopyLogEntryPage(ctx context.Context, arg BoardListCo
 }
 
 const boardListCopyPinPage = `-- name: BoardListCopyPinPage :many
-SELECT position, issue_id
-FROM board_pins
-WHERE board_id = ?1
-    AND position > ?2
-ORDER BY position
+SELECT pin.position, issue.id AS issue_id
+FROM board_pins AS pin
+JOIN issues AS issue ON issue.uid = pin.issue_uid
+WHERE pin.board_id = ?1
+    AND pin.position > ?2
+ORDER BY pin.position
 LIMIT ?3
 `
 
@@ -535,11 +545,12 @@ func (q *Queries) BoardListCopyPinPage(ctx context.Context, arg BoardListCopyPin
 }
 
 const boardListCopyResultPage = `-- name: BoardListCopyResultPage :many
-SELECT issue_id, body
-FROM issue_results
-WHERE board_id = ?1
-    AND issue_id > ?2
-ORDER BY issue_id
+SELECT issue.id AS issue_id, result.body
+FROM issue_results AS result
+JOIN issues AS issue ON issue.uid = result.issue_uid
+WHERE result.board_id = ?1
+    AND issue.id > ?2
+ORDER BY issue.id
 LIMIT ?3
 `
 
@@ -578,11 +589,13 @@ func (q *Queries) BoardListCopyResultPage(ctx context.Context, arg BoardListCopy
 }
 
 const boardListCopyStatePage = `-- name: BoardListCopyStatePage :many
-SELECT issue_id, body, author, updated_at, snapshot_log_entry_id, next_action
-FROM issue_states
-WHERE board_id = ?1
-    AND issue_id > ?2
-ORDER BY issue_id
+SELECT issue.id AS issue_id, state.body, state.author, state.updated_at,
+    state.snapshot_log_entry_id, state.next_action
+FROM issue_states AS state
+JOIN issues AS issue ON issue.uid = state.issue_uid
+WHERE state.board_id = ?1
+    AND issue.id > ?2
+ORDER BY issue.id
 LIMIT ?3
 `
 

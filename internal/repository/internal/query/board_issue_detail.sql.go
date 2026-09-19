@@ -14,12 +14,12 @@ const boardGetCheckpointDecision = `-- name: BoardGetCheckpointDecision :one
 SELECT outcome, reason, decided_at, revision
 FROM checkpoint_decisions
 WHERE board_id = ?1
-    AND issue_id = ?2
+    AND issue_uid = ?2
 `
 
 type BoardGetCheckpointDecisionParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 type BoardGetCheckpointDecisionRow struct {
@@ -30,7 +30,7 @@ type BoardGetCheckpointDecisionRow struct {
 }
 
 func (q *Queries) BoardGetCheckpointDecision(ctx context.Context, arg BoardGetCheckpointDecisionParams) (BoardGetCheckpointDecisionRow, error) {
-	row := q.db.QueryRowContext(ctx, boardGetCheckpointDecision, arg.BoardID, arg.IssueID)
+	row := q.db.QueryRowContext(ctx, boardGetCheckpointDecision, arg.BoardID, arg.IssueUid)
 	var i BoardGetCheckpointDecisionRow
 	err := row.Scan(
 		&i.Outcome,
@@ -55,10 +55,11 @@ func (q *Queries) BoardGetIssueContextDescription(ctx context.Context, boardID s
 }
 
 const boardGetIssueIDByExternalKey = `-- name: BoardGetIssueIDByExternalKey :one
-SELECT issue_id
-FROM issue_external_keys
-WHERE board_id = ?1
-    AND external_key = ?2
+SELECT issue.id
+FROM issue_external_keys AS key
+JOIN issues AS issue ON issue.uid = key.issue_uid
+WHERE key.board_id = ?1
+    AND key.external_key = ?2
 `
 
 type BoardGetIssueIDByExternalKeyParams struct {
@@ -68,9 +69,9 @@ type BoardGetIssueIDByExternalKeyParams struct {
 
 func (q *Queries) BoardGetIssueIDByExternalKey(ctx context.Context, arg BoardGetIssueIDByExternalKeyParams) (string, error) {
 	row := q.db.QueryRowContext(ctx, boardGetIssueIDByExternalKey, arg.BoardID, arg.ExternalKey)
-	var issue_id string
-	err := row.Scan(&issue_id)
-	return issue_id, err
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const boardGetIssueLogSummary = `-- name: BoardGetIssueLogSummary :one
@@ -80,18 +81,18 @@ SELECT
         SELECT latest.id
         FROM issue_log_entries AS latest
         WHERE latest.board_id = ?1
-            AND latest.issue_id = ?2
+            AND latest.issue_uid = ?2
         ORDER BY latest.local_sequence DESC
         LIMIT 1
     ), '') AS TEXT) AS latest_log_id
 FROM issue_log_entries AS entry
 WHERE entry.board_id = ?1
-    AND entry.issue_id = ?2
+    AND entry.issue_uid = ?2
 `
 
 type BoardGetIssueLogSummaryParams struct {
-	ScopeBoardID    string
-	SelectedIssueID string
+	ScopeBoardID     string
+	SelectedIssueUid []byte
 }
 
 type BoardGetIssueLogSummaryRow struct {
@@ -100,7 +101,7 @@ type BoardGetIssueLogSummaryRow struct {
 }
 
 func (q *Queries) BoardGetIssueLogSummary(ctx context.Context, arg BoardGetIssueLogSummaryParams) (BoardGetIssueLogSummaryRow, error) {
-	row := q.db.QueryRowContext(ctx, boardGetIssueLogSummary, arg.ScopeBoardID, arg.SelectedIssueID)
+	row := q.db.QueryRowContext(ctx, boardGetIssueLogSummary, arg.ScopeBoardID, arg.SelectedIssueUid)
 	var i BoardGetIssueLogSummaryRow
 	err := row.Scan(&i.LogCount, &i.LatestLogID)
 	return i, err
@@ -110,16 +111,16 @@ const boardGetIssueResultBody = `-- name: BoardGetIssueResultBody :one
 SELECT body
 FROM issue_results
 WHERE board_id = ?1
-    AND issue_id = ?2
+    AND issue_uid = ?2
 `
 
 type BoardGetIssueResultBodyParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 func (q *Queries) BoardGetIssueResultBody(ctx context.Context, arg BoardGetIssueResultBodyParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, boardGetIssueResultBody, arg.BoardID, arg.IssueID)
+	row := q.db.QueryRowContext(ctx, boardGetIssueResultBody, arg.BoardID, arg.IssueUid)
 	var body string
 	err := row.Scan(&body)
 	return body, err
@@ -129,17 +130,17 @@ const boardListIssueExternalKeys = `-- name: BoardListIssueExternalKeys :many
 SELECT external_key
 FROM issue_external_keys
 WHERE board_id = ?1
-    AND issue_id = ?2
+    AND issue_uid = ?2
 ORDER BY external_key
 `
 
 type BoardListIssueExternalKeysParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 func (q *Queries) BoardListIssueExternalKeys(ctx context.Context, arg BoardListIssueExternalKeysParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, boardListIssueExternalKeys, arg.BoardID, arg.IssueID)
+	rows, err := q.db.QueryContext(ctx, boardListIssueExternalKeys, arg.BoardID, arg.IssueUid)
 	if err != nil {
 		return nil, err
 	}

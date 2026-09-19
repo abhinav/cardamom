@@ -94,7 +94,7 @@ type searchDocument struct {
 // query that uses the virtual table directly.
 const searchIssueDocumentsSQL = `
 SELECT
-    document.issue_id,
+    issue.id,
     document.field,
     document.record_id,
     CAST(
@@ -115,12 +115,15 @@ SELECT
 FROM issue_search_fts
 JOIN issue_search_documents AS document
     ON document.rowid = issue_search_fts.rowid
+JOIN issues AS issue
+    ON issue.uid = document.issue_uid
+    AND issue.board_id = document.board_id
 WHERE issue_search_fts.body MATCH ?
     AND document.board_id = ?
     AND document.field IN (?, ?, ?, ?, ?, ?)
 ORDER BY
     relevance DESC,
-    document.issue_id,
+    issue.id,
     CASE document.field
         WHEN 'title' THEN 1
         WHEN 'summary' THEN 2

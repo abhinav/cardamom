@@ -12,17 +12,17 @@ import (
 
 const boardDeleteActiveClaim = `-- name: BoardDeleteActiveClaim :exec
 DELETE FROM active_claims
-WHERE issue_id = ?1
+WHERE issue_uid = ?1
 `
 
-func (q *Queries) BoardDeleteActiveClaim(ctx context.Context, issueID string) error {
-	_, err := q.db.ExecContext(ctx, boardDeleteActiveClaim, issueID)
+func (q *Queries) BoardDeleteActiveClaim(ctx context.Context, issueUid []byte) error {
+	_, err := q.db.ExecContext(ctx, boardDeleteActiveClaim, issueUid)
 	return err
 }
 
 const boardInsertActiveClaim = `-- name: BoardInsertActiveClaim :exec
 INSERT INTO active_claims (
-    issue_id,
+    issue_uid,
     board_id,
     actor,
     started_at,
@@ -37,7 +37,7 @@ INSERT INTO active_claims (
 `
 
 type BoardInsertActiveClaimParams struct {
-	IssueID         string
+	IssueUid        []byte
 	BoardID         string
 	Actor           string
 	StartedAt       time.Time
@@ -46,7 +46,7 @@ type BoardInsertActiveClaimParams struct {
 
 func (q *Queries) BoardInsertActiveClaim(ctx context.Context, arg BoardInsertActiveClaimParams) error {
 	_, err := q.db.ExecContext(ctx, boardInsertActiveClaim,
-		arg.IssueID,
+		arg.IssueUid,
 		arg.BoardID,
 		arg.Actor,
 		arg.StartedAt,

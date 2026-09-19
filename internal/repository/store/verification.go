@@ -78,6 +78,15 @@ func verifyStore(
 		)
 	}
 
+	// Private UIDs identify issue rows across repository-owned references.
+	invalidIssueUIDs, err := queries.StoreCountInvalidIssueUIDs(ctx)
+	if err != nil {
+		return fmt.Errorf("verify issue UIDs: %w", err)
+	}
+	if invalidIssueUIDs != 0 {
+		return fmt.Errorf("verify issue UIDs: found %d invalid rows", invalidIssueUIDs)
+	}
+
 	invalidSearchDocuments, err := queries.StoreCountInvalidIssueSearchDocuments(ctx)
 	if err != nil {
 		return fmt.Errorf("verify issue search documents: %w", err)

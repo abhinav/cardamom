@@ -10,11 +10,30 @@ import (
 	"time"
 )
 
+const attachmentGetTargetIssueUID = `-- name: AttachmentGetTargetIssueUID :one
+SELECT uid
+FROM issues
+WHERE board_id = ?1
+    AND id = ?2
+`
+
+type AttachmentGetTargetIssueUIDParams struct {
+	BoardID string
+	IssueID string
+}
+
+func (q *Queries) AttachmentGetTargetIssueUID(ctx context.Context, arg AttachmentGetTargetIssueUIDParams) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, attachmentGetTargetIssueUID, arg.BoardID, arg.IssueID)
+	var uid []byte
+	err := row.Scan(&uid)
+	return uid, err
+}
+
 const attachmentInsertUpload = `-- name: AttachmentInsertUpload :exec
 INSERT INTO attachment_uploads (
     id,
     board_id,
-    origin_issue_id,
+    origin_issue_uid,
     filename,
     expected_size_bytes,
     expected_digest,
@@ -41,7 +60,7 @@ INSERT INTO attachment_uploads (
 type AttachmentInsertUploadParams struct {
 	ID                string
 	BoardID           string
-	OriginIssueID     *string
+	OriginIssueUid    []byte
 	Filename          string
 	ExpectedSizeBytes *int64
 	ExpectedDigest    *string
@@ -56,7 +75,7 @@ func (q *Queries) AttachmentInsertUpload(ctx context.Context, arg AttachmentInse
 	_, err := q.db.ExecContext(ctx, attachmentInsertUpload,
 		arg.ID,
 		arg.BoardID,
-		arg.OriginIssueID,
+		arg.OriginIssueUid,
 		arg.Filename,
 		arg.ExpectedSizeBytes,
 		arg.ExpectedDigest,
@@ -82,25 +101,4 @@ func (q *Queries) AttachmentTargetBoardExists(ctx context.Context, boardID strin
 	var board_exists bool
 	err := row.Scan(&board_exists)
 	return board_exists, err
-}
-
-const attachmentTargetIssueExists = `-- name: AttachmentTargetIssueExists :one
-SELECT EXISTS (
-    SELECT 1
-    FROM issues
-    WHERE board_id = ?1
-        AND id = ?2
-) AS issue_exists
-`
-
-type AttachmentTargetIssueExistsParams struct {
-	BoardID string
-	IssueID string
-}
-
-func (q *Queries) AttachmentTargetIssueExists(ctx context.Context, arg AttachmentTargetIssueExistsParams) (bool, error) {
-	row := q.db.QueryRowContext(ctx, attachmentTargetIssueExists, arg.BoardID, arg.IssueID)
-	var issue_exists bool
-	err := row.Scan(&issue_exists)
-	return issue_exists, err
 }

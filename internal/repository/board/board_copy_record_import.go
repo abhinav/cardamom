@@ -6,18 +6,22 @@ import (
 
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/boardcopy"
+	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
 // copyRecordImporter writes one validated publication into an unpublished
 // destination board. Its caller owns validation and transaction publication.
 type copyRecordImporter struct {
-	ctx           context.Context // required
-	queries       *query.Queries  // required
-	projectID     string          // required
-	name          string          // required
-	boardID       string          // required
-	issueIDs      map[string]string
+	ctx       context.Context // required
+	queries   *query.Queries  // required
+	projectID string          // required
+	name      string          // required
+	boardID   string          // required
+	// issueIDs maps each source public ID to its destination public ID.
+	issueIDs map[string]string
+	// issueUIDs assigns each source public ID a fresh destination private UID.
+	issueUIDs     map[string]issue.UID
 	logIDs        map[string]string
 	rewrite       func(string) string // required
 	firstRevision int64
@@ -87,10 +91,14 @@ func (i *copyRecordImporter) importIssue(value boardcopy.CopyIssue) error {
 	if err != nil {
 		return err
 	}
+	issueUID, err := i.issueUID(value.ID)
+	if err != nil {
+		return err
+	}
 	err = i.queries.BoardInsertCopiedIssue(
 		i.ctx,
 		query.BoardInsertCopiedIssueParams{
-			ID: issueID, BoardID: i.boardID, Title: value.Title,
+			Uid: issueUID.Bytes(), ID: issueID, BoardID: i.boardID, Title: value.Title,
 			Kind: value.Kind, Lifecycle: value.Lifecycle,
 			Priority: value.Priority, CreatedAt: value.CreatedAt,
 			UpdatedAt: value.UpdatedAt, ClosedAt: value.ClosedAt,
@@ -107,14 +115,14 @@ func (i *copyRecordImporter) importIssue(value boardcopy.CopyIssue) error {
 }
 
 func (i *copyRecordImporter) importLabel(value boardcopy.CopyLabel) error {
-	issueID, err := i.issueID(value.IssueID)
+	issueUID, err := i.issueUID(value.IssueID)
 	if err != nil {
 		return err
 	}
 	if err := i.queries.BoardInsertIssueLabel(
 		i.ctx,
 		query.BoardInsertIssueLabelParams{
-			BoardID: i.boardID, IssueID: issueID, Label: value.Label,
+			BoardID: i.boardID, IssueUid: issueUID.Bytes(), Label: value.Label,
 		},
 	); err != nil {
 		return fmt.Errorf("create destination issue label: %w", err)
@@ -125,19 +133,19 @@ func (i *copyRecordImporter) importLabel(value boardcopy.CopyLabel) error {
 func (i *copyRecordImporter) importDependency(
 	value boardcopy.CopyDependency,
 ) error {
-	issueID, err := i.issueID(value.IssueID)
+	issueUID, err := i.issueUID(value.IssueID)
 	if err != nil {
 		return err
 	}
-	prerequisiteID, err := i.issueID(value.PrerequisiteID)
+	prerequisiteUID, err := i.issueUID(value.PrerequisiteID)
 	if err != nil {
 		return err
 	}
 	if err := i.queries.BoardInsertIssueDependency(
 		i.ctx,
 		query.BoardInsertIssueDependencyParams{
-			BoardID: i.boardID, IssueID: issueID,
-			PrerequisiteID: prerequisiteID,
+			BoardID: i.boardID, IssueUid: issueUID.Bytes(),
+			PrerequisiteUid: prerequisiteUID.Bytes(),
 		},
 	); err != nil {
 		return fmt.Errorf("create destination dependency: %w", err)
@@ -148,18 +156,18 @@ func (i *copyRecordImporter) importDependency(
 func (i *copyRecordImporter) importContainment(
 	value boardcopy.CopyContainment,
 ) error {
-	childID, err := i.issueID(value.ChildID)
+	childUID, err := i.issueUID(value.ChildID)
 	if err != nil {
 		return err
 	}
-	parentID, err := i.issueID(value.ParentID)
+	parentUID, err := i.issueUID(value.ParentID)
 	if err != nil {
 		return err
 	}
 	if err := i.queries.BoardInsertIssueParent(
 		i.ctx,
 		query.BoardInsertIssueParentParams{
-			BoardID: i.boardID, ChildID: childID, ParentID: parentID,
+			BoardID: i.boardID, ChildUid: childUID.Bytes(), ParentUid: parentUID.Bytes(),
 		},
 	); err != nil {
 		return fmt.Errorf("create destination containment: %w", err)
@@ -170,14 +178,14 @@ func (i *copyRecordImporter) importContainment(
 func (i *copyRecordImporter) importExternalKey(
 	value boardcopy.CopyExternalKey,
 ) error {
-	issueID, err := i.issueID(value.IssueID)
+	issueUID, err := i.issueUID(value.IssueID)
 	if err != nil {
 		return err
 	}
 	if err := i.queries.BoardInsertIssueExternalKey(
 		i.ctx,
 		query.BoardInsertIssueExternalKeyParams{
-			BoardID: i.boardID, ExternalKey: value.Key, IssueID: issueID,
+			BoardID: i.boardID, ExternalKey: value.Key, IssueUid: issueUID.Bytes(),
 		},
 	); err != nil {
 		return fmt.Errorf("create destination external key: %w", err)
@@ -192,14 +200,14 @@ func (i *copyRecordImporter) importLogEntry(
 	if err != nil {
 		return err
 	}
-	issueID, err := i.issueID(value.IssueID)
+	issueUID, err := i.issueUID(value.IssueID)
 	if err != nil {
 		return err
 	}
 	if err := i.queries.BoardInsertIssueLogEntry(
 		i.ctx,
 		query.BoardInsertIssueLogEntryParams{
-			ID: logID, BoardID: i.boardID, IssueID: issueID,
+			ID: logID, BoardID: i.boardID, IssueUid: issueUID.Bytes(),
 			Kind: value.Kind, Author: value.Author, Committer: value.Committer,
 			Body: i.rewrite(value.Body), CreatedAt: value.CreatedAt,
 			NextAction: rewriteOptionalCopyMarkdown(value.NextAction, i.rewrite),
@@ -211,7 +219,7 @@ func (i *copyRecordImporter) importLogEntry(
 }
 
 func (i *copyRecordImporter) importState(value boardcopy.CopyState) error {
-	issueID, err := i.issueID(value.IssueID)
+	issueUID, err := i.issueUID(value.IssueID)
 	if err != nil {
 		return err
 	}
@@ -226,7 +234,7 @@ func (i *copyRecordImporter) importState(value boardcopy.CopyState) error {
 	if err := i.queries.BoardUpsertIssueState(
 		i.ctx,
 		query.BoardUpsertIssueStateParams{
-			IssueID: issueID, BoardID: i.boardID, Body: i.rewrite(value.Body),
+			IssueUid: issueUID.Bytes(), BoardID: i.boardID, Body: i.rewrite(value.Body),
 			Author: value.Author, UpdatedAt: value.UpdatedAt,
 			SnapshotLogEntryID: snapshotID,
 			NextAction:         rewriteOptionalCopyMarkdown(value.NextAction, i.rewrite),
@@ -240,14 +248,14 @@ func (i *copyRecordImporter) importState(value boardcopy.CopyState) error {
 func (i *copyRecordImporter) importResult(
 	value boardcopy.CopyResultRecord,
 ) error {
-	issueID, err := i.issueID(value.IssueID)
+	issueUID, err := i.issueUID(value.IssueID)
 	if err != nil {
 		return err
 	}
 	if err := i.queries.BoardUpsertIssueResult(
 		i.ctx,
 		query.BoardUpsertIssueResultParams{
-			IssueID: issueID, BoardID: i.boardID, Body: i.rewrite(value.Body),
+			IssueUid: issueUID.Bytes(), BoardID: i.boardID, Body: i.rewrite(value.Body),
 		},
 	); err != nil {
 		return fmt.Errorf("create destination Result: %w", err)
@@ -258,14 +266,14 @@ func (i *copyRecordImporter) importResult(
 func (i *copyRecordImporter) importCheckpoint(
 	value boardcopy.CopyCheckpoint,
 ) error {
-	issueID, err := i.issueID(value.IssueID)
+	issueUID, err := i.issueUID(value.IssueID)
 	if err != nil {
 		return err
 	}
 	if err := i.queries.BoardInsertCheckpointDecision(
 		i.ctx,
 		query.BoardInsertCheckpointDecisionParams{
-			IssueID: issueID, BoardID: i.boardID, Outcome: value.Outcome,
+			IssueUid: issueUID.Bytes(), BoardID: i.boardID, Outcome: value.Outcome,
 			Reason: i.rewrite(value.Reason), DecidedAt: value.DecidedAt,
 			Revision: i.lastRevision,
 		},
@@ -287,13 +295,13 @@ func (i *copyRecordImporter) importAttachment(
 	); err != nil {
 		return fmt.Errorf("create destination blob descriptor: %w", err)
 	}
-	var originIssueID *string
+	var originIssueUID []byte
 	if value.OriginIssueID != nil {
-		mapped, err := i.issueID(*value.OriginIssueID)
+		mapped, err := i.issueUID(*value.OriginIssueID)
 		if err != nil {
 			return err
 		}
-		originIssueID = &mapped
+		originIssueUID = mapped.Bytes()
 	}
 	createdRevision := i.lastRevision
 	var removedRevision *int64
@@ -304,7 +312,7 @@ func (i *copyRecordImporter) importAttachment(
 	if err := i.queries.AttachmentInsertCopiedMetadata(
 		i.ctx,
 		query.AttachmentInsertCopiedMetadataParams{
-			BoardID: i.boardID, ID: value.ID, OriginIssueID: originIssueID,
+			BoardID: i.boardID, ID: value.ID, OriginIssueUid: originIssueUID,
 			BlobDigest:    value.Blob.Digest.String(),
 			BlobSizeBytes: int64(value.Blob.SizeBytes),
 			Filename:      value.Filename, MediaType: value.MediaType,
@@ -320,13 +328,13 @@ func (i *copyRecordImporter) importAttachment(
 }
 
 func (i *copyRecordImporter) importPin(value boardcopy.CopyPin) error {
-	issueID, err := i.issueID(value.IssueID)
+	issueUID, err := i.issueUID(value.IssueID)
 	if err != nil {
 		return err
 	}
 	if err := i.queries.BoardInsertPin(
 		i.ctx,
-		query.BoardInsertPinParams{BoardID: i.boardID, IssueID: issueID},
+		query.BoardInsertPinParams{BoardID: i.boardID, IssueUid: issueUID.Bytes()},
 	); err != nil {
 		return fmt.Errorf("create destination board pin: %w", err)
 	}
@@ -337,6 +345,14 @@ func (i *copyRecordImporter) issueID(source string) (string, error) {
 	destination, found := i.issueIDs[source]
 	if !found {
 		return "", fmt.Errorf("source issue %q is absent from record index", source)
+	}
+	return destination, nil
+}
+
+func (i *copyRecordImporter) issueUID(source string) (issue.UID, error) {
+	destination, found := i.issueUIDs[source]
+	if !found {
+		return issue.UID{}, fmt.Errorf("source issue %q is absent from private identity index", source)
 	}
 	return destination, nil
 }

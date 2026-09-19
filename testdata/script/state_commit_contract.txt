@@ -73,18 +73,18 @@ Replacement recovery State.
 -- two-values.md --
 Only one value can consume this input.
 -- golden/commit-next.json --
-{"issue_id":"state-1","snapshot_created":true,"state":{"body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","author":"data","updated":1784030400},"log_entry":{"id":"log_00000000000000000000000000000001","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Current recovery State.\nSecondary diagnostic.","next_action":"Inspect the primary plasma conduit.","created":1784030400}}
+{"issue_id":"state-1","snapshot_created":true,"state":{"body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","author":"data","updated":1784030400},"log_entry":{"id":"log_00000000000000000000000000000002","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Current recovery State.\nSecondary diagnostic.","next_action":"Inspect the primary plasma conduit.","created":1784030400}}
 -- golden/next-state.json --
 {"issue_id":"state-1","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","author":"data","updated":1784030400}
 -- golden/commit-default-clear.json --
-{"issue_id":"state-1","snapshot_created":true,"state":null,"log_entry":{"id":"log_00000000000000000000000000000002","issue_id":"state-1","kind":"state_snapshot","author":"data","committer":"data","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","created":1784030400}}
+{"issue_id":"state-1","snapshot_created":true,"state":null,"log_entry":{"id":"log_00000000000000000000000000000003","issue_id":"state-1","kind":"state_snapshot","author":"data","committer":"data","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","created":1784030400}}
 -- golden/commit-no-op.json --
 {"issue_id":"state-1","snapshot_created":false,"state":null}
 -- golden/commit-clear.json --
-{"issue_id":"state-1","snapshot_created":true,"state":null,"log_entry":{"id":"log_00000000000000000000000000000003","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Final uncommitted State.","created":1784030400}}
+{"issue_id":"state-1","snapshot_created":true,"state":null,"log_entry":{"id":"log_00000000000000000000000000000004","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Final uncommitted State.","created":1784030400}}
 -- golden/absent-state.json --
 {"issue_id":"state-1","body":null}
 -- golden/snapshots.jsonl --
-{"id":"log_00000000000000000000000000000001","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Current recovery State.\nSecondary diagnostic.","next_action":"Inspect the primary plasma conduit.","created":1784030400}
-{"id":"log_00000000000000000000000000000002","issue_id":"state-1","kind":"state_snapshot","author":"data","committer":"data","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","created":1784030400}
-{"id":"log_00000000000000000000000000000003","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Final uncommitted State.","created":1784030400}
+{"id":"log_00000000000000000000000000000002","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Current recovery State.\nSecondary diagnostic.","next_action":"Inspect the primary plasma conduit.","created":1784030400}
+{"id":"log_00000000000000000000000000000003","issue_id":"state-1","kind":"state_snapshot","author":"data","committer":"data","body":"Replacement recovery State.\n","next_action":"Inspect the secondary plasma conduit.","created":1784030400}
+{"id":"log_00000000000000000000000000000004","issue_id":"state-1","kind":"state_snapshot","author":"geordi","committer":"data","body":"Final uncommitted State.","created":1784030400}

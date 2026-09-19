@@ -12,7 +12,7 @@ ON CONFLICT(digest) DO NOTHING;
 INSERT INTO attachments (
     board_id,
     id,
-    origin_issue_id,
+    origin_issue_uid,
     blob_digest,
     blob_size_bytes,
     filename,
@@ -24,7 +24,7 @@ INSERT INTO attachments (
 ) VALUES (
     sqlc.arg(board_id),
     sqlc.arg(id),
-    sqlc.narg(origin_issue_id),
+    sqlc.narg(origin_issue_uid),
     sqlc.arg(blob_digest),
     sqlc.arg(blob_size_bytes),
     sqlc.arg(filename),

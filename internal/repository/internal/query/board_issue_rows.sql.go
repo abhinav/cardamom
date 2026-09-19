@@ -12,6 +12,7 @@ import (
 
 const boardGetIssueState = `-- name: BoardGetIssueState :one
 SELECT
+    issue.uid,
     issue.id,
     issue.title,
     issue.kind,
@@ -34,9 +35,9 @@ SELECT
     claim.started_at AS claim_started_at,
     result.body AS result_body
 FROM issues AS issue
-LEFT JOIN active_claims AS claim ON claim.issue_id = issue.id
-LEFT JOIN issue_results AS result ON result.issue_id = issue.id
-LEFT JOIN issue_states AS state ON state.issue_id = issue.id
+LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
+LEFT JOIN issue_results AS result ON result.issue_uid = issue.uid
+LEFT JOIN issue_states AS state ON state.issue_uid = issue.uid
 WHERE issue.board_id = ?1
     AND issue.id = ?2
 `
@@ -47,6 +48,7 @@ type BoardGetIssueStateParams struct {
 }
 
 type BoardGetIssueStateRow struct {
+	Uid                     []byte
 	ID                      string
 	Title                   string
 	Kind                    string
@@ -74,6 +76,7 @@ func (q *Queries) BoardGetIssueState(ctx context.Context, arg BoardGetIssueState
 	row := q.db.QueryRowContext(ctx, boardGetIssueState, arg.BoardID, arg.ID)
 	var i BoardGetIssueStateRow
 	err := row.Scan(
+		&i.Uid,
 		&i.ID,
 		&i.Title,
 		&i.Kind,
@@ -101,6 +104,7 @@ func (q *Queries) BoardGetIssueState(ctx context.Context, arg BoardGetIssueState
 
 const boardInsertIssue = `-- name: BoardInsertIssue :exec
 INSERT INTO issues (
+    uid,
     id,
     board_id,
     title,
@@ -127,11 +131,13 @@ INSERT INTO issues (
     ?10,
     ?11,
     ?12,
-    ?13
+    ?13,
+    ?14
 )
 `
 
 type BoardInsertIssueParams struct {
+	Uid           []byte
 	ID            string
 	BoardID       string
 	Title         string
@@ -149,6 +155,7 @@ type BoardInsertIssueParams struct {
 
 func (q *Queries) BoardInsertIssue(ctx context.Context, arg BoardInsertIssueParams) error {
 	_, err := q.db.ExecContext(ctx, boardInsertIssue,
+		arg.Uid,
 		arg.ID,
 		arg.BoardID,
 		arg.Title,
@@ -168,6 +175,7 @@ func (q *Queries) BoardInsertIssue(ctx context.Context, arg BoardInsertIssuePara
 
 const boardListIssueStates = `-- name: BoardListIssueStates :many
 SELECT
+    issue.uid,
     issue.id,
     issue.title,
     issue.kind,
@@ -190,13 +198,14 @@ SELECT
     claim.started_at AS claim_started_at,
     result.body AS result_body
 FROM issues AS issue
-LEFT JOIN active_claims AS claim ON claim.issue_id = issue.id
-LEFT JOIN issue_results AS result ON result.issue_id = issue.id
-LEFT JOIN issue_states AS state ON state.issue_id = issue.id
+LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
+LEFT JOIN issue_results AS result ON result.issue_uid = issue.uid
+LEFT JOIN issue_states AS state ON state.issue_uid = issue.uid
 WHERE issue.board_id = ?1
 `
 
 type BoardListIssueStatesRow struct {
+	Uid                     []byte
 	ID                      string
 	Title                   string
 	Kind                    string
@@ -230,6 +239,7 @@ func (q *Queries) BoardListIssueStates(ctx context.Context, boardID string) ([]B
 	for rows.Next() {
 		var i BoardListIssueStatesRow
 		if err := rows.Scan(
+			&i.Uid,
 			&i.ID,
 			&i.Title,
 			&i.Kind,
@@ -278,7 +288,7 @@ SET title = ?1,
     summary = ?9,
     details = ?10
 WHERE board_id = ?11
-    AND id = ?12
+    AND uid = ?12
 `
 
 type BoardUpdateIssueParams struct {
@@ -293,7 +303,7 @@ type BoardUpdateIssueParams struct {
 	Summary       *string
 	Details       *string
 	BoardID       string
-	ID            string
+	Uid           []byte
 }
 
 func (q *Queries) BoardUpdateIssue(ctx context.Context, arg BoardUpdateIssueParams) error {
@@ -309,7 +319,7 @@ func (q *Queries) BoardUpdateIssue(ctx context.Context, arg BoardUpdateIssuePara
 		arg.Summary,
 		arg.Details,
 		arg.BoardID,
-		arg.ID,
+		arg.Uid,
 	)
 	return err
 }

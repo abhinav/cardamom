@@ -6,28 +6,29 @@ WHERE board_id = sqlc.arg(board_id)
 
 -- name: AttachmentListCopyMetadataPage :many
 SELECT
-    id,
-    origin_issue_id,
-    blob_digest,
-    blob_size_bytes,
-    filename,
-    media_type,
-    lifecycle,
-    created_actor,
-    created_at,
-    removed_actor,
-    removed_at
-FROM attachments
-WHERE board_id = sqlc.arg(board_id)
-    AND id > sqlc.arg(after_id)
-ORDER BY id
+    attachment.id,
+    issue.id AS origin_issue_id,
+    attachment.blob_digest,
+    attachment.blob_size_bytes,
+    attachment.filename,
+    attachment.media_type,
+    attachment.lifecycle,
+    attachment.created_actor,
+    attachment.created_at,
+    attachment.removed_actor,
+    attachment.removed_at
+FROM attachments AS attachment
+LEFT JOIN issues AS issue ON issue.uid = attachment.origin_issue_uid
+WHERE attachment.board_id = sqlc.arg(board_id)
+    AND attachment.id > sqlc.arg(after_id)
+ORDER BY attachment.id
 LIMIT sqlc.arg(page_size);
 
 -- name: AttachmentInsertCopiedMetadata :exec
 INSERT INTO attachments (
     board_id,
     id,
-    origin_issue_id,
+    origin_issue_uid,
     blob_digest,
     blob_size_bytes,
     filename,
@@ -42,7 +43,7 @@ INSERT INTO attachments (
 ) VALUES (
     sqlc.arg(board_id),
     sqlc.arg(id),
-    sqlc.narg(origin_issue_id),
+    sqlc.narg(origin_issue_uid),
     sqlc.arg(blob_digest),
     sqlc.arg(blob_size_bytes),
     sqlc.arg(filename),

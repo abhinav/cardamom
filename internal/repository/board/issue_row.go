@@ -21,6 +21,7 @@ func (r *Repository) insertIssue(ctx context.Context, mutation *mutation, state 
 	return query.New(mutation.change).BoardInsertIssue(
 		ctx,
 		query.BoardInsertIssueParams{
+			Uid:           snapshot.UID.Bytes(),
 			ID:            snapshot.ID.String(),
 			BoardID:       r.boardID.String(),
 			Title:         snapshot.Title,
@@ -54,7 +55,7 @@ func (r *Repository) updateIssue(ctx context.Context, mutation *mutation, state 
 			Summary:       nullableText(snapshot.Summary),
 			Details:       nullableText(snapshot.Details),
 			BoardID:       r.boardID.String(),
-			ID:            snapshot.ID.String(),
+			Uid:           snapshot.UID.Bytes(),
 		},
 	)
 }
@@ -62,7 +63,8 @@ func (r *Repository) updateIssue(ctx context.Context, mutation *mutation, state 
 // persistedIssue is the Board repository representation of one issue row and
 // its joined active claim and current result.
 type persistedIssue struct {
-	// id, title, kind, lifecycle, and priority come from the issue row.
+	// uid, id, title, kind, lifecycle, and priority come from the issue row.
+	uid       []byte
 	id        string
 	title     string
 	kind      string
@@ -260,6 +262,7 @@ func (r *Repository) readBoardIssueStates(
 
 func persistedIssueFromGet(row query.BoardGetIssueStateRow) persistedIssue {
 	return persistedIssue{
+		uid:             append([]byte(nil), row.Uid...),
 		id:              row.ID,
 		title:           row.Title,
 		kind:            row.Kind,
@@ -286,6 +289,7 @@ func persistedIssueFromGet(row query.BoardGetIssueStateRow) persistedIssue {
 
 func persistedIssueFromList(row query.BoardListIssueStatesRow) persistedIssue {
 	return persistedIssue{
+		uid:             append([]byte(nil), row.Uid...),
 		id:              row.ID,
 		title:           row.Title,
 		kind:            row.Kind,
@@ -311,6 +315,10 @@ func persistedIssueFromList(row query.BoardListIssueStatesRow) persistedIssue {
 }
 
 func loadPersistedIssue(row persistedIssue) (issueStateAtRevision, error) {
+	uid, err := issue.ParseUID(row.uid)
+	if err != nil {
+		return issueStateAtRevision{}, err
+	}
 	kind, err := issue.NewKind(row.kind)
 	if err != nil {
 		return issueStateAtRevision{}, err
@@ -348,6 +356,7 @@ func loadPersistedIssue(row persistedIssue) (issueStateAtRevision, error) {
 		return issueStateAtRevision{}, err
 	}
 	state, err := issue.Load(issue.Snapshot{
+		UID:           uid,
 		ID:            issue.ID(row.id),
 		Title:         row.title,
 		Kind:          kind,

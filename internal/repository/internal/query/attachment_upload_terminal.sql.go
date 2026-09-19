@@ -52,7 +52,7 @@ const attachmentInsertMetadata = `-- name: AttachmentInsertMetadata :exec
 INSERT INTO attachments (
     board_id,
     id,
-    origin_issue_id,
+    origin_issue_uid,
     blob_digest,
     blob_size_bytes,
     filename,
@@ -79,7 +79,7 @@ INSERT INTO attachments (
 type AttachmentInsertMetadataParams struct {
 	BoardID         string
 	ID              string
-	OriginIssueID   *string
+	OriginIssueUid  []byte
 	BlobDigest      string
 	BlobSizeBytes   int64
 	Filename        string
@@ -93,7 +93,7 @@ func (q *Queries) AttachmentInsertMetadata(ctx context.Context, arg AttachmentIn
 	_, err := q.db.ExecContext(ctx, attachmentInsertMetadata,
 		arg.BoardID,
 		arg.ID,
-		arg.OriginIssueID,
+		arg.OriginIssueUid,
 		arg.BlobDigest,
 		arg.BlobSizeBytes,
 		arg.Filename,

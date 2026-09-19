@@ -284,15 +284,40 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	provider, err := newStoreMigrationProvider(db)
+	priorFiles := make(fstest.MapFS)
+	for _, name := range []string{
+		"20260729090000_board_copy.sql",
+		"20260811090000_board_archival.sql",
+		"20260812120000_board_pins.sql",
+	} {
+		body, readErr := migrationFiles.ReadFile("migrations/" + name)
+		require.NoError(t, readErr)
+		priorFiles[name] = &fstest.MapFile{Data: body}
+	}
+	provider, err := newMigrationProvider(db, priorFiles)
 	require.NoError(t, err)
 	results, err := provider.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, results, 4)
+	require.Len(t, results, 3)
 	assert.Equal(t, int64(20260729090000), results[0].Source.Version)
 	assert.Equal(t, int64(20260811090000), results[1].Source.Version)
 	assert.Equal(t, int64(20260812120000), results[2].Source.Version)
-	assert.Equal(t, int64(20260904120000), results[3].Source.Version)
+	markers, err := newMigrationProvider(
+		db,
+		nil,
+		goose.NewGoMigration(20260904120000, nil, nil),
+		goose.NewGoMigration(20260909120000, nil, nil),
+	)
+	require.NoError(t, err)
+	markerResults, err := markers.Up(t.Context())
+	require.NoError(t, err)
+	require.Len(t, markerResults, 2)
+
+	current, err := newStoreMigrationProvider(db)
+	require.NoError(t, err)
+	currentResults, err := current.Up(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, currentResults)
 
 	var appliedVersions int
 	require.NoError(t, db.QueryRow(`
@@ -306,10 +331,11 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 				20260729090000,
 				20260811090000,
 				20260812120000,
-				20260904120000
+				20260904120000,
+				20260909120000
 			)
 	`).Scan(&appliedVersions))
-	assert.Equal(t, 7, appliedVersions)
+	assert.Equal(t, 8, appliedVersions)
 }
 
 func TestBoardCopyMigrationPreservesBaselineStore(t *testing.T) {
@@ -335,11 +361,12 @@ VALUES ('board-existing', 'project-existing', 'Existing board', 1000)`)
 	require.NoError(t, err)
 	results, err := current.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, results, 4)
+	require.Len(t, results, 5)
 	assert.Equal(t, int64(20260729090000), results[0].Source.Version)
 	assert.Equal(t, int64(20260811090000), results[1].Source.Version)
 	assert.Equal(t, int64(20260812120000), results[2].Source.Version)
 	assert.Equal(t, int64(20260904120000), results[3].Source.Version)
+	assert.Equal(t, int64(20260909120000), results[4].Source.Version)
 
 	var projectName, boardName, lineage string
 	require.NoError(t, db.QueryRowContext(t.Context(), `

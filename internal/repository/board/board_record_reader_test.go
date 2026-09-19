@@ -19,15 +19,15 @@ func TestRepository_RecordSequenceUsesKeysetPagesFromOneView(t *testing.T) {
 	change, err := persistence.Change(t.Context())
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
-INSERT INTO issue_labels (board_id, issue_id, label) VALUES
-    ('board-source', 'src-1', 'area:z'),
-    ('board-source', 'src-2', 'area:a');
-INSERT INTO dependencies (board_id, issue_id, prerequisite_id)
-VALUES ('board-source', 'src-2', 'src-4');
-INSERT INTO containment (board_id, child_id, parent_id)
-VALUES ('board-source', 'src-2', 'src-3');
-INSERT INTO issue_external_keys (board_id, external_key, issue_id)
-VALUES ('board-source', 'external-2', 'src-2');
+INSERT INTO issue_labels (board_id, issue_uid, label) VALUES
+    ('board-source', (SELECT uid FROM issues WHERE id = 'src-1'), 'area:z'),
+    ('board-source', (SELECT uid FROM issues WHERE id = 'src-2'), 'area:a');
+INSERT INTO dependencies (board_id, issue_uid, prerequisite_uid)
+VALUES ('board-source', (SELECT uid FROM issues WHERE id = 'src-2'), (SELECT uid FROM issues WHERE id = 'src-4'));
+INSERT INTO containment (board_id, child_uid, parent_uid)
+VALUES ('board-source', (SELECT uid FROM issues WHERE id = 'src-2'), (SELECT uid FROM issues WHERE id = 'src-3'));
+INSERT INTO issue_external_keys (board_id, external_key, issue_uid)
+VALUES ('board-source', 'external-2', (SELECT uid FROM issues WHERE id = 'src-2'));
 UPDATE boards SET revision = 3 WHERE id = 'board-source';
 UPDATE store_state SET current_revision = 3 WHERE singleton = 1`)
 	require.NoError(t, err)
@@ -61,10 +61,10 @@ UPDATE issues
 SET title = 'Changed after page one', revision = 4
 WHERE id = 'src-2';
 INSERT INTO issues (
-    id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
+    uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
     revision
 ) VALUES (
-    'src-5', 'board-source', 'Added after page one', 'task', 'open', 2,
+    randomblob(16), 'src-5', 'board-source', 'Added after page one', 'task', 'open', 2,
     1003, 1003, 4
 );
 UPDATE boards SET revision = 4 WHERE id = 'board-source';

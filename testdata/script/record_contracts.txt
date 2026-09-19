@@ -23,7 +23,7 @@ cmpjson stdout $WORK/golden/issue.json
 -- golden/state.json --
 {"issue_id":"record-1","body":"Current recovery state.\nNext action.","author":"test-user","updated":1783944000}
 -- golden/log.jsonl --
-{"id":"log_00000000000000000000000000000002","issue_id":"record-1","kind":"post","author":"crusher","committer":"crusher","body":"Medical review completed.","created":1783944000}
-{"id":"log_00000000000000000000000000000001","issue_id":"record-1","kind":"post","author":"geordi","committer":"geordi","body":"Observed plasma instability.","created":1783944000}
+{"id":"log_00000000000000000000000000000003","issue_id":"record-1","kind":"post","author":"crusher","committer":"crusher","body":"Medical review completed.","created":1783944000}
+{"id":"log_00000000000000000000000000000002","issue_id":"record-1","kind":"post","author":"geordi","committer":"geordi","body":"Observed plasma instability.","created":1783944000}
 -- golden/issue.json --
-{"id":"record-1","title":"Recover subsystem","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"state":"Current recovery state.\nNext action.","revision":6,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":2,"latest_log_id":"log_00000000000000000000000000000002","blocked":false,"parent_id":null,"attachments":[]}
+{"id":"record-1","title":"Recover subsystem","type":"task","lifecycle":"open","status":"ready","priority":2,"active_claim":null,"created":1783944000,"updated":1783944000,"state":"Current recovery state.\nNext action.","revision":6,"keys":[],"labels":[],"depends_on":[],"blocks":[],"log_count":2,"latest_log_id":"log_00000000000000000000000000000003","blocked":false,"parent_id":null,"attachments":[]}

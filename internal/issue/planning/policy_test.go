@@ -1,6 +1,7 @@
 package planning
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
@@ -55,11 +56,12 @@ func TestCreateIssueNormalizesInput(t *testing.T) {
 
 	key := ExternalKey("source:build")
 	board, err := LoadCreate(CreateSnapshot{
-		BoardID:     mustBoardID(t, "board"),
-		Revision:    domainboard.Revision(4),
-		AllocatedID: issuekernel.MustID("an-7"),
-		ExistingIDs: []issuekernel.ID{issuekernel.MustID("an-1")},
-		OccurredAt:  time.Unix(10, 0).UTC(),
+		BoardID:      mustBoardID(t, "board"),
+		Revision:     domainboard.Revision(4),
+		AllocatedID:  issuekernel.MustID("an-7"),
+		AllocatedUID: planningTestUID(t, 1),
+		ExistingIDs:  []issuekernel.ID{issuekernel.MustID("an-1")},
+		OccurredAt:   time.Unix(10, 0).UTC(),
 	})
 	require.NoError(t, err)
 
@@ -86,9 +88,10 @@ func TestCreateIssueRejectsBoundExternalKey(t *testing.T) {
 
 	key := ExternalKey("source:build")
 	board, err := LoadCreate(CreateSnapshot{
-		BoardID:     mustBoardID(t, "board"),
-		Revision:    domainboard.Revision(4),
-		AllocatedID: issuekernel.MustID("an-7"),
+		BoardID:      mustBoardID(t, "board"),
+		Revision:     domainboard.Revision(4),
+		AllocatedID:  issuekernel.MustID("an-7"),
+		AllocatedUID: planningTestUID(t, 2),
 		ExternalKeyOwner: &ExternalKeyOwner{
 			Key: key, IssueID: issuekernel.MustID("an-1"),
 		},
@@ -110,7 +113,8 @@ func TestCreateIssueRejectsMissingParent(t *testing.T) {
 	board, err := LoadCreate(CreateSnapshot{
 		BoardID: mustBoardID(t, "board"), Revision: 1,
 		AllocatedID: issuekernel.MustID("an-2"), ExistingIDs: []issuekernel.ID{issuekernel.MustID("an-1")},
-		OccurredAt: time.Unix(1, 0).UTC(),
+		AllocatedUID: planningTestUID(t, 3),
+		OccurredAt:   time.Unix(1, 0).UTC(),
 	})
 	require.NoError(t, err)
 
@@ -129,7 +133,8 @@ func TestCreateIssueRejectsSelfParent(t *testing.T) {
 	board, err := LoadCreate(CreateSnapshot{
 		BoardID: mustBoardID(t, "board"), Revision: 1,
 		AllocatedID: allocated, ExistingIDs: []issuekernel.ID{issuekernel.MustID("an-1")},
-		OccurredAt: time.Unix(1, 0).UTC(),
+		AllocatedUID: planningTestUID(t, 4),
+		OccurredAt:   time.Unix(1, 0).UTC(),
 	})
 	require.NoError(t, err)
 
@@ -146,6 +151,7 @@ func TestCreateIssueRejectsInvalidLabelInsteadOfDroppingIt(t *testing.T) {
 	board, err := LoadCreate(CreateSnapshot{
 		BoardID: mustBoardID(t, "board"), Revision: 1,
 		AllocatedID: issuekernel.MustID("an-1"), OccurredAt: time.Unix(1, 0).UTC(),
+		AllocatedUID: planningTestUID(t, 5),
 	})
 	require.NoError(t, err)
 	_, err = board.CreateIssue(CreateIssue{
@@ -516,6 +522,7 @@ func loadIssue(t *testing.T, id string, kind issuekernel.Kind, status issuekerne
 		activeClaim = &issuekernel.ClaimState{Actor: issuekernel.NewActor("worker"), StartedAt: time.Unix(1, 0).UTC()}
 	}
 	issue, err := issuekernel.Load(issuekernel.Snapshot{
+		UID:         planningTestUID(t, 6),
 		ID:          issuekernel.MustID(id),
 		Title:       id,
 		Kind:        kind,
@@ -527,4 +534,11 @@ func loadIssue(t *testing.T, id string, kind issuekernel.Kind, status issuekerne
 	})
 	require.NoError(t, err)
 	return issue
+}
+
+func planningTestUID(t *testing.T, fill byte) issuekernel.UID {
+	t.Helper()
+	uid, err := issuekernel.ParseUID(bytes.Repeat([]byte{fill}, 16))
+	require.NoError(t, err)
+	return uid
 }

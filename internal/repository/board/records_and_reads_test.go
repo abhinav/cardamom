@@ -111,11 +111,11 @@ func TestRepositoryReadsHistoricalLogIdentity(t *testing.T) {
 	defer func() { assert.NoError(t, change.Done()) }()
 	_, err = change.ExecContext(t.Context(), `
 INSERT INTO issue_log_entries(
-    id, board_id, issue_id, kind, author, committer, body, created_at
+    id, board_id, issue_uid, kind, author, committer, body, created_at
 ) VALUES (
     'cmt_11111111111111111111111111111111',
     'board-test',
-    'record-1',
+    (SELECT uid FROM issues WHERE id = 'record-1'),
     'post',
     'importer',
     'importer',
@@ -354,11 +354,11 @@ func TestRepositoryDoesNotRelinkUnattributedStateSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO issue_log_entries (
-			id, board_id, issue_id, kind, body
-		) VALUES (?, 'board-test', 'imported-1', 'state_snapshot', 'Imported State.');
+			id, board_id, issue_uid, kind, body
+		) VALUES (?, 'board-test', (SELECT uid FROM issues WHERE id = 'imported-1'), 'state_snapshot', 'Imported State.');
 		INSERT INTO issue_states (
-			issue_id, board_id, body
-		) VALUES ('imported-1', 'board-test', 'Imported State.');
+			issue_uid, board_id, body
+		) VALUES ((SELECT uid FROM issues WHERE id = 'imported-1'), 'board-test', 'Imported State.');
 	`, snapshotID)
 	require.NoError(t, err)
 	require.NoError(t, change.Commit())
@@ -468,17 +468,17 @@ func TestRepositoryOrdersHistoricalLogEntriesByLocalSequence(t *testing.T) {
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO issue_log_entries (
-			local_sequence, id, board_id, issue_id, kind,
+			local_sequence, id, board_id, issue_uid, kind,
 			author, committer, body, created_at
 		) VALUES
 			(
 				5, 'cmt_ffffffffffffffffffffffffffffffff',
-				'board-test', 'log-1', 'post',
+				'board-test', (SELECT uid FROM issues WHERE id = 'log-1'), 'post',
 				'captain', 'captain', 'First', 1700000000
 			),
 			(
 				7, 'cmt_00000000000000000000000000000000',
-				'board-test', 'log-1', 'post',
+				'board-test', (SELECT uid FROM issues WHERE id = 'log-1'), 'post',
 				'engineer', 'engineer', 'Second', 1700000000
 			)
 	`)
@@ -600,8 +600,11 @@ func TestRepositoryReadsIssueStoryWithoutSiblingDescendants(t *testing.T) {
 func TestRepositoryReadsRelationshipsAndContainmentInCreationOrder(t *testing.T) {
 	entropy := bytes.Join([][]byte{
 		bytes.Repeat([]byte{12}, 4),
+		bytes.Repeat([]byte{1}, 16),
 		bytes.Repeat([]byte{25}, 4),
+		bytes.Repeat([]byte{2}, 16),
 		bytes.Repeat([]byte{0}, 4),
+		bytes.Repeat([]byte{3}, 16),
 	}, nil)
 	repository := openBoardRepository(t, Config{
 		BoardID: mustBoardID(t, "board-test"), IDPrefix: "order-",

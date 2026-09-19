@@ -100,7 +100,8 @@ INSERT INTO issue_log_entries(
 	assert.Equal(t, SchemaVersion(), information.DatabaseSchemaVersion)
 	var documents, indexed int
 	require.NoError(t, view.QueryRowContext(t.Context(), `
-SELECT count(*) FROM issue_search_documents WHERE issue_id = 'an-issue'
+SELECT count(*) FROM issue_search_documents
+WHERE issue_uid = (SELECT uid FROM issues WHERE id = 'an-issue')
 `).Scan(&documents))
 	assert.Equal(t, 6, documents)
 	require.NoError(t, view.QueryRowContext(t.Context(), `
@@ -137,11 +138,11 @@ func TestOpenProvidesNativeUnixTimestamps(t *testing.T) {
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO issues (
-			id, board_id, title, kind, lifecycle, priority,
+			uid, id, board_id, title, kind, lifecycle, priority,
 			created_at, updated_at, closed_at
 		) VALUES
-			('open', 'board', 'Open', 'task', 'open', 2, ?, ?, NULL),
-			('closed', 'board', 'Closed', 'task', 'closed', 2, ?, ?, ?)
+			(randomblob(16), 'open', 'board', 'Open', 'task', 'open', 2, ?, ?, NULL),
+			(randomblob(16), 'closed', 'board', 'Closed', 'task', 'closed', 2, ?, ?, ?)
 	`, createdAt, createdAt, createdAt, closedAt, closedAt)
 	require.NoError(t, err)
 	require.NoError(t, change.Commit())

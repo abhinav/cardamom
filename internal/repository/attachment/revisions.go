@@ -15,8 +15,13 @@ import (
 type attachmentRevision struct {
 	// reservation is the global store successor reserved for the mutation.
 	reservation store.RevisionReservation
+
 	// association identifies the board and optional issue to advance.
 	association domainattachment.Association
+
+	// originIssueUID is nil for a board attachment.
+	originIssueUID []byte
+
 	// board is the board revision observed before publication.
 	board int64
 }
@@ -37,8 +42,13 @@ func (r *Repository) reserveAttachmentRevision(
 	if err != nil {
 		return attachmentRevision{}, err
 	}
+	originIssueUID, err := resolveAssociationIssueUID(ctx, query.New(change), association)
+	if err != nil {
+		return attachmentRevision{}, err
+	}
 	return attachmentRevision{
-		reservation: reservation, association: association, board: currentBoard,
+		reservation: reservation, association: association,
+		originIssueUID: originIssueUID, board: currentBoard,
 	}, nil
 }
 
@@ -49,13 +59,13 @@ func (r *Repository) commitAttachmentRevision(
 ) error {
 	next := revision.reservation.Revision()
 	queries := query.New(change)
-	if originIssueID, ok := revision.association.OriginIssueID(); ok {
+	if revision.originIssueUID != nil {
 		result, err := queries.AttachmentPublishIssueRevision(
 			ctx,
 			query.AttachmentPublishIssueRevisionParams{
 				Revision: next,
 				BoardID:  revision.association.BoardID().String(),
-				IssueID:  originIssueID.String(),
+				IssueUid: revision.originIssueUID,
 			},
 		)
 		if err != nil {

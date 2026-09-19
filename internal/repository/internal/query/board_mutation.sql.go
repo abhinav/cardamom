@@ -35,17 +35,17 @@ const boardPublishIssueRevision = `-- name: BoardPublishIssueRevision :execresul
 UPDATE issues
 SET revision = ?1
 WHERE board_id = ?2
-    AND id = ?3
+    AND uid = ?3
 `
 
 type BoardPublishIssueRevisionParams struct {
 	Revision int64
 	BoardID  string
-	IssueID  string
+	IssueUid []byte
 }
 
 func (q *Queries) BoardPublishIssueRevision(ctx context.Context, arg BoardPublishIssueRevisionParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, boardPublishIssueRevision, arg.Revision, arg.BoardID, arg.IssueID)
+	return q.db.ExecContext(ctx, boardPublishIssueRevision, arg.Revision, arg.BoardID, arg.IssueUid)
 }
 
 const boardPublishRevision = `-- name: BoardPublishRevision :execresult

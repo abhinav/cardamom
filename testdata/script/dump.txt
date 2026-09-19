@@ -144,7 +144,7 @@ Closed dump-3.
 -- golden/cancel-4.txt --
 Cancelled 1 requested issue and 0 dependent issues.
 -- golden/log-2.txt --
-Posted log entry log_00000000000000000000000000000001 to dump-2.
+Posted log entry log_00000000000000000000000000000006 to dump-2.
 -- golden/state-2.txt --
 Set state on dump-2.
 -- golden/result-5.txt --
@@ -283,7 +283,7 @@ cardamom:
   board_id: board_00000000000000000000
   board_name: script-dump
   generated_identity: issue:dump-2
-  body_sha256: eeffe22293c8fed12018b327c58fc70faa812917909e19d764e35c9c1c1b1756
+  body_sha256: 1c2dfafef404256bcdbba23c1379a104508304e3bfb568ca03e15a9c37cc26e1
 ---
 
 [Board dump](../README.md)
@@ -338,8 +338,8 @@ None.
 
 ## Log
 
-<a id="log_00000000000000000000000000000001"></a>
-### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000001)
+<a id="log_00000000000000000000000000000006"></a>
+### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000006)
 
 Build log captured.
 -- golden/board-dump-3.md --
@@ -550,7 +550,7 @@ cardamom:
   board_id: board_00000000000000000000
   board_name: script-dump
   generated_identity: issue:dump-2
-  body_sha256: 963eb5bacbb3085141bea3c87d54e3a9924b44215816107985c85f44aa12699a
+  body_sha256: c1f533ca6f8f42fb1fac466f403f90d11789aab1bd2fb5dbc6f1a6a4f9381518
 ---
 
 [Board dump](../README.md)
@@ -605,8 +605,8 @@ None.
 
 ## Log
 
-<a id="log_00000000000000000000000000000001"></a>
-### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000001)
+<a id="log_00000000000000000000000000000006"></a>
+### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000006)
 
 Build log captured.
 -- golden/dump-selected.txt --
@@ -702,7 +702,7 @@ cardamom:
   board_id: board_00000000000000000000
   board_name: script-dump
   generated_identity: issue:dump-2
-  body_sha256: 5491b7cb8c1b05cad557e58dca2da2d9c69277071e0f758c0109cc7c6ffe00f1
+  body_sha256: 8e1513407918d74e108a9de3deb4005250996ef7eac76bbc29809209bc966be5
 ---
 
 # dump-2: Build artifacts
@@ -755,8 +755,8 @@ None.
 
 ## Log
 
-<a id="log_00000000000000000000000000000001"></a>
-### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000001)
+<a id="log_00000000000000000000000000000006"></a>
+### operator at 2026-07-12T12:00:00Z (log entry log_00000000000000000000000000000006)
 
 Build log captured.
 -- golden/selected-dump-3.md --

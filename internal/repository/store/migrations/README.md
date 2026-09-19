@@ -99,12 +99,12 @@ retained summaries or attachments.
 `issue_external_keys`, `issue_results`, and `issue_log_entries` hold the board-scoped
 issue graph and its records.
 
-Issue IDs are store-wide primary keys
+Issue IDs are store-wide public selectors
 matching `[A-Za-z0-9][A-Za-z0-9-]*`.
-`UNIQUE (board_id, id)` also supports the composite foreign keys repeated by
-issue-owned tables.
-Those composite references reject a child row or relationship whose declared
-board differs from the referenced issue's board.
+Each issue has an immutable random 16-byte UID as its row identity.
+Issue-owned tables refer to that UID with the board ID;
+the composite references reject a row or relationship whose declared board
+differs from the referenced issue's board.
 
 An open issue has no `closed_at`; a closed or cancelled issue requires one.
 Only open, unclaimed issues may have `waiting_reason` and `waiting_since`.
@@ -114,7 +114,7 @@ records the committed revision that acquired custody.
 `verifyStore` rejects an active claim for a terminal issue or a checkpoint.
 
 Dependency and containment rows reject self-edges.
-The `containment.child_id` primary key also gives each issue at most one parent.
+The `containment.child_uid` primary key also gives each issue at most one parent.
 The planning domain prevents dependency and containment cycles because those
 graph-wide constraints cannot be expressed as row-local checks.
 
@@ -130,7 +130,7 @@ Issue-owned projections and records cascade if an issue row is removed.
 ### Issue search
 
 `issue_search_documents` projects the canonical issue text into one row per
-searchable field or Log entry.
+searchable field or Log entry and refers to the source issue by UID.
 `issue_search_fts` is an external-content FTS5 index over those documents.
 Database triggers update both derived structures in the transaction that
 changes the canonical record.

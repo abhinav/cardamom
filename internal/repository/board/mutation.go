@@ -25,6 +25,10 @@ type mutation struct {
 	// before one mutation materializes its issue rows.
 	reservedIssueIDs map[issue.ID]struct{}
 
+	// reservedIssueUIDs prevents provisional private identities from repeating
+	// before one mutation materializes its issue rows.
+	reservedIssueUIDs map[issue.UID]struct{}
+
 	// current is the selected board revision observed before this operation.
 	current domainboard.Revision
 
@@ -56,8 +60,11 @@ func (r *Repository) beginMutation(
 		return nil, errors.Join(domainboard.ErrArchived, change.Done())
 	}
 	return &mutation{
-		repository: r, change: change, reservedIssueIDs: make(map[issue.ID]struct{}),
-		current: domainboard.Revision(row.Revision), occurredAt: r.clock.Now(),
+		repository: r, change: change,
+		reservedIssueIDs:  make(map[issue.ID]struct{}),
+		reservedIssueUIDs: make(map[issue.UID]struct{}),
+		current:           domainboard.Revision(row.Revision),
+		occurredAt:        r.clock.Now(),
 	}, nil
 }
 
@@ -80,12 +87,16 @@ func (m *mutation) commit(
 			continue
 		}
 		seen[id] = struct{}{}
+		uid, err := m.repository.readIssueUID(ctx, m.change, id)
+		if err != nil {
+			return err
+		}
 		result, err := queries.BoardPublishIssueRevision(
 			ctx,
 			query.BoardPublishIssueRevisionParams{
 				Revision: m.reservation.Revision(),
 				BoardID:  m.repository.boardID.String(),
-				IssueID:  id.String(),
+				IssueUid: uid.Bytes(),
 			},
 		)
 		if err != nil {

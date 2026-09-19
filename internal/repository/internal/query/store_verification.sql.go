@@ -22,7 +22,7 @@ func (q *Queries) StoreCheckIssueSearchIndex(ctx context.Context) error {
 const storeCountInvalidClaims = `-- name: StoreCountInvalidClaims :one
 SELECT count(*)
 FROM active_claims AS claim
-JOIN issues AS issue ON issue.id = claim.issue_id
+JOIN issues AS issue ON issue.uid = claim.issue_uid
 WHERE issue.lifecycle <> 'open'
     OR issue.kind NOT IN ('workstream', 'task', 'routine')
 `
@@ -38,23 +38,23 @@ const storeCountInvalidIssueSearchDocuments = `-- name: StoreCountInvalidIssueSe
 WITH expected AS (
     SELECT
         board_id AS board_id,
-        id AS issue_id,
+        uid AS issue_uid,
         CAST('title' AS TEXT) AS field,
         CAST('' AS TEXT) AS record_id,
         title AS body
     FROM issues
     UNION ALL
-    SELECT board_id, id, 'summary', '', summary
+    SELECT board_id, uid, 'summary', '', summary
     FROM issues
     WHERE summary IS NOT NULL
     UNION ALL
-    SELECT board_id, id, 'details', '', details
+    SELECT board_id, uid, 'details', '', details
     FROM issues
     WHERE details IS NOT NULL
     UNION ALL
     SELECT
         board_id,
-        issue_id,
+        issue_uid,
         'state',
         '',
         body || CASE
@@ -63,12 +63,12 @@ WITH expected AS (
         END
     FROM issue_states
     UNION ALL
-    SELECT board_id, issue_id, 'result', '', body
+    SELECT board_id, issue_uid, 'result', '', body
     FROM issue_results
     UNION ALL
     SELECT
         board_id,
-        issue_id,
+        issue_uid,
         'log',
         id,
         body || CASE
@@ -85,7 +85,7 @@ SELECT
             SELECT 1
             FROM issue_search_documents AS document
             WHERE document.board_id = expected.board_id
-                AND document.issue_id = expected.issue_id
+                AND document.issue_uid = expected.issue_uid
                 AND document.field = expected.field
                 AND document.record_id = expected.record_id
                 AND document.body = expected.body
@@ -97,7 +97,7 @@ SELECT
             SELECT 1
             FROM expected
             WHERE expected.board_id = document.board_id
-                AND expected.issue_id = document.issue_id
+                AND expected.issue_uid = document.issue_uid
                 AND expected.field = document.field
                 AND expected.record_id = document.record_id
                 AND expected.body = document.body
@@ -110,6 +110,21 @@ func (q *Queries) StoreCountInvalidIssueSearchDocuments(ctx context.Context) (in
 	var column_1 int64
 	err := row.Scan(&column_1)
 	return column_1, err
+}
+
+const storeCountInvalidIssueUIDs = `-- name: StoreCountInvalidIssueUIDs :one
+SELECT count(*)
+FROM issues
+WHERE typeof(uid) <> 'blob'
+    OR length(uid) <> 16
+    OR uid = zeroblob(16)
+`
+
+func (q *Queries) StoreCountInvalidIssueUIDs(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, storeCountInvalidIssueUIDs)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
 }
 
 const storeCountInvalidProjectionRevisions = `-- name: StoreCountInvalidProjectionRevisions :one

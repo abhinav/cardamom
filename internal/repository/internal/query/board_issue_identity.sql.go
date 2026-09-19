@@ -21,6 +21,25 @@ func (q *Queries) BoardCountAllIssues(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const boardGetIssueUID = `-- name: BoardGetIssueUID :one
+SELECT uid
+FROM issues
+WHERE board_id = ?1
+    AND id = ?2
+`
+
+type BoardGetIssueUIDParams struct {
+	BoardID string
+	ID      string
+}
+
+func (q *Queries) BoardGetIssueUID(ctx context.Context, arg BoardGetIssueUIDParams) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, boardGetIssueUID, arg.BoardID, arg.ID)
+	var uid []byte
+	err := row.Scan(&uid)
+	return uid, err
+}
+
 const boardIssueIDExists = `-- name: BoardIssueIDExists :one
 SELECT EXISTS (
     SELECT 1
@@ -31,6 +50,21 @@ SELECT EXISTS (
 
 func (q *Queries) BoardIssueIDExists(ctx context.Context, id string) (bool, error) {
 	row := q.db.QueryRowContext(ctx, boardIssueIDExists, id)
+	var issue_exists bool
+	err := row.Scan(&issue_exists)
+	return issue_exists, err
+}
+
+const boardIssueUIDExists = `-- name: BoardIssueUIDExists :one
+SELECT EXISTS (
+    SELECT 1
+    FROM issues
+    WHERE uid = ?1
+) AS issue_exists
+`
+
+func (q *Queries) BoardIssueUIDExists(ctx context.Context, uid []byte) (bool, error) {
+	row := q.db.QueryRowContext(ctx, boardIssueUIDExists, uid)
 	var issue_exists bool
 	err := row.Scan(&issue_exists)
 	return issue_exists, err

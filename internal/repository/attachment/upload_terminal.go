@@ -82,7 +82,7 @@ func (r *Repository) CommitUpload(
 			Revision: board.Revision(revision.reservation.Revision()),
 		},
 	}
-	if err := insertAttachment(ctx, change, attachment); err != nil {
+	if err := insertAttachment(ctx, change, attachment, revision.originIssueUID); err != nil {
 		return domainattachment.Attachment{}, err
 	}
 	upload.State = domainattachment.UploadStateCommitted
@@ -179,6 +179,7 @@ func insertAttachment(
 	ctx context.Context,
 	change *store.Change,
 	attachment domainattachment.Attachment,
+	originIssueUID []byte,
 ) error {
 	queries := query.New(change)
 	if err := queries.AttachmentRetainBlob(
@@ -190,13 +191,12 @@ func insertAttachment(
 	); err != nil {
 		return fmt.Errorf("retain attachment blob descriptor: %w", err)
 	}
-	originIssueID, hasOrigin := attachment.Association.OriginIssueID()
 	if err := queries.AttachmentInsertMetadata(
 		ctx,
 		query.AttachmentInsertMetadataParams{
 			BoardID:         attachment.Association.BoardID().String(),
 			ID:              attachment.ID.String(),
-			OriginIssueID:   nullableOrigin(originIssueID.String(), hasOrigin),
+			OriginIssueUid:  originIssueUID,
 			BlobDigest:      attachment.Blob.Digest.String(),
 			BlobSizeBytes:   int64(attachment.Blob.SizeBytes),
 			Filename:        attachment.Filename.String(),

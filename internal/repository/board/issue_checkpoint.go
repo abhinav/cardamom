@@ -37,11 +37,12 @@ func (r *Repository) ListActionableCheckpoints(ctx context.Context) (out []issue
 		if err != nil {
 			return nil, err
 		}
+		uid := index.states[id].state.UID()
 		blockIDs, err := query.New(view).BoardListBlockIDs(
 			ctx,
 			query.BoardListBlockIDsParams{
-				BoardID:        r.boardID.String(),
-				PrerequisiteID: id.String(),
+				BoardID:         r.boardID.String(),
+				PrerequisiteUid: uid.Bytes(),
 			},
 		)
 		if err != nil {
@@ -159,7 +160,7 @@ func (r *Repository) resolveCheckpoint(
 	if err := query.New(mutation.change).BoardInsertCheckpointDecision(
 		ctx,
 		query.BoardInsertCheckpointDecisionParams{
-			IssueID:   command.issueID.String(),
+			IssueUid:  state.UID().Bytes(),
 			BoardID:   r.boardID.String(),
 			Outcome:   out.Decision.Outcome.String(),
 			Reason:    out.Decision.Reason,

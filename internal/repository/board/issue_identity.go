@@ -2,15 +2,64 @@ package board
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"io"
 	"strconv"
 
 	"go.abhg.dev/cardamom/internal/configuration"
+	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
+
+func (r *Repository) allocateIssueUID(
+	ctx context.Context,
+	mutation *mutation,
+) (issue.UID, error) {
+	queries := query.New(mutation.change)
+	for range 32 {
+		candidate, err := issue.GenerateUID(r.entropy)
+		if err != nil {
+			return issue.UID{}, err
+		}
+		if _, reserved := mutation.reservedIssueUIDs[candidate]; reserved {
+			continue
+		}
+		exists, err := queries.BoardIssueUIDExists(ctx, candidate.Bytes())
+		if err != nil {
+			return issue.UID{}, fmt.Errorf("inspect private issue identity: %w", err)
+		}
+		if !exists {
+			mutation.reservedIssueUIDs[candidate] = struct{}{}
+			return candidate, nil
+		}
+	}
+	return issue.UID{}, errors.New("allocate private issue identity: collision limit reached")
+}
+
+func (r *Repository) readIssueUID(
+	ctx context.Context,
+	scope queryScope,
+	id issue.ID,
+) (issue.UID, error) {
+	value, err := query.New(scope).BoardGetIssueUID(
+		ctx,
+		query.BoardGetIssueUIDParams{BoardID: r.boardID.String(), ID: id.String()},
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return issue.UID{}, errkind.Errorf(errkind.NotFound, "issue not found: %s", id)
+	}
+	if err != nil {
+		return issue.UID{}, fmt.Errorf("select private issue identity: %w", err)
+	}
+	uid, err := issue.ParseUID(value)
+	if err != nil {
+		return issue.UID{}, fmt.Errorf("parse private issue identity: %w", err)
+	}
+	return uid, nil
+}
 
 func (r *Repository) allocateIssueID(
 	ctx context.Context,
