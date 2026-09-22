@@ -13,10 +13,10 @@ import {
   BoardSelectorBoardRow,
   BoardSelectorView,
   catalogBoards,
-  groupBoardsBySourceAndProject,
 } from "./board-selector.tsx";
 import type { ResolvedBoardScope } from "./board-scope.ts";
 import {
+  BoardArchiveSchema,
   BoardSummarySchema,
   ProjectSchema,
 } from "./gen/cardamom/private/v1/project_pb.ts";
@@ -113,7 +113,7 @@ describe("board selector", () => {
     expect(screen.getByRole("link", { name: "View all boards" })).toBeInTheDocument();
   });
 
-  it("groups aggregate boards by source and then project", () => {
+  it("filters aggregate boards by source and identifies each board source", () => {
     const builder = create(SourceRefSchema, {
       sourceId: "builder",
       storeLineageId: "lineage-builder",
@@ -122,36 +122,71 @@ describe("board selector", () => {
       sourceId: "laptop",
       storeLineageId: "lineage-laptop",
     });
-    const groups = groupBoardsBySourceAndProject(
-      [
-        create(SourceCatalogEntrySchema, { source: laptop }),
-        create(SourceCatalogEntrySchema, { source: builder }),
-      ],
-      [
-        create(ProjectSchema, { id: "project-1", name: "Build", source: builder }),
-        create(ProjectSchema, { id: "project-1", name: "Build", source: laptop }),
-      ],
-      [
-        create(BoardSummarySchema, {
-          id: "builder-board",
-          projectId: "project-1",
-          name: "Builder board",
-          source: builder,
-        }),
-        create(BoardSummarySchema, {
-          id: "laptop-board",
-          projectId: "project-1",
-          name: "Laptop board",
-          source: laptop,
-        }),
-      ],
+    render(
+      <MemoryRouter>
+        <BoardPickerRoute
+          aggregate
+          sources={[
+            create(SourceCatalogEntrySchema, { source: laptop }),
+            create(SourceCatalogEntrySchema, { source: builder }),
+          ]}
+          projects={[
+            create(ProjectSchema, { id: "project-1", name: "Build", source: builder }),
+            create(ProjectSchema, { id: "project-1", name: "Build", source: laptop }),
+          ]}
+          boards={[
+            create(BoardSummarySchema, {
+              id: "board-shared",
+              projectId: "project-1",
+              name: "Builder board",
+              source: builder,
+            }),
+            create(BoardSummarySchema, {
+              id: "board-shared",
+              projectId: "project-1",
+              name: "Laptop board",
+              source: laptop,
+            }),
+            create(BoardSummarySchema, {
+              id: "board-retired",
+              projectId: "project-1",
+              name: "Retired builder board",
+              source: builder,
+              archived: create(BoardArchiveSchema),
+            }),
+          ]}
+        />
+      </MemoryRouter>,
     );
 
-    expect(groups.map((group) => group.sourceId)).toEqual(["builder", "laptop"]);
-    expect(groups.map((group) => group.projects[0]?.boards[0]?.name)).toEqual([
-      "Builder board",
-      "Laptop board",
-    ]);
+    expect(screen.getByText("builder / board-shared")).toBeInTheDocument();
+    expect(screen.getByText("laptop / board-shared")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "builder" }));
+
+    expect(screen.getByRole("button", { name: "builder" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    expect(screen.getByText("Builder board")).toBeInTheDocument();
+    expect(screen.queryByText("Laptop board")).not.toBeInTheDocument();
+    expect(screen.queryByText("Retired builder board")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show archived" }));
+
+    expect(screen.getByText("Retired builder board")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("searchbox"), {
+      target: { value: "laptop" },
+    });
+
+    expect(screen.queryByText("Laptop board")).not.toBeInTheDocument();
+    expect(screen.getByText("No boards or projects match the current filters."))
+      .toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "All sources" }));
+
+    expect(screen.getByText("Laptop board")).toBeInTheDocument();
   });
 
   it("sorts projects while filtering boards against the complete catalog", () => {
