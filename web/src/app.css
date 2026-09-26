@@ -448,12 +448,11 @@ a {
   border-bottom: 0;
 }
 
-.board-picker-sources {
+.board-picker-source-filters {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.35rem;
-  padding: 0.65rem 0;
-  border-bottom: 1px solid var(--border);
+  gap: 0.4rem;
+  padding-left: 1.55rem;
 }
 
 .board-selector-empty {

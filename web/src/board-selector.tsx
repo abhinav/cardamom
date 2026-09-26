@@ -85,7 +85,13 @@ export function BoardPickerRoute({
   const archivedId = useId();
   const [query, setQuery] = useState("");
   const [showArchived, setShowArchived] = useState(false);
-  const visibleBoards = catalogBoards(boards, showArchived);
+  const [selectedSourceId, setSelectedSourceId] = useState<string>();
+  const catalog = catalogBoards(boards, showArchived);
+  const visibleBoards = selectedSourceId === undefined
+    ? catalog
+    : catalog.filter(
+      (board) => (board.source?.sourceId ?? "") === selectedSourceId,
+    );
   const units = visibleProjectUnits(projects, visibleBoards, query);
 
   return (
@@ -114,6 +120,13 @@ export function BoardPickerRoute({
             onChange={(event) => setQuery(event.currentTarget.value)}
           />
         </div>
+        {aggregate && (
+          <SourceFilters
+            sources={sources}
+            selectedSourceId={selectedSourceId}
+            onSelectSource={setSelectedSourceId}
+          />
+        )}
         <div className="board-picker-archived">
           <Checkbox
             id={archivedId}
@@ -124,15 +137,14 @@ export function BoardPickerRoute({
         </div>
       </div>
       <div className="board-picker-projects">
-        {aggregate && <SourceHeadings sources={sources} />}
         {units.map((unit) => (
           <section
             key={`${unit.sourceId ?? "local"}:${unit.project.id}`}
             className="board-picker-project"
-            aria-labelledby={`board-picker-${unit.project.id}`}
+            aria-labelledby={boardPickerProjectHeadingId(unit)}
           >
             <header>
-              <h2 id={`board-picker-${unit.project.id}`}>
+              <h2 id={boardPickerProjectHeadingId(unit)}>
                 {unit.project.name}
               </h2>
               <span>
@@ -151,7 +163,7 @@ export function BoardPickerRoute({
                   })}
                 >
                   <span>{board.name}</span>
-                  <span>{board.archived === undefined ? board.id : `${board.id} · Archived`}</span>
+                  <span>{boardCatalogMetadata(board, aggregate)}</span>
                 </Link>
               ))}
             </div>
@@ -159,7 +171,7 @@ export function BoardPickerRoute({
         ))}
         {units.length === 0 && (
           <p className="board-picker-empty">
-            No boards or projects match your search.
+            No boards or projects match the current filters.
           </p>
         )}
       </div>
@@ -477,13 +489,6 @@ export interface ProjectUnit {
   totalBoardCount: number;
 }
 
-/** SourceProjectGroup is one source and its visible project groups. */
-export interface SourceProjectGroup {
-  sourceId: string;
-  sourceName: string;
-  projects: readonly ProjectUnit[];
-}
-
 function visibleProjectUnits(
   projects: readonly AvailableProject[],
   boards: readonly AvailableBoard[],
@@ -535,26 +540,6 @@ function visibleProjectUnits(
     .sort((left, right) =>
       (left.sourceName ?? "").localeCompare(right.sourceName ?? "", undefined, { sensitivity: "base" }) ||
       compareByName(left.project, right.project));
-}
-
-/** groupBoardsBySourceAndProject preserves source-qualified grouping identity. */
-export function groupBoardsBySourceAndProject(
-  sources: readonly AvailableSource[],
-  projects: readonly AvailableProject[],
-  boards: readonly AvailableBoard[],
-): SourceProjectGroup[] {
-  const units = visibleProjectUnits(projects, boards, "");
-  return sources.map((source) => ({
-    sourceId: source.source?.sourceId ?? "",
-    sourceName: source.source?.sourceId ?? "Unknown source",
-    projects: units.filter(
-      (unit) => unit.sourceId === source.source?.sourceId,
-    ),
-  })).filter((group) => group.projects.length > 0)
-    .sort((left, right) => compareByName(
-      { id: left.sourceId, name: left.sourceName },
-      { id: right.sourceId, name: right.sourceName },
-    ));
 }
 
 function renderAggregateUnits(
@@ -618,14 +603,48 @@ function renderAggregateUnits(
   });
 }
 
-function SourceHeadings({ sources }: { sources: readonly AvailableSource[] }) {
+interface SourceFiltersProps {
+  sources: readonly AvailableSource[];
+  selectedSourceId: string | undefined;
+  onSelectSource: (sourceId: string | undefined) => void;
+}
+
+function SourceFilters({
+  sources,
+  selectedSourceId,
+  onSelectSource,
+}: SourceFiltersProps) {
   return (
-    <div className="board-picker-sources">
-      {sources.map((source) => (
-        <span key={source.source?.sourceId} className="metadata-chip">
-          {source.source?.sourceId ?? "Unknown source"}
-        </span>
-      ))}
+    <div
+      className="board-picker-source-filters"
+      role="group"
+      aria-label="Filter boards by source"
+    >
+      <Button
+        type="button"
+        variant={selectedSourceId === undefined ? "secondary" : "outline"}
+        size="xs"
+        aria-pressed={selectedSourceId === undefined}
+        onClick={() => onSelectSource(undefined)}
+      >
+        All sources
+      </Button>
+      {sources.map((source) => {
+        const sourceId = source.source?.sourceId ?? "";
+        const selected = selectedSourceId === sourceId;
+        return (
+          <Button
+            key={sourceId || source.source?.storeLineageId || "unknown-source"}
+            type="button"
+            variant={selected ? "secondary" : "outline"}
+            size="xs"
+            aria-pressed={selected}
+            onClick={() => onSelectSource(sourceId)}
+          >
+            {sourceId || "Unknown source"}
+          </Button>
+        );
+      })}
     </div>
   );
 }
@@ -695,8 +714,24 @@ function projectKey(sourceId: string | undefined, projectId: string): string {
   return `${sourceId ?? "local"}:${projectId}`;
 }
 
+function boardPickerProjectHeadingId(unit: ProjectUnit): string {
+  const sourceId = encodeURIComponent(unit.sourceId ?? "local");
+  const projectId = encodeURIComponent(unit.project.id);
+  return `board-picker-${sourceId}-${projectId}`;
+}
+
 function boardCatalogKey(board: AvailableBoard): string {
   return `${board.source?.sourceId ?? "local"}:${board.id}`;
+}
+
+function boardCatalogMetadata(
+  board: AvailableBoard,
+  aggregate: boolean,
+): string {
+  const identity = aggregate
+    ? `${board.source?.sourceId ?? "Unknown source"} / ${board.id}`
+    : board.id;
+  return board.archived === undefined ? identity : `${identity} · Archived`;
 }
 
 function sourceHealthLabel(health: SourceHealth): string {
