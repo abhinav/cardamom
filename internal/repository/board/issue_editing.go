@@ -84,8 +84,8 @@ func (r *Repository) editSnapshot(
 	dependencyValues, err := query.New(mutation.change).BoardListPrerequisiteIDs(
 		ctx,
 		query.BoardListPrerequisiteIDsParams{
-			BoardID: r.boardID.String(),
-			IssueID: command.IssueID.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: state.UID().Bytes(),
 		},
 	)
 	if err != nil {

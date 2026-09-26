@@ -13,6 +13,11 @@ import (
 // Snapshot is the complete persisted representation needed to load
 // one issue. It contains semantic values only and carries no storage metadata.
 type Snapshot struct {
+	// UID is the issue's immutable private identity. Repository and
+	// synchronization code use it; user-facing projections do not.
+	UID UID
+
+	// ID is the issue's public store-global handle.
 	ID    ID
 	Title string
 	Kind  Kind
@@ -76,6 +81,7 @@ type WaitingState struct {
 // value so policy methods never operate on malformed state. State methods use
 // value semantics; operations that change state return a modified copy.
 type State struct {
+	uid           UID
 	id            ID
 	title         string
 	kind          Kind
@@ -94,6 +100,9 @@ type State struct {
 
 // Load validates and restores one durable issue state.
 func Load(snapshot Snapshot) (State, error) {
+	if _, err := ParseUID(snapshot.UID.Bytes()); err != nil {
+		return State{}, err
+	}
 	if _, err := NewID(snapshot.ID.String()); err != nil {
 		return State{}, err
 	}
@@ -137,6 +146,7 @@ func Load(snapshot Snapshot) (State, error) {
 		return State{}, err
 	}
 	return State{
+		uid:           snapshot.UID,
 		id:            snapshot.ID,
 		title:         title,
 		kind:          snapshot.Kind,
@@ -154,7 +164,10 @@ func Load(snapshot Snapshot) (State, error) {
 	}, nil
 }
 
-// ID returns the stable issue identity.
+// UID returns the immutable private issue identity.
+func (i State) UID() UID { return i.uid }
+
+// ID returns the public issue handle.
 func (i State) ID() ID { return i.id }
 
 // Title returns the normalized issue title.
@@ -261,6 +274,7 @@ func (i State) Result() string { return i.result }
 // Snapshot returns the complete semantic representation for persistence.
 func (i State) Snapshot() Snapshot {
 	return Snapshot{
+		UID:           i.uid,
 		ID:            i.id,
 		Title:         i.title,
 		Kind:          i.kind,

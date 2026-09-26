@@ -88,6 +88,7 @@ func TestStateSnapshotLinkDoesNotMutateOriginalState(t *testing.T) {
 
 	updatedAt := time.Unix(10, 0).UTC()
 	state, err := Load(Snapshot{
+		UID:       testUID(t, 1),
 		ID:        MustID("an-1"),
 		Title:     "Snapshot linking",
 		Kind:      KindTask,

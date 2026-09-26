@@ -11,10 +11,11 @@ import (
 )
 
 const boardListApplyExternalKeys = `-- name: BoardListApplyExternalKeys :many
-SELECT external_key, issue_id
-FROM issue_external_keys
-WHERE board_id = ?1
-ORDER BY external_key
+SELECT key.external_key, issue.id AS issue_id
+FROM issue_external_keys AS key
+JOIN issues AS issue ON issue.uid = key.issue_uid
+WHERE key.board_id = ?1
+ORDER BY key.external_key
 `
 
 type BoardListApplyExternalKeysRow struct {

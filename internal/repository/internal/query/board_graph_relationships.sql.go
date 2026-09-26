@@ -10,22 +10,23 @@ import (
 )
 
 const boardGetParentID = `-- name: BoardGetParentID :one
-SELECT parent_id
-FROM containment
-WHERE board_id = ?1
-    AND child_id = ?2
+SELECT parent.id
+FROM containment AS relation
+JOIN issues AS parent ON parent.uid = relation.parent_uid
+WHERE relation.board_id = ?1
+    AND relation.child_uid = ?2
 `
 
 type BoardGetParentIDParams struct {
-	BoardID string
-	ChildID string
+	BoardID  string
+	ChildUid []byte
 }
 
 func (q *Queries) BoardGetParentID(ctx context.Context, arg BoardGetParentIDParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, boardGetParentID, arg.BoardID, arg.ChildID)
-	var parent_id string
-	err := row.Scan(&parent_id)
-	return parent_id, err
+	row := q.db.QueryRowContext(ctx, boardGetParentID, arg.BoardID, arg.ChildUid)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }
 
 const boardIssueExists = `-- name: BoardIssueExists :one
@@ -50,31 +51,32 @@ func (q *Queries) BoardIssueExists(ctx context.Context, arg BoardIssueExistsPara
 }
 
 const boardListBlockIDs = `-- name: BoardListBlockIDs :many
-SELECT issue_id
-FROM dependencies
-WHERE board_id = ?1
-    AND prerequisite_id = ?2
-ORDER BY issue_id
+SELECT issue.id
+FROM dependencies AS relation
+JOIN issues AS issue ON issue.uid = relation.issue_uid
+WHERE relation.board_id = ?1
+    AND relation.prerequisite_uid = ?2
+ORDER BY issue.id
 `
 
 type BoardListBlockIDsParams struct {
-	BoardID        string
-	PrerequisiteID string
+	BoardID         string
+	PrerequisiteUid []byte
 }
 
 func (q *Queries) BoardListBlockIDs(ctx context.Context, arg BoardListBlockIDsParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, boardListBlockIDs, arg.BoardID, arg.PrerequisiteID)
+	rows, err := q.db.QueryContext(ctx, boardListBlockIDs, arg.BoardID, arg.PrerequisiteUid)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var items []string
 	for rows.Next() {
-		var issue_id string
-		if err := rows.Scan(&issue_id); err != nil {
+		var id string
+		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
-		items = append(items, issue_id)
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -86,9 +88,10 @@ func (q *Queries) BoardListBlockIDs(ctx context.Context, arg BoardListBlockIDsPa
 }
 
 const boardListBlockedIssueIDs = `-- name: BoardListBlockedIssueIDs :many
-SELECT DISTINCT dependency.issue_id
+SELECT DISTINCT issue.id
 FROM dependencies AS dependency
-JOIN issues AS prerequisite ON prerequisite.id = dependency.prerequisite_id
+JOIN issues AS issue ON issue.uid = dependency.issue_uid
+JOIN issues AS prerequisite ON prerequisite.uid = dependency.prerequisite_uid
 WHERE dependency.board_id = ?1
     AND prerequisite.lifecycle <> 'closed'
 `
@@ -101,11 +104,11 @@ func (q *Queries) BoardListBlockedIssueIDs(ctx context.Context, boardID string) 
 	defer rows.Close()
 	var items []string
 	for rows.Next() {
-		var issue_id string
-		if err := rows.Scan(&issue_id); err != nil {
+		var id string
+		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
-		items = append(items, issue_id)
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -117,9 +120,11 @@ func (q *Queries) BoardListBlockedIssueIDs(ctx context.Context, boardID string) 
 }
 
 const boardListContainmentParents = `-- name: BoardListContainmentParents :many
-SELECT child_id, parent_id
-FROM containment
-WHERE board_id = ?1
+SELECT child.id AS child_id, parent.id AS parent_id
+FROM containment AS relation
+JOIN issues AS child ON child.uid = relation.child_uid
+JOIN issues AS parent ON parent.uid = relation.parent_uid
+WHERE relation.board_id = ?1
 `
 
 type BoardListContainmentParentsRow struct {
@@ -152,27 +157,28 @@ func (q *Queries) BoardListContainmentParents(ctx context.Context, boardID strin
 
 const boardListDescendantIDs = `-- name: BoardListDescendantIDs :many
 WITH RECURSIVE descendants AS (
-    SELECT containment.child_id AS id
+    SELECT containment.child_uid AS uid
     FROM containment
     WHERE containment.board_id = ?1
-        AND containment.parent_id = ?2
+        AND containment.parent_uid = ?2
     UNION ALL
-    SELECT containment.child_id
+    SELECT containment.child_uid
     FROM containment
-    JOIN descendants ON containment.parent_id = descendants.id
+    JOIN descendants ON containment.parent_uid = descendants.uid
     WHERE containment.board_id = ?1
 )
-SELECT descendants.id
+SELECT issue.id
 FROM descendants
+JOIN issues AS issue ON issue.uid = descendants.uid
 `
 
 type BoardListDescendantIDsParams struct {
 	ScopeBoardID string
-	RootID       string
+	RootUid      []byte
 }
 
 func (q *Queries) BoardListDescendantIDs(ctx context.Context, arg BoardListDescendantIDsParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, boardListDescendantIDs, arg.ScopeBoardID, arg.RootID)
+	rows, err := q.db.QueryContext(ctx, boardListDescendantIDs, arg.ScopeBoardID, arg.RootUid)
 	if err != nil {
 		return nil, err
 	}
@@ -195,31 +201,32 @@ func (q *Queries) BoardListDescendantIDs(ctx context.Context, arg BoardListDesce
 }
 
 const boardListDirectChildIDs = `-- name: BoardListDirectChildIDs :many
-SELECT child_id
-FROM containment
-WHERE board_id = ?1
-    AND parent_id = ?2
-ORDER BY child_id
+SELECT child.id
+FROM containment AS relation
+JOIN issues AS child ON child.uid = relation.child_uid
+WHERE relation.board_id = ?1
+    AND relation.parent_uid = ?2
+ORDER BY child.id
 `
 
 type BoardListDirectChildIDsParams struct {
-	BoardID  string
-	ParentID string
+	BoardID   string
+	ParentUid []byte
 }
 
 func (q *Queries) BoardListDirectChildIDs(ctx context.Context, arg BoardListDirectChildIDsParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, boardListDirectChildIDs, arg.BoardID, arg.ParentID)
+	rows, err := q.db.QueryContext(ctx, boardListDirectChildIDs, arg.BoardID, arg.ParentUid)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var items []string
 	for rows.Next() {
-		var child_id string
-		if err := rows.Scan(&child_id); err != nil {
+		var id string
+		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
-		items = append(items, child_id)
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -231,31 +238,32 @@ func (q *Queries) BoardListDirectChildIDs(ctx context.Context, arg BoardListDire
 }
 
 const boardListPrerequisiteIDs = `-- name: BoardListPrerequisiteIDs :many
-SELECT prerequisite_id
-FROM dependencies
-WHERE board_id = ?1
-    AND issue_id = ?2
-ORDER BY prerequisite_id
+SELECT prerequisite.id
+FROM dependencies AS relation
+JOIN issues AS prerequisite ON prerequisite.uid = relation.prerequisite_uid
+WHERE relation.board_id = ?1
+    AND relation.issue_uid = ?2
+ORDER BY prerequisite.id
 `
 
 type BoardListPrerequisiteIDsParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 func (q *Queries) BoardListPrerequisiteIDs(ctx context.Context, arg BoardListPrerequisiteIDsParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, boardListPrerequisiteIDs, arg.BoardID, arg.IssueID)
+	rows, err := q.db.QueryContext(ctx, boardListPrerequisiteIDs, arg.BoardID, arg.IssueUid)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	var items []string
 	for rows.Next() {
-		var prerequisite_id string
-		if err := rows.Scan(&prerequisite_id); err != nil {
+		var id string
+		if err := rows.Scan(&id); err != nil {
 			return nil, err
 		}
-		items = append(items, prerequisite_id)
+		items = append(items, id)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err

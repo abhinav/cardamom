@@ -9,6 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 	boardpkg "go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/errkind"
+	"go.abhg.dev/cardamom/internal/repository/internal/query"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
@@ -41,6 +42,47 @@ func TestRepositoryCreatesAndListsBoards(t *testing.T) {
 	assert.Equal(t, board, selectedBoard)
 	_, err = repository.SoleBoard(t.Context())
 	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+}
+
+func TestCountBoardIssuesReadsUIDBackedStatusRelationships(t *testing.T) {
+	persistence, err := store.Open(t.Context(), store.Config{Path: t.TempDir() + "/board.sqlite3"})
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+	initializeProjectCatalog(t, persistence, new("First board"), Config{})
+	repository := New(persistence, Config{})
+	selected, err := repository.SoleBoard(t.Context())
+	require.NoError(t, err)
+	change, err := persistence.Change(t.Context())
+	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+		INSERT INTO issues (
+			uid, id, board_id, title, kind, lifecycle, priority,
+			created_at, updated_at
+		) VALUES
+			(X'01010101010101010101010101010101', 'ready', ?, 'Ready', 'task', 'open', 2, 1, 1),
+			(X'02020202020202020202020202020202', 'claimed', ?, 'Claimed', 'task', 'open', 2, 1, 1),
+			(X'03030303030303030303030303030303', 'blocked', ?, 'Blocked', 'task', 'open', 2, 1, 1);
+		INSERT INTO active_claims (
+			issue_uid, board_id, actor, started_at, started_revision
+		) VALUES (X'02020202020202020202020202020202', ?, 'captain', 1, 1);
+		INSERT INTO dependencies (board_id, issue_uid, prerequisite_uid)
+		VALUES (?, X'03030303030303030303030303030303', X'01010101010101010101010101010101');
+	`,
+		selected.ID().String(), selected.ID().String(), selected.ID().String(),
+		selected.ID().String(), selected.ID().String(),
+	)
+	require.NoError(t, err)
+	require.NoError(t, change.Commit())
+	require.NoError(t, change.Done())
+
+	view, err := persistence.View(t.Context())
+	require.NoError(t, err)
+	defer func() { assert.NoError(t, view.Done()) }()
+	counts, err := countBoardIssues(t.Context(), query.New(view), selected.ID())
+	require.NoError(t, err)
+	assert.Equal(t, boardpkg.IssueCounts{
+		Total: 3, Ready: 1, Blocked: 1, InProgress: 1,
+	}, counts)
 }
 
 func TestRepositoryRollsBackBoardCreationForUnknownProject(t *testing.T) {

@@ -13,16 +13,16 @@ import (
 const boardDeleteIssueState = `-- name: BoardDeleteIssueState :exec
 DELETE FROM issue_states
 WHERE board_id = ?1
-    AND issue_id = ?2
+    AND issue_uid = ?2
 `
 
 type BoardDeleteIssueStateParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 func (q *Queries) BoardDeleteIssueState(ctx context.Context, arg BoardDeleteIssueStateParams) error {
-	_, err := q.db.ExecContext(ctx, boardDeleteIssueState, arg.BoardID, arg.IssueID)
+	_, err := q.db.ExecContext(ctx, boardDeleteIssueState, arg.BoardID, arg.IssueUid)
 	return err
 }
 
@@ -30,7 +30,7 @@ const boardInsertIssueLogEntry = `-- name: BoardInsertIssueLogEntry :exec
 INSERT INTO issue_log_entries (
     id,
     board_id,
-    issue_id,
+    issue_uid,
     kind,
     author,
     committer,
@@ -53,7 +53,7 @@ INSERT INTO issue_log_entries (
 type BoardInsertIssueLogEntryParams struct {
 	ID         string
 	BoardID    string
-	IssueID    string
+	IssueUid   []byte
 	Kind       string
 	Author     *string
 	Committer  *string
@@ -66,7 +66,7 @@ func (q *Queries) BoardInsertIssueLogEntry(ctx context.Context, arg BoardInsertI
 	_, err := q.db.ExecContext(ctx, boardInsertIssueLogEntry,
 		arg.ID,
 		arg.BoardID,
-		arg.IssueID,
+		arg.IssueUid,
 		arg.Kind,
 		arg.Author,
 		arg.Committer,
@@ -78,17 +78,19 @@ func (q *Queries) BoardInsertIssueLogEntry(ctx context.Context, arg BoardInsertI
 }
 
 const boardListIssueLogEntriesAscending = `-- name: BoardListIssueLogEntriesAscending :many
-SELECT id, issue_id, kind, author, committer, body, next_action, created_at
-FROM issue_log_entries
-WHERE board_id = ?1
-    AND issue_id = ?2
-ORDER BY local_sequence
+SELECT log.id, issue.id AS issue_id, log.kind, log.author, log.committer,
+    log.body, log.next_action, log.created_at
+FROM issue_log_entries AS log
+JOIN issues AS issue ON issue.uid = log.issue_uid
+WHERE log.board_id = ?1
+    AND log.issue_uid = ?2
+ORDER BY log.local_sequence
 LIMIT ?3
 `
 
 type BoardListIssueLogEntriesAscendingParams struct {
 	BoardID    string
-	IssueID    string
+	IssueUid   []byte
 	LimitCount int64
 }
 
@@ -104,7 +106,7 @@ type BoardListIssueLogEntriesAscendingRow struct {
 }
 
 func (q *Queries) BoardListIssueLogEntriesAscending(ctx context.Context, arg BoardListIssueLogEntriesAscendingParams) ([]BoardListIssueLogEntriesAscendingRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListIssueLogEntriesAscending, arg.BoardID, arg.IssueID, arg.LimitCount)
+	rows, err := q.db.QueryContext(ctx, boardListIssueLogEntriesAscending, arg.BoardID, arg.IssueUid, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}
@@ -136,17 +138,19 @@ func (q *Queries) BoardListIssueLogEntriesAscending(ctx context.Context, arg Boa
 }
 
 const boardListIssueLogEntriesDescending = `-- name: BoardListIssueLogEntriesDescending :many
-SELECT id, issue_id, kind, author, committer, body, next_action, created_at
-FROM issue_log_entries
-WHERE board_id = ?1
-    AND issue_id = ?2
-ORDER BY local_sequence DESC
+SELECT log.id, issue.id AS issue_id, log.kind, log.author, log.committer,
+    log.body, log.next_action, log.created_at
+FROM issue_log_entries AS log
+JOIN issues AS issue ON issue.uid = log.issue_uid
+WHERE log.board_id = ?1
+    AND log.issue_uid = ?2
+ORDER BY log.local_sequence DESC
 LIMIT ?3
 `
 
 type BoardListIssueLogEntriesDescendingParams struct {
 	BoardID    string
-	IssueID    string
+	IssueUid   []byte
 	LimitCount int64
 }
 
@@ -162,7 +166,7 @@ type BoardListIssueLogEntriesDescendingRow struct {
 }
 
 func (q *Queries) BoardListIssueLogEntriesDescending(ctx context.Context, arg BoardListIssueLogEntriesDescendingParams) ([]BoardListIssueLogEntriesDescendingRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListIssueLogEntriesDescending, arg.BoardID, arg.IssueID, arg.LimitCount)
+	rows, err := q.db.QueryContext(ctx, boardListIssueLogEntriesDescending, arg.BoardID, arg.IssueUid, arg.LimitCount)
 	if err != nil {
 		return nil, err
 	}
@@ -194,10 +198,12 @@ func (q *Queries) BoardListIssueLogEntriesDescending(ctx context.Context, arg Bo
 }
 
 const boardReadIssueLogEntry = `-- name: BoardReadIssueLogEntry :one
-SELECT id, issue_id, kind, author, committer, body, next_action, created_at
-FROM issue_log_entries
-WHERE board_id = ?1
-    AND id = ?2
+SELECT log.id, issue.id AS issue_id, log.kind, log.author, log.committer,
+    log.body, log.next_action, log.created_at
+FROM issue_log_entries AS log
+JOIN issues AS issue ON issue.uid = log.issue_uid
+WHERE log.board_id = ?1
+    AND log.id = ?2
 `
 
 type BoardReadIssueLogEntryParams struct {
@@ -235,14 +241,14 @@ func (q *Queries) BoardReadIssueLogEntry(ctx context.Context, arg BoardReadIssue
 const boardReadIssueResult = `-- name: BoardReadIssueResult :one
 SELECT issue.id, issue.title, result.body
 FROM issues AS issue
-JOIN issue_results AS result ON result.issue_id = issue.id
+JOIN issue_results AS result ON result.issue_uid = issue.uid
 WHERE issue.board_id = ?1
-    AND issue.id = ?2
+    AND issue.uid = ?2
 `
 
 type BoardReadIssueResultParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 type BoardReadIssueResultRow struct {
@@ -252,36 +258,36 @@ type BoardReadIssueResultRow struct {
 }
 
 func (q *Queries) BoardReadIssueResult(ctx context.Context, arg BoardReadIssueResultParams) (BoardReadIssueResultRow, error) {
-	row := q.db.QueryRowContext(ctx, boardReadIssueResult, arg.BoardID, arg.IssueID)
+	row := q.db.QueryRowContext(ctx, boardReadIssueResult, arg.BoardID, arg.IssueUid)
 	var i BoardReadIssueResultRow
 	err := row.Scan(&i.ID, &i.Title, &i.Body)
 	return i, err
 }
 
 const boardUpsertIssueResult = `-- name: BoardUpsertIssueResult :exec
-INSERT INTO issue_results (issue_id, board_id, body)
+INSERT INTO issue_results (issue_uid, board_id, body)
 VALUES (
     ?1,
     ?2,
     ?3
 )
-ON CONFLICT(issue_id) DO UPDATE SET body = excluded.body
+ON CONFLICT(issue_uid) DO UPDATE SET body = excluded.body
 `
 
 type BoardUpsertIssueResultParams struct {
-	IssueID string
-	BoardID string
-	Body    string
+	IssueUid []byte
+	BoardID  string
+	Body     string
 }
 
 func (q *Queries) BoardUpsertIssueResult(ctx context.Context, arg BoardUpsertIssueResultParams) error {
-	_, err := q.db.ExecContext(ctx, boardUpsertIssueResult, arg.IssueID, arg.BoardID, arg.Body)
+	_, err := q.db.ExecContext(ctx, boardUpsertIssueResult, arg.IssueUid, arg.BoardID, arg.Body)
 	return err
 }
 
 const boardUpsertIssueState = `-- name: BoardUpsertIssueState :exec
 INSERT INTO issue_states (
-    issue_id,
+    issue_uid,
     board_id,
     body,
     next_action,
@@ -297,7 +303,7 @@ INSERT INTO issue_states (
     ?6,
     ?7
 )
-ON CONFLICT(issue_id) DO UPDATE SET
+ON CONFLICT(issue_uid) DO UPDATE SET
     body = excluded.body,
     next_action = excluded.next_action,
     author = excluded.author,
@@ -306,7 +312,7 @@ ON CONFLICT(issue_id) DO UPDATE SET
 `
 
 type BoardUpsertIssueStateParams struct {
-	IssueID            string
+	IssueUid           []byte
 	BoardID            string
 	Body               string
 	NextAction         *string
@@ -317,7 +323,7 @@ type BoardUpsertIssueStateParams struct {
 
 func (q *Queries) BoardUpsertIssueState(ctx context.Context, arg BoardUpsertIssueStateParams) error {
 	_, err := q.db.ExecContext(ctx, boardUpsertIssueState,
-		arg.IssueID,
+		arg.IssueUid,
 		arg.BoardID,
 		arg.Body,
 		arg.NextAction,

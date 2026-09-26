@@ -18,8 +18,8 @@ func TestOpenRejectsForeignKeyCorruption(t *testing.T) {
 	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(0)")
 	require.NoError(t, err)
 	_, err = db.Exec(`
-		INSERT INTO issue_labels(board_id, issue_id, label)
-		VALUES ('missing-board', 'missing-issue', 'broken')
+		INSERT INTO issue_labels(board_id, issue_uid, label)
+		VALUES ('missing-board', randomblob(16), 'broken')
 	`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
@@ -67,13 +67,17 @@ func TestOpenRejectsCrossBoardRelationshipCorruption(t *testing.T) {
 			('board-first', 'project', 'First', 1),
 			('board-second', 'project', 'Second', 1);
 		INSERT INTO issues(
-			id, board_id, title, kind, lifecycle, priority,
+			uid, id, board_id, title, kind, lifecycle, priority,
 			created_at, updated_at
 		) VALUES
-			('an-first', 'board-first', 'First issue', 'task', 'open', 2, 1, 1),
-			('an-second', 'board-second', 'Second issue', 'task', 'open', 2, 1, 1);
-		INSERT INTO dependencies(board_id, issue_id, prerequisite_id)
-		VALUES ('board-first', 'an-first', 'an-second');
+			(randomblob(16), 'an-first', 'board-first', 'First issue', 'task', 'open', 2, 1, 1),
+			(randomblob(16), 'an-second', 'board-second', 'Second issue', 'task', 'open', 2, 1, 1);
+		INSERT INTO dependencies(board_id, issue_uid, prerequisite_uid)
+		VALUES (
+			'board-first',
+			(SELECT uid FROM issues WHERE id = 'an-first'),
+			(SELECT uid FROM issues WHERE id = 'an-second')
+		);
 	`)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
@@ -83,13 +87,39 @@ func TestOpenRejectsCrossBoardRelationshipCorruption(t *testing.T) {
 	assert.ErrorContains(t, err, "foreign keys")
 }
 
+func TestOpenRejectsInvalidIssueUID(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "invalid-issue-uid.db")
+	persistence, err := Open(t.Context(), Config{Path: path})
+	require.NoError(t, err)
+	require.NoError(t, persistence.Close())
+
+	db, err := sql.Open("sqlite", path+"?_pragma=ignore_check_constraints(1)")
+	require.NoError(t, err)
+	_, err = db.Exec(`
+		DROP TRIGGER issues_reject_uid_update;
+		INSERT INTO projects(id, name, created_at) VALUES ('project', 'Project', 1);
+		INSERT INTO boards(id, project_id, name, created_at)
+		VALUES ('board', 'project', 'Board', 1);
+		INSERT INTO issues(
+			uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at
+		) VALUES (zeroblob(16), 'broken', 'board', 'Broken', 'task', 'open', 2, 1, 1);
+	`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	persistence, err = Open(t.Context(), Config{Path: path})
+	assert.Nil(t, persistence)
+	assert.ErrorContains(t, err, "CHECK constraint failed in issues")
+}
+
 func TestOpenRejectsIssueSearchProjectionCorruption(t *testing.T) {
 	path := openSearchVerificationStore(t)
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
 	_, err = db.Exec(`
 DELETE FROM issue_search_documents
-WHERE issue_id = 'an-issue' AND field = 'title'
+WHERE issue_uid = (SELECT uid FROM issues WHERE id = 'an-issue')
+    AND field = 'title'
 `)
 	require.NoError(t, err)
 	require.NoError(t, db.Close())
@@ -108,7 +138,8 @@ DELETE FROM issue_search_fts
 WHERE rowid = (
     SELECT rowid
     FROM issue_search_documents
-    WHERE issue_id = 'an-issue' AND field = 'title'
+    WHERE issue_uid = (SELECT uid FROM issues WHERE id = 'an-issue')
+        AND field = 'title'
 )
 `)
 	require.NoError(t, err)
@@ -132,8 +163,9 @@ VALUES ('project', 'Project', 1);
 INSERT INTO boards(id, project_id, name, created_at)
 VALUES ('board', 'project', 'Board', 1);
 INSERT INTO issues(
-    id, board_id, title, kind, lifecycle, priority, created_at, updated_at
-) VALUES ('an-issue', 'board', 'Indexed title', 'task', 'open', 2, 1, 1)
+    uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at
+) VALUES (randomblob(16), 'an-issue', 'board', 'Indexed title',
+    'task', 'open', 2, 1, 1)
 `)
 	require.NoError(t, err)
 	require.NoError(t, change.Commit())

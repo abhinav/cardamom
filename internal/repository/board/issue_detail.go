@@ -73,11 +73,12 @@ func (r *Repository) readIssueDetail(
 	if !ok {
 		return issue.Detail{}, errkind.Errorf(errkind.NotFound, "issue not found: %s", id)
 	}
+	uid := selected.state.UID()
 	summary := index.summary(id)
 	keys, err := query.New(scope).BoardListIssueExternalKeys(
 		ctx,
 		query.BoardListIssueExternalKeysParams{
-			BoardID: r.boardID.String(), IssueID: id.String(),
+			BoardID: r.boardID.String(), IssueUid: uid.Bytes(),
 		},
 	)
 	if err != nil {
@@ -86,8 +87,8 @@ func (r *Repository) readIssueDetail(
 	dependsOnIDs, err := query.New(scope).BoardListPrerequisiteIDs(
 		ctx,
 		query.BoardListPrerequisiteIDsParams{
-			BoardID: r.boardID.String(),
-			IssueID: id.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: uid.Bytes(),
 		},
 	)
 	if err != nil {
@@ -100,8 +101,8 @@ func (r *Repository) readIssueDetail(
 	blockIDs, err := query.New(scope).BoardListBlockIDs(
 		ctx,
 		query.BoardListBlockIDsParams{
-			BoardID:        r.boardID.String(),
-			PrerequisiteID: id.String(),
+			BoardID:         r.boardID.String(),
+			PrerequisiteUid: uid.Bytes(),
 		},
 	)
 	if err != nil {
@@ -141,11 +142,15 @@ func (r *Repository) readIssueDetail(
 }
 
 func (r *Repository) readLogSummary(ctx context.Context, scope queryScope, id issue.ID) (issue.LogSummary, error) {
+	uid, err := r.readIssueUID(ctx, scope, id)
+	if err != nil {
+		return issue.LogSummary{}, err
+	}
 	row, err := query.New(scope).BoardGetIssueLogSummary(
 		ctx,
 		query.BoardGetIssueLogSummaryParams{
-			ScopeBoardID:    r.boardID.String(),
-			SelectedIssueID: id.String(),
+			ScopeBoardID:     r.boardID.String(),
+			SelectedIssueUid: uid.Bytes(),
 		},
 	)
 	if err != nil {
@@ -167,11 +172,15 @@ func (r *Repository) readCheckpointDecision(
 	scope queryScope,
 	id issue.ID,
 ) (*issue.CheckpointDecisionView, error) {
+	uid, err := r.readIssueUID(ctx, scope, id)
+	if err != nil {
+		return nil, err
+	}
 	row, err := query.New(scope).BoardGetCheckpointDecision(
 		ctx,
 		query.BoardGetCheckpointDecisionParams{
-			BoardID: r.boardID.String(),
-			IssueID: id.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: uid.Bytes(),
 		},
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -193,11 +202,15 @@ func (r *Repository) readCheckpointDecision(
 }
 
 func (r *Repository) readParent(ctx context.Context, scope queryScope, id issue.ID) (*string, error) {
+	uid, err := r.readIssueUID(ctx, scope, id)
+	if err != nil {
+		return nil, err
+	}
 	parent, err := query.New(scope).BoardGetParentID(
 		ctx,
 		query.BoardGetParentIDParams{
-			BoardID: r.boardID.String(),
-			ChildID: id.String(),
+			BoardID:  r.boardID.String(),
+			ChildUid: uid.Bytes(),
 		},
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -215,11 +228,15 @@ func (r *Repository) readOptionalResult(
 	id issue.ID,
 	title string,
 ) (*issue.Result, error) {
+	uid, err := r.readIssueUID(ctx, scope, id)
+	if err != nil {
+		return nil, err
+	}
 	body, err := query.New(scope).BoardGetIssueResultBody(
 		ctx,
 		query.BoardGetIssueResultBodyParams{
-			BoardID: r.boardID.String(),
-			IssueID: id.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: uid.Bytes(),
 		},
 	)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -244,6 +261,7 @@ func (r *Repository) readIssueStory(
 	if _, ok := index.states[selected]; !ok {
 		return issue.Story{}, errkind.Errorf(errkind.NotFound, "issue not found: %s", selected)
 	}
+	selectedUID := index.states[selected].state.UID()
 
 	included := map[issue.ID]struct{}{selected: {}}
 	for current := selected; parents[current] != ""; current = parents[current] {
@@ -291,8 +309,8 @@ func (r *Repository) readIssueStory(
 	dependsOnIDs, err := query.New(scope).BoardListPrerequisiteIDs(
 		ctx,
 		query.BoardListPrerequisiteIDsParams{
-			BoardID: r.boardID.String(),
-			IssueID: selected.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: selectedUID.Bytes(),
 		},
 	)
 	if err != nil {
@@ -305,8 +323,8 @@ func (r *Repository) readIssueStory(
 	blockIDs, err := query.New(scope).BoardListBlockIDs(
 		ctx,
 		query.BoardListBlockIDsParams{
-			BoardID:        r.boardID.String(),
-			PrerequisiteID: selected.String(),
+			BoardID:         r.boardID.String(),
+			PrerequisiteUid: selectedUID.Bytes(),
 		},
 	)
 	if err != nil {
@@ -362,8 +380,8 @@ func (r *Repository) readIssueContext(
 	dependencies, err := query.New(scope).BoardListPrerequisiteIDs(
 		ctx,
 		query.BoardListPrerequisiteIDsParams{
-			BoardID: r.boardID.String(),
-			IssueID: id.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: index.states[id].state.UID().Bytes(),
 		},
 	)
 	if err != nil {

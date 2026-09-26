@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"time"
 
 	domainattachment "go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
@@ -47,7 +48,7 @@ func (r *Repository) loadUpload(
 	return upload, nil
 }
 
-func newUpload(row query.AttachmentUpload) (domainattachment.Upload, *string, error) {
+func newUpload(row query.AttachmentGetUploadRow) (domainattachment.Upload, *string, error) {
 	parsedBoardID, err := board.NewID(row.BoardID)
 	if err != nil {
 		return domainattachment.Upload{}, nil, err
@@ -137,21 +138,73 @@ func selectAttachment(
 	if err != nil {
 		return domainattachment.Attachment{}, fmt.Errorf("select committed attachment: %w", err)
 	}
-	return newAttachment(row)
+	return newAttachment(attachmentRowFromGet(row))
 }
 
-func newAttachment(row query.Attachment) (domainattachment.Attachment, error) {
-	boardID, err := board.NewID(row.BoardID)
+// attachmentRow normalizes sqlc read shapes after they join a private origin
+// UID back to the public issue ID required by the attachment domain.
+type attachmentRow struct {
+	boardID         string
+	id              string
+	originIssueID   *string
+	blobDigest      string
+	blobSizeBytes   int64
+	filename        string
+	mediaType       string
+	lifecycle       string
+	createdActor    string
+	createdAt       time.Time
+	createdRevision int64
+	removedActor    *string
+	removedAt       *time.Time
+	removedRevision *int64
+}
+
+func attachmentRowFromGet(row query.AttachmentGetMetadataRow) attachmentRow {
+	return attachmentRow{
+		boardID: row.BoardID, id: row.ID, originIssueID: row.OriginIssueID,
+		blobDigest: row.BlobDigest, blobSizeBytes: row.BlobSizeBytes,
+		filename: row.Filename, mediaType: row.MediaType, lifecycle: row.Lifecycle,
+		createdActor: row.CreatedActor, createdAt: row.CreatedAt,
+		createdRevision: row.CreatedRevision, removedActor: row.RemovedActor,
+		removedAt: row.RemovedAt, removedRevision: row.RemovedRevision,
+	}
+}
+
+func attachmentRowFromList(row query.AttachmentListMetadataRow) attachmentRow {
+	return attachmentRow{
+		boardID: row.BoardID, id: row.ID, originIssueID: row.OriginIssueID,
+		blobDigest: row.BlobDigest, blobSizeBytes: row.BlobSizeBytes,
+		filename: row.Filename, mediaType: row.MediaType, lifecycle: row.Lifecycle,
+		createdActor: row.CreatedActor, createdAt: row.CreatedAt,
+		createdRevision: row.CreatedRevision, removedActor: row.RemovedActor,
+		removedAt: row.RemovedAt, removedRevision: row.RemovedRevision,
+	}
+}
+
+func attachmentRowFromResolution(row query.AttachmentResolveMetadataRow) attachmentRow {
+	return attachmentRow{
+		boardID: row.BoardID, id: row.ID, originIssueID: row.OriginIssueID,
+		blobDigest: row.BlobDigest, blobSizeBytes: row.BlobSizeBytes,
+		filename: row.Filename, mediaType: row.MediaType, lifecycle: row.Lifecycle,
+		createdActor: row.CreatedActor, createdAt: row.CreatedAt,
+		createdRevision: row.CreatedRevision, removedActor: row.RemovedActor,
+		removedAt: row.RemovedAt, removedRevision: row.RemovedRevision,
+	}
+}
+
+func newAttachment(row attachmentRow) (domainattachment.Attachment, error) {
+	boardID, err := board.NewID(row.boardID)
 	if err != nil {
 		return domainattachment.Attachment{}, err
 	}
 	var attachment domainattachment.Attachment
-	attachment.ID, err = domainattachment.NewID(row.ID)
+	attachment.ID, err = domainattachment.NewID(row.id)
 	if err != nil {
 		return domainattachment.Attachment{}, err
 	}
-	if row.OriginIssueID != nil {
-		originID, err := issue.NewID(*row.OriginIssueID)
+	if row.originIssueID != nil {
+		originID, err := issue.NewID(*row.originIssueID)
 		if err != nil {
 			return domainattachment.Attachment{}, err
 		}
@@ -165,35 +218,35 @@ func newAttachment(row query.Attachment) (domainattachment.Attachment, error) {
 			return domainattachment.Attachment{}, err
 		}
 	}
-	attachment.Blob.Digest, err = domainattachment.NewDigest(row.BlobDigest)
+	attachment.Blob.Digest, err = domainattachment.NewDigest(row.blobDigest)
 	if err != nil {
 		return domainattachment.Attachment{}, err
 	}
-	attachment.Blob.SizeBytes = uint64(row.BlobSizeBytes)
-	attachment.Filename, err = domainattachment.NewFilename(row.Filename)
+	attachment.Blob.SizeBytes = uint64(row.blobSizeBytes)
+	attachment.Filename, err = domainattachment.NewFilename(row.filename)
 	if err != nil {
 		return domainattachment.Attachment{}, err
 	}
-	attachment.MediaType, err = domainattachment.NewMediaType(row.MediaType)
+	attachment.MediaType, err = domainattachment.NewMediaType(row.mediaType)
 	if err != nil {
 		return domainattachment.Attachment{}, err
 	}
-	attachment.Lifecycle, err = domainattachment.NewLifecycle(row.Lifecycle)
+	attachment.Lifecycle, err = domainattachment.NewLifecycle(row.lifecycle)
 	if err != nil {
 		return domainattachment.Attachment{}, err
 	}
 	attachment.Created = domainattachment.Attribution{
-		Actor: row.CreatedActor, At: row.CreatedAt,
-		Revision: board.Revision(row.CreatedRevision),
+		Actor: row.createdActor, At: row.createdAt,
+		Revision: board.Revision(row.createdRevision),
 	}
-	if row.RemovedActor != nil || row.RemovedAt != nil || row.RemovedRevision != nil {
-		if row.RemovedActor == nil || row.RemovedAt == nil || row.RemovedRevision == nil {
+	if row.removedActor != nil || row.removedAt != nil || row.removedRevision != nil {
+		if row.removedActor == nil || row.removedAt == nil || row.removedRevision == nil {
 			return domainattachment.Attachment{},
 				errors.New("attachment removal attribution is incomplete")
 		}
 		attachment.Removed = &domainattachment.Attribution{
-			Actor: *row.RemovedActor, At: *row.RemovedAt,
-			Revision: board.Revision(*row.RemovedRevision),
+			Actor: *row.removedActor, At: *row.removedAt,
+			Revision: board.Revision(*row.removedRevision),
 		}
 	}
 	return attachment, nil

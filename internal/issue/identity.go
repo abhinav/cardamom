@@ -12,10 +12,10 @@ const idGrammar = `[A-Za-z0-9][A-Za-z0-9-]*`
 
 var idPattern = regexp.MustCompile(`^` + idGrammar + `$`)
 
-// ID is a stable store-global issue identity.
+// ID is an issue's public store-global handle.
 type ID string
 
-// NewID parses an issue identity matching [A-Za-z0-9][A-Za-z0-9-]*.
+// NewID parses a public issue handle matching [A-Za-z0-9][A-Za-z0-9-]*.
 func NewID(value string) (ID, error) {
 	if !idPattern.MatchString(value) {
 		return "", errkind.Errorf(
@@ -28,14 +28,14 @@ func NewID(value string) (ID, error) {
 	return ID(value), nil
 }
 
-// MustID returns an issue identity that Cardamom code guarantees is valid.
+// MustID returns a public issue handle that Cardamom code guarantees is valid.
 func MustID(value string) ID {
 	id, err := NewID(value)
 	must.NotErrorf(err, "code-owned issue identity %q must be valid", value)
 	return id
 }
 
-// String returns the textual representation of issue id.
+// String returns the textual representation of the public issue handle.
 func (id ID) String() string { return string(id) }
 
 // Kind selects an issue's workflow policy.

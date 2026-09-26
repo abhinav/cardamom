@@ -31,11 +31,11 @@ stdout 'search-3 +closed'
 exec card search alpha --limit 1
 stdout '^2 matches \(showing 1\)$'
 
-# A Log match exposes the stable ID for an exact follow-up read.
+# A Log match exposes the stable ID for a follow-up read.
 exec card search waypoint
-stdout 'log_00000000000000000000000000000001'
-exec card log show log_00000000000000000000000000000001
-stdout '^Post log_00000000000000000000000000000001 by worker$'
+stdout 'log_00000000000000000000000000000004'
+exec card log show log_00000000000000000000000000000004
+stdout '^Post log_00000000000000000000000000000004 by worker$'
 stdout '^Archived waypoint observation\.$'
 
 # Structured output is one envelope rather than JSON Lines.

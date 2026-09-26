@@ -47,100 +47,113 @@ ORDER BY id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyLabelPage :many
-SELECT issue_id, label
-FROM issue_labels
-WHERE board_id = sqlc.arg(board_id)
+SELECT issue.id AS issue_id, label.label
+FROM issue_labels AS label
+JOIN issues AS issue ON issue.uid = label.issue_uid
+WHERE label.board_id = sqlc.arg(board_id)
     AND (
-        issue_id > sqlc.arg(after_issue_id)
+        issue.id > sqlc.arg(after_issue_id)
         OR (
-            issue_id = sqlc.arg(after_issue_id)
-            AND label > sqlc.arg(after_label)
+            issue.id = sqlc.arg(after_issue_id)
+            AND label.label > sqlc.arg(after_label)
         )
     )
-ORDER BY issue_id, label
+ORDER BY issue.id, label.label
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyDependencyPage :many
-SELECT issue_id, prerequisite_id
-FROM dependencies
-WHERE board_id = sqlc.arg(board_id)
+SELECT issue.id AS issue_id, prerequisite.id AS prerequisite_id
+FROM dependencies AS relation
+JOIN issues AS issue ON issue.uid = relation.issue_uid
+JOIN issues AS prerequisite ON prerequisite.uid = relation.prerequisite_uid
+WHERE relation.board_id = sqlc.arg(board_id)
     AND (
-        issue_id > sqlc.arg(after_issue_id)
+        issue.id > sqlc.arg(after_issue_id)
         OR (
-            issue_id = sqlc.arg(after_issue_id)
-            AND prerequisite_id > sqlc.arg(after_prerequisite_id)
+            issue.id = sqlc.arg(after_issue_id)
+            AND prerequisite.id > sqlc.arg(after_prerequisite_id)
         )
     )
-ORDER BY issue_id, prerequisite_id
+ORDER BY issue.id, prerequisite.id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyContainmentPage :many
-SELECT child_id, parent_id
-FROM containment
-WHERE board_id = sqlc.arg(board_id)
-    AND child_id > sqlc.arg(after_child_id)
-ORDER BY child_id, parent_id
+SELECT child.id AS child_id, parent.id AS parent_id
+FROM containment AS relation
+JOIN issues AS child ON child.uid = relation.child_uid
+JOIN issues AS parent ON parent.uid = relation.parent_uid
+WHERE relation.board_id = sqlc.arg(board_id)
+    AND child.id > sqlc.arg(after_child_id)
+ORDER BY child.id, parent.id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyExternalKeyPage :many
-SELECT external_key, issue_id
-FROM issue_external_keys
-WHERE board_id = sqlc.arg(board_id)
+SELECT key.external_key, issue.id AS issue_id
+FROM issue_external_keys AS key
+JOIN issues AS issue ON issue.uid = key.issue_uid
+WHERE key.board_id = sqlc.arg(board_id)
     AND (
-        external_key > sqlc.arg(after_external_key)
+        key.external_key > sqlc.arg(after_external_key)
         OR (
-            external_key = sqlc.arg(after_external_key)
-            AND issue_id > sqlc.arg(after_issue_id)
+            key.external_key = sqlc.arg(after_external_key)
+            AND issue.id > sqlc.arg(after_issue_id)
         )
     )
-ORDER BY external_key, issue_id
+ORDER BY key.external_key, issue.id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyLogEntryPage :many
 SELECT
-    local_sequence,
-    id,
-    issue_id,
-    kind,
-    author,
-    committer,
-    body,
-    created_at,
-    next_action
-FROM issue_log_entries
-WHERE board_id = sqlc.arg(board_id)
-    AND local_sequence > sqlc.arg(after_local_sequence)
-ORDER BY local_sequence, id
+    log.local_sequence,
+    log.id,
+    issue.id AS issue_id,
+    log.kind,
+    log.author,
+    log.committer,
+    log.body,
+    log.created_at,
+    log.next_action
+FROM issue_log_entries AS log
+JOIN issues AS issue ON issue.uid = log.issue_uid
+WHERE log.board_id = sqlc.arg(board_id)
+    AND log.local_sequence > sqlc.arg(after_local_sequence)
+ORDER BY log.local_sequence, log.id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyStatePage :many
-SELECT issue_id, body, author, updated_at, snapshot_log_entry_id, next_action
-FROM issue_states
-WHERE board_id = sqlc.arg(board_id)
-    AND issue_id > sqlc.arg(after_issue_id)
-ORDER BY issue_id
+SELECT issue.id AS issue_id, state.body, state.author, state.updated_at,
+    state.snapshot_log_entry_id, state.next_action
+FROM issue_states AS state
+JOIN issues AS issue ON issue.uid = state.issue_uid
+WHERE state.board_id = sqlc.arg(board_id)
+    AND issue.id > sqlc.arg(after_issue_id)
+ORDER BY issue.id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyResultPage :many
-SELECT issue_id, body
-FROM issue_results
-WHERE board_id = sqlc.arg(board_id)
-    AND issue_id > sqlc.arg(after_issue_id)
-ORDER BY issue_id
+SELECT issue.id AS issue_id, result.body
+FROM issue_results AS result
+JOIN issues AS issue ON issue.uid = result.issue_uid
+WHERE result.board_id = sqlc.arg(board_id)
+    AND issue.id > sqlc.arg(after_issue_id)
+ORDER BY issue.id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyCheckpointPage :many
-SELECT issue_id, outcome, reason, decided_at
-FROM checkpoint_decisions
-WHERE board_id = sqlc.arg(board_id)
-    AND issue_id > sqlc.arg(after_issue_id)
-ORDER BY issue_id
+SELECT issue.id AS issue_id, decision.outcome, decision.reason,
+    decision.decided_at
+FROM checkpoint_decisions AS decision
+JOIN issues AS issue ON issue.uid = decision.issue_uid
+WHERE decision.board_id = sqlc.arg(board_id)
+    AND issue.id > sqlc.arg(after_issue_id)
+ORDER BY issue.id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyPinPage :many
-SELECT position, issue_id
-FROM board_pins
-WHERE board_id = sqlc.arg(board_id)
-    AND position > sqlc.arg(after_position)
-ORDER BY position
+SELECT pin.position, issue.id AS issue_id
+FROM board_pins AS pin
+JOIN issues AS issue ON issue.uid = pin.issue_uid
+WHERE pin.board_id = sqlc.arg(board_id)
+    AND pin.position > sqlc.arg(after_position)
+ORDER BY pin.position
 LIMIT sqlc.arg(page_size);

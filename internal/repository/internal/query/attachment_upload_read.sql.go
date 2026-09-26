@@ -7,21 +7,39 @@ package query
 
 import (
 	"context"
+	"time"
 )
 
 const attachmentGetUpload = `-- name: AttachmentGetUpload :one
-SELECT attachment_uploads.id, attachment_uploads.board_id, attachment_uploads.origin_issue_id, attachment_uploads.filename, attachment_uploads.expected_size_bytes, attachment_uploads.expected_digest, attachment_uploads.actor, attachment_uploads.state, attachment_uploads.accepted_offset, attachment_uploads.expires_at, attachment_uploads.attachment_id, attachment_uploads.admitted_max_bytes
-FROM attachment_uploads
-WHERE id = ?1
+SELECT upload.id, upload.board_id, upload.origin_issue_uid, upload.filename, upload.expected_size_bytes, upload.expected_digest, upload.actor, upload.state, upload.accepted_offset, upload.expires_at, upload.attachment_id, upload.admitted_max_bytes, issue.id AS origin_issue_id
+FROM attachment_uploads AS upload
+LEFT JOIN issues AS issue ON issue.uid = upload.origin_issue_uid
+WHERE upload.id = ?1
 `
 
-func (q *Queries) AttachmentGetUpload(ctx context.Context, id string) (AttachmentUpload, error) {
+type AttachmentGetUploadRow struct {
+	ID                string
+	BoardID           string
+	OriginIssueUid    []byte
+	Filename          string
+	ExpectedSizeBytes *int64
+	ExpectedDigest    *string
+	Actor             string
+	State             string
+	AcceptedOffset    int64
+	ExpiresAt         time.Time
+	AttachmentID      *string
+	AdmittedMaxBytes  int64
+	OriginIssueID     *string
+}
+
+func (q *Queries) AttachmentGetUpload(ctx context.Context, id string) (AttachmentGetUploadRow, error) {
 	row := q.db.QueryRowContext(ctx, attachmentGetUpload, id)
-	var i AttachmentUpload
+	var i AttachmentGetUploadRow
 	err := row.Scan(
 		&i.ID,
 		&i.BoardID,
-		&i.OriginIssueID,
+		&i.OriginIssueUid,
 		&i.Filename,
 		&i.ExpectedSizeBytes,
 		&i.ExpectedDigest,
@@ -31,6 +49,7 @@ func (q *Queries) AttachmentGetUpload(ctx context.Context, id string) (Attachmen
 		&i.ExpiresAt,
 		&i.AttachmentID,
 		&i.AdmittedMaxBytes,
+		&i.OriginIssueID,
 	)
 	return i, err
 }

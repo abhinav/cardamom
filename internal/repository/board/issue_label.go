@@ -13,12 +13,16 @@ func (r *Repository) replaceLabels(
 	issueID issue.ID,
 	labels []issue.Label,
 ) error {
+	uid, err := r.readIssueUID(ctx, mutation.change, issueID)
+	if err != nil {
+		return err
+	}
 	queries := query.New(mutation.change)
 	if err := queries.BoardDeleteIssueLabels(
 		ctx,
 		query.BoardDeleteIssueLabelsParams{
-			BoardID: r.boardID.String(),
-			IssueID: issueID.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: uid.Bytes(),
 		},
 	); err != nil {
 		return err
@@ -27,9 +31,9 @@ func (r *Repository) replaceLabels(
 		if err := queries.BoardInsertIssueLabel(
 			ctx,
 			query.BoardInsertIssueLabelParams{
-				BoardID: r.boardID.String(),
-				IssueID: issueID.String(),
-				Label:   label.String(),
+				BoardID:  r.boardID.String(),
+				IssueUid: uid.Bytes(),
+				Label:    label.String(),
 			},
 		); err != nil {
 			return err
@@ -43,11 +47,15 @@ func (r *Repository) readLabels(
 	scope queryScope,
 	id issue.ID,
 ) ([]string, error) {
+	uid, err := r.readIssueUID(ctx, scope, id)
+	if err != nil {
+		return nil, err
+	}
 	labels, err := query.New(scope).BoardListLabelsForIssue(
 		ctx,
 		query.BoardListLabelsForIssueParams{
-			BoardID: r.boardID.String(),
-			IssueID: id.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: uid.Bytes(),
 		},
 	)
 	if err != nil {

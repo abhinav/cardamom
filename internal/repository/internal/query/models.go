@@ -8,38 +8,6 @@ import (
 	"time"
 )
 
-type Attachment struct {
-	BoardID         string
-	ID              string
-	OriginIssueID   *string
-	BlobDigest      string
-	BlobSizeBytes   int64
-	Filename        string
-	MediaType       string
-	Lifecycle       string
-	CreatedActor    string
-	CreatedAt       time.Time
-	CreatedRevision int64
-	RemovedActor    *string
-	RemovedAt       *time.Time
-	RemovedRevision *int64
-}
-
-type AttachmentUpload struct {
-	ID                string
-	BoardID           string
-	OriginIssueID     *string
-	Filename          string
-	ExpectedSizeBytes *int64
-	ExpectedDigest    *string
-	Actor             string
-	State             string
-	AcceptedOffset    int64
-	ExpiresAt         time.Time
-	AttachmentID      *string
-	AdmittedMaxBytes  int64
-}
-
 type Lease struct {
 	Name       string
 	Owner      string

@@ -50,9 +50,13 @@ func (r *Repository) PinIssue(
 	if err != nil {
 		return out, err
 	}
+	uid, err := r.readIssueUID(ctx, mutation.change, id)
+	if err != nil {
+		return out, err
+	}
 	queries := query.New(mutation.change)
 	exists, err := queries.BoardPinExists(ctx, query.BoardPinExistsParams{
-		BoardID: r.boardID.String(), IssueID: id.String(),
+		BoardID: r.boardID.String(), IssueUid: uid.Bytes(),
 	})
 	if err != nil {
 		return out, err
@@ -71,7 +75,7 @@ func (r *Repository) PinIssue(
 		return out, err
 	}
 	if err := queries.BoardInsertPin(ctx, query.BoardInsertPinParams{
-		BoardID: r.boardID.String(), IssueID: id.String(),
+		BoardID: r.boardID.String(), IssueUid: uid.Bytes(),
 	}); err != nil {
 		return out, err
 	}
@@ -95,9 +99,13 @@ func (r *Repository) UnpinIssue(
 	if err != nil {
 		return out, err
 	}
+	uid, err := r.readIssueUID(ctx, mutation.change, id)
+	if err != nil {
+		return out, err
+	}
 	queries := query.New(mutation.change)
 	exists, err := queries.BoardPinExists(ctx, query.BoardPinExistsParams{
-		BoardID: r.boardID.String(), IssueID: id.String(),
+		BoardID: r.boardID.String(), IssueUid: uid.Bytes(),
 	})
 	if err != nil {
 		return out, err
@@ -109,7 +117,7 @@ func (r *Repository) UnpinIssue(
 		return out, err
 	}
 	result, err := queries.BoardDeletePin(ctx, query.BoardDeletePinParams{
-		BoardID: r.boardID.String(), IssueID: id.String(),
+		BoardID: r.boardID.String(), IssueUid: uid.Bytes(),
 	})
 	if err != nil {
 		return out, err

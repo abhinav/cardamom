@@ -1,6 +1,7 @@
 package record
 
 import (
+	"bytes"
 	"testing"
 	"time"
 
@@ -288,6 +289,7 @@ func testIssueState(t *testing.T, id, recoveryState string) issue.State {
 		recovery = &issue.RecoveryState{Body: recoveryState}
 	}
 	state, err := issue.Load(issue.Snapshot{
+		UID:           recordTestUID(t),
 		ID:            issue.MustID(id),
 		Title:         id,
 		Kind:          issue.KindTask,
@@ -299,4 +301,11 @@ func testIssueState(t *testing.T, id, recoveryState string) issue.State {
 	})
 	require.NoError(t, err)
 	return state
+}
+
+func recordTestUID(t *testing.T) issue.UID {
+	t.Helper()
+	uid, err := issue.ParseUID(bytes.Repeat([]byte{1}, 16))
+	require.NoError(t, err)
+	return uid
 }

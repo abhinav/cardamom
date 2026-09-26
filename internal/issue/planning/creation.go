@@ -42,8 +42,13 @@ type CreateSnapshot struct {
 	BoardID board.ID
 	// Revision is the board snapshot revision used for planning.
 	Revision board.Revision
+
 	// AllocatedID is the identity reserved for the new issue.
 	AllocatedID issue.ID
+
+	// AllocatedUID is the private identity reserved for the new issue.
+	AllocatedUID issue.UID
+
 	// ExistingIDs contains every durable issue identity in the selected board.
 	ExistingIDs []issue.ID
 	// ExternalKeyOwner is the current owner of CreateIssue.ExternalKey.
@@ -109,6 +114,9 @@ func LoadCreate(snapshot CreateSnapshot) (*CreatePolicy, error) {
 		snapshot.AllocatedID == "" || snapshot.OccurredAt.IsZero() {
 		return nil, ErrIncompleteSnapshot
 	}
+	if _, err := issue.ParseUID(snapshot.AllocatedUID.Bytes()); err != nil {
+		return nil, ErrIncompleteSnapshot
+	}
 	return &CreatePolicy{snapshot: snapshot}, nil
 }
 
@@ -162,6 +170,7 @@ func (p *CreatePolicy) CreateIssue(command CreateIssue) (IssueCreated, error) {
 		externalKey = &key
 	}
 	state, err := issue.Load(issue.Snapshot{
+		UID:       p.snapshot.AllocatedUID,
 		ID:        p.snapshot.AllocatedID,
 		Title:     title,
 		Kind:      command.Kind,

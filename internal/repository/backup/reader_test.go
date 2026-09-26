@@ -92,8 +92,8 @@ func TestReader_CaptureIgnoresEphemeralActivity(t *testing.T) {
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 INSERT INTO active_claims (
-    issue_id, board_id, actor, started_at, started_revision
-) VALUES ('one-1', 'board-one', 'engineer', 1002, 2);
+    issue_uid, board_id, actor, started_at, started_revision
+) VALUES ((SELECT uid FROM issues WHERE id = 'one-1'), 'board-one', 'engineer', 1002, 2);
 INSERT INTO attachment_uploads (
     id, board_id, filename, actor, state, accepted_offset, expires_at
 ) VALUES (
@@ -252,27 +252,28 @@ VALUES
     ('board-one', 'project-one', 'Board one', NULL, 1000, 1),
     ('board-two', 'project-two', 'Board two', 'original', 1000, 2);
 INSERT INTO issues (
-    id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
+    uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
     revision
 ) VALUES (
-    'one-1', 'board-one', 'Committed', 'task', 'open', 2, 1000, 1001, 1
+    randomblob(16), 'one-1', 'board-one', 'Committed', 'task', 'open', 2, 1000, 1001, 1
 ), (
-    'two-1', 'board-two', 'Selected', 'task', 'open', 2, 1000, 1001, 2
+    randomblob(16), 'two-1', 'board-two', 'Selected', 'task', 'open', 2, 1000, 1001, 2
 );
-INSERT INTO board_pins (board_id, issue_id, position)
+INSERT INTO board_pins (board_id, issue_uid, position)
 VALUES
-    ('board-one', 'one-1', 1),
-    ('board-two', 'two-1', 1);
+    ('board-one', (SELECT uid FROM issues WHERE id = 'one-1'), 1),
+    ('board-two', (SELECT uid FROM issues WHERE id = 'two-1'), 1);
 INSERT INTO attachment_blobs (digest, size_bytes)
 VALUES (
     'sha256:3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7',
     4
 );
 INSERT INTO attachments (
-    board_id, id, origin_issue_id, blob_digest, blob_size_bytes, filename,
+    board_id, id, origin_issue_uid, blob_digest, blob_size_bytes, filename,
     media_type, lifecycle, created_actor, created_at, created_revision
 ) VALUES (
-    'board-one', 'att_aaaaaaaaaaaaaaaaaaaaaaaaaa', 'one-1',
+    'board-one', 'att_aaaaaaaaaaaaaaaaaaaaaaaaaa',
+    (SELECT uid FROM issues WHERE id = 'one-1'),
     'sha256:3a6eb0790f39ac87c94f3856b2dd2c5d110e6811602261a9a923d3bb23adc8b7',
     4, 'committed.txt', 'text/plain', 'active', 'engineer', 1001, 1
 );

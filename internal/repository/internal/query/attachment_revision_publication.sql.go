@@ -44,15 +44,15 @@ const attachmentPublishIssueRevision = `-- name: AttachmentPublishIssueRevision 
 UPDATE issues
 SET revision = ?1
 WHERE board_id = ?2
-    AND id = ?3
+    AND uid = ?3
 `
 
 type AttachmentPublishIssueRevisionParams struct {
 	Revision int64
 	BoardID  string
-	IssueID  string
+	IssueUid []byte
 }
 
 func (q *Queries) AttachmentPublishIssueRevision(ctx context.Context, arg AttachmentPublishIssueRevisionParams) (sql.Result, error) {
-	return q.db.ExecContext(ctx, attachmentPublishIssueRevision, arg.Revision, arg.BoardID, arg.IssueID)
+	return q.db.ExecContext(ctx, attachmentPublishIssueRevision, arg.Revision, arg.BoardID, arg.IssueUid)
 }

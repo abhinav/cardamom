@@ -58,6 +58,7 @@ func (r *Repository) ApplyDocument(
 	snapshot.Mode = planning.ApplyModeCommit
 	snapshot.OccurredAt = mutation.occurredAt
 	snapshot.AllocatedIDs = make([]issue.ID, len(validated.Receipt.Entries))
+	snapshot.AllocatedUIDs = make([]issue.UID, len(validated.Receipt.Entries))
 	for index, entry := range validated.Receipt.Entries {
 		if entry.Action != planning.ApplyActionCreate {
 			continue
@@ -67,6 +68,10 @@ func (r *Repository) ApplyDocument(
 			mutation,
 			issueIDConfiguration,
 		)
+		if err != nil {
+			return out, err
+		}
+		snapshot.AllocatedUIDs[index], err = r.allocateIssueUID(ctx, mutation)
 		if err != nil {
 			return out, err
 		}

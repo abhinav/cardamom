@@ -24,6 +24,10 @@ func (r *Repository) CreateIssue(
 	if err != nil {
 		return out, err
 	}
+	allocatedUID, err := r.allocateIssueUID(ctx, mutation)
+	if err != nil {
+		return out, err
+	}
 	existingIDs, err := r.listBoardIssueIDs(ctx, mutation.change)
 	if err != nil {
 		return out, err
@@ -38,7 +42,7 @@ func (r *Repository) CreateIssue(
 	}
 	board, err := planning.LoadCreate(planning.CreateSnapshot{
 		BoardID: r.boardID, Revision: mutation.current,
-		AllocatedID: allocatedID, ExistingIDs: existingIDs,
+		AllocatedID: allocatedID, AllocatedUID: allocatedUID, ExistingIDs: existingIDs,
 		ExternalKeyOwner: externalKeyOwner,
 		OccurredAt:       mutation.occurredAt,
 	})

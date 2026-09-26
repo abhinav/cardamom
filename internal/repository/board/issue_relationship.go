@@ -14,23 +14,31 @@ func (r *Repository) replaceDependencies(
 	issueID issue.ID,
 	dependencies []issue.ID,
 ) error {
+	uid, err := r.readIssueUID(ctx, mutation.change, issueID)
+	if err != nil {
+		return err
+	}
 	queries := query.New(mutation.change)
 	if err := queries.BoardDeleteIssueDependencies(
 		ctx,
 		query.BoardDeleteIssueDependenciesParams{
-			BoardID: r.boardID.String(),
-			IssueID: issueID.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: uid.Bytes(),
 		},
 	); err != nil {
 		return err
 	}
 	for _, prerequisite := range dependencies {
+		prerequisiteUID, err := r.readIssueUID(ctx, mutation.change, prerequisite)
+		if err != nil {
+			return err
+		}
 		if err := queries.BoardInsertIssueDependency(
 			ctx,
 			query.BoardInsertIssueDependencyParams{
-				BoardID:        r.boardID.String(),
-				IssueID:        issueID.String(),
-				PrerequisiteID: prerequisite.String(),
+				BoardID:         r.boardID.String(),
+				IssueUid:        uid.Bytes(),
+				PrerequisiteUid: prerequisiteUID.Bytes(),
 			},
 		); err != nil {
 			return err
@@ -45,12 +53,16 @@ func (r *Repository) replaceParent(
 	child issue.ID,
 	parent *issue.ID,
 ) error {
+	childUID, err := r.readIssueUID(ctx, mutation.change, child)
+	if err != nil {
+		return err
+	}
 	queries := query.New(mutation.change)
 	if err := queries.BoardDeleteIssueParent(
 		ctx,
 		query.BoardDeleteIssueParentParams{
-			BoardID: r.boardID.String(),
-			ChildID: child.String(),
+			BoardID:  r.boardID.String(),
+			ChildUid: childUID.Bytes(),
 		},
 	); err != nil {
 		return err
@@ -58,22 +70,30 @@ func (r *Repository) replaceParent(
 	if parent == nil {
 		return nil
 	}
+	parentUID, err := r.readIssueUID(ctx, mutation.change, *parent)
+	if err != nil {
+		return err
+	}
 	return queries.BoardInsertIssueParent(
 		ctx,
 		query.BoardInsertIssueParentParams{
-			BoardID:  r.boardID.String(),
-			ChildID:  child.String(),
-			ParentID: parent.String(),
+			BoardID:   r.boardID.String(),
+			ChildUid:  childUID.Bytes(),
+			ParentUid: parentUID.Bytes(),
 		},
 	)
 }
 
 func (r *Repository) readDirectChildren(ctx context.Context, scope queryScope, parent issue.ID) (out []issue.State, err error) {
+	parentUID, err := r.readIssueUID(ctx, scope, parent)
+	if err != nil {
+		return nil, err
+	}
 	ids, err := query.New(scope).BoardListDirectChildIDs(
 		ctx,
 		query.BoardListDirectChildIDsParams{
-			BoardID:  r.boardID.String(),
-			ParentID: parent.String(),
+			BoardID:   r.boardID.String(),
+			ParentUid: parentUID.Bytes(),
 		},
 	)
 	if err != nil {
@@ -92,11 +112,20 @@ func (r *Repository) readDirectChildren(ctx context.Context, scope queryScope, p
 }
 
 func (r *Repository) dependencyAncestors(ctx context.Context, scope queryScope, start issue.ID) (out []issue.ID, err error) {
+	startUID, err := r.readIssueUID(ctx, scope, start)
+	if errkind.Of(err) == errkind.NotFound {
+		// Planning reports a missing proposed dependency from its complete public-ID
+		// snapshot; an absent node contributes no ancestor edges.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
 	values, err := query.New(scope).BoardListEditDependencyAncestorIDs(
 		ctx,
 		query.BoardListEditDependencyAncestorIDsParams{
 			ScopeBoardID: r.boardID.String(),
-			StartID:      start.String(),
+			StartUid:     startUID.Bytes(),
 		},
 	)
 	if err != nil {
@@ -106,11 +135,20 @@ func (r *Repository) dependencyAncestors(ctx context.Context, scope queryScope, 
 }
 
 func (r *Repository) containmentAncestors(ctx context.Context, scope queryScope, start issue.ID) (out []issue.ID, err error) {
+	startUID, err := r.readIssueUID(ctx, scope, start)
+	if errkind.Of(err) == errkind.NotFound {
+		// Planning reports a missing proposed parent from its complete public-ID
+		// snapshot; an absent node contributes no ancestor edges.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
 	values, err := query.New(scope).BoardListEditContainmentAncestorIDs(
 		ctx,
 		query.BoardListEditContainmentAncestorIDsParams{
 			ScopeBoardID: r.boardID.String(),
-			StartID:      start.String(),
+			StartUid:     startUID.Bytes(),
 		},
 	)
 	if err != nil {
@@ -159,11 +197,15 @@ func (r *Repository) descendantSet(ctx context.Context, scope queryScope, under 
 	if !exists {
 		return nil, errkind.Errorf(errkind.NotFound, "issue not found: %s", root)
 	}
+	rootUID, err := r.readIssueUID(ctx, scope, root)
+	if err != nil {
+		return nil, err
+	}
 	values, err := query.New(scope).BoardListDescendantIDs(
 		ctx,
 		query.BoardListDescendantIDsParams{
 			ScopeBoardID: r.boardID.String(),
-			RootID:       root.String(),
+			RootUid:      rootUID.Bytes(),
 		},
 	)
 	if err != nil {
@@ -177,11 +219,15 @@ func (r *Repository) descendantSet(ctx context.Context, scope queryScope, under 
 }
 
 func (r *Repository) readPrerequisiteStates(ctx context.Context, scope queryScope, id issue.ID) ([]issue.State, error) {
+	uid, err := r.readIssueUID(ctx, scope, id)
+	if err != nil {
+		return nil, err
+	}
 	ids, err := query.New(scope).BoardListPrerequisiteIDs(
 		ctx,
 		query.BoardListPrerequisiteIDsParams{
-			BoardID: r.boardID.String(),
-			IssueID: id.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: uid.Bytes(),
 		},
 	)
 	if err != nil {

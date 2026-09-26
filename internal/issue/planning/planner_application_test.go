@@ -377,6 +377,7 @@ func applicationTestIssue(t *testing.T, id string, status issuekernel.Status) is
 		}
 	}
 	state, err := issuekernel.Load(issuekernel.Snapshot{
+		UID:         planningTestUID(t, 7),
 		ID:          issuekernel.MustID(id),
 		Title:       id,
 		Kind:        issuekernel.KindTask,

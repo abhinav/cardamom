@@ -28,7 +28,7 @@ const attachmentInsertCopiedMetadata = `-- name: AttachmentInsertCopiedMetadata 
 INSERT INTO attachments (
     board_id,
     id,
-    origin_issue_id,
+    origin_issue_uid,
     blob_digest,
     blob_size_bytes,
     filename,
@@ -61,7 +61,7 @@ INSERT INTO attachments (
 type AttachmentInsertCopiedMetadataParams struct {
 	BoardID         string
 	ID              string
-	OriginIssueID   *string
+	OriginIssueUid  []byte
 	BlobDigest      string
 	BlobSizeBytes   int64
 	Filename        string
@@ -79,7 +79,7 @@ func (q *Queries) AttachmentInsertCopiedMetadata(ctx context.Context, arg Attach
 	_, err := q.db.ExecContext(ctx, attachmentInsertCopiedMetadata,
 		arg.BoardID,
 		arg.ID,
-		arg.OriginIssueID,
+		arg.OriginIssueUid,
 		arg.BlobDigest,
 		arg.BlobSizeBytes,
 		arg.Filename,
@@ -97,21 +97,22 @@ func (q *Queries) AttachmentInsertCopiedMetadata(ctx context.Context, arg Attach
 
 const attachmentListCopyMetadataPage = `-- name: AttachmentListCopyMetadataPage :many
 SELECT
-    id,
-    origin_issue_id,
-    blob_digest,
-    blob_size_bytes,
-    filename,
-    media_type,
-    lifecycle,
-    created_actor,
-    created_at,
-    removed_actor,
-    removed_at
-FROM attachments
-WHERE board_id = ?1
-    AND id > ?2
-ORDER BY id
+    attachment.id,
+    issue.id AS origin_issue_id,
+    attachment.blob_digest,
+    attachment.blob_size_bytes,
+    attachment.filename,
+    attachment.media_type,
+    attachment.lifecycle,
+    attachment.created_actor,
+    attachment.created_at,
+    attachment.removed_actor,
+    attachment.removed_at
+FROM attachments AS attachment
+LEFT JOIN issues AS issue ON issue.uid = attachment.origin_issue_uid
+WHERE attachment.board_id = ?1
+    AND attachment.id > ?2
+ORDER BY attachment.id
 LIMIT ?3
 `
 

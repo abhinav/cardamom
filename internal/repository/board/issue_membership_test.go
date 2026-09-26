@@ -24,8 +24,8 @@ func TestLocatorFindsStoreGlobalIssueBoard(t *testing.T) {
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO issues (
-			id, board_id, title, kind, lifecycle, priority, created_at, updated_at
-		) VALUES ('other-issue', 'board-other', 'Other issue', 'task', 'open', 2, 1700000000, 1700000000)
+			uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at
+		) VALUES (randomblob(16), 'other-issue', 'board-other', 'Other issue', 'task', 'open', 2, 1700000000, 1700000000)
 	`)
 	require.NoError(t, err)
 	require.NoError(t, change.Commit())

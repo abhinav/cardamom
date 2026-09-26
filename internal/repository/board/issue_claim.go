@@ -184,7 +184,7 @@ func (r *Repository) ReleaseIssue(ctx context.Context, command execution.Release
 
 func (r *Repository) replaceActiveClaim(ctx context.Context, mutation *mutation, state issue.State) error {
 	queries := query.New(mutation.change)
-	if err := queries.BoardDeleteActiveClaim(ctx, state.ID().String()); err != nil {
+	if err := queries.BoardDeleteActiveClaim(ctx, state.UID().Bytes()); err != nil {
 		return err
 	}
 	claim := state.ActiveClaim()
@@ -194,7 +194,7 @@ func (r *Repository) replaceActiveClaim(ctx context.Context, mutation *mutation,
 	return queries.BoardInsertActiveClaim(
 		ctx,
 		query.BoardInsertActiveClaimParams{
-			IssueID:         state.ID().String(),
+			IssueUid:        state.UID().Bytes(),
 			BoardID:         r.boardID.String(),
 			Actor:           claim.Actor.String(),
 			StartedAt:       claim.StartedAt,

@@ -330,6 +330,9 @@ type ApplySnapshot struct {
 	// AllocatedIDs aligns commit-only identities with document entries.
 	AllocatedIDs []issue.ID
 
+	// AllocatedUIDs aligns private identities with commit-only document entries.
+	AllocatedUIDs []issue.UID
+
 	// OccurredAt timestamps committed issue projections.
 	OccurredAt time.Time
 
@@ -440,6 +443,9 @@ func (p *ApplyPolicy) ApplyDocument(document ApplyDocument) (DocumentApplied, er
 	if p.snapshot.Mode == ApplyModeCommit && len(p.snapshot.AllocatedIDs) != len(document.issues) {
 		return DocumentApplied{}, ErrIncompleteSnapshot
 	}
+	if p.snapshot.Mode == ApplyModeCommit && len(p.snapshot.AllocatedUIDs) != len(document.issues) {
+		return DocumentApplied{}, ErrIncompleteSnapshot
+	}
 
 	plan, err := p.plan(document)
 	if err != nil {
@@ -525,6 +531,7 @@ type applyPlan struct {
 }
 
 type applyNode struct {
+	uid          issue.UID
 	id           issue.ID
 	existing     bool
 	state        issue.State
@@ -560,7 +567,7 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 		current := p.snapshot.Issues[id]
 		indexByID[id] = len(plan.nodes)
 		plan.nodes = append(plan.nodes, applyNode{
-			id: id, existing: true, state: current.State,
+			uid: current.State.UID(), id: id, existing: true, state: current.State,
 			title: current.State.Title(), kind: current.State.Kind(),
 			lifecycle: current.State.Lifecycle(), priority: current.State.Priority(),
 			summary: current.State.Summary(), details: current.State.Details(),
@@ -623,6 +630,7 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 		if !existing {
 			node = len(plan.nodes)
 			allocatedID := issue.ID("")
+			var allocatedUID issue.UID
 			if p.snapshot.Mode == ApplyModeCommit {
 				allocatedID = p.snapshot.AllocatedIDs[inputIndex]
 				if allocatedID == "" {
@@ -635,10 +643,15 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 						allocatedID,
 					)
 				}
+				allocatedUID = p.snapshot.AllocatedUIDs[inputIndex]
+				if _, err := issue.ParseUID(allocatedUID.Bytes()); err != nil {
+					return applyPlan{}, ErrIncompleteSnapshot
+				}
 				indexByID[allocatedID] = node
 			}
 			plan.nodes = append(plan.nodes, applyNode{
-				id: allocatedID, kind: issue.KindTask, lifecycle: issue.LifecycleOpen,
+				uid: allocatedUID, id: allocatedID,
+				kind: issue.KindTask, lifecycle: issue.LifecycleOpen,
 				priority: issue.PriorityNormal, parent: -1,
 			})
 		}
@@ -1011,7 +1024,7 @@ func (p *ApplyPolicy) materializeState(node applyNode, entry applyEntryPlan) (is
 		return issue.Load(snapshot)
 	}
 	return issue.Load(issue.Snapshot{
-		ID: node.id, Title: node.title, Kind: node.kind,
+		UID: node.uid, ID: node.id, Title: node.title, Kind: node.kind,
 		Lifecycle: issue.LifecycleOpen, Priority: node.priority,
 		Created: p.snapshot.OccurredAt, Updated: p.snapshot.OccurredAt,
 		Summary: node.summary, Details: node.details,

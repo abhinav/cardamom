@@ -164,6 +164,7 @@ func executionTestIssue(
 		}
 	}
 	state, err := issue.Load(issue.Snapshot{
+		UID:         executionTestUID(t),
 		ID:          issue.MustID(id),
 		Title:       id,
 		Kind:        issue.KindTask,

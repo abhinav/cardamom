@@ -51,19 +51,19 @@ func TestRepositoryResolveLogReferencesScopesOwnershipToBoard(t *testing.T) {
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO issues (
-			id, board_id, title, kind, lifecycle, priority,
+			uid, id, board_id, title, kind, lifecycle, priority,
 			created_at, updated_at
 		) VALUES (
-			'other-1', 'board-other', 'Other issue', 'task', 'open', 2,
+			randomblob(16), 'other-1', 'board-other', 'Other issue', 'task', 'open', 2,
 			1700000000, 1700000000
 		)
 	`)
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO issue_log_entries (
-			id, board_id, issue_id, kind, author, committer, body, created_at
+			id, board_id, issue_uid, kind, author, committer, body, created_at
 		) VALUES (
-			?, 'board-other', 'other-1', 'post', 'captain', 'captain',
+			?, 'board-other', (SELECT uid FROM issues WHERE id = 'other-1'), 'post', 'captain', 'captain',
 			'Other board.', 1700000000
 		)
 	`, otherLogID)

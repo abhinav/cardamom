@@ -12,40 +12,40 @@ import (
 const boardDeleteIssueDependencies = `-- name: BoardDeleteIssueDependencies :exec
 DELETE FROM dependencies
 WHERE board_id = ?1
-    AND issue_id = ?2
+    AND issue_uid = ?2
 `
 
 type BoardDeleteIssueDependenciesParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 func (q *Queries) BoardDeleteIssueDependencies(ctx context.Context, arg BoardDeleteIssueDependenciesParams) error {
-	_, err := q.db.ExecContext(ctx, boardDeleteIssueDependencies, arg.BoardID, arg.IssueID)
+	_, err := q.db.ExecContext(ctx, boardDeleteIssueDependencies, arg.BoardID, arg.IssueUid)
 	return err
 }
 
 const boardDeleteIssueParent = `-- name: BoardDeleteIssueParent :exec
 DELETE FROM containment
 WHERE board_id = ?1
-    AND child_id = ?2
+    AND child_uid = ?2
 `
 
 type BoardDeleteIssueParentParams struct {
-	BoardID string
-	ChildID string
+	BoardID  string
+	ChildUid []byte
 }
 
 func (q *Queries) BoardDeleteIssueParent(ctx context.Context, arg BoardDeleteIssueParentParams) error {
-	_, err := q.db.ExecContext(ctx, boardDeleteIssueParent, arg.BoardID, arg.ChildID)
+	_, err := q.db.ExecContext(ctx, boardDeleteIssueParent, arg.BoardID, arg.ChildUid)
 	return err
 }
 
 const boardInsertIssueDependency = `-- name: BoardInsertIssueDependency :exec
 INSERT INTO dependencies (
     board_id,
-    issue_id,
-    prerequisite_id
+    issue_uid,
+    prerequisite_uid
 ) VALUES (
     ?1,
     ?2,
@@ -54,13 +54,13 @@ INSERT INTO dependencies (
 `
 
 type BoardInsertIssueDependencyParams struct {
-	BoardID        string
-	IssueID        string
-	PrerequisiteID string
+	BoardID         string
+	IssueUid        []byte
+	PrerequisiteUid []byte
 }
 
 func (q *Queries) BoardInsertIssueDependency(ctx context.Context, arg BoardInsertIssueDependencyParams) error {
-	_, err := q.db.ExecContext(ctx, boardInsertIssueDependency, arg.BoardID, arg.IssueID, arg.PrerequisiteID)
+	_, err := q.db.ExecContext(ctx, boardInsertIssueDependency, arg.BoardID, arg.IssueUid, arg.PrerequisiteUid)
 	return err
 }
 
@@ -68,7 +68,7 @@ const boardInsertIssueExternalKey = `-- name: BoardInsertIssueExternalKey :exec
 INSERT INTO issue_external_keys (
     board_id,
     external_key,
-    issue_id
+    issue_uid
 ) VALUES (
     ?1,
     ?2,
@@ -79,19 +79,19 @@ INSERT INTO issue_external_keys (
 type BoardInsertIssueExternalKeyParams struct {
 	BoardID     string
 	ExternalKey string
-	IssueID     string
+	IssueUid    []byte
 }
 
 func (q *Queries) BoardInsertIssueExternalKey(ctx context.Context, arg BoardInsertIssueExternalKeyParams) error {
-	_, err := q.db.ExecContext(ctx, boardInsertIssueExternalKey, arg.BoardID, arg.ExternalKey, arg.IssueID)
+	_, err := q.db.ExecContext(ctx, boardInsertIssueExternalKey, arg.BoardID, arg.ExternalKey, arg.IssueUid)
 	return err
 }
 
 const boardInsertIssueParent = `-- name: BoardInsertIssueParent :exec
 INSERT INTO containment (
     board_id,
-    child_id,
-    parent_id
+    child_uid,
+    parent_uid
 ) VALUES (
     ?1,
     ?2,
@@ -100,12 +100,12 @@ INSERT INTO containment (
 `
 
 type BoardInsertIssueParentParams struct {
-	BoardID  string
-	ChildID  string
-	ParentID string
+	BoardID   string
+	ChildUid  []byte
+	ParentUid []byte
 }
 
 func (q *Queries) BoardInsertIssueParent(ctx context.Context, arg BoardInsertIssueParentParams) error {
-	_, err := q.db.ExecContext(ctx, boardInsertIssueParent, arg.BoardID, arg.ChildID, arg.ParentID)
+	_, err := q.db.ExecContext(ctx, boardInsertIssueParent, arg.BoardID, arg.ChildUid, arg.ParentUid)
 	return err
 }

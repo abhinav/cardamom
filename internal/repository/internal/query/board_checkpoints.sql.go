@@ -12,7 +12,7 @@ import (
 
 const boardInsertCheckpointDecision = `-- name: BoardInsertCheckpointDecision :exec
 INSERT INTO checkpoint_decisions (
-    issue_id,
+    issue_uid,
     board_id,
     outcome,
     reason,
@@ -29,7 +29,7 @@ INSERT INTO checkpoint_decisions (
 `
 
 type BoardInsertCheckpointDecisionParams struct {
-	IssueID   string
+	IssueUid  []byte
 	BoardID   string
 	Outcome   string
 	Reason    string
@@ -39,7 +39,7 @@ type BoardInsertCheckpointDecisionParams struct {
 
 func (q *Queries) BoardInsertCheckpointDecision(ctx context.Context, arg BoardInsertCheckpointDecisionParams) error {
 	_, err := q.db.ExecContext(ctx, boardInsertCheckpointDecision,
-		arg.IssueID,
+		arg.IssueUid,
 		arg.BoardID,
 		arg.Outcome,
 		arg.Reason,

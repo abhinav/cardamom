@@ -41,6 +41,7 @@ SELECT EXISTS (
 
 -- name: BoardInsertCopiedIssue :exec
 INSERT INTO issues (
+    uid,
     id,
     board_id,
     title,
@@ -56,6 +57,7 @@ INSERT INTO issues (
     details,
     revision
 ) VALUES (
+    sqlc.arg(uid),
     sqlc.arg(id),
     sqlc.arg(board_id),
     sqlc.arg(title),

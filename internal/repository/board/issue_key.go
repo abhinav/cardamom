@@ -96,12 +96,16 @@ func (r *Repository) insertExternalKey(
 	id issue.ID,
 	key planning.ExternalKey,
 ) error {
+	uid, err := r.readIssueUID(ctx, mutation.change, id)
+	if err != nil {
+		return err
+	}
 	return query.New(mutation.change).BoardInsertIssueExternalKey(
 		ctx,
 		query.BoardInsertIssueExternalKeyParams{
 			BoardID:     r.boardID.String(),
 			ExternalKey: key.String(),
-			IssueID:     id.String(),
+			IssueUid:    uid.Bytes(),
 		},
 	)
 }

@@ -110,8 +110,8 @@ func (r *Repository) persistIssueState(
 		err := queries.BoardDeleteIssueState(
 			ctx,
 			query.BoardDeleteIssueStateParams{
-				BoardID: r.boardID.String(),
-				IssueID: state.ID().String(),
+				BoardID:  r.boardID.String(),
+				IssueUid: state.UID().Bytes(),
 			},
 		)
 		return state, err
@@ -119,7 +119,7 @@ func (r *Repository) persistIssueState(
 	err := queries.BoardUpsertIssueState(
 		ctx,
 		query.BoardUpsertIssueStateParams{
-			IssueID:    state.ID().String(),
+			IssueUid:   state.UID().Bytes(),
 			BoardID:    r.boardID.String(),
 			Body:       recovery.Body,
 			NextAction: optionalString(recovery.NextAction),
@@ -154,12 +154,16 @@ func (r *Repository) insertLogEntry(
 	if err != nil {
 		return "", err
 	}
+	issueUID, err := r.readIssueUID(ctx, mutation.change, entry.issueID)
+	if err != nil {
+		return "", err
+	}
 	err = query.New(mutation.change).BoardInsertIssueLogEntry(
 		ctx,
 		query.BoardInsertIssueLogEntryParams{
 			ID:         id.String(),
 			BoardID:    r.boardID.String(),
-			IssueID:    entry.issueID.String(),
+			IssueUid:   issueUID.Bytes(),
 			Kind:       entry.kind.String(),
 			Author:     optionalActorString(entry.author),
 			Committer:  optionalActorString(entry.committer),
@@ -274,12 +278,16 @@ func (r *Repository) SetResult(
 	if err := mutation.reserve(ctx); err != nil {
 		return out, err
 	}
+	issueUID, err := r.readIssueUID(ctx, mutation.change, out.IssueID)
+	if err != nil {
+		return out, err
+	}
 	if err := query.New(mutation.change).BoardUpsertIssueResult(
 		ctx,
 		query.BoardUpsertIssueResultParams{
-			IssueID: out.IssueID.String(),
-			BoardID: r.boardID.String(),
-			Body:    out.Body,
+			IssueUid: issueUID.Bytes(),
+			BoardID:  r.boardID.String(),
+			Body:     out.Body,
 		},
 	); err != nil {
 		return out, err
@@ -345,6 +353,10 @@ func (r *Repository) ListLogEntries(ctx context.Context, request issue.LogListRe
 	if !exists {
 		return nil, errkind.Errorf(errkind.NotFound, "issue not found: %s", id)
 	}
+	uid, err := r.readIssueUID(ctx, view, id)
+	if err != nil {
+		return nil, err
+	}
 	limit := int64(-1)
 	if request.Limit > 0 {
 		limit = int64(request.Limit)
@@ -355,7 +367,7 @@ func (r *Repository) ListLogEntries(ctx context.Context, request issue.LogListRe
 		rows, err := queries.BoardListIssueLogEntriesDescending(
 			ctx,
 			query.BoardListIssueLogEntriesDescendingParams{
-				BoardID: r.boardID.String(), IssueID: id.String(), LimitCount: limit,
+				BoardID: r.boardID.String(), IssueUid: uid.Bytes(), LimitCount: limit,
 			},
 		)
 		if err != nil {
@@ -382,7 +394,7 @@ func (r *Repository) ListLogEntries(ctx context.Context, request issue.LogListRe
 	rows, err := queries.BoardListIssueLogEntriesAscending(
 		ctx,
 		query.BoardListIssueLogEntriesAscendingParams{
-			BoardID: r.boardID.String(), IssueID: id.String(), LimitCount: limit,
+			BoardID: r.boardID.String(), IssueUid: uid.Bytes(), LimitCount: limit,
 		},
 	)
 	if err != nil {
@@ -501,11 +513,15 @@ func (r *Repository) ReadResult(ctx context.Context, request issue.ResultRequest
 	if err != nil {
 		return out, err
 	}
+	uid, err := r.readIssueUID(ctx, view, id)
+	if err != nil {
+		return out, err
+	}
 	row, err := query.New(view).BoardReadIssueResult(
 		ctx,
 		query.BoardReadIssueResultParams{
-			BoardID: r.boardID.String(),
-			IssueID: id.String(),
+			BoardID:  r.boardID.String(),
+			IssueUid: uid.Bytes(),
 		},
 	)
 	if errors.Is(err, sql.ErrNoRows) {

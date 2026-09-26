@@ -12,23 +12,23 @@ import (
 const boardDeleteIssueLabels = `-- name: BoardDeleteIssueLabels :exec
 DELETE FROM issue_labels
 WHERE board_id = ?1
-    AND issue_id = ?2
+    AND issue_uid = ?2
 `
 
 type BoardDeleteIssueLabelsParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 func (q *Queries) BoardDeleteIssueLabels(ctx context.Context, arg BoardDeleteIssueLabelsParams) error {
-	_, err := q.db.ExecContext(ctx, boardDeleteIssueLabels, arg.BoardID, arg.IssueID)
+	_, err := q.db.ExecContext(ctx, boardDeleteIssueLabels, arg.BoardID, arg.IssueUid)
 	return err
 }
 
 const boardInsertIssueLabel = `-- name: BoardInsertIssueLabel :exec
 INSERT INTO issue_labels (
     board_id,
-    issue_id,
+    issue_uid,
     label
 ) VALUES (
     ?1,
@@ -38,21 +38,22 @@ INSERT INTO issue_labels (
 `
 
 type BoardInsertIssueLabelParams struct {
-	BoardID string
-	IssueID string
-	Label   string
+	BoardID  string
+	IssueUid []byte
+	Label    string
 }
 
 func (q *Queries) BoardInsertIssueLabel(ctx context.Context, arg BoardInsertIssueLabelParams) error {
-	_, err := q.db.ExecContext(ctx, boardInsertIssueLabel, arg.BoardID, arg.IssueID, arg.Label)
+	_, err := q.db.ExecContext(ctx, boardInsertIssueLabel, arg.BoardID, arg.IssueUid, arg.Label)
 	return err
 }
 
 const boardListAllIssueLabels = `-- name: BoardListAllIssueLabels :many
-SELECT issue_id, label
-FROM issue_labels
-WHERE board_id = ?1
-ORDER BY issue_id, label
+SELECT issue.id AS issue_id, label.label
+FROM issue_labels AS label
+JOIN issues AS issue ON issue.uid = label.issue_uid
+WHERE label.board_id = ?1
+ORDER BY issue.id, label.label
 `
 
 type BoardListAllIssueLabelsRow struct {
@@ -87,17 +88,17 @@ const boardListLabelsForIssue = `-- name: BoardListLabelsForIssue :many
 SELECT label
 FROM issue_labels
 WHERE board_id = ?1
-    AND issue_id = ?2
+    AND issue_uid = ?2
 ORDER BY label
 `
 
 type BoardListLabelsForIssueParams struct {
-	BoardID string
-	IssueID string
+	BoardID  string
+	IssueUid []byte
 }
 
 func (q *Queries) BoardListLabelsForIssue(ctx context.Context, arg BoardListLabelsForIssueParams) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, boardListLabelsForIssue, arg.BoardID, arg.IssueID)
+	rows, err := q.db.QueryContext(ctx, boardListLabelsForIssue, arg.BoardID, arg.IssueUid)
 	if err != nil {
 		return nil, err
 	}

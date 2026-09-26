@@ -2,6 +2,7 @@ package attachment
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 
@@ -27,7 +28,8 @@ func (r *Repository) BeginUpload(
 	if err := requireMutableBoard(ctx, queries, request.Association.BoardID()); err != nil {
 		return domainattachment.Upload{}, err
 	}
-	if err := validateUploadTarget(ctx, queries, request.Association); err != nil {
+	originIssueUID, err := validateUploadTarget(ctx, queries, request.Association)
+	if err != nil {
 		return domainattachment.Upload{}, err
 	}
 	uploadID, err := r.newUploadID()
@@ -50,11 +52,10 @@ func (r *Repository) BeginUpload(
 		MaximumSizeBytes:  admission.MaximumSizeBytes,
 		ExpiresAt:         now.Add(domainattachment.StagingExpiry),
 	}
-	originIssueID, hasOrigin := upload.Association.OriginIssueID()
 	err = queries.AttachmentInsertUpload(ctx, query.AttachmentInsertUploadParams{
 		ID:                upload.ID.String(),
 		BoardID:           upload.Association.BoardID().String(),
-		OriginIssueID:     nullableOrigin(originIssueID.String(), hasOrigin),
+		OriginIssueUid:    originIssueUID,
 		Filename:          upload.Filename.String(),
 		ExpectedSizeBytes: nullableUint64(upload.ExpectedSizeBytes),
 		ExpectedDigest:    nullableDigest(upload.ExpectedDigest),
@@ -77,50 +78,55 @@ func validateUploadTarget(
 	ctx context.Context,
 	queries *query.Queries,
 	association domainattachment.Association,
-) error {
+) ([]byte, error) {
 	exists, err := queries.AttachmentTargetBoardExists(
 		ctx,
 		association.BoardID().String(),
 	)
 	if err != nil {
-		return fmt.Errorf("select attachment board: %w", err)
+		return nil, fmt.Errorf("select attachment board: %w", err)
 	}
 	if !exists {
-		return fmt.Errorf(
+		return nil, fmt.Errorf(
 			"%w: board %s",
 			domainattachment.ErrAttachmentTargetNotFound,
 			association.BoardID(),
 		)
 	}
+	_, hasOrigin := association.OriginIssueID()
+	if !hasOrigin {
+		return nil, nil
+	}
+	return resolveAssociationIssueUID(ctx, queries, association)
+}
+
+func resolveAssociationIssueUID(
+	ctx context.Context,
+	queries *query.Queries,
+	association domainattachment.Association,
+) ([]byte, error) {
 	originIssueID, hasOrigin := association.OriginIssueID()
 	if !hasOrigin {
-		return nil
+		return nil, nil
 	}
-	exists, err = queries.AttachmentTargetIssueExists(
+	uid, err := queries.AttachmentGetTargetIssueUID(
 		ctx,
-		query.AttachmentTargetIssueExistsParams{
+		query.AttachmentGetTargetIssueUIDParams{
 			BoardID: association.BoardID().String(),
 			IssueID: originIssueID.String(),
 		},
 	)
-	if err != nil {
-		return fmt.Errorf("select attachment origin issue: %w", err)
-	}
-	if !exists {
-		return fmt.Errorf(
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, fmt.Errorf(
 			"%w: issue %s",
 			domainattachment.ErrAttachmentTargetNotFound,
 			originIssueID,
 		)
 	}
-	return nil
-}
-
-func nullableOrigin(value string, present bool) *string {
-	if !present {
-		return nil
+	if err != nil {
+		return nil, fmt.Errorf("select attachment origin issue: %w", err)
 	}
-	return &value
+	return uid, nil
 }
 
 func nullableUint64(value *uint64) *int64 {

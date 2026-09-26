@@ -25,17 +25,18 @@ func (q *Queries) BoardCountInventoryIssues(ctx context.Context, boardID string)
 const boardCountInventoryIssuesByStatus = `-- name: BoardCountInventoryIssuesByStatus :one
 SELECT COUNT(*)
 FROM issues AS issue
-LEFT JOIN active_claims AS claim ON claim.issue_id = issue.id
+LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
 WHERE issue.board_id = ?1
     AND CASE
         WHEN issue.lifecycle <> 'open' THEN issue.lifecycle
-        WHEN claim.issue_id IS NOT NULL THEN 'in_progress'
+        WHEN claim.issue_uid IS NOT NULL THEN 'in_progress'
         WHEN issue.waiting_reason IS NOT NULL THEN 'waiting'
         WHEN EXISTS (
             SELECT 1
             FROM dependencies AS dependency
-            JOIN issues AS prerequisite ON prerequisite.id = dependency.prerequisite_id
-            WHERE dependency.issue_id = issue.id
+            JOIN issues AS prerequisite
+                ON prerequisite.uid = dependency.prerequisite_uid
+            WHERE dependency.issue_uid = issue.uid
                 AND prerequisite.lifecycle <> 'closed'
         ) THEN 'blocked'
         ELSE 'ready'

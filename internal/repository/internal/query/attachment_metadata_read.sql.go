@@ -8,13 +8,15 @@ package query
 import (
 	"context"
 	"strings"
+	"time"
 )
 
 const attachmentGetMetadata = `-- name: AttachmentGetMetadata :one
-SELECT attachments.board_id, attachments.id, attachments.origin_issue_id, attachments.blob_digest, attachments.blob_size_bytes, attachments.filename, attachments.media_type, attachments.lifecycle, attachments.created_actor, attachments.created_at, attachments.created_revision, attachments.removed_actor, attachments.removed_at, attachments.removed_revision
-FROM attachments
-WHERE board_id = ?1
-    AND id = ?2
+SELECT attachment.board_id, attachment.id, attachment.origin_issue_uid, attachment.blob_digest, attachment.blob_size_bytes, attachment.filename, attachment.media_type, attachment.lifecycle, attachment.created_actor, attachment.created_at, attachment.created_revision, attachment.removed_actor, attachment.removed_at, attachment.removed_revision, issue.id AS origin_issue_id
+FROM attachments AS attachment
+LEFT JOIN issues AS issue ON issue.uid = attachment.origin_issue_uid
+WHERE attachment.board_id = ?1
+    AND attachment.id = ?2
 `
 
 type AttachmentGetMetadataParams struct {
@@ -22,13 +24,31 @@ type AttachmentGetMetadataParams struct {
 	ID      string
 }
 
-func (q *Queries) AttachmentGetMetadata(ctx context.Context, arg AttachmentGetMetadataParams) (Attachment, error) {
+type AttachmentGetMetadataRow struct {
+	BoardID         string
+	ID              string
+	OriginIssueUid  []byte
+	BlobDigest      string
+	BlobSizeBytes   int64
+	Filename        string
+	MediaType       string
+	Lifecycle       string
+	CreatedActor    string
+	CreatedAt       time.Time
+	CreatedRevision int64
+	RemovedActor    *string
+	RemovedAt       *time.Time
+	RemovedRevision *int64
+	OriginIssueID   *string
+}
+
+func (q *Queries) AttachmentGetMetadata(ctx context.Context, arg AttachmentGetMetadataParams) (AttachmentGetMetadataRow, error) {
 	row := q.db.QueryRowContext(ctx, attachmentGetMetadata, arg.BoardID, arg.ID)
-	var i Attachment
+	var i AttachmentGetMetadataRow
 	err := row.Scan(
 		&i.BoardID,
 		&i.ID,
-		&i.OriginIssueID,
+		&i.OriginIssueUid,
 		&i.BlobDigest,
 		&i.BlobSizeBytes,
 		&i.Filename,
@@ -40,21 +60,23 @@ func (q *Queries) AttachmentGetMetadata(ctx context.Context, arg AttachmentGetMe
 		&i.RemovedActor,
 		&i.RemovedAt,
 		&i.RemovedRevision,
+		&i.OriginIssueID,
 	)
 	return i, err
 }
 
 const attachmentListMetadata = `-- name: AttachmentListMetadata :many
-SELECT attachments.board_id, attachments.id, attachments.origin_issue_id, attachments.blob_digest, attachments.blob_size_bytes, attachments.filename, attachments.media_type, attachments.lifecycle, attachments.created_actor, attachments.created_at, attachments.created_revision, attachments.removed_actor, attachments.removed_at, attachments.removed_revision
-FROM attachments
-WHERE board_id = ?1
-    AND id > ?2
-    AND (?3 OR lifecycle = 'active')
+SELECT attachment.board_id, attachment.id, attachment.origin_issue_uid, attachment.blob_digest, attachment.blob_size_bytes, attachment.filename, attachment.media_type, attachment.lifecycle, attachment.created_actor, attachment.created_at, attachment.created_revision, attachment.removed_actor, attachment.removed_at, attachment.removed_revision, issue.id AS origin_issue_id
+FROM attachments AS attachment
+LEFT JOIN issues AS issue ON issue.uid = attachment.origin_issue_uid
+WHERE attachment.board_id = ?1
+    AND attachment.id > ?2
+    AND (?3 OR attachment.lifecycle = 'active')
     AND (
         NOT ?4
-        OR origin_issue_id = ?5
+        OR attachment.origin_issue_uid = ?5
     )
-ORDER BY id
+ORDER BY attachment.id
 LIMIT ?6
 `
 
@@ -63,30 +85,48 @@ type AttachmentListMetadataParams struct {
 	AfterID        string
 	IncludeRemoved interface{}
 	HasOriginIssue interface{}
-	OriginIssueID  *string
+	OriginIssueUid []byte
 	ResultLimit    int64
 }
 
-func (q *Queries) AttachmentListMetadata(ctx context.Context, arg AttachmentListMetadataParams) ([]Attachment, error) {
+type AttachmentListMetadataRow struct {
+	BoardID         string
+	ID              string
+	OriginIssueUid  []byte
+	BlobDigest      string
+	BlobSizeBytes   int64
+	Filename        string
+	MediaType       string
+	Lifecycle       string
+	CreatedActor    string
+	CreatedAt       time.Time
+	CreatedRevision int64
+	RemovedActor    *string
+	RemovedAt       *time.Time
+	RemovedRevision *int64
+	OriginIssueID   *string
+}
+
+func (q *Queries) AttachmentListMetadata(ctx context.Context, arg AttachmentListMetadataParams) ([]AttachmentListMetadataRow, error) {
 	rows, err := q.db.QueryContext(ctx, attachmentListMetadata,
 		arg.BoardID,
 		arg.AfterID,
 		arg.IncludeRemoved,
 		arg.HasOriginIssue,
-		arg.OriginIssueID,
+		arg.OriginIssueUid,
 		arg.ResultLimit,
 	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Attachment
+	var items []AttachmentListMetadataRow
 	for rows.Next() {
-		var i Attachment
+		var i AttachmentListMetadataRow
 		if err := rows.Scan(
 			&i.BoardID,
 			&i.ID,
-			&i.OriginIssueID,
+			&i.OriginIssueUid,
 			&i.BlobDigest,
 			&i.BlobSizeBytes,
 			&i.Filename,
@@ -98,6 +138,7 @@ func (q *Queries) AttachmentListMetadata(ctx context.Context, arg AttachmentList
 			&i.RemovedActor,
 			&i.RemovedAt,
 			&i.RemovedRevision,
+			&i.OriginIssueID,
 		); err != nil {
 			return nil, err
 		}
@@ -113,10 +154,11 @@ func (q *Queries) AttachmentListMetadata(ctx context.Context, arg AttachmentList
 }
 
 const attachmentResolveMetadata = `-- name: AttachmentResolveMetadata :many
-SELECT attachments.board_id, attachments.id, attachments.origin_issue_id, attachments.blob_digest, attachments.blob_size_bytes, attachments.filename, attachments.media_type, attachments.lifecycle, attachments.created_actor, attachments.created_at, attachments.created_revision, attachments.removed_actor, attachments.removed_at, attachments.removed_revision
-FROM attachments
-WHERE board_id = ?1
-    AND id IN (/*SLICE:attachment_ids*/?)
+SELECT attachment.board_id, attachment.id, attachment.origin_issue_uid, attachment.blob_digest, attachment.blob_size_bytes, attachment.filename, attachment.media_type, attachment.lifecycle, attachment.created_actor, attachment.created_at, attachment.created_revision, attachment.removed_actor, attachment.removed_at, attachment.removed_revision, issue.id AS origin_issue_id
+FROM attachments AS attachment
+LEFT JOIN issues AS issue ON issue.uid = attachment.origin_issue_uid
+WHERE attachment.board_id = ?1
+    AND attachment.id IN (/*SLICE:attachment_ids*/?)
 `
 
 type AttachmentResolveMetadataParams struct {
@@ -124,7 +166,25 @@ type AttachmentResolveMetadataParams struct {
 	AttachmentIDs []string
 }
 
-func (q *Queries) AttachmentResolveMetadata(ctx context.Context, arg AttachmentResolveMetadataParams) ([]Attachment, error) {
+type AttachmentResolveMetadataRow struct {
+	BoardID         string
+	ID              string
+	OriginIssueUid  []byte
+	BlobDigest      string
+	BlobSizeBytes   int64
+	Filename        string
+	MediaType       string
+	Lifecycle       string
+	CreatedActor    string
+	CreatedAt       time.Time
+	CreatedRevision int64
+	RemovedActor    *string
+	RemovedAt       *time.Time
+	RemovedRevision *int64
+	OriginIssueID   *string
+}
+
+func (q *Queries) AttachmentResolveMetadata(ctx context.Context, arg AttachmentResolveMetadataParams) ([]AttachmentResolveMetadataRow, error) {
 	query := attachmentResolveMetadata
 	var queryParams []interface{}
 	queryParams = append(queryParams, arg.BoardID)
@@ -141,13 +201,13 @@ func (q *Queries) AttachmentResolveMetadata(ctx context.Context, arg AttachmentR
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Attachment
+	var items []AttachmentResolveMetadataRow
 	for rows.Next() {
-		var i Attachment
+		var i AttachmentResolveMetadataRow
 		if err := rows.Scan(
 			&i.BoardID,
 			&i.ID,
-			&i.OriginIssueID,
+			&i.OriginIssueUid,
 			&i.BlobDigest,
 			&i.BlobSizeBytes,
 			&i.Filename,
@@ -159,6 +219,7 @@ func (q *Queries) AttachmentResolveMetadata(ctx context.Context, arg AttachmentR
 			&i.RemovedActor,
 			&i.RemovedAt,
 			&i.RemovedRevision,
+			&i.OriginIssueID,
 		); err != nil {
 			return nil, err
 		}
