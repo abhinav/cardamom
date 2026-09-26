@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"go.abhg.dev/cardamom/internal/attachment"
+	boardpkg "go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardcopy"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
@@ -18,6 +19,8 @@ type copyRecordImporter struct {
 	projectID string          // required
 	name      string          // required
 	boardID   string          // required
+	// writerUID is the fresh identity of this independent board replica.
+	writerUID boardpkg.WriterUID
 	// issueIDs maps each source public ID to its destination public ID.
 	issueIDs map[string]string
 	// issueUIDs assigns each source public ID a fresh destination private UID.
@@ -82,6 +85,14 @@ func (i *copyRecordImporter) importHeader(value boardcopy.RecordHeader) error {
 		},
 	); err != nil {
 		return fmt.Errorf("create destination board: %w", err)
+	}
+	if err := i.queries.ProjectInsertBoardReplicaIdentity(
+		i.ctx,
+		query.ProjectInsertBoardReplicaIdentityParams{
+			BoardID: i.boardID, WriterUid: i.writerUID.Bytes(),
+		},
+	); err != nil {
+		return fmt.Errorf("create destination board replica identity: %w", err)
 	}
 	return nil
 }

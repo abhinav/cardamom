@@ -51,6 +51,28 @@ func TestOpenRejectsProjectionRevisionBeyondStoreHead(t *testing.T) {
 	assert.ErrorContains(t, err, "projection revisions")
 }
 
+func TestOpenRejectsBoardWithoutReplicaIdentity(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "board-replica.db")
+	persistence, err := Open(t.Context(), Config{Path: path})
+	require.NoError(t, err)
+	require.NoError(t, persistence.Close())
+
+	db, err := sql.Open("sqlite", path)
+	require.NoError(t, err)
+	_, err = db.Exec(`
+		INSERT INTO projects(id, name, created_at)
+		VALUES ('project', 'Project', 1);
+		INSERT INTO boards(id, project_id, name, created_at)
+		VALUES ('board', 'project', 'Board', 1);
+	`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	persistence, err = Open(t.Context(), Config{Path: path})
+	assert.Nil(t, persistence)
+	assert.ErrorContains(t, err, "board replica identities")
+}
+
 func TestOpenRejectsCrossBoardRelationshipCorruption(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cross-board-dependency.db")
 	persistence, err := Open(t.Context(), Config{Path: path})
@@ -162,6 +184,8 @@ INSERT INTO projects(id, name, created_at)
 VALUES ('project', 'Project', 1);
 INSERT INTO boards(id, project_id, name, created_at)
 VALUES ('board', 'project', 'Board', 1);
+INSERT INTO board_replica_identities(board_id, writer_uid)
+VALUES ('board', X'01010101010101010101010101010101');
 INSERT INTO issues(
     uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at
 ) VALUES (randomblob(16), 'an-issue', 'board', 'Indexed title',

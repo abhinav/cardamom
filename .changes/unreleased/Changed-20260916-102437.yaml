@@ -1,0 +1,3 @@
+kind: Changed
+body: Board copies and portable restores now assign new board identities even when the source identity is unused in the destination store.
+time: 2026-09-16T10:24:37.493317-07:00

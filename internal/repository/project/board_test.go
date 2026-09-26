@@ -1,6 +1,7 @@
 package project
 
 import (
+	"bytes"
 	"errors"
 	"testing"
 	"time"
@@ -19,7 +20,8 @@ func TestRepositoryCreatesAndListsBoards(t *testing.T) {
 	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
 	initializeProjectCatalog(t, persistence, new("First board"), Config{})
 	repository := New(persistence, Config{
-		Clock: fixedClock{now: time.Unix(20, 0).UTC()},
+		Clock:   fixedClock{now: time.Unix(20, 0).UTC()},
+		Entropy: bytes.NewReader(bytes.Repeat([]byte{0x42}, 16)),
 		IDSource: &sequenceIDs{steps: []idStep{
 			{value: "board-two"},
 		}},
@@ -38,6 +40,15 @@ func TestRepositoryCreatesAndListsBoards(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, mustBoardID(t, "board-two"), board.ID())
+	view, err := persistence.View(t.Context())
+	require.NoError(t, err)
+	writerUID, err := query.New(view).ProjectGetBoardWriterUID(
+		t.Context(),
+		board.ID().String(),
+	)
+	require.NoError(t, err)
+	require.NoError(t, view.Done())
+	assert.Equal(t, bytes.Repeat([]byte{0x42}, 16), writerUID)
 	assert.Len(t, allBoards, 2)
 	assert.Equal(t, board, selectedBoard)
 	_, err = repository.SoleBoard(t.Context())
@@ -111,6 +122,36 @@ func TestRepositoryRollsBackBoardCreationForUnknownProject(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, view.Done())
 	assert.Equal(t, before, after)
+}
+
+func TestRepositoryRollsBackBoardCreationWithoutWriterIdentity(t *testing.T) {
+	persistence, err := store.Open(
+		t.Context(),
+		store.Config{Path: t.TempDir() + "/board.sqlite3"},
+	)
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, persistence.Close()) })
+	namespace := initializeProjectCatalog(t, persistence, nil, Config{})
+	repository := New(persistence, Config{
+		Entropy:  bytes.NewReader(nil),
+		IDSource: &sequenceIDs{steps: []idStep{{value: "board-invalid"}}},
+	})
+	before := canonicalRevision(t, persistence)
+
+	_, err = boardpkg.NewService(repository, repository).Create(
+		t.Context(),
+		boardpkg.NewInvocation(""),
+		boardpkg.CreateRequest{
+			ProjectID: namespace.Project.ID().String(),
+			Name:      "Planning",
+		},
+	)
+
+	assert.ErrorContains(t, err, "read board writer UID entropy")
+	assert.Equal(t, before, canonicalRevision(t, persistence))
+	boards, readErr := repository.ListAllBoards(t.Context())
+	require.NoError(t, readErr)
+	assert.Empty(t, boards)
 }
 
 func TestRepositoryEditsBoardSettingsAtOneCanonicalRevision(t *testing.T) {

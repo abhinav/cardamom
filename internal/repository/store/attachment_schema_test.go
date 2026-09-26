@@ -60,6 +60,10 @@ func TestAttachmentSchemaEnforcesPersistenceInvariants(t *testing.T) {
 		VALUES
 			('board-one', 'project', 'One', 1),
 			('board-two', 'project', 'Two', 1);
+		INSERT INTO board_replica_identities (board_id, writer_uid)
+		VALUES
+			('board-one', X'01010101010101010101010101010101'),
+			('board-two', X'02020202020202020202020202020202');
 		UPDATE store_state SET current_revision = 2 WHERE singleton = 1;
 		INSERT INTO issues (
 			uid, id, board_id, title, kind, lifecycle, priority,

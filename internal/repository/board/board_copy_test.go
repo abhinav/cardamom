@@ -107,6 +107,7 @@ func TestCopyRepositoryCopiesCompleteBoardAndRemapsCollisions(t *testing.T) {
 		summaryMax, attachmentMax, pinMax int64
 		boardRevision                     int64
 		boardDescription                  string
+		writerUID                         []byte
 	)
 	require.NoError(t, view.QueryRowContext(t.Context(), `
 SELECT
@@ -128,6 +129,12 @@ WHERE id = ?`,
 	assert.Equal(t, "sequential", strategy)
 	assert.Equal(t, int64(4096), summaryMax)
 	assert.Equal(t, int64(8192), attachmentMax)
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+SELECT writer_uid
+FROM board_replica_identities
+WHERE board_id = ?`, outcome.DestinationBoardID).Scan(&writerUID))
+	assert.Len(t, writerUID, 16)
+	assert.NotEqual(t, bytes.Repeat([]byte{0xaa}, 16), writerUID)
 	assert.Equal(t, int64(3), pinMax)
 	assert.Equal(t, outcome.DestinationRevision, boardRevision)
 	assert.Equal(t, "Board %src-5", boardDescription)
@@ -425,9 +432,20 @@ func TestCopyRepositoryPrivateUIDFailureRollsBackPublication(t *testing.T) {
 		collision bool
 		wantError string
 	}{
-		{name: "Entropy", wantError: "read issue UID entropy"},
 		{
-			name: "Collision", entropy: bytes.Repeat(bytes.Repeat([]byte{7}, 16), 32),
+			name: "WriterEntropy", entropy: bytes.Repeat([]byte{1}, 16),
+			wantError: "read board writer UID entropy",
+		},
+		{
+			name: "IssueEntropy", entropy: bytes.Repeat([]byte{1}, 32),
+			wantError: "read issue UID entropy",
+		},
+		{
+			name: "Collision", entropy: bytes.Join([][]byte{
+				bytes.Repeat([]byte{1}, 16),
+				bytes.Repeat([]byte{2}, 16),
+				bytes.Repeat(bytes.Repeat([]byte{7}, 16), 32),
+			}, nil),
 			collision: true, wantError: "private issue identity: collision limit reached",
 		},
 	}
@@ -577,6 +595,7 @@ const (
 func copyTestEntropy() io.Reader {
 	return bytes.NewReader(bytes.Join([][]byte{
 		bytes.Repeat([]byte{0x1f}, 16),
+		bytes.Repeat([]byte{0x20}, 16),
 		bytes.Repeat([]byte{0x11}, 16),
 		bytes.Repeat([]byte{0x12}, 16),
 		bytes.Repeat([]byte{0x13}, 16),
@@ -638,6 +657,8 @@ INSERT INTO boards (
 ) VALUES (
     'board-source', 'project-source', 'Source', 'Board %src-1', 1000, 2
 );
+INSERT INTO board_replica_identities (board_id, writer_uid)
+VALUES ('board-source', X'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa');
 INSERT INTO issues (
     uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
     closed_at, waiting_reason, waiting_since, summary, details, revision
@@ -741,18 +762,20 @@ func seedCopyDestinationCollisions(
 INSERT INTO projects (id, name, created_at)
 VALUES ('project-destination', 'Destination project', 1000);
 INSERT INTO boards (id, project_id, name, created_at, revision)
-VALUES ('board-source', 'project-destination', 'Existing', 1000, 1);
+VALUES ('board-existing', 'project-destination', 'Existing', 1000, 1);
+INSERT INTO board_replica_identities (board_id, writer_uid)
+VALUES ('board-existing', X'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb');
 INSERT INTO issues (
     uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at,
     revision
 ) VALUES (
-    randomblob(16), 'src-1', 'board-source', 'Existing issue', 'task', 'open', 2, 1000, 1000, 1
+    randomblob(16), 'src-1', 'board-existing', 'Existing issue', 'task', 'open', 2, 1000, 1000, 1
 );
 INSERT INTO issue_log_entries (
     id, board_id, issue_uid, kind, author, committer, body, created_at
 ) VALUES (
     'log_0123456789abcdef0123456789abcdef',
-    'board-source', (SELECT uid FROM issues WHERE id = 'src-1'), 'post', 'worker', 'worker', 'Existing', 1000
+    'board-existing', (SELECT uid FROM issues WHERE id = 'src-1'), 'post', 'worker', 'worker', 'Existing', 1000
 );
 UPDATE store_state
 SET current_revision = 1, next_issue_number = 2

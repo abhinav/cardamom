@@ -19,6 +19,21 @@ func (q *Queries) StoreCheckIssueSearchIndex(ctx context.Context) error {
 	return err
 }
 
+const storeCountBoardsWithoutReplicaIdentity = `-- name: StoreCountBoardsWithoutReplicaIdentity :one
+SELECT count(*)
+FROM boards AS board
+LEFT JOIN board_replica_identities AS replica
+    ON replica.board_id = board.id
+WHERE replica.board_id IS NULL
+`
+
+func (q *Queries) StoreCountBoardsWithoutReplicaIdentity(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, storeCountBoardsWithoutReplicaIdentity)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const storeCountInvalidClaims = `-- name: StoreCountInvalidClaims :one
 SELECT count(*)
 FROM active_claims AS claim

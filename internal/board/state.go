@@ -28,7 +28,9 @@ type Archive struct {
 	Reason *string
 }
 
-// ID is the stable identity of one coordination context.
+// ID is one logical board's immutable identity.
+// Synchronization clones preserve it across stores, while independent copies
+// assign a new ID.
 type ID string
 
 // NewID parses a non-empty board identity without whitespace.

@@ -71,6 +71,7 @@ func TestRestoreService_preservesDestinationAndReappliesIdentically(t *testing.T
 	assert.False(t, result.Boards[0].AlreadyCompleted)
 	assert.False(t, result.Boards[1].AlreadyCompleted)
 	restoredBoardID := board.ID(result.Boards[0].DestinationBoardID)
+	assert.NotEqual(t, board.ID("board-alpha"), restoredBoardID)
 	restoredBoard, err := repositoryboard.New(
 		destination.persistence,
 		repositoryboard.Config{BoardID: restoredBoardID},

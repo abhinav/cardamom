@@ -43,6 +43,6 @@ cmp stdout $WORK/golden/boards.jsonl
 {"id":"project_11111111111111111111","name":"Engineering","created":1785931200}
 {"id":"project_22222222222222222222","name":"Research","created":1785931200}
 -- golden/boards.jsonl --
-{"id":"board_11111111111111111111","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
-{"id":"board_22222222222222222222","project_id":"project_11111111111111111111","name":"Secondary","created":1785931200}
-{"id":"board_33333333333333333333","project_id":"project_22222222222222222222","name":"Research","created":1785931200}
+{"id":"board_7c3ccd10bb7ec37b46d3","project_id":"project_11111111111111111111","name":"Primary","created":1785931200}
+{"id":"board_8b1ae42fc4b17726106d","project_id":"project_11111111111111111111","name":"Secondary","created":1785931200}
+{"id":"board_cb9a02f579da3ffa03dc","project_id":"project_22222222222222222222","name":"Research","created":1785931200}

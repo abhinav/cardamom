@@ -14,6 +14,13 @@ LEFT JOIN issues AS issue ON issue.board_id = board.id
 WHERE board.revision > sqlc.arg(current_revision)
     OR issue.revision > board.revision;
 
+-- name: StoreCountBoardsWithoutReplicaIdentity :one
+SELECT count(*)
+FROM boards AS board
+LEFT JOIN board_replica_identities AS replica
+    ON replica.board_id = board.id
+WHERE replica.board_id IS NULL;
+
 -- name: StoreCountInvalidIssueUIDs :one
 SELECT count(*)
 FROM issues

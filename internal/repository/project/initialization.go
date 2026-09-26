@@ -181,6 +181,7 @@ func initializeFreshProject(
 	}
 
 	out := project.InitializedNamespace{Project: namespace}
+	var boardWriterUID board.WriterUID
 	if request.BoardName != nil {
 		boardID, err := repository.idSource.NewID("board")
 		if err != nil {
@@ -195,6 +196,10 @@ func initializeFreshProject(
 			Name:      *request.BoardName,
 			Created:   created,
 		})
+		if err != nil {
+			return project.InitializedNamespace{}, err
+		}
+		boardWriterUID, err = board.GenerateWriterUID(repository.entropy)
 		if err != nil {
 			return project.InitializedNamespace{}, err
 		}
@@ -227,6 +232,15 @@ func initializeFreshProject(
 			},
 		); err != nil {
 			return fmt.Errorf("create initial board: %w", err)
+		}
+		if err := queries.ProjectInsertBoardReplicaIdentity(
+			ctx,
+			query.ProjectInsertBoardReplicaIdentityParams{
+				BoardID:   out.Board.ID().String(),
+				WriterUid: boardWriterUID.Bytes(),
+			},
+		); err != nil {
+			return fmt.Errorf("create initial board replica identity: %w", err)
 		}
 		return nil
 	})
