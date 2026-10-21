@@ -47,18 +47,19 @@ func (q *Queries) StoreCountBoardMutationFrontierCommit(ctx context.Context, arg
 	return count, err
 }
 
-const storeCountBoardsWithoutLocalMutationHistory = `-- name: StoreCountBoardsWithoutLocalMutationHistory :one
+const storeCountBoardsWithoutMutationHistory = `-- name: StoreCountBoardsWithoutMutationHistory :one
 SELECT count(*)
 FROM boards AS board
-JOIN board_replica_identities AS replica ON replica.board_id = board.id
-LEFT JOIN board_mutation_tips AS tip
-    ON tip.board_id = board.id
-    AND tip.writer_uid = replica.writer_uid
-WHERE tip.board_id IS NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM board_mutation_tips AS tip WHERE tip.board_id = board.id
+)
 `
 
-func (q *Queries) StoreCountBoardsWithoutLocalMutationHistory(ctx context.Context) (int64, error) {
-	row := q.db.QueryRowContext(ctx, storeCountBoardsWithoutLocalMutationHistory)
+// A clone starts with retained foreign history and an empty local writer
+// chain. Every chain that has commits still requires its terminal tip;
+// StoreCountInvalidMutationTopology checks that independently.
+func (q *Queries) StoreCountBoardsWithoutMutationHistory(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, storeCountBoardsWithoutMutationHistory)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

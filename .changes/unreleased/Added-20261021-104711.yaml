@@ -1,0 +1,3 @@
+kind: Added
+body: Add `card board clone` to create local replicas with shared identities, retained mutation history, and attachment content.
+time: 2026-10-21T10:47:11.703551-07:00

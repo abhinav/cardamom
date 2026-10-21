@@ -1,0 +1,51 @@
+exec git init -b main
+env TZ=UTC
+at 2026-10-21T12:00:00Z
+mkdir source destination
+exec card --store $WORK/source init --no-config --prefix src- --board-name Seed
+exec card --store $WORK/source board create Source
+exec card --store $WORK/destination init --no-config --prefix dst- --board-name Existing
+
+# Establish deterministic public IDs, then enable independent allocation.
+exec card --store $WORK/source --board Source config set --scope board issue.id.strategy sequential
+exec card --store $WORK/source --board Source create 'Shared issue'
+cmp stdout $WORK/golden/issue.txt
+! exec card --store $WORK/source --board Source board clone --to-store $WORK/destination
+cmp stderr $WORK/golden/sequential.txt
+exec card --store $WORK/source --board Source config set --scope board issue.id.strategy random
+exec card --store $WORK/source --board Source state set src-1 'Shared State' --next 'Continue'
+exec card --store $WORK/source --board Source claim src-1
+
+# Same-store aliases are rejected before importing anything.
+! exec card --store $WORK/source --board Source board clone --to-store $WORK/source/.
+cmp stderr $WORK/golden/same-store.txt
+
+exec card --store $WORK/source --board Source board clone --to-store $WORK/destination
+stdout 'cloned board "Source" as board_[0-9a-f]+ in project project_00000000000000000000: 1 issue, [0-9]+ mutations, 0 blobs'
+! stderr .
+
+# A new process verifies a replica with retained history but no local writer tip.
+exec card --store $WORK/destination --board Source state show src-1
+stdout 'Shared State'
+stdout 'Continue'
+exec card --store $WORK/destination --board Source claim src-1
+! stderr .
+exec card --store $WORK/destination --board Source edit src-1 --title 'Destination edit'
+! stderr .
+exec card --store $WORK/source --board Source show src-1
+stdout 'Shared issue'
+! stdout 'Destination edit'
+exec card --store $WORK/destination --board Source show src-1
+stdout 'Destination edit'
+
+# Clone is creation, not refresh or an idempotent copy receipt.
+! exec card --store $WORK/source --board Source board clone --to-store $WORK/destination
+stderr 'destination already contains board.*clone does not update an existing replica'
+! stdout .
+
+-- golden/issue.txt --
+src-1
+-- golden/sequential.txt --
+error: source board uses sequential issue IDs; cloning requires adaptive-random IDs
+-- golden/same-store.txt --
+error: source and destination stores are the same physical store

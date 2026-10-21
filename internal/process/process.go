@@ -139,6 +139,7 @@ func providerOptions() []kong.Option {
 		kong.BindSingletonProvider(provideBoardService),
 		kong.BindSingletonProvider(provideBoardCatalog),
 		kong.BindSingletonProvider(provideBoardCopyOperation),
+		kong.BindSingletonProvider(provideBoardCloneOperation),
 		kong.BindSingletonProvider(provideBackupOperation),
 		kong.BindSingletonProvider(provideRestoreOperation),
 		kong.BindSingletonProvider(provideSelectedBoard),

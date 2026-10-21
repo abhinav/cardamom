@@ -290,7 +290,7 @@ WHERE board_id = 'board' AND sequence = 1
 	assert.ErrorContains(t, err, "does not identify retained history")
 }
 
-func TestOpenRejectsBoardWithoutLocalMutationTip(t *testing.T) {
+func TestOpenRejectsBoardWithoutMutationHistory(t *testing.T) {
 	path := openSearchVerificationStore(t)
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
@@ -300,7 +300,7 @@ func TestOpenRejectsBoardWithoutLocalMutationTip(t *testing.T) {
 
 	persistence, err := Open(t.Context(), Config{Path: path})
 	assert.Nil(t, persistence)
-	assert.ErrorContains(t, err, "without local history")
+	assert.ErrorContains(t, err, "without history")
 }
 
 func openSearchVerificationStore(t *testing.T) string {
