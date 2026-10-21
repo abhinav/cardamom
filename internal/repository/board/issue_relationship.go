@@ -19,6 +19,15 @@ func (r *Repository) replaceDependencies(
 		return err
 	}
 	queries := query.New(mutation.change)
+	before, err := queries.BoardListPrerequisiteIDs(
+		ctx,
+		query.BoardListPrerequisiteIDsParams{
+			BoardID: r.boardID.String(), IssueUid: uid.Bytes(),
+		},
+	)
+	if err != nil {
+		return err
+	}
 	if err := queries.BoardDeleteIssueDependencies(
 		ctx,
 		query.BoardDeleteIssueDependenciesParams{
@@ -44,7 +53,7 @@ func (r *Repository) replaceDependencies(
 			return err
 		}
 	}
-	return nil
+	return r.recordDependencyChanges(ctx, mutation, uid, before, dependencies)
 }
 
 func (r *Repository) replaceParent(
@@ -54,6 +63,10 @@ func (r *Repository) replaceParent(
 	parent *issue.ID,
 ) error {
 	childUID, err := r.readIssueUID(ctx, mutation.change, child)
+	if err != nil {
+		return err
+	}
+	before, err := r.readParent(ctx, mutation.change, child)
 	if err != nil {
 		return err
 	}
@@ -68,20 +81,23 @@ func (r *Repository) replaceParent(
 		return err
 	}
 	if parent == nil {
-		return nil
+		return r.recordParentChange(ctx, mutation, childUID, before, nil)
 	}
 	parentUID, err := r.readIssueUID(ctx, mutation.change, *parent)
 	if err != nil {
 		return err
 	}
-	return queries.BoardInsertIssueParent(
+	if err := queries.BoardInsertIssueParent(
 		ctx,
 		query.BoardInsertIssueParentParams{
 			BoardID:   r.boardID.String(),
 			ChildUid:  childUID.Bytes(),
 			ParentUid: parentUID.Bytes(),
 		},
-	)
+	); err != nil {
+		return err
+	}
+	return r.recordParentChange(ctx, mutation, childUID, before, parent)
 }
 
 func (r *Repository) readDirectChildren(ctx context.Context, scope queryScope, parent issue.ID) (out []issue.State, err error) {

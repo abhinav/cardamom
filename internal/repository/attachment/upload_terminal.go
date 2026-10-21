@@ -100,6 +100,9 @@ func (r *Repository) CommitUpload(
 	if err != nil {
 		return domainattachment.Attachment{}, fmt.Errorf("commit attachment upload receipt: %w", err)
 	}
+	if err := appendAttachmentAddition(ctx, change, attachment, revision.originIssueUID); err != nil {
+		return domainattachment.Attachment{}, fmt.Errorf("append attachment addition: %w", err)
+	}
 	if err := r.commitAttachmentRevision(ctx, change, revision); err != nil {
 		return domainattachment.Attachment{}, fmt.Errorf("commit attachment metadata: %w", err)
 	}

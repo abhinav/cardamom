@@ -71,14 +71,15 @@ SELECT count(*)
 FROM board_pins
 WHERE board_id = sqlc.arg(board_id);
 
--- name: BoardInsertPin :exec
+-- name: BoardInsertPin :one
 INSERT INTO board_pins (board_id, issue_uid, position)
 SELECT
     sqlc.arg(board_id),
     sqlc.arg(issue_uid),
     COALESCE(MAX(position), 0) + 1
 FROM board_pins
-WHERE board_id = sqlc.arg(board_id);
+WHERE board_id = sqlc.arg(board_id)
+RETURNING position;
 
 -- name: BoardDeletePin :execresult
 DELETE FROM board_pins

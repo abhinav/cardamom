@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	domainboard "go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
@@ -74,11 +75,19 @@ func (r *Repository) PinIssue(
 	if err := mutation.reserve(ctx); err != nil {
 		return out, err
 	}
-	if err := queries.BoardInsertPin(ctx, query.BoardInsertPinParams{
+	position, err := queries.BoardInsertPin(ctx, query.BoardInsertPinParams{
 		BoardID: r.boardID.String(), IssueUid: uid.Bytes(),
-	}); err != nil {
+	})
+	if err != nil {
 		return out, err
 	}
+	mutation.record(boardhistory.Event{
+		OccurredAt: mutation.occurredAt,
+		Payload: &boardhistory.BoardPin{
+			IssueUID: uid, Present: true,
+			Position: position,
+		},
+	})
 	if err := mutation.commit(ctx); err != nil {
 		return out, err
 	}
@@ -125,6 +134,12 @@ func (r *Repository) UnpinIssue(
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return out, errors.New("pinned issue changed during mutation")
 	}
+	mutation.record(boardhistory.Event{
+		OccurredAt: mutation.occurredAt,
+		Payload: &boardhistory.BoardPin{
+			IssueUID: uid,
+		},
+	})
 	if err := mutation.commit(ctx); err != nil {
 		return out, err
 	}

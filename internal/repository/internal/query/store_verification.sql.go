@@ -19,6 +19,51 @@ func (q *Queries) StoreCheckIssueSearchIndex(ctx context.Context) error {
 	return err
 }
 
+const storeCountBoardMutationFrontierCommit = `-- name: StoreCountBoardMutationFrontierCommit :one
+SELECT count(*)
+FROM board_mutation_commits
+WHERE board_id = ?1
+    AND writer_uid = ?2
+    AND sequence = ?3
+    AND marker_hash = ?4
+`
+
+type StoreCountBoardMutationFrontierCommitParams struct {
+	BoardID    string
+	WriterUid  []byte
+	Sequence   int64
+	MarkerHash []byte
+}
+
+func (q *Queries) StoreCountBoardMutationFrontierCommit(ctx context.Context, arg StoreCountBoardMutationFrontierCommitParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, storeCountBoardMutationFrontierCommit,
+		arg.BoardID,
+		arg.WriterUid,
+		arg.Sequence,
+		arg.MarkerHash,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const storeCountBoardsWithoutLocalMutationHistory = `-- name: StoreCountBoardsWithoutLocalMutationHistory :one
+SELECT count(*)
+FROM boards AS board
+JOIN board_replica_identities AS replica ON replica.board_id = board.id
+LEFT JOIN board_mutation_tips AS tip
+    ON tip.board_id = board.id
+    AND tip.writer_uid = replica.writer_uid
+WHERE tip.board_id IS NULL
+`
+
+func (q *Queries) StoreCountBoardsWithoutLocalMutationHistory(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, storeCountBoardsWithoutLocalMutationHistory)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const storeCountBoardsWithoutReplicaIdentity = `-- name: StoreCountBoardsWithoutReplicaIdentity :one
 SELECT count(*)
 FROM boards AS board
@@ -142,6 +187,69 @@ func (q *Queries) StoreCountInvalidIssueUIDs(ctx context.Context) (int64, error)
 	return count, err
 }
 
+const storeCountInvalidMutationTopology = `-- name: StoreCountInvalidMutationTopology :one
+SELECT
+    (
+        SELECT count(*)
+        FROM board_mutation_commits AS commit_row
+        WHERE (
+            commit_row.sequence = 1
+            AND commit_row.previous_hash <> zeroblob(32)
+        ) OR (
+            commit_row.sequence > 1
+            AND NOT EXISTS (
+                SELECT 1
+                FROM board_mutation_commits AS predecessor
+                WHERE predecessor.board_id = commit_row.board_id
+                    AND predecessor.writer_uid = commit_row.writer_uid
+                    AND predecessor.sequence = commit_row.sequence - 1
+                    AND predecessor.marker_hash = commit_row.previous_hash
+            )
+        )
+    ) + (
+        SELECT count(*)
+        FROM board_mutation_commits AS commit_row
+        WHERE commit_row.part_count <> (
+            SELECT count(*)
+            FROM board_mutation_parts AS part
+            WHERE part.board_id = commit_row.board_id
+                AND part.writer_uid = commit_row.writer_uid
+                AND part.sequence = commit_row.sequence
+        ) OR commit_row.part_count - 1 <> (
+            SELECT max(part.part_index)
+            FROM board_mutation_parts AS part
+            WHERE part.board_id = commit_row.board_id
+                AND part.writer_uid = commit_row.writer_uid
+                AND part.sequence = commit_row.sequence
+        )
+    ) + (
+        SELECT count(*)
+        FROM board_mutation_tips AS tip
+        WHERE tip.sequence <> (
+            SELECT max(commit_row.sequence)
+            FROM board_mutation_commits AS commit_row
+            WHERE commit_row.board_id = tip.board_id
+                AND commit_row.writer_uid = tip.writer_uid
+        )
+    ) + (
+        SELECT count(*)
+        FROM board_mutation_commits AS commit_row
+        WHERE NOT EXISTS (
+            SELECT 1
+            FROM board_mutation_tips AS tip
+            WHERE tip.board_id = commit_row.board_id
+                AND tip.writer_uid = commit_row.writer_uid
+        )
+    )
+`
+
+func (q *Queries) StoreCountInvalidMutationTopology(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, storeCountInvalidMutationTopology)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const storeCountInvalidProjectionRevisions = `-- name: StoreCountInvalidProjectionRevisions :one
 SELECT count(*)
 FROM boards AS board
@@ -169,6 +277,34 @@ func (q *Queries) StoreCountStateRows(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const storeGetBoardMutationPart = `-- name: StoreGetBoardMutationPart :one
+SELECT bytes
+FROM board_mutation_parts
+WHERE board_id = ?1
+    AND writer_uid = ?2
+    AND sequence = ?3
+    AND part_index = ?4
+`
+
+type StoreGetBoardMutationPartParams struct {
+	BoardID   string
+	WriterUid []byte
+	Sequence  int64
+	PartIndex int64
+}
+
+func (q *Queries) StoreGetBoardMutationPart(ctx context.Context, arg StoreGetBoardMutationPartParams) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, storeGetBoardMutationPart,
+		arg.BoardID,
+		arg.WriterUid,
+		arg.Sequence,
+		arg.PartIndex,
+	)
+	var bytes []byte
+	err := row.Scan(&bytes)
+	return bytes, err
+}
+
 const storeGetVerificationState = `-- name: StoreGetVerificationState :one
 SELECT current_revision, next_issue_number
 FROM store_state
@@ -184,5 +320,97 @@ func (q *Queries) StoreGetVerificationState(ctx context.Context) (StoreGetVerifi
 	row := q.db.QueryRowContext(ctx, storeGetVerificationState)
 	var i StoreGetVerificationStateRow
 	err := row.Scan(&i.CurrentRevision, &i.NextIssueNumber)
+	return i, err
+}
+
+const storeListBoardMutationBlobReferences = `-- name: StoreListBoardMutationBlobReferences :many
+SELECT digest, size_bytes
+FROM board_mutation_blob_refs
+WHERE board_id = ?1
+    AND writer_uid = ?2
+    AND sequence = ?3
+ORDER BY digest
+`
+
+type StoreListBoardMutationBlobReferencesParams struct {
+	BoardID   string
+	WriterUid []byte
+	Sequence  int64
+}
+
+type StoreListBoardMutationBlobReferencesRow struct {
+	Digest    string
+	SizeBytes int64
+}
+
+func (q *Queries) StoreListBoardMutationBlobReferences(ctx context.Context, arg StoreListBoardMutationBlobReferencesParams) ([]StoreListBoardMutationBlobReferencesRow, error) {
+	rows, err := q.db.QueryContext(ctx, storeListBoardMutationBlobReferences, arg.BoardID, arg.WriterUid, arg.Sequence)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StoreListBoardMutationBlobReferencesRow
+	for rows.Next() {
+		var i StoreListBoardMutationBlobReferencesRow
+		if err := rows.Scan(&i.Digest, &i.SizeBytes); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const storeNextBoardMutationCommit = `-- name: StoreNextBoardMutationCommit :one
+SELECT
+    board_id,
+    writer_uid,
+    sequence,
+    previous_hash,
+    marker_hash,
+    marker_bytes,
+    part_count,
+    event_count,
+    payload_hash
+FROM board_mutation_commits
+WHERE board_id > ?1
+    OR (
+        board_id = ?1
+        AND writer_uid > ?2
+    )
+    OR (
+        board_id = ?1
+        AND writer_uid = ?2
+        AND sequence > ?3
+    )
+ORDER BY board_id, writer_uid, sequence
+LIMIT 1
+`
+
+type StoreNextBoardMutationCommitParams struct {
+	AfterBoardID   string
+	AfterWriterUid []byte
+	AfterSequence  int64
+}
+
+func (q *Queries) StoreNextBoardMutationCommit(ctx context.Context, arg StoreNextBoardMutationCommitParams) (BoardMutationCommit, error) {
+	row := q.db.QueryRowContext(ctx, storeNextBoardMutationCommit, arg.AfterBoardID, arg.AfterWriterUid, arg.AfterSequence)
+	var i BoardMutationCommit
+	err := row.Scan(
+		&i.BoardID,
+		&i.WriterUid,
+		&i.Sequence,
+		&i.PreviousHash,
+		&i.MarkerHash,
+		&i.MarkerBytes,
+		&i.PartCount,
+		&i.EventCount,
+		&i.PayloadHash,
+	)
 	return i, err
 }

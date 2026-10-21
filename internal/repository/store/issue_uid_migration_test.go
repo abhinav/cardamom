@@ -5,9 +5,11 @@ import (
 	"database/sql"
 	"testing"
 	"testing/fstest"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 )
 
 func TestIssueUIDMigrationPreservesSearch(t *testing.T) {
@@ -27,6 +29,12 @@ INSERT INTO issues (
 INSERT INTO issues (
     id, board_id, title, kind, lifecycle, priority, created_at, updated_at
 ) VALUES ('card-two', 'board', 'Secondtitle', 'workstream', 'open', 2, 1, 1);
+UPDATE boards SET name = 'Edited board' WHERE id = 'board';
+UPDATE issues SET title = 'Secondedited', updated_at = 2 WHERE id = 'card-two';
+INSERT INTO issue_external_keys (board_id, external_key, issue_id)
+VALUES ('board', ' ', 'card-two');
+INSERT INTO active_claims (issue_id, board_id, actor, started_at, started_revision)
+VALUES ('card-one', 'board', 'alice', 1, 1);
 INSERT INTO dependencies (board_id, issue_id, prerequisite_id)
 VALUES ('board', 'card-one', 'card-two');
 INSERT INTO containment (board_id, child_id, parent_id)
@@ -51,17 +59,48 @@ INSERT INTO issue_log_entries (
     'post', 'alice', 'alice', 'Discardedlog', 1
 );
 DELETE FROM issue_log_entries
-WHERE id = 'log_ffffffffffffffffffffffffffffffff'
+WHERE id = 'log_ffffffffffffffffffffffffffffffff';
+INSERT INTO attachment_blobs (digest, size_bytes)
+VALUES ('sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 4);
+INSERT INTO attachments (
+    board_id, id, origin_issue_id, blob_digest, blob_size_bytes,
+    filename, media_type, lifecycle, created_actor, created_at, created_revision
+) VALUES (
+    'board', 'att_aaaaaaaaaaaaaaaaaaaaaaaaaa', 'card-one',
+    'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 4,
+    'first.txt', 'text/plain', 'active', 'alice', 1, 1
+), (
+    'board', 'att_bbbbbbbbbbbbbbbbbbbbbbbbba', NULL,
+    'sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 4,
+    'second.txt', 'text/plain', 'active', 'alice', 1, 1
+)
 `)
 	require.NoError(t, err)
 
-	current, err := newStoreMigrationProvider(db)
+	files := make(fstest.MapFS)
+	for _, name := range []string{
+		"20260909120000_issue_uids.sql",
+		"20260916172153_board_replica_identities.sql",
+		"20260916180000_board_mutation_history.sql",
+	} {
+		body, readErr := migrationFiles.ReadFile("migrations/" + name)
+		require.NoError(t, readErr)
+		files[name] = &fstest.MapFile{Data: body}
+	}
+	current, err := newMigrationProvider(db, files)
 	require.NoError(t, err)
 	results, err := current.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, results, 2)
+	require.Len(t, results, 3)
 	assert.Equal(t, int64(20260909120000), results[0].Source.Version)
 	assert.Equal(t, int64(20260916172153), results[1].Source.Version)
+	assert.Equal(t, int64(20260916180000), results[2].Source.Version)
+	baseline, err := newMigrationProvider(db, nil, goMigrations...)
+	require.NoError(t, err)
+	results, err = baseline.Up(t.Context())
+	require.NoError(t, err)
+	require.Len(t, results, 1)
+	assert.Equal(t, int64(20260916180001), results[0].Source.Version)
 
 	var uid []byte
 	require.NoError(t, db.QueryRowContext(t.Context(), `
@@ -126,6 +165,12 @@ VALUES ('integrity-check', 1)
 SELECT count(*) FROM pragma_foreign_key_check
 `).Scan(&invalidReferences))
 	assert.Zero(t, invalidReferences)
+	assertBaselineMutationEvents(t, db, 12)
+	var retainedBlobs int
+	require.NoError(t, db.QueryRowContext(t.Context(), `
+SELECT count(*) FROM board_mutation_blob_refs
+`).Scan(&retainedBlobs))
+	assert.Equal(t, 1, retainedBlobs)
 
 	_, err = db.ExecContext(t.Context(), `
 UPDATE issues SET title = 'Editedtitle' WHERE id = 'card-one'
@@ -156,6 +201,8 @@ WHERE id = 'log_22222222222222222222222222222222'
 `).Scan(&laterSequence))
 	assert.Greater(t, laterSequence, int64(41))
 
+	_, err = db.ExecContext(t.Context(), `DELETE FROM attachments WHERE origin_issue_uid = ?`, uid)
+	require.NoError(t, err)
 	_, err = db.ExecContext(t.Context(), `DELETE FROM issues WHERE id = 'card-one'`)
 	require.NoError(t, err)
 	require.NoError(t, db.QueryRowContext(t.Context(), `
@@ -166,6 +213,73 @@ SELECT count(*) FROM issue_search_documents
 SELECT count(*) FROM issue_search_fts WHERE body MATCH 'editedtitle'
 `).Scan(&newTitle))
 	assert.Zero(t, newTitle)
+}
+
+func assertBaselineMutationEvents(t *testing.T, db *sql.DB, wantCount int) {
+	t.Helper()
+	var markerBytes []byte
+	require.NoError(t, db.QueryRowContext(t.Context(), `
+SELECT marker_bytes
+FROM board_mutation_commits
+WHERE board_id = 'board' AND sequence = 1
+`).Scan(&markerBytes))
+	marker, err := boardhistory.DecodeMarker(markerBytes)
+	require.NoError(t, err)
+	assert.Empty(t, marker.Header().Frontier)
+
+	var events []boardhistory.Event
+	for retained, err := range boardhistory.MutationEvents(
+		marker,
+		func(index int64) ([]byte, error) {
+			var part []byte
+			err := db.QueryRowContext(t.Context(), `
+SELECT bytes
+FROM board_mutation_parts
+WHERE board_id = 'board' AND writer_uid = ?
+    AND sequence = 1 AND part_index = ?
+`, marker.Header().Writer.Bytes(), index).Scan(&part)
+			return part, err
+		},
+	) {
+		require.NoError(t, err)
+		events = append(events, retained.Event)
+	}
+	require.Len(t, events, wantCount)
+	assert.IsType(t, (*boardhistory.BoardOrigin)(nil), events[0].Payload)
+	var boardOrigin *boardhistory.BoardOrigin
+	var boardOriginAt time.Time
+	var issueOrigins int
+	var editedIssueOrigin *boardhistory.IssueOrigin
+	var editedIssueOriginAt time.Time
+	var stateAt, resultAt time.Time
+	for _, event := range events {
+		switch value := event.Payload.(type) {
+		case *boardhistory.BoardOrigin:
+			boardOrigin = value
+			boardOriginAt = event.OccurredAt
+		case *boardhistory.IssueOrigin:
+			issueOrigins++
+			if value.PublicID == "card-two" {
+				editedIssueOrigin = value
+				editedIssueOriginAt = event.OccurredAt
+			}
+		case *boardhistory.IssueState:
+			stateAt = event.OccurredAt
+		case *boardhistory.IssueResult:
+			resultAt = event.OccurredAt
+		}
+	}
+	require.NotNil(t, boardOrigin)
+	assert.Equal(t, "Edited board", boardOrigin.Name)
+	assert.Equal(t, time.Unix(1, 0).UTC(), boardOrigin.CreatedAt)
+	assert.True(t, boardOriginAt.After(boardOrigin.CreatedAt))
+	assert.Equal(t, 2, issueOrigins)
+	require.NotNil(t, editedIssueOrigin)
+	assert.Equal(t, "Secondedited", editedIssueOrigin.Title)
+	assert.Equal(t, time.Unix(2, 0).UTC(), editedIssueOrigin.UpdatedAt)
+	assert.True(t, editedIssueOriginAt.After(editedIssueOrigin.UpdatedAt))
+	assert.True(t, stateAt.After(time.Unix(1, 0).UTC()))
+	assert.True(t, resultAt.After(time.Unix(1, 0).UTC()))
 }
 
 func TestIssueUIDMigrationFailurePreservesOldSchema(t *testing.T) {
@@ -206,6 +320,32 @@ SELECT count(*) FROM issue_search_fts WHERE body MATCH 'savedtitle'
 	version, err := failure.GetDBVersion(t.Context())
 	require.NoError(t, err)
 	assert.Equal(t, int64(20260904120000), version)
+}
+
+func TestBoardHistoryBaselineFailureRollsBackMutation(t *testing.T) {
+	db := openMigrationTestDatabase(t)
+	applySchemaBeforeIssueUIDs(t, db)
+	_, err := db.ExecContext(t.Context(), `
+INSERT INTO projects (id, name, created_at) VALUES ('project', 'Project', 1);
+INSERT INTO boards (id, project_id, name, created_at)
+VALUES ('board', 'project', 'Board', 'not-a-time')
+`)
+	require.NoError(t, err)
+
+	current, err := newStoreMigrationProvider(db)
+	require.NoError(t, err)
+	_, err = current.Up(t.Context())
+	assert.ErrorContains(t, err, "unsupported stored time")
+
+	var parts int
+	require.NoError(t, db.QueryRowContext(t.Context(), `
+SELECT count(*) FROM board_mutation_parts
+`).Scan(&parts))
+	assert.Zero(t, parts)
+
+	version, err := current.GetDBVersion(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, int64(20260916180000), version)
 }
 
 func applySchemaBeforeIssueUIDs(t *testing.T, db *sql.DB) {

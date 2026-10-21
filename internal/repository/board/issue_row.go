@@ -18,7 +18,7 @@ import (
 
 func (r *Repository) insertIssue(ctx context.Context, mutation *mutation, state issue.State) error {
 	snapshot := state.Snapshot()
-	return query.New(mutation.change).BoardInsertIssue(
+	if err := query.New(mutation.change).BoardInsertIssue(
 		ctx,
 		query.BoardInsertIssueParams{
 			Uid:           snapshot.UID.Bytes(),
@@ -36,12 +36,20 @@ func (r *Repository) insertIssue(ctx context.Context, mutation *mutation, state 
 			Summary:       nullableText(snapshot.Summary),
 			Details:       nullableText(snapshot.Details),
 		},
-	)
+	); err != nil {
+		return err
+	}
+	mutation.record(issueOriginEvent(state))
+	return nil
 }
 
 func (r *Repository) updateIssue(ctx context.Context, mutation *mutation, state issue.State) error {
+	before, _, err := r.readIssueState(ctx, mutation.change, state.ID())
+	if err != nil {
+		return err
+	}
 	snapshot := state.Snapshot()
-	return query.New(mutation.change).BoardUpdateIssue(
+	if err := query.New(mutation.change).BoardUpdateIssue(
 		ctx,
 		query.BoardUpdateIssueParams{
 			Title:         snapshot.Title,
@@ -57,7 +65,11 @@ func (r *Repository) updateIssue(ctx context.Context, mutation *mutation, state 
 			BoardID:       r.boardID.String(),
 			Uid:           snapshot.UID.Bytes(),
 		},
-	)
+	); err != nil {
+		return err
+	}
+	recordIssueChanges(mutation, before, state)
+	return nil
 }
 
 // persistedIssue is the Board repository representation of one issue row and

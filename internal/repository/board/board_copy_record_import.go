@@ -343,7 +343,7 @@ func (i *copyRecordImporter) importPin(value boardcopy.CopyPin) error {
 	if err != nil {
 		return err
 	}
-	if err := i.queries.BoardInsertPin(
+	if _, err := i.queries.BoardInsertPin(
 		i.ctx,
 		query.BoardInsertPinParams{BoardID: i.boardID, IssueUid: issueUID.Bytes()},
 	); err != nil {

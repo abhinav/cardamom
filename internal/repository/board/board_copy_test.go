@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/boardcopy"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/configuration"
 	repositoryattachment "go.abhg.dev/cardamom/internal/repository/attachment"
 	"go.abhg.dev/cardamom/internal/repository/store"
@@ -135,6 +136,47 @@ FROM board_replica_identities
 WHERE board_id = ?`, outcome.DestinationBoardID).Scan(&writerUID))
 	assert.Len(t, writerUID, 16)
 	assert.NotEqual(t, bytes.Repeat([]byte{0xaa}, 16), writerUID)
+	var markerBytes []byte
+	require.NoError(t, view.QueryRowContext(t.Context(), `
+SELECT marker_bytes
+FROM board_mutation_commits
+WHERE board_id = ? AND writer_uid = ? AND sequence = 1
+`, outcome.DestinationBoardID, writerUID).Scan(&markerBytes))
+	marker, err := boardhistory.DecodeMarker(markerBytes)
+	require.NoError(t, err)
+	assert.Equal(t, outcome.DestinationBoardID, marker.Header().Board.String())
+	assert.Empty(t, marker.Header().Frontier)
+	kindCounts := make(map[boardhistory.EventKind]int)
+	for retained, err := range boardhistory.MutationEvents(
+		marker,
+		func(index int64) ([]byte, error) {
+			var part []byte
+			err := view.QueryRowContext(t.Context(), `
+SELECT bytes
+FROM board_mutation_parts
+WHERE board_id = ? AND writer_uid = ? AND sequence = 1 AND part_index = ?
+`, outcome.DestinationBoardID, writerUID, index).Scan(&part)
+			return part, err
+		},
+	) {
+		require.NoError(t, err)
+		kindCounts[retained.Event.Kind()]++
+	}
+	assert.Equal(t, map[boardhistory.EventKind]int{
+		boardhistory.EventBoardOrigin:      1,
+		boardhistory.EventIssueOrigin:      4,
+		boardhistory.EventIssueLabel:       1,
+		boardhistory.EventIssueDependency:  1,
+		boardhistory.EventIssueContainment: 1,
+		boardhistory.EventExternalKey:      1,
+		boardhistory.EventBoardPin:         2,
+		boardhistory.EventIssueLog:         2,
+		boardhistory.EventIssueState:       1,
+		boardhistory.EventIssueResult:      1,
+		boardhistory.EventIssueCheckpoint:  1,
+		boardhistory.EventAttachmentAdd:    1,
+		boardhistory.EventAttachmentRemove: 1,
+	}, kindCounts)
 	assert.Equal(t, int64(3), pinMax)
 	assert.Equal(t, outcome.DestinationRevision, boardRevision)
 	assert.Equal(t, "Board %src-5", boardDescription)

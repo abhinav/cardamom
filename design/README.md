@@ -4,5 +4,6 @@
 
 | Date | Status | Title |
 | --- | --- | --- |
+| 2026-09-16 | Accepted | [Retain local board mutation history](2026-09-16-local-board-mutation-history.md) |
 | 2026-09-04 | Accepted | [Provide a constrained issue search language](2026-09-04-02-issue-search-language.md) |
 | 2026-09-04 | Accepted | [Use a derived per-record FTS5 issue search index](2026-09-04-01-derived-issue-search-index.md) |

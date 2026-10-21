@@ -150,8 +150,14 @@ func (r *Repository) commitClaim(ctx context.Context, mutation *mutation, out ex
 	if err := r.replaceActiveClaim(ctx, mutation, out.Issue); err != nil {
 		return out, err
 	}
-	if err := mutation.commit(ctx, out.Issue.ID()); err != nil {
-		return out, err
+	var commitErr error
+	if mutation.hasHistory() {
+		commitErr = mutation.commit(ctx, out.Issue.ID())
+	} else {
+		commitErr = mutation.commitLocal(ctx, out.Issue.ID())
+	}
+	if commitErr != nil {
+		return out, commitErr
 	}
 	out.CommittedRevision = executionCommittedRevision(mutation)
 	return out, nil

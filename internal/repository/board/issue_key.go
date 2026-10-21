@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/planning"
@@ -100,12 +101,21 @@ func (r *Repository) insertExternalKey(
 	if err != nil {
 		return err
 	}
-	return query.New(mutation.change).BoardInsertIssueExternalKey(
+	if err := query.New(mutation.change).BoardInsertIssueExternalKey(
 		ctx,
 		query.BoardInsertIssueExternalKeyParams{
 			BoardID:     r.boardID.String(),
 			ExternalKey: key.String(),
 			IssueUid:    uid.Bytes(),
 		},
-	)
+	); err != nil {
+		return err
+	}
+	mutation.record(boardhistory.Event{
+		OccurredAt: mutation.occurredAt,
+		Payload: &boardhistory.ExternalKey{
+			Key: key.String(), IssueUID: uid, Present: true,
+		},
+	})
+	return nil
 }

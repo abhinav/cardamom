@@ -375,6 +375,7 @@ func addAttachmentBoard(t *testing.T, fixture *uploadFixture, value string) boar
 		VALUES (?, X'02020202020202020202020202020202')
 	`, boardID)
 	require.NoError(t, err)
+	initializeAttachmentTestHistory(t, change, boardID.String())
 	require.NoError(t, change.Commit())
 	return boardID
 }

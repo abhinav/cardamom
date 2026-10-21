@@ -11,6 +11,7 @@ import (
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/issue/planning"
 	"go.abhg.dev/cardamom/internal/issue/record"
+	repositoryhistory "go.abhg.dev/cardamom/internal/repository/boardhistory"
 )
 
 func TestRepositoryApplyDocumentDryRunAndFailureDoNotConsumeIDs(t *testing.T) {
@@ -408,9 +409,15 @@ func openAdditionalBoardRepository(
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
 		INSERT INTO boards (id, project_id, name, created_at)
-		VALUES (?, 'project-test', ?, 1700000000)
-	`, boardID, boardID)
+		VALUES (?, 'project-test', ?, 1700000000);
+		INSERT INTO board_replica_identities (board_id, writer_uid)
+		VALUES (?, X'02020202020202020202020202020202')
+	`, boardID, boardID, boardID)
 	require.NoError(t, err)
+	require.NoError(t, repositoryhistory.InitializeV1(
+		t.Context(), change, mustBoardID(t, boardID),
+		time.Unix(1_700_000_000, 0).UTC(),
+	))
 	require.NoError(t, change.Commit())
 	require.NoError(t, change.Done())
 

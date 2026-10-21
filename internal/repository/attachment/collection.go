@@ -146,11 +146,44 @@ func (r *Repository) collectRetainedContent(
 			})
 		}
 	}
+	historyBlobs, err := loadRetainedHistoryBlobs(ctx, change)
+	if err != nil {
+		return nil, domainattachment.CollectionSummary{}, err
+	}
+	descriptors = append(descriptors, historyBlobs...)
 	orphans, err := r.blobs.collectOrphanBlobs(descriptors, dryRun)
 	if err != nil {
 		return nil, domainattachment.CollectionSummary{}, err
 	}
 	return problems, orphans, nil
+}
+
+func loadRetainedHistoryBlobs(
+	ctx context.Context,
+	scope query.DBTX,
+) ([]domainattachment.BlobDescriptor, error) {
+	rows, err := query.New(scope).AttachmentListRetainedHistoryBlobs(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("select blobs retained by board history: %w", err)
+	}
+	descriptors := make([]domainattachment.BlobDescriptor, 0, len(rows))
+	for _, row := range rows {
+		digest, err := domainattachment.NewDigest(row.Digest)
+		if err != nil {
+			return nil, fmt.Errorf("parse blob retained by board history: %w", err)
+		}
+		if row.SizeBytes < 0 {
+			return nil, errors.New("blob retained by board history has negative size")
+		}
+		descriptor := domainattachment.BlobDescriptor{
+			Digest: digest, SizeBytes: uint64(row.SizeBytes),
+		}
+		if err := descriptor.Validate(); err != nil {
+			return nil, fmt.Errorf("validate blob retained by board history: %w", err)
+		}
+		descriptors = append(descriptors, descriptor)
+	}
+	return descriptors, nil
 }
 
 // retainedAttachment is the metadata needed to protect and inspect one blob.

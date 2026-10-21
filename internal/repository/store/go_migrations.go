@@ -7,4 +7,10 @@ import "github.com/pressly/goose/v3"
 // goMigrations is the complete data-only migration registry used during
 // package initialization. Schema changes remain in SQL so the migration
 // directory stays authoritative for sqlc.
-var goMigrations = []*goose.Migration{}
+var goMigrations = []*goose.Migration{
+	goose.NewGoMigration(
+		20260916180001,
+		&goose.GoFunc{RunTx: migrate20260916180001},
+		nil,
+	),
+}

@@ -58,6 +58,9 @@ func (r *Repository) RemoveAttachment(
 	); err != nil {
 		return domainattachment.Attachment{}, fmt.Errorf("tombstone attachment: %w", err)
 	}
+	if err := appendAttachmentRemoval(ctx, change, value); err != nil {
+		return domainattachment.Attachment{}, fmt.Errorf("append attachment removal: %w", err)
+	}
 	if err := r.commitAttachmentRevision(ctx, change, revision); err != nil {
 		return domainattachment.Attachment{}, fmt.Errorf("commit attachment removal: %w", err)
 	}

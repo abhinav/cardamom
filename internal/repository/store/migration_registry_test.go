@@ -318,8 +318,10 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 	require.NoError(t, err)
 	currentResults, err := current.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, currentResults, 1)
+	require.Len(t, currentResults, 3)
 	assert.Equal(t, int64(20260916172153), currentResults[0].Source.Version)
+	assert.Equal(t, int64(20260916180000), currentResults[1].Source.Version)
+	assert.Equal(t, int64(20260916180001), currentResults[2].Source.Version)
 
 	var appliedVersions int
 	require.NoError(t, db.QueryRow(`
@@ -335,10 +337,12 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 				20260812120000,
 				20260904120000,
 				20260909120000,
-				20260916172153
+				20260916172153,
+				20260916180000,
+				20260916180001
 			)
 	`).Scan(&appliedVersions))
-	assert.Equal(t, 9, appliedVersions)
+	assert.Equal(t, 11, appliedVersions)
 }
 
 func TestStoreMigrationsPreserveBaselineStore(t *testing.T) {
@@ -366,13 +370,15 @@ VALUES
 	require.NoError(t, err)
 	results, err := current.Up(t.Context())
 	require.NoError(t, err)
-	require.Len(t, results, 6)
+	require.Len(t, results, 8)
 	assert.Equal(t, int64(20260729090000), results[0].Source.Version)
 	assert.Equal(t, int64(20260811090000), results[1].Source.Version)
 	assert.Equal(t, int64(20260812120000), results[2].Source.Version)
 	assert.Equal(t, int64(20260904120000), results[3].Source.Version)
 	assert.Equal(t, int64(20260909120000), results[4].Source.Version)
 	assert.Equal(t, int64(20260916172153), results[5].Source.Version)
+	assert.Equal(t, int64(20260916180000), results[6].Source.Version)
+	assert.Equal(t, int64(20260916180001), results[7].Source.Version)
 
 	var projectName, boardName, lineage string
 	var writerUID []byte

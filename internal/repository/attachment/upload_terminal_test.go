@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	domainattachment "go.abhg.dev/cardamom/internal/attachment"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/issue"
 )
 
@@ -147,6 +148,12 @@ func TestRepositoryIssueAttachmentUsesPrivateIdentityAndPublishesRevision(t *tes
 	)
 	require.NoError(t, err)
 	assert.Equal(t, association, committed.Association)
+	mutations := readAttachmentHistory(t, fixture.persistence)
+	require.Len(t, mutations, 2)
+	addition, ok := mutations[1][0].Payload.(*boardhistory.AttachmentAdd)
+	require.True(t, ok)
+	require.NotNil(t, addition.OriginIssueUID)
+	assert.Equal(t, issueUID, addition.OriginIssueUID.Bytes())
 	got, err := fixture.service.GetAttachment(t.Context(), domainattachment.GetRequest{
 		BoardID: association.BoardID(), AttachmentID: committed.ID,
 	})
