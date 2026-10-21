@@ -2,7 +2,6 @@ package board
 
 import (
 	"bytes"
-	"context"
 	"io"
 	"os"
 	"path/filepath"
@@ -29,17 +28,12 @@ func TestCopyRepositoryCopiesCompleteBoardAndRemapsCollisions(t *testing.T) {
 	sourceStore := openCopyTestStore(t, sourceDirectory)
 	destinationStore := openCopyTestStore(t, destinationDirectory)
 	descriptor := copyTestBlobDescriptor(t)
-	sourceAttachments := openCopyAttachmentRepository(
-		t,
-		sourceStore,
-		sourceDirectory,
-	)
 	destinationAttachments := openCopyAttachmentRepository(
 		t,
 		destinationStore,
 		destinationDirectory,
 	)
-	require.NoError(t, sourceAttachments.PublishCopyBlob(
+	require.NoError(t, destinationAttachments.PublishCopyBlob(
 		t.Context(),
 		descriptor,
 		strings.NewReader("data"),
@@ -47,29 +41,19 @@ func TestCopyRepositoryCopiesCompleteBoardAndRemapsCollisions(t *testing.T) {
 	seedCopySource(t, sourceStore, descriptor)
 	seedCopyDestinationCollisions(t, destinationStore)
 
-	sourceRepository, err := New(sourceStore, Config{
-		BoardID: "board-source",
-	})
-	require.NoError(t, err)
 	destinationRepository, err := NewCopyRepository(
 		destinationStore,
 		CopyRepositoryConfig{Entropy: copyTestEntropy()},
 	)
 	require.NoError(t, err)
-	service := boardcopy.NewCopyService(boardcopy.CopyServiceConfig{
-		Source:           sourceRepository,
-		Destination:      destinationRepository,
-		SourceBlobs:      sourceAttachments,
-		DestinationBlobs: destinationAttachments,
-		Configuration:    copyTestConfiguration{},
-	})
-
-	outcome, err := service.Copy(t.Context(), boardcopy.CopyRequest{
-		SourceBoardID: "board-source",
-		Options: boardcopy.CopyOptions{
-			ProjectID: "project-destination",
-		},
-	})
+	index, err := boardcopy.IndexRecords(readBackupTestRecords(t, sourceStore))
+	require.NoError(t, err)
+	options := boardcopy.CopyOptions{ProjectID: "project-destination"}
+	importResult, err := destinationRepository.ImportCopyRecords(
+		t.Context(), index, readBackupTestRecords(t, sourceStore), options,
+	)
+	require.NoError(t, err)
+	outcome, err := boardcopy.EvaluateCopyImport(index, options, importResult)
 	require.NoError(t, err)
 
 	assert.NotEqual(t, "board-source", outcome.DestinationBoardID)
@@ -97,7 +81,7 @@ func TestCopyRepositoryCopiesCompleteBoardAndRemapsCollisions(t *testing.T) {
 		Source: copyTestAttachmentID, Destination: copyTestAttachmentID,
 	}}, outcome.Mappings.Attachments)
 	assert.Equal(t, boardcopy.CopyCounts{
-		Issues: 4, LogEntries: 2, Attachments: 1, Blobs: 1,
+		Issues: 4, LogEntries: 2, Attachments: 1,
 	}, outcome.Counts)
 
 	view, err := destinationStore.View(t.Context())
@@ -319,36 +303,8 @@ WHERE singleton = 1`,
 	require.NoError(t, reader.Close())
 	assert.Equal(t, []byte("data"), body)
 
-	retry, err := service.Copy(t.Context(), boardcopy.CopyRequest{
-		SourceBoardID: "board-source",
-		Options: boardcopy.CopyOptions{
-			ProjectID: "project-destination",
-		},
-	})
-	require.NoError(t, err)
-	assert.True(t, retry.AlreadyCompleted)
-	assert.Equal(t, outcome.DestinationBoardID, retry.DestinationBoardID)
-	assert.Equal(t, int64(2), retry.SourceRevision)
-
-	index, err := boardcopy.IndexRecords(
-		sourceRepository.ReadCopyRecords(
-			t.Context(),
-			"board-source",
-			configuration.Overrides{},
-		),
-	)
-	require.NoError(t, err)
-	assert.Equal(t, outcome.SnapshotDigest, index.Digest)
-	options := boardcopy.CopyOptions{ProjectID: "project-destination"}
-	importResult, err := destinationRepository.ImportCopyRecords(
-		t.Context(),
-		index,
-		sourceRepository.ReadCopyRecords(
-			t.Context(),
-			"board-source",
-			configuration.Overrides{},
-		),
-		options,
+	importResult, err = destinationRepository.ImportCopyRecords(
+		t.Context(), index, readBackupTestRecords(t, sourceStore), options,
 	)
 	require.NoError(t, err)
 	concurrent, err := boardcopy.EvaluateCopyImport(index, options, importResult)
@@ -368,12 +324,16 @@ WHERE singleton = 1`)
 	require.NoError(t, change.Commit())
 	require.NoError(t, change.Done())
 
-	retry, err = service.Copy(t.Context(), boardcopy.CopyRequest{
-		SourceBoardID: "board-source",
-		Options: boardcopy.CopyOptions{
-			ProjectID: "project-destination",
-		},
+	index, err = boardcopy.IndexRecords(readBackupTestRecords(t, sourceStore))
+	require.NoError(t, err)
+	receipt, found, err := destinationRepository.ReadCopyReceipt(t.Context(), boardcopy.CopyReceiptKey{
+		SourceLineageID: index.Header.SourceLineageID,
+		SourceBoardID:   index.Header.Board.ID,
+		SnapshotVersion: index.Header.Version,
 	})
+	require.NoError(t, err)
+	require.True(t, found)
+	retry, err := boardcopy.EvaluateRecordReceipt(index, options, receipt)
 	require.NoError(t, err)
 	assert.Equal(t, int64(2), retry.SourceRevision)
 
@@ -389,12 +349,9 @@ WHERE singleton = 1`)
 	require.NoError(t, err)
 	require.NoError(t, change.Commit())
 
-	_, err = service.Copy(t.Context(), boardcopy.CopyRequest{
-		SourceBoardID: "board-source",
-		Options: boardcopy.CopyOptions{
-			ProjectID: "project-destination",
-		},
-	})
+	index, err = boardcopy.IndexRecords(readBackupTestRecords(t, sourceStore))
+	require.NoError(t, err)
+	_, err = boardcopy.EvaluateRecordReceipt(index, options, receipt)
 	require.Error(t, err)
 	assert.ErrorContains(t, err, "incremental synchronization is not supported")
 }
@@ -410,19 +367,13 @@ func TestCopyRepositoryRollsBackChangedSecondRecordPass(t *testing.T) {
 	seedCopySource(t, sourceStore, copyTestBlobDescriptor(t))
 	seedCopyDestinationCollisions(t, destinationStore)
 
-	source, err := New(sourceStore, Config{BoardID: "board-source"})
-	require.NoError(t, err)
 	destination, err := NewCopyRepository(
 		destinationStore,
 		CopyRepositoryConfig{Entropy: copyTestEntropy()},
 	)
 	require.NoError(t, err)
 	index, err := boardcopy.IndexRecords(
-		source.ReadCopyRecords(
-			t.Context(),
-			"board-source",
-			configuration.Overrides{},
-		),
+		readBackupTestRecords(t, sourceStore),
 	)
 	require.NoError(t, err)
 
@@ -442,11 +393,7 @@ WHERE singleton = 1`)
 	_, err = destination.ImportCopyRecords(
 		t.Context(),
 		index,
-		source.ReadCopyRecords(
-			t.Context(),
-			"board-source",
-			configuration.Overrides{},
-		),
+		readBackupTestRecords(t, sourceStore),
 		boardcopy.CopyOptions{ProjectID: "project-destination"},
 	)
 	require.Error(t, err)
@@ -523,34 +470,17 @@ func TestCopyRepositoryPrivateUIDFailureRollsBackPublication(t *testing.T) {
 			require.NoError(t, change.Commit())
 			require.NoError(t, change.Done())
 
-			sourceRepository, err := New(sourceStore, Config{BoardID: "board-source"})
-			require.NoError(t, err)
 			destinationRepository, err := NewCopyRepository(
 				destinationStore,
 				CopyRepositoryConfig{Entropy: bytes.NewReader(tt.entropy)},
 			)
 			require.NoError(t, err)
-			sourceAttachments := openCopyAttachmentRepository(t, sourceStore, sourceDirectory)
-			require.NoError(t, sourceAttachments.PublishCopyBlob(
-				t.Context(),
-				copyTestBlobDescriptor(t),
-				strings.NewReader("data"),
-			))
-			service := boardcopy.NewCopyService(boardcopy.CopyServiceConfig{
-				Source: sourceRepository, Destination: destinationRepository,
-				SourceBlobs: sourceAttachments,
-				DestinationBlobs: openCopyAttachmentRepository(
-					t,
-					destinationStore,
-					destinationDirectory,
-				),
-				Configuration: copyTestConfiguration{},
-			})
-
-			_, err = service.Copy(t.Context(), boardcopy.CopyRequest{
-				SourceBoardID: "board-source",
-				Options:       boardcopy.CopyOptions{ProjectID: "project-destination"},
-			})
+			index, err := boardcopy.IndexRecords(readBackupTestRecords(t, sourceStore))
+			require.NoError(t, err)
+			_, err = destinationRepository.ImportCopyRecords(
+				t.Context(), index, readBackupTestRecords(t, sourceStore),
+				boardcopy.CopyOptions{ProjectID: "project-destination"},
+			)
 			assert.ErrorContains(t, err, tt.wantError)
 
 			view, err := destinationStore.View(t.Context())
@@ -573,60 +503,6 @@ func TestCopyRepositoryPrivateUIDFailureRollsBackPublication(t *testing.T) {
 	}
 }
 
-func TestRepository_ReadCopyRecordsRejectsOperationalState(t *testing.T) {
-	t.Run("ActiveClaim", func(t *testing.T) {
-		directory := t.TempDir()
-		persistence := openCopyTestStore(t, directory)
-		seedCopySource(t, persistence, copyTestBlobDescriptor(t))
-		change, err := persistence.Change(t.Context())
-		require.NoError(t, err)
-		_, err = change.ExecContext(t.Context(), `
-INSERT INTO active_claims (
-    issue_uid, board_id, actor, started_at, started_revision
-) VALUES ((SELECT uid FROM issues WHERE id = 'src-1'), 'board-source', 'worker', 1002, 2)`)
-		require.NoError(t, err)
-		require.NoError(t, change.Commit())
-		repository, err := New(persistence, Config{BoardID: "board-source"})
-		require.NoError(t, err)
-
-		_, err = boardcopy.IndexRecords(
-			repository.ReadCopyRecords(
-				t.Context(),
-				"board-source",
-				configuration.Overrides{},
-			),
-		)
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "active claims")
-	})
-
-	t.Run("ActiveUpload", func(t *testing.T) {
-		directory := t.TempDir()
-		persistence := openCopyTestStore(t, directory)
-		seedCopySource(t, persistence, copyTestBlobDescriptor(t))
-		change, err := persistence.Change(t.Context())
-		require.NoError(t, err)
-		_, err = change.ExecContext(t.Context(), `
-INSERT INTO attachment_uploads (
-    id, board_id, filename, actor, state, accepted_offset, expires_at
-) VALUES ('upload-active', 'board-source', 'pending.txt', 'worker', 'active', 0, 2000)`)
-		require.NoError(t, err)
-		require.NoError(t, change.Commit())
-		repository, err := New(persistence, Config{BoardID: "board-source"})
-		require.NoError(t, err)
-
-		_, err = boardcopy.IndexRecords(
-			repository.ReadCopyRecords(
-				t.Context(),
-				"board-source",
-				configuration.Overrides{},
-			),
-		)
-		require.Error(t, err)
-		assert.ErrorContains(t, err, "active attachment uploads")
-	})
-}
-
 const (
 	copyTestLogID         = "log_0123456789abcdef0123456789abcdef"
 	copyTestLaterLogID    = "log_11111111111111111111111111111111"
@@ -646,12 +522,31 @@ func copyTestEntropy() io.Reader {
 	}, nil))
 }
 
-type copyTestConfiguration struct{}
-
-func (copyTestConfiguration) ReadStoreConfiguration(
-	context.Context,
-) (configuration.Overrides, error) {
-	return configuration.Overrides{}, nil
+func readBackupTestRecords(t *testing.T, persistence *store.Store) boardcopy.RecordSequence {
+	t.Helper()
+	view, err := persistence.View(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, view.Done()) })
+	lineageID, err := view.LineageID(t.Context())
+	require.NoError(t, err)
+	revision, err := view.CanonicalRevision(t.Context())
+	require.NoError(t, err)
+	var records []boardcopy.Record
+	for record, err := range (&BackupReader{}).ReadBackupRecords(
+		t.Context(), view, "board-source", configuration.Overrides{},
+		BackupSource{LineageID: lineageID, Revision: revision},
+	) {
+		require.NoError(t, err)
+		records = append(records, record)
+	}
+	require.NoError(t, view.Done())
+	return func(yield func(boardcopy.Record, error) bool) {
+		for _, record := range records {
+			if !yield(record, nil) {
+				return
+			}
+		}
+	}
 }
 
 func openCopyTestStore(t *testing.T, directory string) *store.Store {

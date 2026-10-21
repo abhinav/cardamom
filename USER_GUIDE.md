@@ -568,9 +568,6 @@ labels and workstream containment handle classification within one graph.
 
 ## Portable backups
 
-`card board copy` preserves the board's pin order and effective pin limit,
-and rewrites each pin to the copied issue ID.
-
 `card backup` writes complete boards to one portable archive.
 Each included board carries its complete board data
 and every committed attachment file,
@@ -665,9 +662,6 @@ Clone does not update or merge existing replicas.
 Changes made after cloning remain separate.
 If an import fails before commit, no destination board is published;
 any verified attachment files already transferred can be collected as orphans.
-
-`card board copy` remains a separate independent-duplication operation.
-It assigns new board and private issue identities instead of preserving lineage.
 
 ## Workflow recipes
 

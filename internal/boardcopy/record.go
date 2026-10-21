@@ -2,14 +2,12 @@ package boardcopy
 
 import (
 	"cmp"
-	"context"
 	"fmt"
 	"iter"
 	"strings"
 	"time"
 
 	"go.abhg.dev/cardamom/internal/attachment"
-	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/configuration"
 )
 
@@ -701,15 +699,3 @@ func compareRecordKeyPair(
 // A non-nil error is terminal. Consumers may stop early without draining the
 // sequence; an owned source must still release its retained view.
 type RecordSequence = iter.Seq2[Record, error]
-
-// RecordSource reads one retained semantic board view incrementally.
-//
-// Iteration owns the retained source view and releases it on completion or
-// early termination.
-type RecordSource interface {
-	ReadCopyRecords(
-		context.Context,
-		board.ID,
-		configuration.Overrides,
-	) RecordSequence
-}

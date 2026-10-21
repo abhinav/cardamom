@@ -6,6 +6,15 @@ exec card --store $WORK/source init --no-config --prefix src- --board-name Seed
 exec card --store $WORK/source board create Source
 exec card --store $WORK/destination init --no-config --prefix dst- --board-name Existing
 
+# Clone is the only board transfer command.
+exec card --store $WORK/source board --help
+stdout 'board clone'
+! stdout 'board copy'
+! stderr .
+! exec card --store $WORK/source --board Source board copy --to-store $WORK/destination
+stderr 'error: unexpected argument copy'
+! stdout .
+
 # Establish deterministic public IDs, then enable independent allocation.
 exec card --store $WORK/source --board Source config set --scope board issue.id.strategy sequential
 exec card --store $WORK/source --board Source create 'Shared issue'

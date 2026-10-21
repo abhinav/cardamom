@@ -1,8 +1,5 @@
 # Portable backups
 
-`card board copy` preserves the board's pin order and effective pin limit,
-and rewrites each pin to the copied issue ID.
-
 `card backup` writes complete boards to one portable archive.
 Each included board carries its complete board data
 and every committed attachment file,

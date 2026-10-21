@@ -31,90 +31,6 @@ type BackupSource struct {
 // BackupReader reads semantic board records from a caller-owned retained view.
 type BackupReader struct{}
 
-type copyRecordPolicy uint8
-
-const (
-	captureCommittedRecords copyRecordPolicy = iota
-	requireQuiescentRecords
-)
-
-var _ boardcopy.RecordSource = (*Repository)(nil)
-
-// ReadCopyRecords yields one semantic board publication from an owned retained
-// view. The view is released when iteration completes or the consumer stops.
-func (r *Repository) ReadCopyRecords(
-	ctx context.Context,
-	boardID domainboard.ID,
-	storeOverrides configuration.Overrides,
-) boardcopy.RecordSequence {
-	return r.readCopyRecords(
-		ctx,
-		boardID,
-		storeOverrides,
-		copyRecordPageSize,
-	)
-}
-
-func (r *Repository) readCopyRecords(
-	ctx context.Context,
-	boardID domainboard.ID,
-	storeOverrides configuration.Overrides,
-	pageSize int64,
-) boardcopy.RecordSequence {
-	return func(yield func(boardcopy.Record, error) bool) {
-		view, err := r.store.View(ctx)
-		if err != nil {
-			yield(nil, fmt.Errorf("begin board copy records: %w", err))
-			return
-		}
-		mayYield := true
-		defer func() {
-			err := view.Done()
-			if err != nil && mayYield {
-				yield(nil, fmt.Errorf("close board copy records: %w", err))
-			}
-		}()
-
-		if boardID != r.boardID {
-			yield(nil, errkind.Errorf(
-				errkind.InvalidInput,
-				"board copy source %q does not match repository board %q",
-				boardID,
-				r.boardID,
-			))
-			return
-		}
-		lineageID, err := view.LineageID(ctx)
-		if err != nil {
-			yield(nil, err)
-			return
-		}
-		revision, err := view.CanonicalRevision(ctx)
-		if err != nil {
-			yield(nil, fmt.Errorf("read source revision: %w", err))
-			return
-		}
-		sequence := readCopyRecordSequence(
-			ctx,
-			view,
-			boardID,
-			storeOverrides,
-			BackupSource{LineageID: lineageID, Revision: revision},
-			requireQuiescentRecords,
-			pageSize,
-		)
-		for record, err := range sequence {
-			if !yield(record, err) {
-				mayYield = false
-				return
-			}
-			if err != nil {
-				return
-			}
-		}
-	}
-}
-
 // ReadBackupRecords yields one semantic board publication from a retained view
 // owned by the caller. Iteration never closes view.
 func (r *BackupReader) ReadBackupRecords(
@@ -130,7 +46,6 @@ func (r *BackupReader) ReadBackupRecords(
 		boardID,
 		storeOverrides,
 		source,
-		captureCommittedRecords,
 		copyRecordPageSize,
 	)
 }
@@ -141,7 +56,6 @@ func readCopyRecordSequence(
 	boardID domainboard.ID,
 	storeOverrides configuration.Overrides,
 	source BackupSource,
-	policy copyRecordPolicy,
 	pageSize int64,
 ) boardcopy.RecordSequence {
 	return func(yield func(boardcopy.Record, error) bool) {
@@ -151,7 +65,6 @@ func readCopyRecordSequence(
 			boardID,
 			storeOverrides,
 			source,
-			policy,
 		)
 		if err != nil {
 			yield(nil, err)
@@ -178,7 +91,6 @@ func readCopyRecordHeader(
 	boardID domainboard.ID,
 	storeOverrides configuration.Overrides,
 	sourceView BackupSource,
-	policy copyRecordPolicy,
 ) (boardcopy.RecordHeader, error) {
 	var header boardcopy.RecordHeader
 	if err := storeOverrides.Validate(); err != nil {
@@ -221,32 +133,6 @@ func readCopyRecordHeader(
 	)
 	if err != nil {
 		return header, fmt.Errorf("load source board configuration: %w", err)
-	}
-
-	if policy == requireQuiescentRecords {
-		activeClaims, err := queries.BoardCountCopyActiveClaims(ctx, boardID.String())
-		if err != nil {
-			return header, fmt.Errorf("inspect source claims: %w", err)
-		}
-		if activeClaims != 0 {
-			return header, errkind.Errorf(
-				errkind.Conflict,
-				"source board has active claims",
-			)
-		}
-		activeUploads, err := queries.AttachmentCountCopyActiveUploads(
-			ctx,
-			boardID.String(),
-		)
-		if err != nil {
-			return header, fmt.Errorf("inspect source attachment uploads: %w", err)
-		}
-		if activeUploads != 0 {
-			return header, errkind.Errorf(
-				errkind.Conflict,
-				"source board has active attachment uploads",
-			)
-		}
 	}
 
 	return boardcopy.RecordHeader{
