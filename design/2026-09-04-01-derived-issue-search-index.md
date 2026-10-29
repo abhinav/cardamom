@@ -1,7 +1,8 @@
 # Use a derived per-record FTS5 issue search index
 
 Date: 2026-09-04
-Status: Accepted
+Status: Superseded
+Superseded by: [Trust current-schema stores on open](2026-10-29-trust-current-schema-stores-on-open.md) (startup verification requirement only)
 
 ## Context
 

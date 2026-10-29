@@ -9,9 +9,10 @@ import (
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
-// verifyStore checks physical and canonical invariants that must hold before a
-// Store is published. An empty project catalog is valid until product
-// initialization completes it.
+// verifyStore checks physical and canonical invariants after schema migrations
+// and fresh-store initialization. It scans stored records and derived indexes;
+// routine opening of a current-schema database must not invoke it.
+// An empty project catalog is valid until product initialization completes it.
 func verifyStore(
 	ctx context.Context,
 	db *sql.DB,

@@ -70,8 +70,8 @@ func migrationSchemaVersion(provider *goose.Provider) int64 {
 	return sources[len(sources)-1].Version
 }
 
-// migrateStore applies every pending registered migration and reports the
-// resulting database schema version.
+// migrateStore applies pending migrations, verifies the database if migrations
+// ran, and reports the resulting schema version.
 //
 // The database version is observed through Provider so the rest of the store
 // package does not depend on Goose's ledger representation.
@@ -91,12 +91,20 @@ func migrateStore(ctx context.Context, db *sql.DB) (int64, error) {
 			SchemaVersion(),
 		)
 	}
-	if _, err := provider.Up(ctx); err != nil {
+	applied, err := provider.Up(ctx)
+	if err != nil {
 		return 0, fmt.Errorf("apply migrations: %w", err)
 	}
 	databaseVersion, err = provider.GetDBVersion(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("read migrated database schema version: %w", err)
+	}
+	// Full verification grows with stored data and history. Pay that cost when
+	// migrations change the database, not when a command merely reopens it.
+	if len(applied) > 0 {
+		if err := verifyStore(ctx, db, databaseVersion); err != nil {
+			return 0, fmt.Errorf("verify migrated database: %w", err)
+		}
 	}
 	return databaseVersion, nil
 }

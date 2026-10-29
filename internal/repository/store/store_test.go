@@ -110,6 +110,36 @@ SELECT count(*) FROM issue_search_fts WHERE body MATCH 'backfilltoken'
 	assert.Equal(t, 6, indexed)
 }
 
+func TestOpenVerifiesMigratedDatabase(t *testing.T) {
+	path := filepath.Join(t.TempDir(), "board.sqlite3")
+	db, err := sql.Open("sqlite", sqliteDSN(path, false))
+	require.NoError(t, err)
+	baseline, err := migrationFiles.ReadFile(
+		"migrations/20260726181403_baseline.sql",
+	)
+	require.NoError(t, err)
+	provider, err := newMigrationProvider(db, fstest.MapFS{
+		"20260726181403_baseline.sql": {Data: baseline},
+	})
+	require.NoError(t, err)
+	_, err = provider.Up(t.Context())
+	require.NoError(t, err)
+	// Migrations can succeed even when an existing projection violates an
+	// application invariant. The post-migration audit must still reject it.
+	_, err = db.ExecContext(t.Context(), `
+INSERT INTO projects(id, name, created_at)
+VALUES ('project', 'Project', 1);
+INSERT INTO boards(id, project_id, name, created_at, revision)
+VALUES ('board', 'project', 'Board', 1, 1);
+`)
+	require.NoError(t, err)
+	require.NoError(t, db.Close())
+
+	persistence, err := OpenExisting(t.Context(), Config{Path: path})
+	assert.Nil(t, persistence)
+	assert.ErrorContains(t, err, "verify migrated database: verify projection revisions")
+}
+
 func TestOpenProvidesNativeUnixTimestamps(t *testing.T) {
 	persistence, err := Open(t.Context(), Config{
 		Path: filepath.Join(t.TempDir(), "board.sqlite3"),
