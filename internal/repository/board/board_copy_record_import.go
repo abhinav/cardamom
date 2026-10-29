@@ -14,16 +14,19 @@ import (
 // copyRecordImporter writes one validated publication into an unpublished
 // destination board. Its caller owns validation and transaction publication.
 type copyRecordImporter struct {
-	ctx       context.Context // required
-	queries   *query.Queries  // required
-	projectID string          // required
-	name      string          // required
-	boardID   string          // required
+	ctx     context.Context // required
+	queries *query.Queries  // required
+	boardID string          // required
+	// projectID and name are required only when importing a copy header.
+	// Clone creates its board separately and submits projection rows only.
+	projectID string
+	name      string
 	// writerUID is the fresh identity of this independent board replica.
 	writerUID boardpkg.WriterUID
 	// issueIDs maps each source public ID to its destination public ID.
 	issueIDs map[string]string
-	// issueUIDs assigns each source public ID a fresh destination private UID.
+	// issueUIDs maps each source public ID to its destination private UID.
+	// Copy assigns new UIDs; clone preserves them.
 	issueUIDs     map[string]issue.UID
 	logIDs        map[string]string
 	rewrite       func(string) string // required

@@ -14,14 +14,14 @@ import (
 )
 
 func verifyBoardMutationHistory(ctx context.Context, queries *query.Queries) error {
-	missingLocalHistory, err := queries.StoreCountBoardsWithoutLocalMutationHistory(ctx)
+	missingHistory, err := queries.StoreCountBoardsWithoutMutationHistory(ctx)
 	if err != nil {
-		return fmt.Errorf("verify board mutation history: find missing local tips: %w", err)
+		return fmt.Errorf("verify board mutation history: find boards without history: %w", err)
 	}
-	if missingLocalHistory != 0 {
+	if missingHistory != 0 {
 		return fmt.Errorf(
-			"verify board mutation history: found %d boards without local history",
-			missingLocalHistory,
+			"verify board mutation history: found %d boards without history",
+			missingHistory,
 		)
 	}
 	invalidTopology, err := queries.StoreCountInvalidMutationTopology(ctx)

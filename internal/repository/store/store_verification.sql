@@ -21,14 +21,15 @@ LEFT JOIN board_replica_identities AS replica
     ON replica.board_id = board.id
 WHERE replica.board_id IS NULL;
 
--- name: StoreCountBoardsWithoutLocalMutationHistory :one
+-- name: StoreCountBoardsWithoutMutationHistory :one
+-- A clone starts with retained foreign history and an empty local writer
+-- chain. Every chain that has commits still requires its terminal tip;
+-- StoreCountInvalidMutationTopology checks that independently.
 SELECT count(*)
 FROM boards AS board
-JOIN board_replica_identities AS replica ON replica.board_id = board.id
-LEFT JOIN board_mutation_tips AS tip
-    ON tip.board_id = board.id
-    AND tip.writer_uid = replica.writer_uid
-WHERE tip.board_id IS NULL;
+WHERE NOT EXISTS (
+    SELECT 1 FROM board_mutation_tips AS tip WHERE tip.board_id = board.id
+);
 
 -- name: StoreCountInvalidMutationTopology :one
 SELECT

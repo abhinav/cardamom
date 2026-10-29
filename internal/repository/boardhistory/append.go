@@ -134,7 +134,20 @@ func (a *Appender) initialize() error {
 		}
 	}
 	if a.localTip.Writer != a.writer {
-		return errors.New("append board history: local writer has no retained tip")
+		// A newly cloned replica has observed history but has not authored a
+		// mutation. Its first event starts a new chain and observes all imported
+		// tips. A missing tip for a writer that already authored events is
+		// corruption, not a new chain.
+		hasCommits, err := a.queries.BoardHistoryWriterHasCommits(a.ctx,
+			query.BoardHistoryWriterHasCommitsParams{
+				BoardID: a.boardID.String(), WriterUid: a.writer.Bytes(),
+			})
+		if err != nil {
+			return fmt.Errorf("inspect local writer history: %w", err)
+		}
+		if hasCommits || len(frontier) == 0 {
+			return errors.New("append board history: local writer has no retained tip")
+		}
 	}
 	sequence := a.localTip.Sequence + 1
 	a.encoder, err = history.NewMutationEncoder(
@@ -199,6 +212,16 @@ func (a *Appender) Finish() error {
 		); err != nil {
 			return fmt.Errorf("append board history: retain attachment blob: %w", err)
 		}
+	}
+	if a.localTip.Sequence == 0 {
+		if err := a.queries.BoardHistoryInsertTip(a.ctx,
+			query.BoardHistoryInsertTipParams{
+				BoardID: a.boardID.String(), WriterUid: a.writer.Bytes(),
+				Sequence: int64(sequence), MarkerHash: marker.Hash().Bytes(),
+			}); err != nil {
+			return fmt.Errorf("insert first local writer tip: %w", err)
+		}
+		return nil
 	}
 	changed, err := a.queries.BoardHistoryAdvanceTip(
 		a.ctx,

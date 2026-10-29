@@ -5,6 +5,7 @@
 - [Search issue history](searching.md)
 - [Stores, projects, boards, and setup patterns](setups.md)
 - [Portable backups](portable-backups.md)
+- [Clone a board](board-clones.md)
 - [Workflow recipes](workflows/README.md)
     - [Coordinator and worker agents](workflows/coordinator-workers.md)
     - [Shared work queue](workflows/shared-work-queue.md)
