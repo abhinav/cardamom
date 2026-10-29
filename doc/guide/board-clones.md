@@ -36,6 +36,3 @@ Clone does not update or merge existing replicas.
 Changes made after cloning remain separate.
 If an import fails before commit, no destination board is published;
 any verified attachment files already transferred can be collected as orphans.
-
-`card board copy` remains a separate independent-duplication operation.
-It assigns new board and private issue identities instead of preserving lineage.

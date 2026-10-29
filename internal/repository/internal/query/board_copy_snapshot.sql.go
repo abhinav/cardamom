@@ -10,19 +10,6 @@ import (
 	"time"
 )
 
-const boardCountCopyActiveClaims = `-- name: BoardCountCopyActiveClaims :one
-SELECT count(*) AS active_claim_count
-FROM active_claims
-WHERE board_id = ?1
-`
-
-func (q *Queries) BoardCountCopyActiveClaims(ctx context.Context, boardID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, boardCountCopyActiveClaims, boardID)
-	var active_claim_count int64
-	err := row.Scan(&active_claim_count)
-	return active_claim_count, err
-}
-
 const boardGetCopySource = `-- name: BoardGetCopySource :one
 SELECT
     board.id AS board_id,

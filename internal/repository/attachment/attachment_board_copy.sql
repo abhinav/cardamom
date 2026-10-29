@@ -1,9 +1,3 @@
--- name: AttachmentCountCopyActiveUploads :one
-SELECT count(*) AS active_upload_count
-FROM attachment_uploads
-WHERE board_id = sqlc.arg(board_id)
-    AND state = 'active';
-
 -- name: AttachmentListCopyMetadataPage :many
 SELECT
     attachment.id,

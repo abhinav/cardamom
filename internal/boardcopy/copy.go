@@ -1,34 +1,22 @@
-// Package boardcopy owns independent, non-destructive board duplication
-// between physical Cardamom stores.
-// A copy receives new logical board, writer, and private issue identities.
-// Synchronization clone and recovery preserve logical identities and therefore
-// use a different operation.
+// Package boardcopy defines portable board records and independent import
+// semantics used by backup and restore.
+// An imported board receives new logical board, writer, and private issue
+// identities. Cloning preserves logical identities through a separate operation.
 package boardcopy
 
 import (
 	"context"
-	"errors"
-	"fmt"
 	"io"
 	"strings"
 
 	"go.abhg.dev/cardamom/internal/attachment"
-	"go.abhg.dev/cardamom/internal/board"
-	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/errkind"
-	"go.abhg.dev/cardamom/internal/must"
 )
 
 // CopyOptions selects the destination namespace and optional board name.
 type CopyOptions struct {
 	ProjectID string
 	Name      *string
-}
-
-// CopyRequest selects the source board and destination options.
-type CopyRequest struct {
-	SourceBoardID board.ID
-	Options       CopyOptions
 }
 
 // CopyIdentityMap records one source-to-destination identity decision.
@@ -166,14 +154,6 @@ type RecordDestination interface {
 	) (CopyImportResult, error)
 }
 
-// CopyBlobSource opens verified content without exposing its private path.
-type CopyBlobSource interface {
-	OpenCopyBlob(
-		context.Context,
-		attachment.BlobDescriptor,
-	) (io.ReadCloser, error)
-}
-
 // CopyBlobDestination publishes verified content before metadata references it.
 type CopyBlobDestination interface {
 	PublishCopyBlob(
@@ -181,142 +161,6 @@ type CopyBlobDestination interface {
 		attachment.BlobDescriptor,
 		io.Reader,
 	) error
-}
-
-// CopyConfiguration reads the source store's physical configuration layer.
-type CopyConfiguration interface {
-	ReadStoreConfiguration(context.Context) (configuration.Overrides, error)
-}
-
-// CopyServiceConfig supplies the finite collaborators for one board copy.
-type CopyServiceConfig struct {
-	Source           RecordSource        // required
-	Destination      RecordDestination   // required
-	SourceBlobs      CopyBlobSource      // required
-	DestinationBlobs CopyBlobDestination // required
-	Configuration    CopyConfiguration   // required
-}
-
-// CopyService owns one non-destructive board copy between physical stores.
-type CopyService struct {
-	source           RecordSource
-	destination      RecordDestination
-	sourceBlobs      CopyBlobSource
-	destinationBlobs CopyBlobDestination
-	configuration    CopyConfiguration
-}
-
-// NewCopyService constructs the finite board-copy operation.
-func NewCopyService(cfg CopyServiceConfig) *CopyService {
-	must.NotBeNilf(cfg.Source, "board copy source is required")
-	must.NotBeNilf(cfg.Destination, "board copy destination is required")
-	must.NotBeNilf(cfg.SourceBlobs, "board copy source blobs are required")
-	must.NotBeNilf(cfg.DestinationBlobs, "board copy destination blobs are required")
-	must.NotBeNilf(cfg.Configuration, "board copy configuration is required")
-	return &CopyService{
-		source: cfg.Source, destination: cfg.Destination,
-		sourceBlobs: cfg.SourceBlobs, destinationBlobs: cfg.DestinationBlobs,
-		configuration: cfg.Configuration,
-	}
-}
-
-// Copy creates one independent destination board or returns an identical prior
-// receipt.
-func (s *CopyService) Copy(
-	ctx context.Context,
-	request CopyRequest,
-) (CopyOutcome, error) {
-	if _, err := board.NewID(request.SourceBoardID.String()); err != nil {
-		return CopyOutcome{}, err
-	}
-	if strings.TrimSpace(request.Options.ProjectID) == "" {
-		return CopyOutcome{}, errkind.Errorf(
-			errkind.InvalidInput,
-			"invalid project namespace: destination project required",
-		)
-	}
-	if request.Options.Name != nil && strings.TrimSpace(*request.Options.Name) == "" {
-		return CopyOutcome{}, errkind.Errorf(
-			errkind.InvalidInput,
-			"invalid project namespace: board name required",
-		)
-	}
-
-	before, err := s.configuration.ReadStoreConfiguration(ctx)
-	if err != nil {
-		return CopyOutcome{}, fmt.Errorf("read source store configuration: %w", err)
-	}
-	index, err := IndexRecords(
-		s.source.ReadCopyRecords(ctx, request.SourceBoardID, before),
-	)
-	if err != nil {
-		return CopyOutcome{}, err
-	}
-	after, err := s.configuration.ReadStoreConfiguration(ctx)
-	if err != nil {
-		return CopyOutcome{}, fmt.Errorf("reread source store configuration: %w", err)
-	}
-	if !before.Equal(after) {
-		return CopyOutcome{}, errkind.Errorf(
-			errkind.Conflict,
-			"source store configuration changed while reading the board snapshot",
-		)
-	}
-
-	receipt, found, err := s.destination.ReadCopyReceipt(
-		ctx,
-		copyReceiptKey(index),
-	)
-	if err != nil {
-		return CopyOutcome{}, err
-	}
-	if found {
-		outcome, err := EvaluateRecordReceipt(
-			index,
-			request.Options,
-			receipt,
-		)
-		if err != nil {
-			return CopyOutcome{}, err
-		}
-		outcome.Counts.Blobs = len(index.Blobs)
-		return outcome, nil
-	}
-	for _, descriptor := range index.Blobs {
-		reader, err := s.sourceBlobs.OpenCopyBlob(ctx, descriptor)
-		if err != nil {
-			return CopyOutcome{}, fmt.Errorf(
-				"open source blob %s: %w",
-				descriptor.Digest,
-				err,
-			)
-		}
-		publishErr := s.destinationBlobs.PublishCopyBlob(ctx, descriptor, reader)
-		closeErr := reader.Close()
-		if err := errors.Join(publishErr, closeErr); err != nil {
-			return CopyOutcome{}, fmt.Errorf(
-				"publish destination blob %s: %w",
-				descriptor.Digest,
-				err,
-			)
-		}
-	}
-
-	importResult, err := s.destination.ImportCopyRecords(
-		ctx,
-		index,
-		s.source.ReadCopyRecords(ctx, request.SourceBoardID, before),
-		request.Options,
-	)
-	if err != nil {
-		return CopyOutcome{}, err
-	}
-	outcome, err := EvaluateCopyImport(index, request.Options, importResult)
-	if err != nil {
-		return CopyOutcome{}, err
-	}
-	outcome.Counts.Blobs = len(index.Blobs)
-	return outcome, nil
 }
 
 // EvaluateRecordReceipt applies retry policy to an indexed record publication.
@@ -368,14 +212,6 @@ func evaluateCopyReceipt(
 		Counts:               counts,
 		Mappings:             receipt.Mappings,
 	}, nil
-}
-
-func copyReceiptKey(index RecordIndex) CopyReceiptKey {
-	return CopyReceiptKey{
-		SourceLineageID: index.Header.SourceLineageID,
-		SourceBoardID:   index.Header.Board.ID,
-		SnapshotVersion: index.Header.Version,
-	}
 }
 
 func copyDestinationName(

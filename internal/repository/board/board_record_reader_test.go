@@ -1,9 +1,7 @@
 package board
 
 import (
-	"context"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -11,11 +9,9 @@ import (
 	"go.abhg.dev/cardamom/internal/configuration"
 )
 
-func TestRepository_RecordSequenceUsesKeysetPagesFromOneView(t *testing.T) {
+func TestBackupReader_RecordSequenceUsesKeysetPagesFromOneView(t *testing.T) {
 	persistence := openCopyTestStore(t, t.TempDir())
 	seedCopySource(t, persistence, copyTestBlobDescriptor(t))
-	repository, err := New(persistence, Config{BoardID: "board-source"})
-	require.NoError(t, err)
 	change, err := persistence.Change(t.Context())
 	require.NoError(t, err)
 	_, err = change.ExecContext(t.Context(), `
@@ -34,11 +30,18 @@ UPDATE store_state SET current_revision = 3 WHERE singleton = 1`)
 	require.NoError(t, change.Commit())
 	require.NoError(t, change.Done())
 
+	view, err := persistence.View(t.Context())
+	require.NoError(t, err)
+	t.Cleanup(func() { assert.NoError(t, view.Done()) })
+	lineageID, err := view.LineageID(t.Context())
+	require.NoError(t, err)
 	records := make([]boardcopy.Record, 0, 23)
-	for record, recordErr := range repository.readCopyRecords(
+	for record, recordErr := range readCopyRecordSequence(
 		t.Context(),
+		view,
 		"board-source",
 		configuration.Overrides{},
+		BackupSource{LineageID: lineageID, Revision: 3},
 		1,
 	) {
 		require.NoError(t, recordErr)
@@ -138,50 +141,6 @@ WHERE singleton = 1`)
 		ExternalKeys: 2, LogEntries: 2, States: 1, Results: 1,
 		Checkpoints: 1, Attachments: 1, Pins: 2,
 	}}, records[len(records)-1])
-}
-
-func TestRepository_RecordSequenceClosesOwnedViewAfterEarlyStop(t *testing.T) {
-	persistence := openCopyTestStore(t, t.TempDir())
-	seedCopySource(t, persistence, copyTestBlobDescriptor(t))
-	repository, err := New(persistence, Config{BoardID: "board-source"})
-	require.NoError(t, err)
-	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
-	t.Cleanup(cancel)
-
-	for range 8 {
-		for _, recordErr := range repository.ReadCopyRecords(
-			ctx,
-			"board-source",
-			configuration.Overrides{},
-		) {
-			require.NoError(t, recordErr)
-			break
-		}
-	}
-	assert.NoError(t, ctx.Err())
-}
-
-func TestRepository_RecordSequenceClosesOwnedViewAfterPinStop(t *testing.T) {
-	persistence := openCopyTestStore(t, t.TempDir())
-	seedCopySource(t, persistence, copyTestBlobDescriptor(t))
-	repository, err := New(persistence, Config{BoardID: "board-source"})
-	require.NoError(t, err)
-
-	for record, recordErr := range repository.readCopyRecords(
-		t.Context(),
-		"board-source",
-		configuration.Overrides{},
-		1,
-	) {
-		require.NoError(t, recordErr)
-		if boardcopy.RecordTypeOf(record) == boardcopy.RecordTypePin {
-			break
-		}
-	}
-
-	view, err := persistence.View(t.Context())
-	require.NoError(t, err)
-	assert.NoError(t, view.Done())
 }
 
 func TestBackupReader_RecordSequenceBorrowsView(t *testing.T) {

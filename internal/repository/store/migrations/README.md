@@ -69,11 +69,11 @@ A filesystem clone retains the lineage because the value lives in SQLite.
 
 `board_copy_receipts` records the source lineage, board, semantic snapshot,
 destination options, destination board, and destination revision for each
-successful copy.
+successful restore import.
 Separate mapping tables retain every issue, Log, and attachment identity
 decision.
 The schema permits several snapshot receipts for one source board;
-first-release changed-snapshot rejection is command policy rather than a
+changed-snapshot rejection is restore policy rather than a
 schema constraint.
 
 ### Project catalog
@@ -86,7 +86,7 @@ or a board with issues.
 
 `boards.id` is the logical board identity.
 A synchronization clone preserves it across stores,
-while independent creation, copy, and restore operations assign a new value.
+while independent creation and restore operations assign a new value.
 `board_replica_identities` assigns one immutable writer UID to the local board
 replica.
 Future mutation history uses the writer UID to distinguish changes written by
@@ -146,7 +146,7 @@ Store verification compares the document projection with the canonical rows
 and asks FTS5 to verify the index before a store is published.
 
 The derived search tables are not portable state.
-Backup, restore, and board copy operate on canonical records; the same triggers
+Backup, restore, and board clone operate on canonical records; the same triggers
 construct search documents for inserted records.
 
 ### Attachments

@@ -1,0 +1,3 @@
+kind: Removed
+body: Remove `card board copy`. Use `card board clone` to create a replica in another local store while preserving board and issue identities and mutation history.
+time: 2026-10-21T10:53:56.836303-07:00

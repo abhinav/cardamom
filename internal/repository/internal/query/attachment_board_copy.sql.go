@@ -10,20 +10,6 @@ import (
 	"time"
 )
 
-const attachmentCountCopyActiveUploads = `-- name: AttachmentCountCopyActiveUploads :one
-SELECT count(*) AS active_upload_count
-FROM attachment_uploads
-WHERE board_id = ?1
-    AND state = 'active'
-`
-
-func (q *Queries) AttachmentCountCopyActiveUploads(ctx context.Context, boardID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, attachmentCountCopyActiveUploads, boardID)
-	var active_upload_count int64
-	err := row.Scan(&active_upload_count)
-	return active_upload_count, err
-}
-
 const attachmentInsertCopiedMetadata = `-- name: AttachmentInsertCopiedMetadata :exec
 INSERT INTO attachments (
     board_id,

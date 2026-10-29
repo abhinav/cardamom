@@ -18,11 +18,6 @@ FROM boards AS board
 JOIN projects AS project ON project.id = board.project_id
 WHERE board.id = sqlc.arg(board_id);
 
--- name: BoardCountCopyActiveClaims :one
-SELECT count(*) AS active_claim_count
-FROM active_claims
-WHERE board_id = sqlc.arg(board_id);
-
 -- Incremental copy and backup traversal. Each query returns one bounded keyset
 -- page from a caller-owned retained view.
 

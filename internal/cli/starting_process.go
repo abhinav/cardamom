@@ -475,7 +475,6 @@ func newProjectDetailOut(detail projectinspection.Detail) projectDetailOut {
 type boardCommand struct {
 	List      boardListCommand      `cmd:"" help:"List coordination boards."`
 	Create    boardCreateCommand    `cmd:"" help:"Create a coordination board."`
-	Copy      boardCopyCommand      `cmd:"" help:"Copy a board into another store."`
 	Clone     boardCloneCommand     `cmd:"" help:"Clone a board replica into another local store."`
 	Pin       boardPinCommand       `cmd:"" help:"Pin an issue to the selected board."`
 	Unpin     boardUnpinCommand     `cmd:"" help:"Unpin an issue from the selected board."`
