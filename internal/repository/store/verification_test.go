@@ -17,7 +17,7 @@ import (
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
-func TestOpenRejectsForeignKeyCorruption(t *testing.T) {
+func TestVerifyStoreRejectsForeignKeyCorruption(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "foreign-key.db")
 	persistence, err := Open(t.Context(), Config{Path: path})
 	require.NoError(t, err)
@@ -30,14 +30,12 @@ func TestOpenRejectsForeignKeyCorruption(t *testing.T) {
 		VALUES ('missing-board', randomblob(16), 'broken')
 	`)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err = Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "foreign keys")
 }
 
-func TestOpenRejectsProjectionRevisionBeyondStoreHead(t *testing.T) {
+func TestVerifyStoreRejectsProjectionRevisionBeyondStoreHead(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "store-state.db")
 	persistence, err := Open(t.Context(), Config{Path: path})
 	require.NoError(t, err)
@@ -52,14 +50,12 @@ func TestOpenRejectsProjectionRevisionBeyondStoreHead(t *testing.T) {
 		VALUES ('board', 'project', 'Board', 1, 1);
 	`)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err = Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "projection revisions")
 }
 
-func TestOpenRejectsBoardWithoutReplicaIdentity(t *testing.T) {
+func TestVerifyStoreRejectsBoardWithoutReplicaIdentity(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "board-replica.db")
 	persistence, err := Open(t.Context(), Config{Path: path})
 	require.NoError(t, err)
@@ -74,14 +70,12 @@ func TestOpenRejectsBoardWithoutReplicaIdentity(t *testing.T) {
 		VALUES ('board', 'project', 'Board', 1);
 	`)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err = Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "board replica identities")
 }
 
-func TestOpenRejectsCrossBoardRelationshipCorruption(t *testing.T) {
+func TestVerifyStoreRejectsCrossBoardRelationshipCorruption(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "cross-board-dependency.db")
 	persistence, err := Open(t.Context(), Config{Path: path})
 	require.NoError(t, err)
@@ -110,14 +104,12 @@ func TestOpenRejectsCrossBoardRelationshipCorruption(t *testing.T) {
 		);
 	`)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err = Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "foreign keys")
 }
 
-func TestOpenRejectsInvalidIssueUID(t *testing.T) {
+func TestVerifyStoreRejectsInvalidIssueUID(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "invalid-issue-uid.db")
 	persistence, err := Open(t.Context(), Config{Path: path})
 	require.NoError(t, err)
@@ -133,16 +125,15 @@ func TestOpenRejectsInvalidIssueUID(t *testing.T) {
 		INSERT INTO issues(
 			uid, id, board_id, title, kind, lifecycle, priority, created_at, updated_at
 		) VALUES (zeroblob(16), 'broken', 'board', 'Broken', 'task', 'open', 2, 1, 1);
+		PRAGMA ignore_check_constraints = 0;
 	`)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err = Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "CHECK constraint failed in issues")
 }
 
-func TestOpenRejectsIssueSearchProjectionCorruption(t *testing.T) {
+func TestVerifyStoreRejectsIssueSearchProjectionCorruption(t *testing.T) {
 	path := openSearchVerificationStore(t)
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
@@ -152,14 +143,12 @@ WHERE issue_uid = (SELECT uid FROM issues WHERE id = 'an-issue')
     AND field = 'title'
 `)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err := Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "issue search documents")
 }
 
-func TestOpenRejectsIssueSearchIndexCorruption(t *testing.T) {
+func TestVerifyStoreRejectsIssueSearchIndexCorruption(t *testing.T) {
 	path := openSearchVerificationStore(t)
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
@@ -173,14 +162,12 @@ WHERE rowid = (
 )
 `)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err := Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "issue search index")
 }
 
-func TestOpenRejectsBoardMutationPayloadCorruption(t *testing.T) {
+func TestVerifyStoreRejectsBoardMutationPayloadCorruption(t *testing.T) {
 	path := openSearchVerificationStore(t)
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
@@ -190,35 +177,32 @@ SET bytes = CAST(X'00' || substr(bytes, 2) AS BLOB)
 WHERE board_id = 'board' AND sequence = 1 AND part_index = 0
 `)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err := Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "board mutation history")
 }
 
-func TestOpenAcceptsDeduplicatedBoardMutationBlobReferences(t *testing.T) {
+func TestVerifyStoreAcceptsDeduplicatedBoardMutationBlobReferences(t *testing.T) {
 	path := openAttachmentHistoryVerificationStore(t)
-	persistence, err := Open(t.Context(), Config{Path: path})
+	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
-	require.NoError(t, persistence.Close())
+	t.Cleanup(func() { assert.NoError(t, db.Close()) })
+	assert.NoError(t, verifyStore(t.Context(), db, SchemaVersion()))
 }
 
-func TestOpenRejectsMissingBoardMutationBlobReference(t *testing.T) {
+func TestVerifyStoreRejectsMissingBoardMutationBlobReference(t *testing.T) {
 	path := openAttachmentHistoryVerificationStore(t)
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
 	_, err = db.Exec(`DELETE FROM board_mutation_blob_refs`)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err := Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "attachment blob reference")
 	assert.ErrorContains(t, err, "is missing")
 }
 
-func TestOpenRejectsExtraneousBoardMutationBlobReference(t *testing.T) {
+func TestVerifyStoreRejectsExtraneousBoardMutationBlobReference(t *testing.T) {
 	path := openAttachmentHistoryVerificationStore(t)
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
@@ -234,10 +218,8 @@ FROM board_mutation_commits
 WHERE board_id = 'board' AND sequence = 1;
 `)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err := Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "has no attachment add event")
 }
 
@@ -253,7 +235,7 @@ func TestVerifyRejectsBoardMutationBlobReferenceWrongSize(t *testing.T) {
 	assert.ErrorContains(t, err, "has size 5; want 4")
 }
 
-func TestOpenRejectsMissingMutationFrontierTip(t *testing.T) {
+func TestVerifyStoreRejectsMissingMutationFrontierTip(t *testing.T) {
 	path := openSearchVerificationStore(t)
 	db, err := sql.Open("sqlite", path+"?_pragma=foreign_keys(0)")
 	require.NoError(t, err)
@@ -283,23 +265,19 @@ SET marker_bytes = ?, marker_hash = ?
 WHERE board_id = 'board' AND sequence = 1
 `, markerBytes, markerHash[:])
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err := Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "does not identify retained history")
 }
 
-func TestOpenRejectsBoardWithoutMutationHistory(t *testing.T) {
+func TestVerifyStoreRejectsBoardWithoutMutationHistory(t *testing.T) {
 	path := openSearchVerificationStore(t)
 	db, err := sql.Open("sqlite", path)
 	require.NoError(t, err)
 	_, err = db.Exec(`DELETE FROM board_mutation_tips WHERE board_id = 'board'`)
 	require.NoError(t, err)
-	require.NoError(t, db.Close())
-
-	persistence, err := Open(t.Context(), Config{Path: path})
-	assert.Nil(t, persistence)
+	err = verifyStore(t.Context(), db, SchemaVersion())
+	assert.NoError(t, db.Close())
 	assert.ErrorContains(t, err, "without history")
 }
 

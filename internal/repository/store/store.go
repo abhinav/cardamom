@@ -49,8 +49,9 @@ type Store struct {
 	closeErr error
 }
 
-// Open migrates and verifies one local SQLite database before publishing its
+// Open creates or migrates one local SQLite database before publishing its
 // Store lifetime to the caller.
+// A current-schema database is trusted without scanning its contents.
 func Open(ctx context.Context, cfg Config) (*Store, error) {
 	absolutePath, err := absoluteStorePath(cfg)
 	if err != nil {
@@ -101,7 +102,7 @@ func openStore(ctx context.Context, absolutePath string) (*Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	// WAL setup, migration, and verification run before reader connections can
+	// WAL setup and migration run before reader connections can
 	// observe the database or a partially initialized Store can escape.
 	if err := configureWAL(ctx, writer); err != nil {
 		return nil, closeAfterOpenFailure(err, writer)
@@ -110,10 +111,6 @@ func openStore(ctx context.Context, absolutePath string) (*Store, error) {
 	if err != nil {
 		return nil, closeAfterOpenFailure(err, writer)
 	}
-	if err := verifyStore(ctx, writer, databaseSchemaVersion); err != nil {
-		return nil, closeAfterOpenFailure(err, writer)
-	}
-
 	readers, err := openDatabase(
 		ctx,
 		sqliteDSN(absolutePath, true),

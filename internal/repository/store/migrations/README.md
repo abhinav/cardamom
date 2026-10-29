@@ -46,6 +46,13 @@ runtime migration registry read the same authoritative schema sequence.
 Data-only migrations may use explicit Go registrations owned by the store
 package.
 
+Full store verification runs after pending migrations are applied
+and after fresh-store initialization completes.
+Opening a current-schema store trusts its contents without scanning records,
+search indexes, or mutation history.
+Migration transactions commit before verification;
+a failed verification does not roll those transactions back.
+
 ## Current schema families
 
 ### Store revisions
