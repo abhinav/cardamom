@@ -1,3 +1,0 @@
-kind: Fixed
-body: Avoid scanning the entire database when commands open a store whose schema is already current.
-time: 2026-10-29T12:29:00.533392-07:00
