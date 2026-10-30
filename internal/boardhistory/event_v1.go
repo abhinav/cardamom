@@ -100,6 +100,8 @@ func decodePayloadV1(kind EventKind, encoded []byte) (Payload, error) {
 		return decodeIssueOriginV1(encoded)
 	case EventIssuePublicIDSet:
 		return decodeIssuePublicIDSetV1(encoded)
+	case EventReferenceMarker:
+		return decodeReferenceMarkerV1(encoded)
 	case EventIssueTitleSet:
 		return decodeIssueTitleSetV1(encoded)
 	case EventIssueKindSet:

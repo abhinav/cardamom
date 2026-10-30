@@ -146,6 +146,9 @@ func (r *CloneRepository) Clone(ctx context.Context, request boardclone.Request)
 	if err != nil {
 		return out, err
 	}
+	if err := cloneReferenceMarkers(ctx, reader, writer, header.ID); err != nil {
+		return out, err
+	}
 	if err := change.PublishRevisions(ctx, revisions); err != nil {
 		return out, fmt.Errorf("publish clone revisions: %w", err)
 	}

@@ -65,6 +65,9 @@ type Config struct {
 
 	// Views converts issue-domain records to generated protocol messages.
 	Views *issueview.Encoder // required
+
+	// Markers resolves retired references before ordinary board selection.
+	Markers issue.MarkerReader // required
 }
 
 // Service adapts issue reads to generated IssueService RPCs.
@@ -74,6 +77,7 @@ type Service struct {
 	readers BoardReaderFactory
 	pins    BoardPinsFactory
 	views   *issueview.Encoder
+	markers issue.MarkerReader
 }
 
 var _ privatev1connect.IssueServiceHandler = (*Service)(nil)
@@ -84,8 +88,9 @@ func New(cfg Config) *Service {
 	must.NotBeNilf(cfg.Readers, "issueconnect: board reader factory is required")
 	must.NotBeNilf(cfg.Pins, "issueconnect: board pins factory is required")
 	must.NotBeNilf(cfg.Views, "issueconnect: issue view encoder is required")
+	must.NotBeNilf(cfg.Markers, "issueconnect: reference marker reader is required")
 	return &Service{
-		scope: cfg.Scope, readers: cfg.Readers, pins: cfg.Pins, views: cfg.Views,
+		scope: cfg.Scope, readers: cfg.Readers, pins: cfg.Pins, views: cfg.Views, markers: cfg.Markers,
 	}
 }
 

@@ -4,6 +4,7 @@ import { createPortal } from "react-dom";
 
 import { ClipboardPill } from "./clipboard-pill.tsx";
 import type {
+  IssueReferenceMarker,
   IssueStatus,
   IssueType,
   WaitingState,
@@ -17,8 +18,13 @@ import { IssueWaitingReason } from "./issue-waiting.tsx";
 
 import "./issue-reference-pill.css";
 
-/** IssueReferencePreview is the compact metadata needed to identify an issue. */
-export interface IssueReferencePreview {
+/** IssueReferencePreview identifies an issue or interpretations of a retired ID. */
+export type IssueReferencePreview = IssuePreview | {
+  /** marker preserves every interpretation of a retired public ID. */
+  marker: IssueReferenceMarker;
+};
+
+interface IssuePreview {
   /** title is the human-readable issue title. */
   title: string;
 
@@ -61,9 +67,10 @@ export function IssueReferencePill({
   const pill = useRef<HTMLSpanElement>(null);
   const previewID = useId();
   const preview = issue ?? loadedIssue;
-  const status = preview === undefined
+  const ordinary = preview !== undefined && !("marker" in preview) ? preview : undefined;
+  const status = ordinary === undefined
     ? undefined
-    : issueStatusPresentation(preview.status);
+    : issueStatusPresentation(ordinary.status);
   const visible = preview !== undefined && !dismissed && (hovering || focused);
   const reference = `%${issueID}`;
 
@@ -149,6 +156,14 @@ export function IssueReferencePill({
           style={previewPosition}
         >
           <span className="issue-reference-preview-id">{reference}</span>
+          {"marker" in preview ? <>
+            <strong>Ambiguous issue reference</strong>
+            {preview.marker.candidates.map((candidate) => (
+              <span key={`${candidate.boardId}:${candidate.id}`}>
+                {candidate.id}: {candidate.available ? candidate.title ?? "Title unresolved" : "Issue unavailable locally"}
+              </span>
+            ))}
+          </> : <>
           <strong>{preview.title}</strong>
           <span className="issue-reference-preview-metadata">
             <span className="issue-reference-preview-status">
@@ -159,6 +174,7 @@ export function IssueReferencePill({
             <span>P{preview.priority}</span>
           </span>
           <IssueWaitingReason issue={preview} />
+          </>}
         </span>,
         visible,
       )}

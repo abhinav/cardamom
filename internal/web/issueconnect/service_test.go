@@ -470,12 +470,33 @@ func TestServiceGetIssue(t *testing.T) {
 	assert.Equal(t, "dependent", detail.GetDependents()[0].GetId())
 }
 
+func TestServiceGetIssueRetiredReferenceBypassesBoardSelection(t *testing.T) {
+	client := newTestClient(t, testConfig{
+		Catalog: &testCatalog{}, IssueBoards: testIssueLocator{},
+		BoardReaders: NewMockBoardReaderFactory(gomock.NewController(t)), Markdown: markdown.New(),
+		Markers: &testMarkerReader{marker: &issue.ReferenceMarker{ID: "card-old", Candidates: []issue.MarkerCandidate{
+			{UID: issue.UID{}, BoardID: "board-a", ID: "card-a", Available: true},
+			{UID: issue.UID{}, BoardID: "board-b", ID: "card-b"},
+		}}},
+	})
+	response, err := client.GetIssue(t.Context(), connect.NewRequest(&privatev1.GetIssueRequest{IssueId: "card-old", BoardId: new("old-route-board")}))
+	require.NoError(t, err)
+	assert.Nil(t, response.Msg.Issue)
+	require.NotNil(t, response.Msg.Marker)
+	assert.Equal(t, "card-old", response.Msg.Marker.Id)
+	require.Len(t, response.Msg.Marker.Candidates, 2)
+	assert.True(t, response.Msg.Marker.Candidates[0].Available)
+	assert.Nil(t, response.Msg.Marker.Candidates[0].Title)
+	assert.False(t, response.Msg.Marker.Candidates[1].Available)
+}
+
 type testConfig struct {
 	Catalog      boardscope.Catalog
 	IssueBoards  boardscope.IssueLocator
 	BoardReaders BoardReaderFactory
 	BoardPins    BoardPinsFactory
 	Markdown     issueview.MarkdownRenderer
+	Markers      issue.MarkerReader
 }
 
 func newTestService(t *testing.T, cfg testConfig) *Service {
@@ -483,11 +504,23 @@ func newTestService(t *testing.T, cfg testConfig) *Service {
 	if cfg.BoardPins == nil {
 		cfg.BoardPins = testBoardPinsFactory{}
 	}
+	if cfg.Markers == nil {
+		cfg.Markers = &testMarkerReader{}
+	}
 	return New(Config{
 		Scope:   boardscope.New(cfg.Catalog, cfg.IssueBoards),
 		Readers: cfg.BoardReaders, Pins: cfg.BoardPins,
-		Views: issueview.New(cfg.Markdown),
+		Views: issueview.New(cfg.Markdown), Markers: cfg.Markers,
 	})
+}
+
+type testMarkerReader struct{ marker *issue.ReferenceMarker }
+
+func (r *testMarkerReader) ReadMarker(_ context.Context, id issue.ID) (*issue.ReferenceMarker, error) {
+	if r.marker != nil && r.marker.ID == id {
+		return r.marker, nil
+	}
+	return nil, nil
 }
 
 func newTestClient(t *testing.T, cfg testConfig) privatev1connect.IssueServiceClient {

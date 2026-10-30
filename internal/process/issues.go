@@ -1,6 +1,8 @@
 package process
 
 import (
+	"context"
+
 	domainattachment "go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/cli"
@@ -8,6 +10,7 @@ import (
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/issue/planning"
 	"go.abhg.dev/cardamom/internal/issue/record"
+	"go.abhg.dev/cardamom/internal/issueinspection"
 )
 
 func provideIssueRecorder(
@@ -81,17 +84,40 @@ func provideListBlockedIssuesOperation(
 }
 
 func provideReadIssueOperation(
-	inspector *domainattachment.IssueInspector,
+	runtime *namespaceRuntime,
+	invocation *cli.Invocation,
+	attachments *domainattachment.Service,
 ) cli.ReadIssueOperation {
-	return inspector
+	return &issueinspection.Inspector{
+		Markers: runtime.locator,
+		Issues:  &commandIssueReader{runtime: runtime, invocation: invocation, attachments: attachments},
+	}
 }
 
-func provideIssueInspector(
-	selected *board.State,
-	queries *issue.Queries,
-	attachments *domainattachment.Service,
-) *domainattachment.IssueInspector {
-	return domainattachment.NewIssueInspector(selected.ID(), queries, attachments)
+// commandIssueReader delays ordinary board composition until inspection has
+// ruled out a store-scoped marker, which has no single owning board.
+type commandIssueReader struct {
+	runtime     *namespaceRuntime
+	invocation  *cli.Invocation
+	attachments *domainattachment.Service
+}
+
+var _ issueinspection.Reader = (*commandIssueReader)(nil)
+
+func (r *commandIssueReader) ReadIssue(ctx context.Context, request issue.ReadRequest) (issueinspection.LocatedIssue, error) {
+	selected, err := r.runtime.selectBoard(ctx, r.invocation.Board, r.invocation.BoardIssueIDs)
+	if err != nil {
+		return issueinspection.LocatedIssue{}, err
+	}
+	queries, err := r.runtime.issueQueries(selected.ID())
+	if err != nil {
+		return issueinspection.LocatedIssue{}, err
+	}
+	view, err := domainattachment.NewIssueInspector(selected.ID(), queries, r.attachments).ReadIssue(ctx, request)
+	if err != nil {
+		return issueinspection.LocatedIssue{}, err
+	}
+	return issueinspection.LocatedIssue{BoardID: selected.ID(), View: view}, nil
 }
 
 func provideClaimOperations(executor *execution.Executor) cli.ClaimOperations {

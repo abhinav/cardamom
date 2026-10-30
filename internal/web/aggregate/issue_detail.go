@@ -32,7 +32,17 @@ func (s *Server) getIssue(
 	if err != nil {
 		return nil, connect.NewError(connect.CodeUnavailable, errors.New("source unavailable"))
 	}
-	if response == nil || response.Msg == nil || response.Msg.GetIssue() == nil {
+	if response == nil || response.Msg == nil {
+		return nil, connect.NewError(connect.CodeInternal, errors.New("source returned no issue"))
+	}
+	if response.Msg.GetMarker() != nil {
+		marker := proto.Clone(response.Msg.GetMarker()).(*v1.IssueReferenceMarker)
+		for _, candidate := range marker.Candidates {
+			candidate.Source = proto.Clone(route.ref).(*v1.SourceRef)
+		}
+		return connect.NewResponse(&v1.GetIssueResponse{Marker: marker}), nil
+	}
+	if response.Msg.GetIssue() == nil {
 		return nil, connect.NewError(connect.CodeInternal, errors.New("source returned no issue"))
 	}
 	return connect.NewResponse(&v1.GetIssueResponse{
@@ -62,7 +72,7 @@ func (s *Server) issueRoute(
 		if err != nil {
 			return boardRoute{}, err
 		}
-		if found.boardID != route.boardID {
+		if found.boardID != "" && found.boardID != route.boardID {
 			return boardRoute{}, connect.NewError(connect.CodeNotFound, errors.New("issue not found"))
 		}
 		return route, nil
@@ -107,7 +117,17 @@ func (s *Server) findIssueRoute(
 			unavailable = true
 			continue
 		}
-		if response == nil || response.Msg == nil || response.Msg.GetIssue() == nil {
+		if response == nil || response.Msg == nil {
+			continue
+		}
+		if response.Msg.GetMarker() != nil {
+			// Retired references belong to the store, not one of its boards.
+			// Keep source qualification without inventing board ownership.
+			found = boardRoute{source: source, ref: snapshot.refForSource(source)}
+			foundCount++
+			continue
+		}
+		if response.Msg.GetIssue() == nil {
 			continue
 		}
 		boardID := response.Msg.GetIssue().GetIssue().GetBoardId()

@@ -157,6 +157,18 @@ without creating a task merely to hold the implementation.
 Routines are claimed explicitly by ID and do not appear in automatic claim
 pools.
 
+### Ambiguous issue references
+
+A retired issue ID remains readable when it names more than one issue.
+`card show <retired-id>` lists the candidates and their current IDs.
+The web UI shows the same candidates, with links to issues available locally.
+Candidates whose boards are absent remain visible as unavailable.
+
+The retired ID is a reference marker, not work that can be claimed or edited.
+Use a candidate's current ID to act on that issue.
+Existing references can remain unchanged;
+replace a reference when you know which candidate it means.
+
 ### Context on claim
 
 Claim with `--context` when the agent needs the inherited contract:
@@ -596,6 +608,14 @@ Use `--all` to include every board in the selected store:
 ```bash
 card --actor operator backup full-store-backup --all
 ```
+
+### References that require cloning
+
+The current backup format cannot preserve ambiguous reference markers.
+Selecting an affected board rejects the backup before publication.
+An all-store backup also rejects markers whose candidate boards are unavailable.
+An existing destination archive stays unchanged after this rejection.
+Use board clone when you need to retain these references in another store.
 
 ### Restore an archive
 

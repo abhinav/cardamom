@@ -44,6 +44,42 @@ func TestRepositoryScalesRandomIssueIDsByPhysicalStorePopulation(t *testing.T) {
 	assert.Equal(t, "random-aaaaa", created.Issue.Issue.ID)
 }
 
+func TestRepositoryAllocationSkipsRetiredReferences(t *testing.T) {
+	for _, test := range []struct {
+		strategy string
+		retired  string
+		want     string
+	}{
+		{strategy: "sequential", retired: "new-1", want: "new-2"},
+		{strategy: "random", retired: "new-aaaa", want: "new-bbbb"},
+	} {
+		t.Run(test.strategy, func(t *testing.T) {
+			entropy := append(bytes.Repeat([]byte{0}, 4), bytes.Repeat([]byte{1}, 4)...)
+			entropy = append(entropy, bytes.Repeat([]byte{2}, 16)...)
+			repository := openBoardRepository(t, Config{
+				BoardID: mustBoardID(t, "board-test"), IDPrefix: "new-",
+				IDStrategy: test.strategy, Entropy: bytes.NewReader(entropy),
+			})
+			change, err := repository.store.Change(t.Context())
+			require.NoError(t, err)
+			t.Cleanup(func() { assert.NoError(t, change.Done()) })
+			_, err = change.ExecContext(t.Context(), "INSERT INTO issue_reference_markers (id) VALUES (?)", test.retired)
+			require.NoError(t, err)
+			_, err = change.ExecContext(t.Context(), `
+				INSERT INTO issue_reference_candidates (marker_id, issue_uid, board_id, replacement_id)
+				VALUES (?, randomblob(16), 'absent-board', 'older-a'), (?, randomblob(16), 'absent-board', 'older-b')
+			`, test.retired, test.retired)
+			require.NoError(t, err)
+			require.NoError(t, change.Commit())
+			created, err := planning.NewPlanner(repository, repository, nil).CreateIssue(t.Context(), issue.NewInvocation("captain"), planning.CreateIssueRequest{
+				Title: "New issue", Type: "task", Priority: 2,
+			})
+			require.NoError(t, err)
+			assert.Equal(t, test.want, created.Issue.Issue.ID)
+		})
+	}
+}
+
 func TestRepositoryApplyDocumentRetriesTransactionLocalRandomIDCollisions(t *testing.T) {
 	var entropy []byte
 	// Public suffix chunks force a, a, then b. Each created issue also consumes

@@ -45,6 +45,18 @@ without creating a task merely to hold the implementation.
 Routines are claimed explicitly by ID and do not appear in automatic claim
 pools.
 
+## Ambiguous issue references
+
+A retired issue ID remains readable when it names more than one issue.
+`card show <retired-id>` lists the candidates and their current IDs.
+The web UI shows the same candidates, with links to issues available locally.
+Candidates whose boards are absent remain visible as unavailable.
+
+The retired ID is a reference marker, not work that can be claimed or edited.
+Use a candidate's current ID to act on that issue.
+Existing references can remain unchanged;
+replace a reference when you know which candidate it means.
+
 ## Context on claim
 
 Claim with `--context` when the agent needs the inherited contract:

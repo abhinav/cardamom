@@ -4,12 +4,14 @@ import (
 	"context"
 	"slices"
 
+	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/board"
 
 	"connectrpc.com/connect"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/gen/cardamom/private/v1"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.abhg.dev/cardamom/internal/issueinspection"
 	"go.abhg.dev/cardamom/internal/web"
 	"go.abhg.dev/cardamom/internal/web/issueview"
 )
@@ -353,21 +355,47 @@ func (s *Service) GetIssue(
 	ctx context.Context,
 	request *connect.Request[privatev1.GetIssueRequest],
 ) (*connect.Response[privatev1.GetIssueResponse], error) {
-	scoped, err := s.readerForIssue(ctx, request.Msg.GetIssueId())
-	if err != nil {
-		return nil, web.FromError(err)
-	}
 	depth := 0
-	view, err := scoped.reader.ReadIssue(ctx, issue.ReadRequest{
+	inspector := issueinspection.Inspector{Markers: s.markers, Issues: &detailIssueReader{service: s}}
+	result, err := inspector.ReadIssue(ctx, issue.ReadRequest{
 		IssueID: request.Msg.GetIssueId(), ContextDepth: &depth,
 	})
 	if err != nil {
 		return nil, web.FromError(err)
 	}
+	if result.Marker != nil {
+		marker := &privatev1.IssueReferenceMarker{Id: result.Marker.ID.String()}
+		for _, candidate := range result.Marker.Candidates {
+			marker.Candidates = append(marker.Candidates, &privatev1.IssueReferenceCandidate{
+				Id: candidate.ID.String(), BoardId: candidate.BoardID, Title: candidate.Title, Available: candidate.Available,
+			})
+		}
+		return connect.NewResponse(&privatev1.GetIssueResponse{Marker: marker}), nil
+	}
 	views := s.views.WithRoutePrefix(request.Msg.GetPresentation().GetRoutePrefix())
-	converted, err := views.Detail(ctx, scoped.board.ID(), view)
+	converted, err := views.Detail(ctx, result.Issue.BoardID, result.Issue.View.Issue)
 	if err != nil {
 		return nil, web.FromError(err)
 	}
 	return connect.NewResponse(&privatev1.GetIssueResponse{Issue: converted}), nil
+}
+
+// detailIssueReader keeps browser attachments paginated while sharing the
+// marker-or-issue inspection policy with the CLI.
+type detailIssueReader struct{ service *Service }
+
+var _ issueinspection.Reader = (*detailIssueReader)(nil)
+
+func (r *detailIssueReader) ReadIssue(ctx context.Context, request issue.ReadRequest) (issueinspection.LocatedIssue, error) {
+	scoped, err := r.service.readerForIssue(ctx, request.IssueID)
+	if err != nil {
+		return issueinspection.LocatedIssue{}, err
+	}
+	view, err := scoped.reader.ReadIssue(ctx, request)
+	if err != nil {
+		return issueinspection.LocatedIssue{}, err
+	}
+	return issueinspection.LocatedIssue{BoardID: scoped.board.ID(), View: attachment.IssueView{
+		Issue: view, Attachments: nil,
+	}}, nil
 }

@@ -22,3 +22,4 @@ sql:
           attachment_ids: AttachmentIDs
           issue_ids: IssueIDs
           log_ids: LogIDs
+          marker_ids: MarkerIDs

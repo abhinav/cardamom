@@ -165,7 +165,8 @@ func (o *webOperation) open(
 	})
 	informationHandler := informationconnect.New(runtime.informationService())
 	issueHandler := issueconnect.New(issueconnect.Config{
-		Scope: scope, Readers: &issueReaderFactory{runtime: runtime},
+		Markers: runtime.locator,
+		Scope:   scope, Readers: &issueReaderFactory{runtime: runtime},
 		Pins: &issuePinsFactory{runtime: runtime}, Views: views,
 	})
 	planningHandler := planningconnect.New(planningconnect.Config{

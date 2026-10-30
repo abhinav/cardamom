@@ -6,7 +6,9 @@ FROM issues;
 SELECT EXISTS (
     SELECT 1
     FROM issues
-    WHERE id = sqlc.arg(id)
+    WHERE issues.id = sqlc.arg(id)
+    UNION ALL
+    SELECT 1 FROM issue_reference_markers WHERE issue_reference_markers.id = sqlc.arg(id)
 ) AS issue_exists;
 
 -- name: BoardIssueUIDExists :one

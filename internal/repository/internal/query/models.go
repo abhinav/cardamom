@@ -20,6 +20,13 @@ type BoardMutationCommit struct {
 	PayloadHash  []byte
 }
 
+type IssueReferenceCandidate struct {
+	MarkerID      string
+	IssueUid      []byte
+	BoardID       string
+	ReplacementID string
+}
+
 type Lease struct {
 	Name       string
 	Owner      string

@@ -12,12 +12,12 @@ import (
 	context "context"
 	reflect "reflect"
 
-	attachment "go.abhg.dev/cardamom/internal/attachment"
 	dump "go.abhg.dev/cardamom/internal/dump"
 	issue "go.abhg.dev/cardamom/internal/issue"
 	execution "go.abhg.dev/cardamom/internal/issue/execution"
 	planning "go.abhg.dev/cardamom/internal/issue/planning"
 	record "go.abhg.dev/cardamom/internal/issue/record"
+	issueinspection "go.abhg.dev/cardamom/internal/issueinspection"
 	lease "go.abhg.dev/cardamom/internal/lease"
 	gomock "go.uber.org/mock/gomock"
 )
@@ -871,10 +871,10 @@ func (m *MockReadIssueOperation) EXPECT() *MockReadIssueOperationMockRecorder {
 }
 
 // ReadIssue mocks base method.
-func (m *MockReadIssueOperation) ReadIssue(arg0 context.Context, arg1 issue.ReadRequest) (attachment.IssueView, error) {
+func (m *MockReadIssueOperation) ReadIssue(arg0 context.Context, arg1 issue.ReadRequest) (issueinspection.Result, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ReadIssue", arg0, arg1)
-	ret0, _ := ret[0].(attachment.IssueView)
+	ret0, _ := ret[0].(issueinspection.Result)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -892,19 +892,19 @@ type MockReadIssueOperationReadIssueCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockReadIssueOperationReadIssueCall) Return(arg0 attachment.IssueView, arg1 error) *MockReadIssueOperationReadIssueCall {
+func (c *MockReadIssueOperationReadIssueCall) Return(arg0 issueinspection.Result, arg1 error) *MockReadIssueOperationReadIssueCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockReadIssueOperationReadIssueCall) Do(f func(context.Context, issue.ReadRequest) (attachment.IssueView, error)) *MockReadIssueOperationReadIssueCall {
+func (c *MockReadIssueOperationReadIssueCall) Do(f func(context.Context, issue.ReadRequest) (issueinspection.Result, error)) *MockReadIssueOperationReadIssueCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockReadIssueOperationReadIssueCall) DoAndReturn(f func(context.Context, issue.ReadRequest) (attachment.IssueView, error)) *MockReadIssueOperationReadIssueCall {
+func (c *MockReadIssueOperationReadIssueCall) DoAndReturn(f func(context.Context, issue.ReadRequest) (issueinspection.Result, error)) *MockReadIssueOperationReadIssueCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

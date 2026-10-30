@@ -8,8 +8,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.abhg.dev/cardamom/internal/issueinspection"
 )
 
 type listCommand struct {
@@ -226,10 +226,10 @@ func (*showCommand) Help() string {
 	return "Show one issue's current metadata, relationships, records, and optional inherited context."
 }
 
-// ReadIssueOperation reconstructs one issue and its optional inherited context.
+// ReadIssueOperation opens ordinary issues or retired public references.
 type ReadIssueOperation interface {
-	// ReadIssue returns the requested issue view.
-	ReadIssue(context.Context, issue.ReadRequest) (attachment.IssueView, error)
+	// ReadIssue returns an issue view with optional context, or collision candidates.
+	ReadIssue(context.Context, issue.ReadRequest) (issueinspection.Result, error)
 }
 
 func (c *showCommand) Run(inv *Invocation, operation ReadIssueOperation) error {
@@ -252,15 +252,58 @@ func (c *showCommand) Run(inv *Invocation, operation ReadIssueOperation) error {
 	if err != nil {
 		return err
 	}
-	if inv.Output.JSON() {
-		return inv.Output.WriteJSON(newIssueInspectionOutput(result).jsonValue())
+	if result.Marker != nil {
+		return writeReferenceMarker(inv.Output, result.Marker)
 	}
-	if result.Issue.Context != nil {
-		if err := writeIssueContext(inv.Output, *result.Issue.Context); err != nil {
+	view := result.Issue.View
+	if inv.Output.JSON() {
+		return inv.Output.WriteJSON(newIssueInspectionOutput(view).jsonValue())
+	}
+	if view.Issue.Context != nil {
+		if err := writeIssueContext(inv.Output, *view.Issue.Context); err != nil {
 			return err
 		}
 	}
-	return writeIssueDetail(inv.Output, result.Issue.Detail, result.Attachments)
+	return writeIssueDetail(inv.Output, view.Issue.Detail, view.Attachments)
+}
+
+func writeReferenceMarker(output *Output, marker *issue.ReferenceMarker) error {
+	type candidate struct {
+		ID        string  `json:"id"`
+		BoardID   string  `json:"board_id"`
+		Title     *string `json:"title"`
+		Available bool    `json:"available"`
+	}
+	if output.JSON() {
+		candidates := make([]candidate, 0, len(marker.Candidates))
+		for _, target := range marker.Candidates {
+			candidates = append(candidates, candidate{
+				ID: target.ID.String(), BoardID: target.BoardID,
+				Title: target.Title, Available: target.Available,
+			})
+		}
+		return output.WriteJSON(struct {
+			ID         string      `json:"id"`
+			Kind       string      `json:"kind"`
+			Candidates []candidate `json:"candidates"`
+		}{ID: marker.ID.String(), Kind: "reference_marker", Candidates: candidates})
+	}
+	if err := output.WriteString(fmt.Sprintf("%s: ambiguous issue reference\nThis ID may refer to any of these issues:\n", marker.ID)); err != nil {
+		return err
+	}
+	for _, target := range marker.Candidates {
+		title := "issue unavailable locally"
+		if target.Available {
+			title = "title unresolved"
+			if target.Title != nil {
+				title = singleLine(*target.Title)
+			}
+		}
+		if err := output.WriteString(fmt.Sprintf("- %s: %s (board %s)\n", target.ID, title, target.BoardID)); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func writeIssueContext(output *Output, current issue.Context) error {

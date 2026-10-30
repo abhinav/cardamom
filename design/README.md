@@ -5,6 +5,7 @@
 | Date | Status | Title |
 | --- | --- | --- |
 | 2026-10-29 | Accepted | [Trust current-schema stores on open](2026-10-29-trust-current-schema-stores-on-open.md) |
+| 2026-10-29 | Accepted | [Preserve ambiguous issue references after ID collisions](2026-10-29-issue-reference-markers.md) |
 | 2026-10-21 | Accepted | [Clone boards without changing shared identities](2026-10-21-local-board-cloning.md) |
 | 2026-09-16 | Accepted | [Retain local board mutation history](2026-09-16-local-board-mutation-history.md) |
 | 2026-09-04 | Accepted | [Provide a constrained issue search language](2026-09-04-02-issue-search-language.md) |
