@@ -306,7 +306,10 @@ func (p *LifecyclePolicy) CloseIssue(command CloseIssue) (IssueClosed, error) {
 	if command.IssueID != p.snapshot.Issue.ID() {
 		return IssueClosed{}, ErrIncompleteSnapshot
 	}
-	if p.snapshot.Issue.Lifecycle() == issue.LifecycleClosed {
+	if err := p.snapshot.Issue.RequireResolved(issue.FieldLifecycle); err != nil {
+		return IssueClosed{}, err
+	}
+	if *p.snapshot.Issue.Lifecycle() == issue.LifecycleClosed {
 		return IssueClosed{}, errkind.Errorf(
 			errkind.Conflict,
 			"close requires lifecycle open or cancelled; issue lifecycle is %s",
@@ -334,6 +337,9 @@ func (p *LifecyclePolicy) ReopenIssue(command ReopenIssue) (IssueReopened, error
 	if command.IssueID != p.snapshot.Issue.ID() {
 		return IssueReopened{}, ErrIncompleteSnapshot
 	}
+	if err := p.snapshot.Issue.RequireResolved(issue.FieldLifecycle, issue.FieldWaiting); err != nil {
+		return IssueReopened{}, err
+	}
 	if !p.snapshot.Issue.Lifecycle().Terminal() {
 		return IssueReopened{}, errkind.Errorf(
 			errkind.Conflict,
@@ -342,7 +348,7 @@ func (p *LifecyclePolicy) ReopenIssue(command ReopenIssue) (IssueReopened, error
 		)
 	}
 	next := p.snapshot.Issue.Snapshot()
-	next.Lifecycle = issue.LifecycleOpen
+	next.Lifecycle = new(issue.LifecycleOpen)
 	next.ActiveClaim = nil
 	next.Waiting = nil
 	next.Updated = p.snapshot.OccurredAt
@@ -382,6 +388,9 @@ func (p *CancellationPolicy) CancelIssues(command CancelIssues) (IssuesCancelled
 	dependents := 0
 	seen := make(map[issue.ID]struct{}, len(p.snapshot.Closure))
 	for _, current := range p.snapshot.Closure {
+		if err := current.RequireResolved(issue.FieldLifecycle, issue.FieldDependencies); err != nil {
+			return IssuesCancelled{}, err
+		}
 		if _, ok := seen[current.ID()]; ok || current.Lifecycle().Terminal() {
 			continue
 		}
@@ -529,8 +538,11 @@ func terminalState(
 	lifecycle issue.Lifecycle,
 	occurredAt time.Time,
 ) (issue.State, error) {
+	if err := state.RequireResolved(issue.FieldLifecycle, issue.FieldWaiting, issue.FieldState); err != nil {
+		return issue.State{}, err
+	}
 	snapshot := state.Snapshot()
-	snapshot.Lifecycle = lifecycle
+	snapshot.Lifecycle = new(lifecycle)
 	snapshot.ActiveClaim = nil
 	snapshot.Waiting = nil
 	snapshot.RecoveryState = nil
@@ -623,10 +635,16 @@ func validateTerminalParentSnapshots(
 
 // validateExplicitClose enforces kind-specific completion requirements.
 func validateExplicitClose(state issue.State, children []issue.State) error {
-	switch state.Kind() {
+	if err := state.RequireResolved(issue.FieldKind); err != nil {
+		return err
+	}
+	switch *state.Kind() {
 	case issue.KindWorkstream, issue.KindRoutine:
 		for _, child := range children {
-			if !child.Status().Terminal() {
+			if err := child.RequireResolved(issue.FieldLifecycle); err != nil {
+				return err
+			}
+			if !child.Lifecycle().Terminal() {
 				return errkind.Errorf(errkind.InvalidInput, "%s has open children", state.Kind())
 			}
 		}

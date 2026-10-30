@@ -32,7 +32,7 @@ func TestPublishCreatesOwnedFilesAndSafelyReruns(t *testing.T) {
 	assert.Equal(t, "project-1", metadata.ProjectID)
 	assert.Equal(t, "Project one", metadata.ProjectName)
 	assert.Equal(t, "board-1", metadata.BoardID)
-	assert.Equal(t, "Board one", metadata.BoardName)
+	assert.Equal(t, new("Board one"), metadata.BoardName)
 	assert.Equal(t, "issue:an-a", metadata.Identity)
 	assert.Equal(t, digest([]byte(body)), metadata.BodySHA256)
 	assert.Equal(t, "# Issue A\n", body)
@@ -536,7 +536,7 @@ func writeGeneratedFile(t *testing.T, path, boardID, identity, body string) {
 func testDumpProvenance(boardID string) Provenance {
 	return Provenance{
 		ProjectID: "project-1", ProjectName: "Project one",
-		BoardID: boardID, BoardName: "Board one",
+		BoardID: boardID, BoardName: new("Board one"),
 	}
 }
 

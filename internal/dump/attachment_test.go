@@ -46,8 +46,8 @@ func TestServiceRenderIncludesAssociatedAndReferencedAttachmentsWithoutExpanding
 	service := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "an-a", Title: "Selected", Summary: &description},
-			{ID: "an-other", Title: "Not selected"},
+			{ID: "an-a", Title: new("Selected"), Summary: &description},
+			{ID: "an-other", Title: new("Not selected")},
 		},
 	}, source)
 
@@ -102,7 +102,7 @@ func TestServiceRenderWholeBoardIncludesEveryActiveAttachment(t *testing.T) {
 	}
 	service := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
-		Issues:  []Issue{{ID: "an-a", Title: "Selected"}},
+		Issues:  []Issue{{ID: "an-a", Title: new("Selected")}},
 	}, source)
 
 	rendered, err := service.Render(t.Context(), RenderRequest{Selection: WholeBoard()})
@@ -133,7 +133,7 @@ func TestServiceRenderRewritesBoardAndIssueAttachmentDestinations(t *testing.T) 
 		BoardID:     "board-1",
 		Description: &boardDescription,
 		Issues: []Issue{{
-			ID: "an-a", Title: "Selected", Summary: &issueDescription,
+			ID: "an-a", Title: new("Selected"), Summary: &issueDescription,
 		}},
 	}, source)
 
@@ -158,8 +158,8 @@ func TestServiceRenderAttachmentShorthandCopiesAndLinksReferencedAttachment(t *t
 	service := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "an-selected", Title: "Selected", Summary: &summary},
-			{ID: "an-other", Title: "Not selected"},
+			{ID: "an-selected", Title: new("Selected"), Summary: &summary},
+			{ID: "an-other", Title: new("Not selected")},
 		},
 	}, source)
 
@@ -201,8 +201,8 @@ func TestServiceRenderUnavailableAttachmentShorthandRemainsReadable(t *testing.T
 	service := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "an-selected", Title: "Selected", Summary: &summary},
-			{ID: "an-other", Title: "Not selected"},
+			{ID: "an-selected", Title: new("Selected"), Summary: &summary},
+			{ID: "an-other", Title: new("Not selected")},
 		},
 	}, source)
 
@@ -244,7 +244,7 @@ func TestServiceRenderResolvesEveryIncludedIssueMarkdownRecord(t *testing.T) {
 	service := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{{
-			ID: "an-a", Title: "Selected", Summary: &description, State: &state,
+			ID: "an-a", Title: new("Selected"), Summary: &description, State: &state,
 		}},
 		Results: []Result{{IssueID: "an-a", Body: "[result](" + destination + ")"}},
 		LogEntries: []LogEntry{{
@@ -279,7 +279,7 @@ func TestServiceRenderTurnsRemovedAttachmentReferencesIntoStableText(t *testing.
 	service := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{{
-			ID: "an-a", Title: "Selected", Summary: &description,
+			ID: "an-a", Title: new("Selected"), Summary: &description,
 		}},
 	}, source)
 
@@ -308,7 +308,7 @@ func TestServiceRenderTurnsRemovedReferenceLinksIntoStableText(t *testing.T) {
 	service := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{{
-			ID: "an-a", Title: "Selected", Summary: &description,
+			ID: "an-a", Title: new("Selected"), Summary: &description,
 		}},
 	}, &attachmentSource{attachments: []attachment.Attachment{value}})
 
@@ -330,7 +330,7 @@ func TestPublicationServiceRejectsUnknownReferenceBeforePublication(t *testing.T
 	renderer := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{{
-			ID: "an-a", Title: "Selected", Summary: &description,
+			ID: "an-a", Title: new("Selected"), Summary: &description,
 		}},
 	}, source)
 	service, err := NewPublicationService(renderer, publisher)
@@ -371,7 +371,7 @@ func TestPublicationServiceAttachmentCorruptionLeavesExistingDumpUntouched(t *te
 			renderer := newAttachmentTestService(t, BoardSnapshot{
 				BoardID: "board-1",
 				Issues: []Issue{{
-					ID: "an-a", Title: "Selected", Summary: &description,
+					ID: "an-a", Title: new("Selected"), Summary: &description,
 				}},
 			}, source)
 			service, err := NewPublicationService(renderer, &FilePublisher{})
@@ -401,7 +401,7 @@ func TestPublicationServiceDeterministicallyRerunsAndClosesAttachmentContent(t *
 	renderer := newAttachmentTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{{
-			ID: "an-a", Title: "Selected", Summary: &description,
+			ID: "an-a", Title: new("Selected"), Summary: &description,
 		}},
 	}, source)
 	service, err := NewPublicationService(renderer, &FilePublisher{})
@@ -439,7 +439,7 @@ func TestFilePublisherLimitsConcurrentAttachmentHandles(t *testing.T) {
 		},
 	}
 	renderer := newAttachmentTestService(t, BoardSnapshot{
-		BoardID: "board-1", Issues: []Issue{{ID: "an-a", Title: "Selected"}},
+		BoardID: "board-1", Issues: []Issue{{ID: "an-a", Title: new("Selected")}},
 	}, source)
 	rendered, err := renderer.Render(t.Context(), RenderRequest{
 		Selection: NamedIssuesOnly("an-a"),
@@ -467,7 +467,7 @@ func TestFilePublisherVerifiesEveryAttachmentBeforeInspectingDestination(t *test
 		openErrors:  map[attachment.ID]error{second.ID: attachment.ErrAttachmentContentDigestMismatch},
 	}
 	renderer := newAttachmentTestService(t, BoardSnapshot{
-		BoardID: "board-1", Issues: []Issue{{ID: "an-a", Title: "Selected"}},
+		BoardID: "board-1", Issues: []Issue{{ID: "an-a", Title: new("Selected")}},
 	}, source)
 	rendered, err := renderer.Render(t.Context(), RenderRequest{
 		Selection: NamedIssuesOnly("an-a"),

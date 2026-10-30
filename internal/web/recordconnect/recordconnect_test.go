@@ -49,7 +49,7 @@ func TestServiceKeepsLogEntriesStatesAndResultsDistinct(t *testing.T) {
 	).Return(record.SetResultResult{IssueID: "an-1", Body: "done"}, nil)
 	records.EXPECT().GetResult(
 		gomock.Any(), record.GetResultRequest{IssueID: "an-1"},
-	).Return(issue.Result{IssueID: "an-1", Title: "Task", Body: "done"}, nil)
+	).Return(issue.Result{IssueID: "an-1", Title: new("Task"), Body: "done"}, nil)
 	factory := NewMockBoardRecordFactory(gomock.NewController(t))
 	factory.EXPECT().Records(boardState.ID()).Return(records, nil).Times(3)
 	service := New(Config{
@@ -146,8 +146,8 @@ func TestServiceMapsStateCommitDispositionsAndTypedResponses(t *testing.T) {
 		}
 	}
 	issueSummary := issue.Issue{
-		ID: "an-1", Title: "Task", Type: "task",
-		Lifecycle: "open", Status: "ready", Priority: 2,
+		ID: "an-1", Title: new("Task"), Type: new("task"),
+		Lifecycle: new("open"), Status: "ready", Priority: new(2),
 		Created: 1, Updated: 2, Revision: 3,
 	}
 	commitResults := []record.CommitStateResult{
@@ -333,7 +333,7 @@ func (l recordLocator) BoardForIssue(_ context.Context, issueID string) (board.I
 func recordTestBoard(t *testing.T) *board.State {
 	t.Helper()
 	state, err := board.Load(board.Snapshot{
-		ID: "board-1", ProjectID: "project-1", Name: "Board",
+		ID: "board-1", ProjectID: "project-1", Name: new("Board"),
 		Created: time.Unix(1, 0).UTC(),
 	})
 	require.NoError(t, err)

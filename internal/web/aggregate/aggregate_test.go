@@ -26,9 +26,9 @@ import (
 )
 
 func TestNewBuildsBootstrapAndReadOnlyHandler(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-primary", ProjectId: "project-primary", Name: "Primary"}
+	board := &v1.BoardSummary{Id: "board-primary", ProjectId: "project-primary", Name: new("Primary")}
 	server := newSourceServer(t, sourceBootstrap(board, true), &v1.Board{
-		Id: board.GetId(), ProjectId: board.GetProjectId(), Name: board.GetName(),
+		Id: board.GetId(), ProjectId: board.GetProjectId(), Name: new(board.GetName()),
 	})
 
 	aggregate, err := New(t.Context(), Config{
@@ -152,10 +152,10 @@ func TestAggregateCatalogFindsBoardCreatedAfterStartup(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 
 	created := &v1.BoardSummary{
-		Id: "board-created", ProjectId: "project-created", Name: "Created",
+		Id: "board-created", ProjectId: "project-created", Name: new("Created"),
 	}
 	source.board = &v1.Board{
-		Id: created.GetId(), ProjectId: created.GetProjectId(), Name: created.GetName(),
+		Id: created.GetId(), ProjectId: created.GetProjectId(), Name: new(created.GetName()),
 	}
 	bootstrap.Store(sourceBootstrap(created, true))
 	require.True(t, aggregate.refreshSource(t.Context(), 0))
@@ -209,7 +209,7 @@ func TestAggregateCatalogRefreshesOncePerMinute(t *testing.T) {
 		synctest.Wait()
 
 		created := &v1.BoardSummary{
-			Id: "board-created", ProjectId: "project-created", Name: "Created",
+			Id: "board-created", ProjectId: "project-created", Name: new("Created"),
 		}
 		bootstrap.Store(sourceBootstrap(created, true))
 		synctest.Sleep(time.Minute - time.Nanosecond)
@@ -228,7 +228,7 @@ func TestAggregateCatalogRefreshesOncePerMinute(t *testing.T) {
 
 func TestAggregateIssueChangesDoNotRefreshBoardCatalog(t *testing.T) {
 	board := &v1.BoardSummary{
-		Id: "board-live", ProjectId: "project-live", Name: "Live",
+		Id: "board-live", ProjectId: "project-live", Name: new("Live"),
 	}
 	var bootstrapReads atomic.Int32
 	changes := make(chan *v1.WatchChangesResponse, 1)
@@ -301,7 +301,7 @@ func TestAggregateIssueChangesDoNotRefreshBoardCatalog(t *testing.T) {
 
 func TestAggregateCatalogChangeReachesAnotherSourceScope(t *testing.T) {
 	boardA := &v1.BoardSummary{
-		Id: "board-a", ProjectId: "project-a", Name: "Board A",
+		Id: "board-a", ProjectId: "project-a", Name: new("Board A"),
 	}
 	bootstrapA := sourceBootstrap(boardA, true)
 	bootstrapA.Sources[0].Source.StoreLineageId = "lineage-a"
@@ -361,7 +361,7 @@ func TestAggregateCatalogChangeReachesAnotherSourceScope(t *testing.T) {
 	}, time.Second, 10*time.Millisecond)
 
 	boardB := &v1.BoardSummary{
-		Id: "board-b", ProjectId: "project-b", Name: "Board B",
+		Id: "board-b", ProjectId: "project-b", Name: new("Board B"),
 	}
 	updatedB := sourceBootstrap(boardB, true)
 	updatedB.Sources[0].Source.StoreLineageId = "lineage-b"
@@ -381,7 +381,7 @@ func TestAggregateCatalogChangeReachesAnotherSourceScope(t *testing.T) {
 }
 
 func TestNewAcceptsWritableSource(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-writable", ProjectId: "project", Name: "Writable"}
+	board := &v1.BoardSummary{Id: "board-writable", ProjectId: "project", Name: new("Writable")}
 	server := newSourceServer(t, sourceBootstrap(board, false), nil)
 
 	aggregate, err := New(t.Context(), Config{
@@ -428,7 +428,7 @@ func TestNewAcceptsHyphenatedSourceAlias(t *testing.T) {
 }
 
 func TestAggregateRoutesStateAndAttachmentsToSource(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-records", ProjectId: "project", Name: "Records"}
+	board := &v1.BoardSummary{Id: "board-records", ProjectId: "project", Name: new("Records")}
 	state := &v1.StateRecord{Actor: new("worker")}
 	attachment := &v1.Attachment{Id: "att_aaaaaaaaaaaaaaaaaaaaaaaaaa", BoardId: board.GetId()}
 	server := newConfiguredSourceServer(t, &sourceHandler{
@@ -470,8 +470,8 @@ func TestAggregateRoutesStateAndAttachmentsToSource(t *testing.T) {
 }
 
 func TestAggregateRejectsStateForAnotherBoard(t *testing.T) {
-	first := &v1.BoardSummary{Id: "board-first", ProjectId: "project", Name: "First"}
-	second := &v1.BoardSummary{Id: "board-second", ProjectId: "project", Name: "Second"}
+	first := &v1.BoardSummary{Id: "board-first", ProjectId: "project", Name: new("First")}
+	second := &v1.BoardSummary{Id: "board-second", ProjectId: "project", Name: new("Second")}
 	bootstrap := sourceBootstrap(first, true)
 	bootstrap.Boards = append(bootstrap.Boards, second)
 	server := newConfiguredSourceServer(t, &sourceHandler{
@@ -496,20 +496,20 @@ func TestAggregateRejectsStateForAnotherBoard(t *testing.T) {
 func TestNewAllowsDuplicateBoardIDsAcrossStoreLineages(t *testing.T) {
 	boardID := "board-copied"
 	originalBoard := &v1.BoardSummary{
-		Id: boardID, ProjectId: "project-original", Name: "Original",
+		Id: boardID, ProjectId: "project-original", Name: new("Original"),
 		Archived: &v1.BoardArchive{Actor: "operator"},
 	}
 	restoredBoard := &v1.BoardSummary{
-		Id: boardID, ProjectId: "project-restored", Name: "Restored",
+		Id: boardID, ProjectId: "project-restored", Name: new("Restored"),
 	}
 	first := newSourceServer(t, sourceBootstrap(originalBoard, true), &v1.Board{
-		Id: boardID, ProjectId: originalBoard.GetProjectId(), Name: originalBoard.GetName(),
+		Id: boardID, ProjectId: originalBoard.GetProjectId(), Name: new(originalBoard.GetName()),
 		Archived: originalBoard.GetArchived(),
 	})
 	secondBootstrap := sourceBootstrap(restoredBoard, true)
 	secondBootstrap.Sources[0].Source.StoreLineageId = "lineage-second"
 	second := newSourceServer(t, secondBootstrap, &v1.Board{
-		Id: boardID, ProjectId: restoredBoard.GetProjectId(), Name: restoredBoard.GetName(),
+		Id: boardID, ProjectId: restoredBoard.GetProjectId(), Name: new(restoredBoard.GetName()),
 	})
 
 	aggregate, err := New(t.Context(), Config{Sources: []SourceConfig{
@@ -545,10 +545,10 @@ func TestNewAllowsDuplicateBoardIDsAcrossStoreLineages(t *testing.T) {
 
 func TestNewRejectsDuplicateStoreLineages(t *testing.T) {
 	first := newSourceServer(t, sourceBootstrap(&v1.BoardSummary{
-		Id: "board-first", ProjectId: "project-first", Name: "First",
+		Id: "board-first", ProjectId: "project-first", Name: new("First"),
 	}, true), nil)
 	second := newSourceServer(t, sourceBootstrap(&v1.BoardSummary{
-		Id: "board-second", ProjectId: "project-second", Name: "Second",
+		Id: "board-second", ProjectId: "project-second", Name: new("Second"),
 	}, true), nil)
 
 	_, err := New(t.Context(), Config{Sources: []SourceConfig{
@@ -580,9 +580,9 @@ func TestNewKeepsUnavailableSourceInBootstrap(t *testing.T) {
 }
 
 func TestProjectServiceGetBoardUsesCanonicalBoardRoute(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-canonical", ProjectId: "project", Name: "Canonical"}
+	board := &v1.BoardSummary{Id: "board-canonical", ProjectId: "project", Name: new("Canonical")}
 	source := newSourceServer(t, sourceBootstrap(board, true), &v1.Board{
-		Id: board.GetId(), ProjectId: board.GetProjectId(), Name: board.GetName(),
+		Id: board.GetId(), ProjectId: board.GetProjectId(), Name: new(board.GetName()),
 	})
 
 	aggregate, err := New(t.Context(), Config{
@@ -598,7 +598,7 @@ func TestProjectServiceGetBoardUsesCanonicalBoardRoute(t *testing.T) {
 }
 
 func TestAttachmentContentProxyPreservesRangeAndConditionalHeaders(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-attach", ProjectId: "project", Name: "Attachments"}
+	board := &v1.BoardSummary{Id: "board-attach", ProjectId: "project", Name: new("Attachments")}
 	attachmentID := "att_aaaaaaaaaaaaaaaaaaaaaaaaaa"
 	var gotRange, gotIfNoneMatch string
 	source := newConfiguredSourceServerWithRoutes(t, &sourceHandler{
@@ -669,7 +669,7 @@ func TestAttachmentContentProxyPreservesRangeAndConditionalHeaders(t *testing.T)
 }
 
 func TestAttachmentContentProxyUsesSourceQualifiedBoardRoute(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-copied", ProjectId: "project", Name: "Copied"}
+	board := &v1.BoardSummary{Id: "board-copied", ProjectId: "project", Name: new("Copied")}
 	firstBootstrap := sourceBootstrap(board, true)
 	firstBootstrap.Sources[0].Source.StoreLineageId = "lineage-first"
 	first := newConfiguredSourceServerWithRoutes(t, &sourceHandler{
@@ -706,7 +706,7 @@ func TestAttachmentContentProxyUsesSourceQualifiedBoardRoute(t *testing.T) {
 }
 
 func TestAttachmentContentProxyPropagatesCancellation(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-cancel", ProjectId: "project", Name: "Cancellation"}
+	board := &v1.BoardSummary{Id: "board-cancel", ProjectId: "project", Name: new("Cancellation")}
 	attachmentID := "att_aaaaaaaaaaaaaaaaaaaaaaaaaa"
 	started := make(chan struct{})
 	sourceCanceled := make(chan struct{})
@@ -761,8 +761,8 @@ func TestAttachmentContentProxyPropagatesCancellation(t *testing.T) {
 }
 
 func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
-	boardA := &v1.BoardSummary{Id: "board-a", ProjectId: "project-a", Name: "A"}
-	boardB := &v1.BoardSummary{Id: "board-b", ProjectId: "project-b", Name: "B"}
+	boardA := &v1.BoardSummary{Id: "board-a", ProjectId: "project-a", Name: new("A")}
+	boardB := &v1.BoardSummary{Id: "board-b", ProjectId: "project-b", Name: new("B")}
 	bootstrapA := sourceBootstrap(boardA, true)
 	bootstrapA.Sources[0].Source.StoreLineageId = "lineage-a"
 	bootstrapB := sourceBootstrap(boardB, true)
@@ -773,13 +773,13 @@ func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
 		issues: func(_ context.Context, request *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
 			if request.Msg.GetPageToken() == "a2" {
 				return connect.NewResponse(&v1.ListIssuesResponse{
-					Issues: []*v1.IssueSummary{{Id: "issue-e", BoardId: "board-a", Title: "Echo", Priority: 1}},
+					Issues: []*v1.IssueSummary{{Id: "issue-e", BoardId: "board-a", Title: new("Echo"), Priority: new(int32(1))}},
 				}), nil
 			}
 			return connect.NewResponse(&v1.ListIssuesResponse{
 				Issues: []*v1.IssueSummary{
-					{Id: "issue-a", BoardId: "board-a", Title: "Alpha", Priority: 1},
-					{Id: "issue-c", BoardId: "board-a", Title: "Charlie", Priority: 1},
+					{Id: "issue-a", BoardId: "board-a", Title: new("Alpha"), Priority: new(int32(1))},
+					{Id: "issue-c", BoardId: "board-a", Title: new("Charlie"), Priority: new(int32(1))},
 				},
 				Truncated: true, NextPageToken: new("a2"), TotalCount: 3,
 			}), nil
@@ -790,8 +790,8 @@ func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
 		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
 			return connect.NewResponse(&v1.ListIssuesResponse{
 				Issues: []*v1.IssueSummary{
-					{Id: "issue-b", BoardId: "board-b", Title: "Bravo", Priority: 1},
-					{Id: "issue-d", BoardId: "board-b", Title: "Delta", Priority: 1},
+					{Id: "issue-b", BoardId: "board-b", Title: new("Bravo"), Priority: new(int32(1))},
+					{Id: "issue-d", BoardId: "board-b", Title: new("Delta"), Priority: new(int32(1))},
 				},
 				TotalCount: 2,
 			}), nil
@@ -833,8 +833,8 @@ func TestIssueReadsMergePagesWithPartialSourceHealth(t *testing.T) {
 }
 
 func TestIssueReadsDefaultToCreationOrderAcrossSources(t *testing.T) {
-	boardA := &v1.BoardSummary{Id: "board-a", ProjectId: "project-a", Name: "A"}
-	boardB := &v1.BoardSummary{Id: "board-b", ProjectId: "project-b", Name: "B"}
+	boardA := &v1.BoardSummary{Id: "board-a", ProjectId: "project-a", Name: new("A")}
+	boardB := &v1.BoardSummary{Id: "board-b", ProjectId: "project-b", Name: new("B")}
 	bootstrapA := sourceBootstrap(boardA, true)
 	bootstrapA.Sources[0].Source.StoreLineageId = "lineage-a"
 	bootstrapB := sourceBootstrap(boardB, true)
@@ -844,8 +844,8 @@ func TestIssueReadsDefaultToCreationOrderAcrossSources(t *testing.T) {
 		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
 			return connect.NewResponse(&v1.ListIssuesResponse{
 				Issues: []*v1.IssueSummary{{
-					Id: "issue-z", BoardId: boardA.GetId(), Title: "Older",
-					Priority: 4, CreatedAt: timestamppb.New(time.Unix(1, 0)),
+					Id: "issue-z", BoardId: boardA.GetId(), Title: new("Older"),
+					Priority: new(int32(4)), CreatedAt: timestamppb.New(time.Unix(1, 0)),
 				}},
 				TotalCount: 1,
 			}), nil
@@ -856,8 +856,8 @@ func TestIssueReadsDefaultToCreationOrderAcrossSources(t *testing.T) {
 		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
 			return connect.NewResponse(&v1.ListIssuesResponse{
 				Issues: []*v1.IssueSummary{{
-					Id: "issue-a", BoardId: boardB.GetId(), Title: "Newer",
-					Priority: 0, CreatedAt: timestamppb.New(time.Unix(2, 0)),
+					Id: "issue-a", BoardId: boardB.GetId(), Title: new("Newer"),
+					Priority: new(int32(0)), CreatedAt: timestamppb.New(time.Unix(2, 0)),
 				}},
 				TotalCount: 1,
 			}), nil
@@ -882,9 +882,9 @@ func TestIssueReadsDefaultToCreationOrderAcrossSources(t *testing.T) {
 }
 
 func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {
-	alphaBoardA := &v1.BoardSummary{Id: "alpha-a", ProjectId: "project-a", Name: "Alpha A"}
-	alphaBoardB := &v1.BoardSummary{Id: "alpha-b", ProjectId: "project-b", Name: "Alpha B"}
-	betaBoardB := &v1.BoardSummary{Id: "beta-b", ProjectId: "project-b", Name: "Beta B"}
+	alphaBoardA := &v1.BoardSummary{Id: "alpha-a", ProjectId: "project-a", Name: new("Alpha A")}
+	alphaBoardB := &v1.BoardSummary{Id: "alpha-b", ProjectId: "project-b", Name: new("Alpha B")}
+	betaBoardB := &v1.BoardSummary{Id: "beta-b", ProjectId: "project-b", Name: new("Beta B")}
 
 	alphaBootstrap := sourceBootstrap(nil, true)
 	alphaBootstrap.Sources[0].Source.StoreLineageId = "lineage-alpha"
@@ -903,14 +903,14 @@ func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {
 			alphaScopes = append(alphaScopes, request.Msg.GetScope())
 			if request.Msg.GetScope().GetBoardId() == alphaBoardB.GetId() {
 				return connect.NewResponse(&v1.ListIssuesResponse{
-					Issues:     []*v1.IssueSummary{{Id: "alpha-issue-b", BoardId: alphaBoardB.GetId(), Title: "Alpha B"}},
+					Issues:     []*v1.IssueSummary{{Id: "alpha-issue-b", BoardId: alphaBoardB.GetId(), Title: new("Alpha B")}},
 					TotalCount: 1,
 				}), nil
 			}
 			return connect.NewResponse(&v1.ListIssuesResponse{
 				Issues: []*v1.IssueSummary{
-					{Id: "alpha-issue-a", BoardId: alphaBoardA.GetId(), Title: "Alpha A"},
-					{Id: "alpha-issue-b", BoardId: alphaBoardB.GetId(), Title: "Alpha B"},
+					{Id: "alpha-issue-a", BoardId: alphaBoardA.GetId(), Title: new("Alpha A")},
+					{Id: "alpha-issue-b", BoardId: alphaBoardB.GetId(), Title: new("Alpha B")},
 				},
 				TotalCount: 2,
 			}), nil
@@ -922,7 +922,7 @@ func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {
 		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
 			betaCalls++
 			return connect.NewResponse(&v1.ListIssuesResponse{
-				Issues:     []*v1.IssueSummary{{Id: "beta-issue-b", BoardId: betaBoardB.GetId(), Title: "Beta B"}},
+				Issues:     []*v1.IssueSummary{{Id: "beta-issue-b", BoardId: betaBoardB.GetId(), Title: new("Beta B")}},
 				TotalCount: 1,
 			}), nil
 		},
@@ -963,7 +963,7 @@ func TestIssueReadsRespectSourceAndProjectScopes(t *testing.T) {
 }
 
 func TestAggregateReadsEmptyBoardPins(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-pins", ProjectId: "project", Name: "Pins"}
+	board := &v1.BoardSummary{Id: "board-pins", ProjectId: "project", Name: new("Pins")}
 	server := newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: sourceBootstrap(board, true),
 		pins: func(_ context.Context, request *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
@@ -985,13 +985,13 @@ func TestAggregateReadsEmptyBoardPins(t *testing.T) {
 }
 
 func TestAggregateBoardPinsPreserveOrderAndQualifySource(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-pins", ProjectId: "project", Name: "Pins"}
+	board := &v1.BoardSummary{Id: "board-pins", ProjectId: "project", Name: new("Pins")}
 	server := newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: sourceBootstrap(board, true),
 		pins: func(_ context.Context, _ *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
 			return connect.NewResponse(&v1.ListBoardPinsResponse{Issues: []*v1.RelatedIssue{
-				{Id: "issue-second", BoardId: board.GetId(), Title: "Second"},
-				{Id: "issue-first", BoardId: board.GetId(), Title: "First"},
+				{Id: "issue-second", BoardId: board.GetId(), Title: new("Second")},
+				{Id: "issue-first", BoardId: board.GetId(), Title: new("First")},
 			}}), nil
 		},
 	})
@@ -1015,14 +1015,14 @@ func TestAggregateBoardPinsPreserveOrderAndQualifySource(t *testing.T) {
 }
 
 func TestAggregateBoardPinsUseSourceQualifiedBoardRoute(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-copied", ProjectId: "project", Name: "Copied"}
+	board := &v1.BoardSummary{Id: "board-copied", ProjectId: "project", Name: new("Copied")}
 	firstBootstrap := sourceBootstrap(board, true)
 	firstBootstrap.Sources[0].Source.StoreLineageId = "lineage-first"
 	first := newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: firstBootstrap,
 		pins: func(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
 			return connect.NewResponse(&v1.ListBoardPinsResponse{Issues: []*v1.RelatedIssue{{
-				Id: "first-issue", BoardId: board.GetId(), Title: "First",
+				Id: "first-issue", BoardId: board.GetId(), Title: new("First"),
 			}}}), nil
 		},
 	})
@@ -1032,7 +1032,7 @@ func TestAggregateBoardPinsUseSourceQualifiedBoardRoute(t *testing.T) {
 		bootstrap: secondBootstrap,
 		pins: func(context.Context, *connect.Request[v1.ListBoardPinsRequest]) (*connect.Response[v1.ListBoardPinsResponse], error) {
 			return connect.NewResponse(&v1.ListBoardPinsResponse{Issues: []*v1.RelatedIssue{{
-				Id: "second-issue", BoardId: board.GetId(), Title: "Second",
+				Id: "second-issue", BoardId: board.GetId(), Title: new("Second"),
 			}}}), nil
 		},
 	})
@@ -1063,7 +1063,7 @@ func TestAggregateBoardPinsUseSourceQualifiedBoardRoute(t *testing.T) {
 }
 
 func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-detail", ProjectId: "project", Name: "Detail"}
+	board := &v1.BoardSummary{Id: "board-detail", ProjectId: "project", Name: new("Detail")}
 	bootstrap := sourceBootstrap(board, true)
 	bootstrap.Sources[0].Source.StoreLineageId = "lineage-detail"
 	server := newConfiguredSourceServer(t, &sourceHandler{
@@ -1071,7 +1071,7 @@ func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
 		issue: func(_ context.Context, request *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {
 			assert.Equal(t, "/source/detail/board", request.Msg.GetPresentation().GetRoutePrefix())
 			return connect.NewResponse(&v1.GetIssueResponse{Issue: &v1.IssueDetail{
-				Issue: &v1.IssueSummary{Id: "issue-detail", BoardId: board.GetId(), Title: "Detail"},
+				Issue: &v1.IssueSummary{Id: "issue-detail", BoardId: board.GetId(), Title: new("Detail")},
 			}}), nil
 		},
 		logs: func(_ context.Context, request *connect.Request[v1.ListLogEntriesRequest]) (*connect.Response[v1.ListLogEntriesResponse], error) {
@@ -1102,19 +1102,19 @@ func TestIssueDetailAndLogsCarrySourceQualifiedReferences(t *testing.T) {
 }
 
 func TestAggregateReadsApprovalsAndRoutines(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-work", ProjectId: "project", Name: "Work"}
+	board := &v1.BoardSummary{Id: "board-work", ProjectId: "project", Name: new("Work")}
 	bootstrap := sourceBootstrap(board, true)
 	bootstrap.Sources[0].Source.StoreLineageId = "lineage-work"
 	server := newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: bootstrap,
 		issues: func(_ context.Context, _ *connect.Request[v1.ListIssuesRequest]) (*connect.Response[v1.ListIssuesResponse], error) {
 			return connect.NewResponse(&v1.ListIssuesResponse{Issues: []*v1.IssueSummary{{
-				Id: "routine-1", BoardId: board.GetId(), Title: "Routine", Type: v1.IssueType_ISSUE_TYPE_ROUTINE,
+				Id: "routine-1", BoardId: board.GetId(), Title: new("Routine"), Type: new(v1.IssueType_ISSUE_TYPE_ROUTINE),
 			}}}), nil
 		},
 		approvals: func(_ context.Context, _ *connect.Request[v1.ListActionableCheckpointsRequest]) (*connect.Response[v1.ListActionableCheckpointsResponse], error) {
 			return connect.NewResponse(&v1.ListActionableCheckpointsResponse{Checkpoints: []*v1.ActionableCheckpoint{{
-				Checkpoint: &v1.IssueSummary{Id: "approval-1", BoardId: board.GetId(), Title: "Approval", Type: v1.IssueType_ISSUE_TYPE_CHECKPOINT},
+				Checkpoint: &v1.IssueSummary{Id: "approval-1", BoardId: board.GetId(), Title: new("Approval"), Type: new(v1.IssueType_ISSUE_TYPE_CHECKPOINT)},
 			}}}), nil
 		},
 	})
@@ -1143,7 +1143,7 @@ func TestAggregateReadsApprovalsAndRoutines(t *testing.T) {
 }
 
 func TestAggregateChangeStreamReportsDegradedSource(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-live", ProjectId: "project", Name: "Live"}
+	board := &v1.BoardSummary{Id: "board-live", ProjectId: "project", Name: new("Live")}
 	bootstrap := sourceBootstrap(board, true)
 	bootstrap.Sources[0].Source.StoreLineageId = "lineage-live"
 	release := make(chan struct{})
@@ -1363,6 +1363,7 @@ func newConfiguredSourceServerWithRoutes(
 ) *httptest.Server {
 	t.Helper()
 	_, handler := web.NewHandler(web.HandlerConfig{
+		Conflict:      new(privatev1connect.UnimplementedConflictServiceHandler),
 		AccessMode:    web.AccessModeReadOnly,
 		Project:       source,
 		Configuration: new(privatev1connect.UnimplementedConfigurationServiceHandler),

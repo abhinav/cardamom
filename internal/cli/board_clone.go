@@ -51,7 +51,7 @@ func (c *boardCloneCommand) Run(invocation *Invocation, operation BoardCloneOper
 	}
 	return invocation.Output.WriteString(fmt.Sprintf(
 		"cloned board %q as %s in project %s: %d %s, %d %s, %d %s\n",
-		out.Name, out.BoardID, out.ProjectID,
+		boardDisplayName(out.Name, out.BoardID), out.BoardID, out.ProjectID,
 		out.Issues, plural(out.Issues, "issue", "issues"),
 		out.Mutations, plural(out.Mutations, "mutation", "mutations"),
 		out.Blobs, plural(out.Blobs, "blob", "blobs"),

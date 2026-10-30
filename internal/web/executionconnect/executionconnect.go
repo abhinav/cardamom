@@ -35,7 +35,7 @@ type BoardExecutor interface {
 	ClaimIssue(context.Context, issue.Invocation, execution.ClaimIssueRequest) (execution.ClaimIssueResult, error)
 
 	// ClaimNext selects and claims the next matching ready issue.
-	ClaimNext(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimIssueResult, error)
+	ClaimNext(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimNextResult, error)
 
 	// ReleaseIssue relinquishes actor-owned custody.
 	ReleaseIssue(context.Context, issue.Invocation, execution.ReleaseIssueRequest) (execution.ReleaseIssueResult, error)
@@ -217,11 +217,15 @@ func (s *Service) ClaimNextIssue(
 	if err != nil {
 		return nil, web.FromError(err)
 	}
-	converted, err := s.views.Detail(ctx, boardID, result.Issue)
-	if err != nil {
-		return nil, web.FromError(err)
+	response := &privatev1.ClaimNextIssueResponse{SkippedConflicts: uint64(result.SkippedConflicts)}
+	if result.Issue != nil {
+		converted, err := s.views.Detail(ctx, boardID, *result.Issue)
+		if err != nil {
+			return nil, web.FromError(err)
+		}
+		response.Issue = converted
 	}
-	return connect.NewResponse(&privatev1.ClaimNextIssueResponse{Issue: converted}), nil
+	return connect.NewResponse(response), nil
 }
 
 // protocolLabels normalizes one unsigned protocol label group.

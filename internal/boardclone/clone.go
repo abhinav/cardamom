@@ -35,7 +35,7 @@ type Result struct {
 	BoardID string `json:"board_id"`
 
 	// Name is the preserved board name.
-	Name string `json:"name"`
+	Name *string `json:"name"`
 
 	// ProjectID identifies the destination project.
 	ProjectID string `json:"project_id"`

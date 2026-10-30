@@ -15,6 +15,21 @@ import {
 } from "./issue-reference-pill.tsx";
 
 describe("issue reference pill", () => {
+  it("keeps the copyable reference while identifying unresolved preview values", () => {
+    const markup = renderToStaticMarkup(
+      <IssueReferencePill
+        issue={create(IssueSummarySchema, { status: IssueStatus.UNRESOLVED })}
+        issueID="cm-conflict"
+      >
+        <a href="/board/board-1/issue/cm-conflict">%cm-conflict</a>
+      </IssueReferencePill>,
+    );
+    expect(markup).toContain("Title unresolved");
+    expect(markup).toContain("Unresolved type");
+    expect(markup).toContain("Priority unresolved");
+    expect(markup).toContain('Copy issue ID %cm-conflict');
+    expect(markup).toContain('href="/board/board-1/issue/cm-conflict"');
+  });
   it("presents compact issue context without changing the pill contents", () => {
     const markup = renderToStaticMarkup(
       <IssueReferencePill

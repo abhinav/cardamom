@@ -137,7 +137,7 @@ func (r *Repository) readIssueDetail(
 		State:     selected.state.RecoveryStateRecord(),
 		DependsOn: dependsOn, Blocks: blocks, LogSummary: logSummary,
 		ParentID: parent, CurrentResult: result, CheckpointDecision: decision,
-		Story: story, Blocked: summary.Blocked,
+		Story: story, Blocked: summary.Blocked, EligibilityConflicts: summary.EligibilityConflicts,
 	}, nil
 }
 
@@ -226,7 +226,7 @@ func (r *Repository) readOptionalResult(
 	ctx context.Context,
 	scope queryScope,
 	id issue.ID,
-	title string,
+	title *string,
 ) (*issue.Result, error) {
 	uid, err := r.readIssueUID(ctx, scope, id)
 	if err != nil {
@@ -300,9 +300,9 @@ func (r *Repository) readIssueStory(
 		containment = append(containment, issue.ContainmentNode{
 			ID:       id.String(),
 			Title:    index.states[id].state.Title(),
-			Type:     index.states[id].state.Kind().String(),
+			Type:     kindText(index.states[id].state.Kind()),
 			Status:   index.summary(id).Issue.Status,
-			Priority: index.states[id].state.Priority().Int(),
+			Priority: priorityNumber(index.states[id].state.Priority()),
 			ParentID: parentID,
 		})
 	}

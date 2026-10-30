@@ -1,7 +1,9 @@
+import { create } from "@bufbuild/protobuf";
 import { describe, expect, it, vi } from "vitest";
 
 import { toBoardScopeMessage } from "../board-scope.ts";
 import {
+  IssueSummarySchema,
   IssueLifecycle,
   IssueStatus,
   IssueType,
@@ -16,14 +18,25 @@ import {
 } from "./routines.tsx";
 
 describe("Routines RPC boundary", () => {
-  it("lists only open routines when retired routines are hidden", () => {
+  it("distinguishes unknown execution inputs from unrelated disputed metadata", () => {
+    const routine = create(IssueSummarySchema, {
+      type: IssueType.ROUTINE,
+      status: IssueStatus.UNRESOLVED,
+      conflicts: [{ id: "lifecycle-conflict", field: "lifecycle" }],
+    });
+    expect(routinePresentation(routine, "worker", true)).toEqual({ state: "Unresolved", actions: [] });
+    routine.lifecycle = IssueLifecycle.OPEN;
+    routine.conflicts[0]!.field = "title";
+    expect(routinePresentation(routine, "worker", true).actions).toContain(LifecycleAction.CLAIM);
+  });
+  it("lists open and unresolved routines when retired routines are hidden", () => {
     const scope = toBoardScopeMessage({ kind: "board", boardId: "board-1" })!;
 
     expect(routineListInput(scope, false)).toEqual(
       expect.objectContaining({
         scope,
         types: [IssueType.ROUTINE],
-        lifecycles: [IssueLifecycle.OPEN],
+        lifecycles: [IssueLifecycle.OPEN, IssueLifecycle.UNSPECIFIED],
         direction: SortDirection.DESCENDING,
       }),
     );
@@ -39,6 +52,7 @@ describe("Routines RPC boundary", () => {
           IssueLifecycle.OPEN,
           IssueLifecycle.CLOSED,
           IssueLifecycle.CANCELLED,
+          IssueLifecycle.UNSPECIFIED,
         ],
       }),
     );
@@ -47,10 +61,11 @@ describe("Routines RPC boundary", () => {
   it("derives operational state and domain-valid actions", () => {
     expect(
       routinePresentation(
-        {
+        create(IssueSummarySchema, {
+          type: IssueType.ROUTINE,
           lifecycle: IssueLifecycle.OPEN,
           status: IssueStatus.READY,
-        },
+        }),
         "browser-actor",
         true,
       ),
@@ -64,11 +79,12 @@ describe("Routines RPC boundary", () => {
     });
     expect(
       routinePresentation(
-        {
+        create(IssueSummarySchema, {
+          type: IssueType.ROUTINE,
           lifecycle: IssueLifecycle.OPEN,
           status: IssueStatus.IN_PROGRESS,
           activeClaim: { actor: "browser-actor" },
-        },
+        }),
         "browser-actor",
         true,
       ),
@@ -82,10 +98,12 @@ describe("Routines RPC boundary", () => {
     });
     expect(
       routinePresentation(
-        {
+        create(IssueSummarySchema, {
+          type: IssueType.ROUTINE,
           lifecycle: IssueLifecycle.OPEN,
           status: IssueStatus.BLOCKED,
-        },
+          blocked: true,
+        }),
         "browser-actor",
         true,
       ),
@@ -95,10 +113,11 @@ describe("Routines RPC boundary", () => {
     });
     expect(
       routinePresentation(
-        {
+        create(IssueSummarySchema, {
+          type: IssueType.ROUTINE,
           lifecycle: IssueLifecycle.CLOSED,
           status: IssueStatus.CLOSED,
-        },
+        }),
         "browser-actor",
         true,
       ),
@@ -109,10 +128,11 @@ describe("Routines RPC boundary", () => {
   });
 
   it("removes mutation actions without effective capability or an actor", () => {
-    const routine = {
+    const routine = create(IssueSummarySchema, {
+      type: IssueType.ROUTINE,
       lifecycle: IssueLifecycle.OPEN,
       status: IssueStatus.READY,
-    };
+    });
 
     expect(routinePresentation(routine, "browser-actor", false).actions).toEqual(
       [],

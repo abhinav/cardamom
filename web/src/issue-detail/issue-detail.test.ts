@@ -66,6 +66,27 @@ import {
 } from "./issue-detail.tsx";
 
 describe("issue detail presentation", () => {
+  it("edits known metadata without assigning unresolved fields", () => {
+    const draft = issueMetadataDraft(create(IssueDetailSchema, {
+      issue: {
+        id: "cm-conflict",
+        priority: 2,
+        conflicts: [
+          { id: "title-conflict", field: "title" },
+          { id: "summary-conflict", field: "summary" },
+          { id: "labels-conflict", field: "labels" },
+          { id: "parent-conflict", field: "parent" },
+        ],
+      },
+    }));
+    const input = editIssueMetadataInput("cm-conflict", "worker", { ...draft, priority: 1 });
+    expect(input.title).toBeUndefined();
+    expect(input.type).toBeUndefined();
+    expect(input.summarySource).toBeUndefined();
+    expect(input.labels).toBeUndefined();
+    expect(input.parentId).toBeUndefined();
+    expect(input.priority).toBe(1);
+  });
   it("presents the current issue ID as a percent-prefixed copy pill", () => {
     const markup = renderToStaticMarkup(
       IssueHeader({
@@ -511,6 +532,34 @@ describe("issue detail presentation", () => {
     expect(markup).toContain('aria-label="Add dependency"');
   });
 
+  it("shows dependency uncertainty alongside retained rows without changing incoming relations", () => {
+    const detail = create(IssueDetailSchema, {
+      issue: {
+        id: "cm-dependent", boardId: "board-1",
+        conflicts: [{ id: "dependency-conflict", field: "dependencies" }],
+      },
+      prerequisites: [{ id: "cm-known", title: "Known prerequisite" }],
+    });
+    const markup = renderToStaticMarkup(
+      createElement(TransportProvider, { transport: createRouterTransport(() => {}) },
+        createElement(QueryClientProvider, { client: new QueryClient() },
+          createElement(MemoryRouter, null,
+            createElement(RelationshipBand, {
+              detail, addDependency: vi.fn(), removeDependency: vi.fn(),
+              dependencyQuery: "", pending: false, relationFocus: "dependencies", relationsOpen: true,
+              setDependencyQuery: vi.fn(), setRelationFocus: vi.fn(), setRelationsOpen: vi.fn(),
+            }),
+          ),
+        ),
+      ),
+    );
+    expect(markup).toContain("Known prerequisite");
+    expect(markup).toContain("Some dependencies are unresolved.");
+    expect(markup).toContain("No dependents.");
+    expect(markup).not.toContain("Add dependency");
+    expect(markup).not.toContain(">Remove</button>");
+  });
+
   it("keeps Relations collapsed when the remembered preference is closed", () => {
     const issueId = "cm-collapsed-relations";
     const detail = create(IssueDetailSchema, {
@@ -898,6 +947,19 @@ describe("issue detail RPC boundaries", () => {
     expect(markup).toContain("Claim");
     expect(markup).toContain("Mark done");
     expect(markup).toContain("Cancel");
+  });
+
+  it("does not treat disputed pin membership as an unpinned issue", () => {
+    const markup = renderToStaticMarkup(IssueActions({
+      actor: "worker", changePin: vi.fn(), changeLifecycle: vi.fn(),
+      edit: vi.fn(), pending: false, pinned: false,
+      summary: create(IssueSummarySchema, {
+        id: "cm-task", conflicts: [{ id: "conflict-pins", field: "pins" }],
+      }),
+    }));
+    expect(markup).toContain("Pin state unresolved");
+    expect(markup).toMatch(/disabled=""[^>]*>.*Pin state unresolved/s);
+    expect(markup).not.toContain("Pin to board");
   });
 
   it("attributes pin and unpin mutations and reports idempotent outcomes", async () => {

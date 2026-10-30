@@ -3,6 +3,7 @@
 package issue
 
 import (
+	"slices"
 	"strings"
 	"time"
 	"unicode"
@@ -18,12 +19,13 @@ type Snapshot struct {
 	UID UID
 
 	// ID is the issue's public store-global handle.
-	ID    ID
-	Title string
-	Kind  Kind
+	ID ID
+	// Title and Kind are nil only when a corresponding conflict is retained.
+	Title *string
+	Kind  *Kind
 	// Lifecycle is the persisted open, closed, or cancelled state.
-	Lifecycle Lifecycle
-	Priority  Priority
+	Lifecycle *Lifecycle
+	Priority  *Priority
 	// ActiveClaim is nil when no actor has current execution custody.
 	ActiveClaim   *ClaimState
 	Created       time.Time
@@ -34,6 +36,8 @@ type Snapshot struct {
 	Details       string
 	RecoveryState *RecoveryState
 	Result        string
+	// Conflicts identifies unresolved fields without loading alternative bodies.
+	Conflicts []ConflictReference
 }
 
 // RecoveryState is one issue's mutable recovery position and optional
@@ -83,10 +87,10 @@ type WaitingState struct {
 type State struct {
 	uid           UID
 	id            ID
-	title         string
-	kind          Kind
-	lifecycle     Lifecycle
-	priority      Priority
+	title         *string
+	kind          *Kind
+	lifecycle     *Lifecycle
+	priority      *Priority
 	activeClaim   *ClaimState
 	created       time.Time
 	updated       time.Time
@@ -96,6 +100,7 @@ type State struct {
 	details       string
 	recoveryState *RecoveryState
 	result        string
+	conflicts     []ConflictReference
 }
 
 // Load validates and restores one durable issue state.
@@ -106,18 +111,50 @@ func Load(snapshot Snapshot) (State, error) {
 	if _, err := NewID(snapshot.ID.String()); err != nil {
 		return State{}, err
 	}
-	title := strings.TrimSpace(snapshot.Title)
-	if title == "" {
-		return State{}, errkind.Errorf(errkind.InvalidInput, "invalid input: title required")
+	for _, reference := range snapshot.Conflicts {
+		if reference.ID == "" || reference.Field.String() == "" {
+			return State{}, errkind.Errorf(errkind.InvalidInput, "invalid issue conflict reference")
+		}
 	}
-	if _, err := NewKind(snapshot.Kind.String()); err != nil {
-		return State{}, err
+	for _, value := range []struct {
+		field   Field
+		present bool
+	}{
+		{FieldTitle, snapshot.Title != nil},
+		{FieldKind, snapshot.Kind != nil},
+		{FieldLifecycle, snapshot.Lifecycle != nil},
+		{FieldPriority, snapshot.Priority != nil},
+	} {
+		if Unresolved(snapshot.Conflicts, value.field) {
+			if value.present {
+				return State{}, errkind.Errorf(errkind.InvalidInput, "unresolved %s cannot have a current value", value.field)
+			}
+		} else if !value.present {
+			return State{}, errkind.Errorf(errkind.InvalidInput, "invalid input: %s required", value.field)
+		}
 	}
-	if _, err := NewLifecycle(snapshot.Lifecycle.String()); err != nil {
-		return State{}, err
+	var title *string
+	if snapshot.Title != nil {
+		value := strings.TrimSpace(*snapshot.Title)
+		if value == "" {
+			return State{}, errkind.Errorf(errkind.InvalidInput, "invalid input: title required")
+		}
+		title = &value
 	}
-	if _, err := NewPriority(snapshot.Priority.Int()); err != nil {
-		return State{}, err
+	if snapshot.Kind != nil {
+		if _, err := NewKind(snapshot.Kind.String()); err != nil {
+			return State{}, err
+		}
+	}
+	if snapshot.Lifecycle != nil {
+		if _, err := NewLifecycle(snapshot.Lifecycle.String()); err != nil {
+			return State{}, err
+		}
+	}
+	if snapshot.Priority != nil {
+		if _, err := NewPriority(snapshot.Priority.Int()); err != nil {
+			return State{}, err
+		}
 	}
 	if snapshot.Created.IsZero() || snapshot.Updated.IsZero() {
 		return State{}, errkind.Errorf(errkind.InvalidInput, "invalid input: issue timestamps required")
@@ -126,13 +163,15 @@ func Load(snapshot Snapshot) (State, error) {
 		if snapshot.ActiveClaim.Actor == "" || NewActor(snapshot.ActiveClaim.Actor.String()) != snapshot.ActiveClaim.Actor || snapshot.ActiveClaim.StartedAt.IsZero() {
 			return State{}, errkind.Errorf(errkind.InvalidInput, "invalid input: active claim requires a normalized actor and start time")
 		}
-		if !snapshot.Kind.Executable() || snapshot.Lifecycle != LifecycleOpen {
+		if snapshot.Kind == nil || !snapshot.Kind.Executable() ||
+			snapshot.Lifecycle == nil || *snapshot.Lifecycle != LifecycleOpen ||
+			Unresolved(snapshot.Conflicts, FieldWaiting) {
 			return State{}, errkind.Errorf(errkind.InvalidInput, "invalid input: only open executable issues can have an active claim")
 		}
 	}
 	if snapshot.Waiting != nil {
-		if snapshot.ActiveClaim != nil || !snapshot.Kind.Executable() ||
-			snapshot.Lifecycle != LifecycleOpen {
+		if snapshot.ActiveClaim != nil || (snapshot.Kind != nil && !snapshot.Kind.Executable()) ||
+			(snapshot.Lifecycle != nil && *snapshot.Lifecycle != LifecycleOpen) {
 			return State{}, errkind.Errorf(
 				errkind.InvalidInput,
 				"invalid input: only unclaimed open executable issues can be waiting",
@@ -145,13 +184,30 @@ func Load(snapshot Snapshot) (State, error) {
 	if err := validateRecoveryState(snapshot.RecoveryState); err != nil {
 		return State{}, err
 	}
+	for _, value := range []struct {
+		field   Field
+		present bool
+	}{
+		{FieldWaiting, snapshot.Waiting != nil},
+		{FieldSummary, snapshot.Summary != ""},
+		{FieldDetails, snapshot.Details != ""},
+		{FieldState, snapshot.RecoveryState != nil},
+		{FieldResult, snapshot.Result != ""},
+	} {
+		if value.present && Unresolved(snapshot.Conflicts, value.field) {
+			return State{}, errkind.Errorf(errkind.InvalidInput, "unresolved %s cannot have a current value", value.field)
+		}
+	}
+	if snapshot.Lifecycle == nil && snapshot.ClosedAt != nil {
+		return State{}, errkind.Errorf(errkind.InvalidInput, "unresolved lifecycle cannot have a closure time")
+	}
 	return State{
 		uid:           snapshot.UID,
 		id:            snapshot.ID,
 		title:         title,
-		kind:          snapshot.Kind,
-		lifecycle:     snapshot.Lifecycle,
-		priority:      snapshot.Priority,
+		kind:          cloneValue(snapshot.Kind),
+		lifecycle:     cloneValue(snapshot.Lifecycle),
+		priority:      cloneValue(snapshot.Priority),
 		activeClaim:   cloneActiveClaim(snapshot.ActiveClaim),
 		created:       snapshot.Created,
 		updated:       snapshot.Updated,
@@ -161,6 +217,7 @@ func Load(snapshot Snapshot) (State, error) {
 		details:       snapshot.Details,
 		recoveryState: cloneRecoveryState(snapshot.RecoveryState),
 		result:        snapshot.Result,
+		conflicts:     slices.Clone(snapshot.Conflicts),
 	}, nil
 }
 
@@ -170,37 +227,41 @@ func (i State) UID() UID { return i.uid }
 // ID returns the public issue handle.
 func (i State) ID() ID { return i.id }
 
-// Title returns the normalized issue title.
-func (i State) Title() string { return i.title }
+// Title returns the normalized issue title, or nil when disputed.
+func (i State) Title() *string { return cloneValue(i.title) }
 
-// Kind returns the issue's workflow kind.
-func (i State) Kind() Kind { return i.kind }
+// Kind returns the issue's workflow kind, or nil when disputed.
+func (i State) Kind() *Kind { return cloneValue(i.kind) }
 
-// Lifecycle returns the persisted lifecycle state.
-func (i State) Lifecycle() Lifecycle { return i.lifecycle }
+// Lifecycle returns the persisted lifecycle state, or nil when disputed.
+func (i State) Lifecycle() *Lifecycle { return cloneValue(i.lifecycle) }
 
 // Status returns the caller-visible status derived from lifecycle and custody.
 func (i State) Status() Status {
-	if i.activeClaim != nil {
-		return StatusInProgress
-	}
-	if i.waiting != nil {
-		return StatusWaiting
-	}
-	switch i.lifecycle {
-	case LifecycleOpen:
-		return StatusReady
-	case LifecycleClosed:
-		return StatusClosed
-	case LifecycleCancelled:
-		return StatusCancelled
-	default:
-		return statusUnknown
-	}
+	return DeriveStatus(StatusInput{
+		Lifecycle: i.lifecycle, Claimed: i.activeClaim != nil,
+		Waiting: i.waiting != nil, Conflicts: i.conflicts,
+	})
 }
 
-// Priority returns the issue's scheduling priority.
-func (i State) Priority() Priority { return i.priority }
+// Priority returns the issue's scheduling priority, or nil when disputed.
+func (i State) Priority() *Priority { return cloneValue(i.priority) }
+
+// Conflicts returns compact references to unresolved current fields.
+func (i State) Conflicts() []ConflictReference { return slices.Clone(i.conflicts) }
+
+// RequireResolved rejects an operation that consumes an unresolved field.
+// Operations name only the inputs their policy reads or replaces.
+func (i State) RequireResolved(fields ...Field) error {
+	for _, field := range fields {
+		for _, conflict := range i.conflicts {
+			if conflict.Field == field {
+				return errkind.Errorf(errkind.Conflict, "%s is unresolved in conflict %s", field, conflict.ID)
+			}
+		}
+	}
+	return nil
+}
 
 // ActiveClaim returns a copy of the current claim, if any.
 func (i State) ActiveClaim() *ClaimState { return cloneActiveClaim(i.activeClaim) }
@@ -276,10 +337,10 @@ func (i State) Snapshot() Snapshot {
 	return Snapshot{
 		UID:           i.uid,
 		ID:            i.id,
-		Title:         i.title,
-		Kind:          i.kind,
-		Lifecycle:     i.lifecycle,
-		Priority:      i.priority,
+		Title:         cloneValue(i.title),
+		Kind:          cloneValue(i.kind),
+		Lifecycle:     cloneValue(i.lifecycle),
+		Priority:      cloneValue(i.priority),
 		ActiveClaim:   cloneActiveClaim(i.activeClaim),
 		Created:       i.created,
 		Updated:       i.updated,
@@ -289,7 +350,15 @@ func (i State) Snapshot() Snapshot {
 		Details:       i.details,
 		RecoveryState: cloneRecoveryState(i.recoveryState),
 		Result:        i.result,
+		Conflicts:     slices.Clone(i.conflicts),
 	}
+}
+
+func cloneValue[T any](value *T) *T {
+	if value == nil {
+		return nil
+	}
+	return new(*value)
 }
 
 // NewRecoveryState constructs attributed mutable recovery State.

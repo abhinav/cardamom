@@ -23,7 +23,7 @@ VALUES (
 type ProjectCreateInitialBoardParams struct {
 	ID        string
 	ProjectID string
-	Name      string
+	Name      *string
 	CreatedAt time.Time
 }
 

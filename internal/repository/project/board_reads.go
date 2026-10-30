@@ -12,7 +12,7 @@ import (
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
-// ListAllBoards returns active and archived boards in stable project, name, and
+// ListAllBoards returns all boards, including unresolved state, in project, name, and
 // identity order.
 func (r *Repository) ListAllBoards(ctx context.Context) (out []*board.State, err error) {
 	view, err := r.store.View(ctx)
@@ -20,7 +20,12 @@ func (r *Repository) ListAllBoards(ctx context.Context) (out []*board.State, err
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	rows, err := query.New(view).ProjectListAllBoards(ctx)
+	queries := query.New(view)
+	rows, err := queries.ProjectListAllBoards(ctx)
+	if err != nil {
+		return nil, err
+	}
+	conflicts, err := readBoardConflicts(ctx, queries, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -34,6 +39,7 @@ func (r *Repository) ListAllBoards(ctx context.Context) (out []*board.State, err
 			row.ArchivedAt,
 			row.ArchivedBy,
 			row.ArchiveReason,
+			conflicts[row.ID],
 		)
 		if err != nil {
 			return nil, err
@@ -44,7 +50,7 @@ func (r *Repository) ListAllBoards(ctx context.Context) (out []*board.State, err
 }
 
 // ListProjectBoards returns one project's active boards in stable name and
-// identity order. Archived boards are omitted from project aggregate scopes.
+// identity order. Archived boards and unresolved archive state are omitted.
 // An existing project with no boards returns an empty slice.
 // The read does not verify project existence; callers resolve projectID before
 // using it.
@@ -57,7 +63,12 @@ func (r *Repository) ListProjectBoards(
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	rows, err := query.New(view).ProjectListProjectBoards(ctx, projectID.String())
+	queries := query.New(view)
+	rows, err := queries.ProjectListProjectBoards(ctx, projectID.String())
+	if err != nil {
+		return nil, err
+	}
+	conflicts, err := readBoardConflicts(ctx, queries, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +82,7 @@ func (r *Repository) ListProjectBoards(
 			row.ArchivedAt,
 			row.ArchivedBy,
 			row.ArchiveReason,
+			conflicts[row.ID],
 		)
 		if err != nil {
 			return nil, err
@@ -80,19 +92,24 @@ func (r *Repository) ListProjectBoards(
 	return out, nil
 }
 
-// Board returns an active or archived board by stable identity.
+// Board returns any board by stable identity, including unresolved settings.
 func (r *Repository) Board(ctx context.Context, id board.ID) (out *board.State, err error) {
 	view, err := r.store.View(ctx)
 	if err != nil {
 		return out, err
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	row, err := query.New(view).ProjectGetBoard(ctx, id.String())
+	queries := query.New(view)
+	row, err := queries.ProjectGetBoard(ctx, id.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		return out, errkind.Errorf(errkind.NotFound, "board not found")
 	}
 	if err != nil {
 		return out, err
+	}
+	conflicts, err := readBoardConflicts(ctx, queries, new(id.String()))
+	if err != nil {
+		return nil, err
 	}
 	return loadBoard(
 		row.ID,
@@ -103,6 +120,7 @@ func (r *Repository) Board(ctx context.Context, id board.ID) (out *board.State, 
 		row.ArchivedAt,
 		row.ArchivedBy,
 		row.ArchiveReason,
+		conflicts[row.ID],
 	)
 }
 
@@ -114,11 +132,16 @@ func (r *Repository) SoleBoard(ctx context.Context) (out *board.State, err error
 		return out, err
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	rows, err := query.New(view).ProjectListBoardsForSoleSelection(ctx)
+	queries := query.New(view)
+	rows, err := queries.ProjectListBoardsForSoleSelection(ctx)
 	if err != nil {
 		return out, err
 	}
 	var boards []*board.State
+	conflicts, err := readBoardConflicts(ctx, queries, nil)
+	if err != nil {
+		return nil, err
+	}
 	for _, row := range rows {
 		state, err := loadBoard(
 			row.ID,
@@ -129,6 +152,7 @@ func (r *Repository) SoleBoard(ctx context.Context) (out *board.State, err error
 			row.ArchivedAt,
 			row.ArchivedBy,
 			row.ArchiveReason,
+			conflicts[row.ID],
 		)
 		if err != nil {
 			return out, err
@@ -146,17 +170,18 @@ func (r *Repository) SoleBoard(ctx context.Context) (out *board.State, err error
 }
 
 // loadBoard restores one domain board from selected persisted values. Archive
-// time and actor form one logical presence marker; the database invariant keeps
-// them both null for active boards and both populated for archived boards.
+// time and actor form one logical value. Conflict references distinguish an
+// unknown archive state from the same NULL representation used by active boards.
 func loadBoard(
 	id string,
 	projectIDValue string,
-	name string,
+	name *string,
 	description *string,
 	createdAt time.Time,
 	archivedAt *time.Time,
 	archivedBy *string,
 	archiveReason *string,
+	conflicts []board.ConflictReference,
 ) (*board.State, error) {
 	projectID, err := project.NewID(projectIDValue)
 	if err != nil {
@@ -173,5 +198,6 @@ func loadBoard(
 		Description: description,
 		Created:     createdAt,
 		Archived:    archived,
+		Conflicts:   conflicts,
 	})
 }

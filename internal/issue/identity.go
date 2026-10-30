@@ -107,10 +107,13 @@ const (
 	StatusClosed
 	// StatusCancelled identifies an issue terminated without completion.
 	StatusCancelled
+	// StatusUnresolved means disputed lifecycle or waiting state prevents
+	// deriving one execution status. Other conflict fields do not replace status.
+	StatusUnresolved
 )
 
 var statusNames = [...]string{
-	"", "ready", "blocked", "in_progress", "waiting", "closed", "cancelled",
+	"", "ready", "blocked", "in_progress", "waiting", "closed", "cancelled", "unresolved",
 }
 
 // NewStatus validates and constructs issue status.
@@ -128,6 +131,8 @@ func NewStatus(value string) (Status, error) {
 		return StatusClosed, nil
 	case "cancelled":
 		return StatusCancelled, nil
+	case "unresolved":
+		return StatusUnresolved, nil
 	default:
 		return 0, errkind.Errorf(
 			errkind.InvalidInput,
@@ -141,7 +146,7 @@ func NewStatus(value string) (Status, error) {
 func ValidStatuses() []Status {
 	return []Status{
 		StatusReady, StatusBlocked, StatusInProgress,
-		StatusWaiting, StatusClosed, StatusCancelled,
+		StatusWaiting, StatusClosed, StatusCancelled, StatusUnresolved,
 	}
 }
 

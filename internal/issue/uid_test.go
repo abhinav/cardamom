@@ -55,8 +55,8 @@ func TestStatePreservesUID(t *testing.T) {
 	uid := testUID(t, 0x2a)
 	now := time.Unix(10, 0).UTC()
 	state, err := Load(Snapshot{
-		UID: uid, ID: MustID("an-1"), Title: "Private identity",
-		Kind: KindTask, Lifecycle: LifecycleOpen, Priority: PriorityNormal,
+		UID: uid, ID: MustID("an-1"), Title: new("Private identity"),
+		Kind: new(KindTask), Lifecycle: new(LifecycleOpen), Priority: new(PriorityNormal),
 		Created: now, Updated: now,
 	})
 	require.NoError(t, err)
@@ -67,8 +67,8 @@ func TestStatePreservesUID(t *testing.T) {
 	assert.Equal(t, uid, updated.Snapshot().UID)
 
 	_, err = Load(Snapshot{
-		ID: MustID("an-1"), Title: "Missing private identity",
-		Kind: KindTask, Lifecycle: LifecycleOpen, Priority: PriorityNormal,
+		ID: MustID("an-1"), Title: new("Missing private identity"),
+		Kind: new(KindTask), Lifecycle: new(LifecycleOpen), Priority: new(PriorityNormal),
 		Created: now, Updated: now,
 	})
 	assert.ErrorContains(t, err, "issue UID must not be zero")

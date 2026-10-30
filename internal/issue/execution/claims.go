@@ -2,16 +2,12 @@ package execution
 
 import (
 	"context"
-	"errors"
-	"slices"
 	"time"
 
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 )
-
-var errNoReady = errkind.Errorf(errkind.Conflict, "no ready issues")
 
 // ClaimIssue acquires execution custody of one eligible issue.
 type ClaimIssue struct {
@@ -50,9 +46,18 @@ type ClaimIssueSnapshot struct {
 	// Candidate is the requested issue, or nil when it does not exist.
 	Candidate *issue.State
 	// Prerequisites is the candidate's complete readiness dependency set.
-	Prerequisites []issue.State
+	Prerequisites []ClaimPrerequisite
 	// OccurredAt timestamps a successful claim.
 	OccurredAt time.Time
+}
+
+// ClaimPrerequisite contains only the dependency values consumed by claiming.
+// Result and other record bodies are not part of claim admission.
+type ClaimPrerequisite struct {
+	// Lifecycle is nil when the prerequisite's completion state is unresolved.
+	Lifecycle *issue.Lifecycle
+	// Conflicts retains recovery references for disputed lifecycle or decisions.
+	Conflicts []issue.ConflictReference
 }
 
 // ClaimNextSnapshot contains the candidate selected under the writer transaction
@@ -67,7 +72,9 @@ type ClaimNextSnapshot struct {
 	// Labels is the candidate's complete label set.
 	Labels []issue.Label
 	// Prerequisites is the candidate's complete readiness dependency set.
-	Prerequisites []issue.State
+	Prerequisites []ClaimPrerequisite
+	// SkippedConflicts counts otherwise eligible candidates excluded by conflict.
+	SkippedConflicts int
 	// OccurredAt timestamps a successful claim.
 	OccurredAt time.Time
 }
@@ -77,7 +84,7 @@ type claimSnapshot struct {
 	Revision      board.Revision
 	Candidate     *issue.State
 	Labels        []issue.Label
-	Prerequisites []issue.State
+	Prerequisites []ClaimPrerequisite
 	OccurredAt    time.Time
 }
 
@@ -85,7 +92,10 @@ type claimSnapshot struct {
 type ClaimIssuePolicy struct{ snapshot claimSnapshot }
 
 // ClaimNextPolicy evaluates one candidate selected from the ready pool.
-type ClaimNextPolicy struct{ snapshot claimSnapshot }
+type ClaimNextPolicy struct {
+	snapshot         claimSnapshot
+	skippedConflicts int
+}
 
 // IssueClaimed is the semantic outcome of issue claimed.
 type IssueClaimed struct {
@@ -99,6 +109,26 @@ type IssueClaimed struct {
 type ClaimIssueResult struct {
 	// Issue is the canonical post-commit view with requested context.
 	Issue issue.View
+}
+
+// NextIssueClaimed reports an automatic selection, including an empty pool.
+// A nil Issue means no custody was acquired; SkippedConflicts still describes
+// the observed pool. Errors are reserved for unsuccessful operations.
+type NextIssueClaimed struct {
+	// Issue is the selected state after custody is acquired, or nil.
+	Issue *issue.State
+	// SkippedConflicts counts otherwise eligible candidates excluded by conflict.
+	SkippedConflicts int
+	// CommittedRevision is populated only when custody changed.
+	CommittedRevision
+}
+
+// ClaimNextResult preserves pool diagnostics when no issue was selected.
+type ClaimNextResult struct {
+	// Issue contains the claimed view and requested context, or nil.
+	Issue *issue.View
+	// SkippedConflicts counts otherwise eligible candidates excluded by conflict.
+	SkippedConflicts int
 }
 
 // ClaimIssueRequest supplies caller input for claiming a named issue.
@@ -152,11 +182,17 @@ func LoadClaimIssue(snapshot ClaimIssueSnapshot) (*ClaimIssuePolicy, error) {
 
 // LoadClaimNext validates snapshot for selecting and claiming ready work.
 func LoadClaimNext(snapshot ClaimNextSnapshot) (*ClaimNextPolicy, error) {
-	validated, err := loadClaim(claimSnapshot(snapshot))
+	if snapshot.SkippedConflicts < 0 {
+		return nil, ErrIncompleteSnapshot
+	}
+	validated, err := loadClaim(claimSnapshot{
+		BoardID: snapshot.BoardID, Revision: snapshot.Revision, Candidate: snapshot.Candidate,
+		Labels: snapshot.Labels, Prerequisites: snapshot.Prerequisites, OccurredAt: snapshot.OccurredAt,
+	})
 	if err != nil {
 		return nil, err
 	}
-	return &ClaimNextPolicy{snapshot: validated}, nil
+	return &ClaimNextPolicy{snapshot: validated, skippedConflicts: snapshot.SkippedConflicts}, nil
 }
 
 func loadClaim(snapshot claimSnapshot) (claimSnapshot, error) {
@@ -180,65 +216,75 @@ func (p *ClaimIssuePolicy) ClaimIssue(command ClaimIssue) (IssueClaimed, error) 
 	if command.IssueID != p.snapshot.Candidate.ID() {
 		return IssueClaimed{}, ErrIncompleteSnapshot
 	}
-	return claimCandidate(p.snapshot, command.Assignee, claimDirect)
+	return claimCandidate(p.snapshot, command.Assignee)
 }
 
 // ClaimNext applies ready-selection policy to the loaded pool candidate.
-func (p *ClaimNextPolicy) ClaimNext(command ClaimNext) (IssueClaimed, error) {
+func (p *ClaimNextPolicy) ClaimNext(command ClaimNext) (NextIssueClaimed, error) {
+	result := NextIssueClaimed{SkippedConflicts: p.skippedConflicts}
 	requestedLabelsAll, err := uniqueLabels(command.LabelsAll)
 	if err != nil {
-		return IssueClaimed{}, err
+		return result, err
 	}
-	if p.snapshot.Candidate == nil || p.snapshot.Candidate.Kind() == issue.KindRoutine {
-		return IssueClaimed{}, errNoReady
-	}
-	for _, label := range requestedLabelsAll {
-		if !slices.Contains(p.snapshot.Labels, label) {
-			return IssueClaimed{}, errNoReady
-		}
+	if p.snapshot.Candidate == nil {
+		return result, nil
 	}
 	requestedLabelsAny, err := uniqueLabels(command.LabelsAny)
 	if err != nil {
-		return IssueClaimed{}, err
-	}
-	if len(requestedLabelsAny) > 0 {
-		matched := false
-		for _, label := range requestedLabelsAny {
-			matched = matched || slices.Contains(p.snapshot.Labels, label)
-		}
-		if !matched {
-			return IssueClaimed{}, errNoReady
-		}
+		return result, err
 	}
 	requestedLabelsNone, err := uniqueLabels(command.LabelsNone)
 	if err != nil {
-		return IssueClaimed{}, err
+		return result, err
 	}
-	for _, label := range requestedLabelsNone {
-		if slices.Contains(p.snapshot.Labels, label) {
-			return IssueClaimed{}, errNoReady
+	labelSummary := issue.Summary{Issue: issueProjection(*p.snapshot.Candidate, p.snapshot.Revision)}
+	for _, label := range p.snapshot.Labels {
+		labelSummary.Labels = append(labelSummary.Labels, label.String())
+	}
+	if !MatchesKnownClaimLabels(labelSummary, ClaimNext{LabelsAll: requestedLabelsAll, LabelsAny: requestedLabelsAny, LabelsNone: requestedLabelsNone}) {
+		return result, nil
+	}
+	candidate := p.snapshot.Candidate
+	input := EligibilityInput{
+		Kind: candidate.Kind(), Lifecycle: candidate.Lifecycle(),
+		Claimed: candidate.ActiveClaim() != nil, Waiting: candidate.Waiting() != nil,
+		Conflicted: len(candidate.Conflicts()) > 0,
+	}
+	for _, prerequisite := range p.snapshot.Prerequisites {
+		input.Conflicted = input.Conflicted || prerequisite.Lifecycle == nil ||
+			issue.Unresolved(prerequisite.Conflicts, issue.FieldCheckpoint)
+		if prerequisite.Lifecycle != nil && *prerequisite.Lifecycle != issue.LifecycleClosed {
+			input.Blocked = true
 		}
 	}
-	return claimCandidate(p.snapshot, command.Assignee, claimFromPool)
+	eligibility := ClassifyEligibility(input)
+	if eligibility.SkippedForConflict() {
+		result.SkippedConflicts++
+		return result, nil
+	}
+	if !eligibility.ReadyForClaim() {
+		return result, nil
+	}
+	claimed, err := claimCandidate(p.snapshot, command.Assignee)
+	if err != nil {
+		return result, err
+	}
+	result.Issue = &claimed.Issue
+	return result, nil
 }
-
-type claimSource uint8
-
-const (
-	claimDirect claimSource = iota
-	claimFromPool
-)
 
 func claimCandidate(
 	snapshot claimSnapshot,
 	assignee issue.Actor,
-	source claimSource,
 ) (IssueClaimed, error) {
 	if assignee == "" {
 		return IssueClaimed{}, errkind.Errorf(errkind.InvalidInput, "invalid input: assignee required")
 	}
 	state := *snapshot.Candidate
-	if state.Lifecycle() != issue.LifecycleOpen {
+	if err := state.RequireResolved(issue.FieldKind, issue.FieldLifecycle, issue.FieldWaiting, issue.FieldDependencies); err != nil {
+		return IssueClaimed{}, err
+	}
+	if *state.Lifecycle() != issue.LifecycleOpen {
 		return IssueClaimed{}, errkind.Errorf(
 			errkind.Conflict,
 			"claim requires lifecycle open; issue lifecycle is %s",
@@ -259,14 +305,16 @@ func claimCandidate(
 			state.Kind(),
 		)
 	}
-	if source == claimFromPool && state.Waiting() != nil {
-		return IssueClaimed{}, errkind.Errorf(
-			errkind.Conflict,
-			"automatic claim excludes waiting issues; claim the issue by ID",
-		)
-	}
 	for _, prerequisite := range snapshot.Prerequisites {
-		if prerequisite.Status() != issue.StatusClosed {
+		for _, conflict := range prerequisite.Conflicts {
+			if conflict.Field == issue.FieldLifecycle || conflict.Field == issue.FieldCheckpoint {
+				return IssueClaimed{}, errkind.Errorf(errkind.Conflict, "%s is unresolved in conflict %s", conflict.Field, conflict.ID)
+			}
+		}
+		if prerequisite.Lifecycle == nil {
+			return IssueClaimed{}, errkind.Errorf(errkind.Conflict, "prerequisite lifecycle is unresolved")
+		}
+		if *prerequisite.Lifecycle != issue.LifecycleClosed {
 			return IssueClaimed{}, errkind.Errorf(
 				errkind.Conflict,
 				"claim requires all dependencies to be closed",
@@ -307,26 +355,26 @@ func (e *Executor) ClaimNext(
 	ctx context.Context,
 	_ issue.Invocation,
 	req ClaimNextRequest,
-) (ClaimIssueResult, error) {
+) (ClaimNextResult, error) {
 	var underID issue.ID
 	var err error
 	if req.UnderID != "" {
 		underID, err = issue.NewID(req.UnderID)
 		if err != nil {
-			return ClaimIssueResult{}, err
+			return ClaimNextResult{}, err
 		}
 	}
 	claimLabelsAll, err := labels(req.LabelsAll)
 	if err != nil {
-		return ClaimIssueResult{}, err
+		return ClaimNextResult{}, err
 	}
 	claimLabelsAny, err := labels(req.LabelsAny)
 	if err != nil {
-		return ClaimIssueResult{}, err
+		return ClaimNextResult{}, err
 	}
 	claimLabelsNone, err := labels(req.LabelsNone)
 	if err != nil {
-		return ClaimIssueResult{}, err
+		return ClaimNextResult{}, err
 	}
 	interval := req.Interval
 	if interval <= 0 {
@@ -340,17 +388,26 @@ func (e *Executor) ClaimNext(
 				LabelsAny: claimLabelsAny, LabelsNone: claimLabelsNone,
 			},
 		)
-		if err == nil {
-			return e.claimResult(ctx, outcome, req.ContextDepth, nil)
+		result := ClaimNextResult{SkippedConflicts: outcome.SkippedConflicts}
+		if err != nil {
+			return result, err
 		}
-		if !req.Watch || !errors.Is(err, errNoReady) {
-			return ClaimIssueResult{}, err
+		if outcome.Issue != nil {
+			view, err := e.readIssue(ctx, outcome.Issue.ID(), req.ContextDepth)
+			if err != nil {
+				return result, err
+			}
+			result.Issue = &view
+			return result, nil
+		}
+		if !req.Watch {
+			return result, nil
 		}
 		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return ClaimIssueResult{}, ctx.Err()
+			return result, ctx.Err()
 		case <-timer.C:
 		}
 	}

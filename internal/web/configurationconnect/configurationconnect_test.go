@@ -63,6 +63,28 @@ func TestServiceReadsOrderedConfigurationView(t *testing.T) {
 	)
 }
 
+func TestServicePreservesUnresolvedConfiguration(t *testing.T) {
+	view := testView(t)
+	view.Effective.Issue.ID.Prefix = nil
+	view.Effective.Conflicts = []configuration.ConflictReference{{ID: "prefix-conflict", Field: configuration.FieldIssueIDPrefix}}
+	view.Board.Conflicts = view.Effective.Conflicts
+	operations := NewMockConfigurations(gomock.NewController(t))
+	operations.EXPECT().Resolve(gomock.Any(), board.ID("board-1")).Return(view, nil)
+	response, err := newTestClient(t, operations).GetConfiguration(t.Context(), connect.NewRequest(
+		&privatev1.GetConfigurationRequest{BoardId: "board-1"},
+	))
+	require.NoError(t, err)
+	effective := response.Msg.GetView().GetEffective()
+	assert.Nil(t, effective.GetIssue().GetId().Prefix)
+	require.Len(t, effective.Conflicts, 1)
+	assert.Equal(t, "issue.id.prefix", effective.Conflicts[0].Field)
+	assert.Equal(t, uint64(4096), effective.GetIssue().GetSummary().GetMaxBytes())
+	layers := response.Msg.GetView().GetLayers()
+	require.Len(t, layers, 4)
+	require.Len(t, layers[3].Conflicts, 1)
+	assert.Equal(t, "prefix-conflict", layers[3].Conflicts[0].Id)
+}
+
 func TestServiceUpdatesTypedConfigurationPatch(t *testing.T) {
 	prefix := "next-"
 	parsedPrefix, err := configuration.NewPrefix(prefix)
@@ -167,9 +189,9 @@ func testView(t *testing.T) configuration.View {
 	summaryLimit, err := configuration.NewByteLimit(4096)
 	require.NoError(t, err)
 	effective := builtIn
-	effective.Issue.ID.Prefix = projectPrefix
-	effective.Issue.ID.Strategy = sequential
-	effective.Issue.Summary.MaxBytes = summaryLimit
+	effective.Issue.ID.Prefix = &projectPrefix
+	effective.Issue.ID.Strategy = &sequential
+	effective.Issue.Summary.MaxBytes = &summaryLimit
 	builtInSource := configuration.Source{
 		Scope: configuration.ScopeBuiltIn, Identity: "built-in",
 	}

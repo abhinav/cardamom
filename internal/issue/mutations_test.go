@@ -90,10 +90,10 @@ func TestStateSnapshotLinkDoesNotMutateOriginalState(t *testing.T) {
 	state, err := Load(Snapshot{
 		UID:       testUID(t, 1),
 		ID:        MustID("an-1"),
-		Title:     "Snapshot linking",
-		Kind:      KindTask,
-		Lifecycle: LifecycleOpen,
-		Priority:  PriorityNormal,
+		Title:     new("Snapshot linking"),
+		Kind:      new(KindTask),
+		Lifecycle: new(LifecycleOpen),
+		Priority:  new(PriorityNormal),
 		Created:   updatedAt,
 		Updated:   updatedAt,
 		RecoveryState: &RecoveryState{

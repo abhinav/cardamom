@@ -318,6 +318,8 @@ function issueWithStatus(id: string, status: IssueStatus): IssueSummary {
 function issueWithUpdatedTime(seconds: number): IssueSummary {
   return {
     $typeName: "cardamom.private.v1.IssueSummary",
+    conflicts: [],
+    eligibilityConflicts: [],
     id: "cm-recent",
     boardId: "board-1",
     title: "Recent work",

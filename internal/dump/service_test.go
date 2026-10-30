@@ -39,9 +39,9 @@ func TestServiceSnapshotOrdersPresentationByCreationBeforeIssueIdentity(t *testi
 	service := newTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "issue-a", Title: "Newer", Created: 3},
-			{ID: "issue-m", Title: "Parent", Created: 1},
-			{ID: "issue-z", Title: "Older", Created: 2},
+			{ID: "issue-a", Title: new("Newer"), Created: 3},
+			{ID: "issue-m", Title: new("Parent"), Created: 1},
+			{ID: "issue-z", Title: new("Older"), Created: 2},
 		},
 		Containment: []Containment{
 			{ChildID: "issue-a", ParentID: "issue-m"},
@@ -224,9 +224,9 @@ func TestServiceRenderRewritesIssueAndLogReferencesToCanonicalRelativePaths(t *t
 	service := newTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "an-source", Title: "Source", Summary: &summary},
-			{ID: "an-target", Title: "Target"},
-			{ID: "an-absent", Title: "Absent"},
+			{ID: "an-source", Title: new("Source"), Summary: &summary},
+			{ID: "an-target", Title: new("Target")},
+			{ID: "an-absent", Title: new("Absent")},
 		},
 		LogEntries: []LogEntry{
 			{
@@ -261,7 +261,7 @@ func TestServiceRenderRewritesBoardReferencesFromDumpRoot(t *testing.T) {
 	description := "Issue: %an-target. Log: %" + logID.String() + "."
 	service := newTestService(t, BoardSnapshot{
 		BoardID: "board-1", Description: &description,
-		Issues: []Issue{{ID: "an-target", Title: "Target"}},
+		Issues: []Issue{{ID: "an-target", Title: new("Target")}},
 		LogEntries: []LogEntry{{
 			ID: logID, IssueID: "an-target", Author: new("captain"),
 		}},
@@ -292,9 +292,9 @@ func TestServiceRenderReferencesDoNotExpandSelection(t *testing.T) {
 	service := newTestService(t, BoardSnapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "an-source", Title: "Source", Summary: &summary},
-			{ID: "an-target", Title: "Target"},
-			{ID: "an-absent", Title: "Absent"},
+			{ID: "an-source", Title: new("Source"), Summary: &summary},
+			{ID: "an-target", Title: new("Target")},
+			{ID: "an-absent", Title: new("Absent")},
 		},
 		LogEntries: []LogEntry{{
 			ID: absentLogID, IssueID: "an-absent", Author: new("captain"),
@@ -390,7 +390,7 @@ func TestPublicationService_ExecuteStopsAtSnapshotFailure(t *testing.T) {
 func TestPublicationService_ExecuteStopsAtRenderFailure(t *testing.T) {
 	publisher := NewMockPublisher(gomock.NewController(t))
 	snapshot := BoardSnapshot{
-		BoardID: "board-1", Issues: []Issue{{ID: "../escape", Title: "Escape"}},
+		BoardID: "board-1", Issues: []Issue{{ID: "../escape", Title: new("Escape")}},
 	}
 	service := newTestPublicationService(t, snapshot, publisher)
 
@@ -441,7 +441,7 @@ func testServiceConfig(t *testing.T, snapshot BoardSnapshot) ServiceConfig {
 func testProvenance(boardID string) Provenance {
 	return Provenance{
 		ProjectID: "project-1", ProjectName: "Project one",
-		BoardID: boardID, BoardName: "Board one",
+		BoardID: boardID, BoardName: new("Board one"),
 	}
 }
 
@@ -450,10 +450,10 @@ func unorderedSnapshot() BoardSnapshot {
 	return BoardSnapshot{
 		BoardID: "board-1", Revision: 12, Description: &description,
 		Issues: []Issue{
-			{ID: "an-c", Title: "Child", Labels: []string{"child"}},
-			{ID: "an-a", Title: "Root", Labels: []string{"zeta", "alpha"}},
-			{ID: "an-d", Title: "Dependency"},
-			{ID: "an-b", Title: "Middle"},
+			{ID: "an-c", Title: new("Child"), Labels: []string{"child"}},
+			{ID: "an-a", Title: new("Root"), Labels: []string{"zeta", "alpha"}},
+			{ID: "an-d", Title: new("Dependency")},
+			{ID: "an-b", Title: new("Middle")},
 		},
 		Containment: []Containment{
 			{ChildID: "an-c", ParentID: "an-b"},

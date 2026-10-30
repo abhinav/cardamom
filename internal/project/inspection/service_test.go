@@ -20,7 +20,7 @@ func TestService_ShowResolvesProjectConfigurationAndBoards(t *testing.T) {
 	require.NoError(t, err)
 	view := configuration.ProjectView{Effective: configuration.Configuration{
 		Issue: configuration.IssueConfiguration{ID: configuration.IssueIDConfiguration{
-			Prefix: prefix, Strategy: configuration.IDStrategySequential,
+			Prefix: &prefix, Strategy: new(configuration.IDStrategySequential),
 		}},
 	}}
 	selector, err := project.NewSelector("Mission")
@@ -104,7 +104,7 @@ func testBoard(
 ) *board.State {
 	t.Helper()
 	state, err := board.Load(board.Snapshot{
-		ID: board.ID(id), ProjectID: projectID.String(), Name: name,
+		ID: board.ID(id), ProjectID: projectID.String(), Name: &name,
 		Created: time.Unix(2, 0).UTC(),
 	})
 	require.NoError(t, err)

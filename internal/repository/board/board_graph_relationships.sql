@@ -59,11 +59,3 @@ WITH RECURSIVE descendants AS (
 SELECT issue.id
 FROM descendants
 JOIN issues AS issue ON issue.uid = descendants.uid;
-
--- name: BoardListBlockedIssueIDs :many
-SELECT DISTINCT issue.id
-FROM dependencies AS dependency
-JOIN issues AS issue ON issue.uid = dependency.issue_uid
-JOIN issues AS prerequisite ON prerequisite.uid = dependency.prerequisite_uid
-WHERE dependency.board_id = sqlc.arg(board_id)
-    AND prerequisite.lifecycle <> 'closed';

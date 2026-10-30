@@ -65,7 +65,7 @@ func TestReader_CaptureUsesOneViewForAllAndSelectedBoards(t *testing.T) {
 	assert.Equal(t, "project-two", selectedDestination.projects[0].ID.String())
 	assert.Equal(t, board.ID("board-two"), selectedDestination.boards[0].boardID)
 	selectedHeader := selectedDestination.boards[0].records[0].(boardcopy.RecordHeader)
-	assert.Equal(t, board.PinLimit(5), selectedHeader.Configuration.Board.Pins.MaxCount)
+	assert.Equal(t, new(board.PinLimit(5)), selectedHeader.Configuration.Board.Pins.MaxCount)
 	var selectedPins []boardcopy.CopyPin
 	for _, record := range selectedDestination.boards[0].records {
 		if pin, ok := record.(boardcopy.CopyPin); ok {

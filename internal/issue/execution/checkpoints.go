@@ -187,7 +187,10 @@ func resolveCheckpoint(
 	if command.IssueID != snapshot.Issue.ID() {
 		return CheckpointResolved{}, ErrIncompleteSnapshot
 	}
-	if snapshot.Issue.Kind() != issue.KindCheckpoint {
+	if err := snapshot.Issue.RequireResolved(issue.FieldKind, issue.FieldLifecycle, issue.FieldCheckpoint, issue.FieldDependencies); err != nil {
+		return CheckpointResolved{}, err
+	}
+	if *snapshot.Issue.Kind() != issue.KindCheckpoint {
 		return CheckpointResolved{}, errkind.Errorf(
 			errkind.InvalidInput,
 			"checkpoint resolution requires type checkpoint; issue type is %s",
@@ -198,7 +201,10 @@ func resolveCheckpoint(
 		return CheckpointResolved{}, errkind.Errorf(errkind.Conflict, "checkpoint already resolved")
 	}
 	for _, prerequisite := range snapshot.Prerequisites {
-		if prerequisite.Status() != issue.StatusClosed {
+		if err := prerequisite.RequireResolved(issue.FieldLifecycle, issue.FieldCheckpoint); err != nil {
+			return CheckpointResolved{}, err
+		}
+		if *prerequisite.Lifecycle() != issue.LifecycleClosed {
 			return CheckpointResolved{}, errkind.Errorf(
 				errkind.Conflict,
 				"checkpoint resolution requires all dependencies to be closed",
@@ -218,6 +224,9 @@ func resolveCheckpoint(
 		closure := append([]issue.State{state}, snapshot.TransitiveDependents...)
 		seen := make(map[issue.ID]struct{}, len(closure))
 		for _, current := range closure {
+			if err := current.RequireResolved(issue.FieldLifecycle, issue.FieldDependencies); err != nil {
+				return CheckpointResolved{}, err
+			}
 			if _, ok := seen[current.ID()]; ok || current.Lifecycle().Terminal() {
 				continue
 			}

@@ -26,16 +26,16 @@ export type IssueReferencePreview = IssuePreview | {
 
 interface IssuePreview {
   /** title is the human-readable issue title. */
-  title: string;
+  title?: string;
 
   /** status is the issue's effective workflow status. */
   status: IssueStatus;
 
   /** type identifies the issue's workflow role. */
-  type: IssueType;
+  type?: IssueType;
 
   /** priority is the issue's domain ordering priority. */
-  priority: number;
+  priority?: number;
 
   /** waiting records why and when the issue entered waiting. */
   waiting?: WaitingState;
@@ -164,14 +164,14 @@ export function IssueReferencePill({
               </span>
             ))}
           </> : <>
-          <strong>{preview.title}</strong>
+          <strong>{preview.title ?? "Title unresolved"}</strong>
           <span className="issue-reference-preview-metadata">
             <span className="issue-reference-preview-status">
               <IssueStatusDot status={preview.status} />
               {status?.label}
             </span>
             <span>{issueTypeLabel(preview.type)}</span>
-            <span>P{preview.priority}</span>
+            <span>{preview.priority === undefined ? "Priority unresolved" : `P${preview.priority}`}</span>
           </span>
           <IssueWaitingReason issue={preview} />
           </>}

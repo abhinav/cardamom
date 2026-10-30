@@ -139,7 +139,7 @@ func (r *CopyRepository) importCopyRecords(
 		ctx,
 		query.ProjectCopyBoardNameExistsParams{
 			ProjectID: options.ProjectID,
-			Name:      name,
+			Name:      new(name),
 		},
 	)
 	if err != nil {
@@ -536,7 +536,7 @@ func (r *CopyRepository) allocateCopyIssueID(
 	issueCount int64,
 	reserved map[string]struct{},
 ) (string, error) {
-	if policy.Strategy == configuration.IDStrategySequential {
+	if *policy.Strategy == configuration.IDStrategySequential {
 		for range 32 {
 			number, err := change.ReserveIssueNumber(ctx)
 			if err != nil {
@@ -773,7 +773,7 @@ func advanceCopyIssueAllocator(
 	cfg configuration.Configuration,
 	mappings []boardcopy.CopyIdentityMap,
 ) error {
-	if cfg.Issue.ID.Strategy != configuration.IDStrategySequential {
+	if *cfg.Issue.ID.Strategy != configuration.IDStrategySequential {
 		return nil
 	}
 	var next int64

@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+// ConflictReference identifies a field with no authoritative current value.
+// Collection responses retain references instead of loading contender bodies.
+message ConflictReference {
+  // id identifies the retained alternatives shown by conflict inspection.
+  string id = 1;
+
+  // field is the owning domain's field name, or a dotted configuration path.
+  string field = 2;
+
+  // Membership key for a disputed label or external key. Empty means the
+  // conflict applies to the field as a whole.
+  optional string member_key = 3;
+}

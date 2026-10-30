@@ -34,7 +34,7 @@ func (r *Repository) CreateBoard(
 	}
 	state, err := board.Load(board.Snapshot{
 		ID: board.ID(boardID), ProjectID: projectID.String(),
-		Name: request.Name, Description: request.Description, Created: r.clock(),
+		Name: new(request.Name), Description: request.Description, Created: r.clock(),
 	})
 	if err != nil {
 		return nil, err
@@ -102,6 +102,10 @@ func (r *Repository) EditBoardSettings(
 	if err != nil {
 		return out, err
 	}
+	conflicts, err := readBoardConflicts(ctx, queries, new(row.ID))
+	if err != nil {
+		return out, err
+	}
 	current, err := loadBoard(
 		row.ID,
 		row.ProjectID,
@@ -111,6 +115,7 @@ func (r *Repository) EditBoardSettings(
 		row.ArchivedAt,
 		row.ArchivedBy,
 		row.ArchiveReason,
+		conflicts[row.ID],
 	)
 	if err != nil {
 		return out, err
@@ -172,8 +177,12 @@ func (r *Repository) ArchiveBoard(
 	if err != nil {
 		return out, err
 	}
+	conflicts, err := readBoardConflicts(ctx, queries, new(row.ID))
+	if err != nil {
+		return out, err
+	}
 	out.Board, err = loadBoard(row.ID, row.ProjectID, row.Name, row.Description,
-		row.CreatedAt, row.ArchivedAt, row.ArchivedBy, row.ArchiveReason)
+		row.CreatedAt, row.ArchivedAt, row.ArchivedBy, row.ArchiveReason, conflicts[row.ID])
 	if err != nil {
 		return out, err
 	}
@@ -247,12 +256,19 @@ func (r *Repository) UnarchiveBoard(ctx context.Context, id board.ID) (out *boar
 	if err != nil {
 		return nil, false, err
 	}
-	out, err = loadBoard(row.ID, row.ProjectID, row.Name, row.Description,
-		row.CreatedAt, row.ArchivedAt, row.ArchivedBy, row.ArchiveReason)
+	conflicts, err := readBoardConflicts(ctx, queries, new(row.ID))
 	if err != nil {
 		return nil, false, err
 	}
-	changed = out.Unarchive()
+	out, err = loadBoard(row.ID, row.ProjectID, row.Name, row.Description,
+		row.CreatedAt, row.ArchivedAt, row.ArchivedBy, row.ArchiveReason, conflicts[row.ID])
+	if err != nil {
+		return nil, false, err
+	}
+	changed, err = out.Unarchive()
+	if err != nil {
+		return nil, false, err
+	}
 	if !changed {
 		return out, false, change.Commit()
 	}
@@ -292,9 +308,10 @@ func countBoardIssues(ctx context.Context, queries *query.Queries, id board.ID) 
 		"ready": &counts.Ready, "blocked": &counts.Blocked,
 		"in_progress": &counts.InProgress, "waiting": &counts.Waiting,
 		"closed": &counts.Closed, "cancelled": &counts.Cancelled,
+		"unresolved": &counts.Unresolved,
 	} {
 		value, err := queries.ProjectCountBoardIssuesByStatus(ctx, query.ProjectCountBoardIssuesByStatusParams{
-			BoardID: id.String(), Status: status,
+			BoardID: id.String(), Status: &status,
 		})
 		if err != nil {
 			return board.IssueCounts{}, err
@@ -306,7 +323,7 @@ func countBoardIssues(ctx context.Context, queries *query.Queries, id board.ID) 
 
 func boardsEqual(left, right *board.State) bool {
 	if left.ID() != right.ID() || left.ProjectID() != right.ProjectID() ||
-		left.Name() != right.Name() || !left.Created().Equal(right.Created()) {
+		!optionalStringsEqual(left.Name(), right.Name()) || !left.Created().Equal(right.Created()) {
 		return false
 	}
 	leftArchive, rightArchive := left.Archived(), right.Archived()

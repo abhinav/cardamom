@@ -1,0 +1,3 @@
+kind: Added
+body: Inspect and resolve disputed issue fields, board settings, relationships, and execution state through the CLI and web UI. Automatic claiming reports work skipped because of unresolved conflicts.
+time: 2026-10-29T23:39:59.979812-07:00

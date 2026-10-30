@@ -149,6 +149,9 @@ func (s *Service) BeginUpload(
 	if err != nil {
 		return Upload{}, err
 	}
+	if err := resolved.RequireResolved(configuration.FieldAttachmentMaxBytes); err != nil {
+		return Upload{}, err
+	}
 	maximum := resolved.Attachment.MaxBytes
 	if request.ExpectedSizeBytes != nil && *request.ExpectedSizeBytes > maximum.Uint64() {
 		return Upload{}, errkind.Errorf(
@@ -159,7 +162,7 @@ func (s *Service) BeginUpload(
 		)
 	}
 	upload, err := s.repository.BeginUpload(ctx, BeginUploadAdmission{
-		Request: request, MaximumSizeBytes: maximum,
+		Request: request, MaximumSizeBytes: *maximum,
 	})
 	return upload, classifyUploadError(err)
 }

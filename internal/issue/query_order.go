@@ -75,17 +75,17 @@ func OrderSummaries(request ListRequest, values []BoardIssueSummary) []BoardIssu
 func compareIssueSummary(key string, left, right Issue) int {
 	switch key {
 	case "priority":
-		return cmp.Compare(left.Priority, right.Priority)
+		return compareOptional(left.Priority, right.Priority)
 	case "created":
 		return cmp.Compare(left.Created, right.Created)
 	case "updated":
 		return cmp.Compare(left.Updated, right.Updated)
 	case "closed":
-		return compareOptionalInt64(left.Closed, right.Closed)
+		return compareOptional(left.Closed, right.Closed)
 	case "title":
-		return cmp.Compare(left.Title, right.Title)
+		return compareOptional(left.Title, right.Title)
 	case "type":
-		return cmp.Compare(left.Type, right.Type)
+		return compareOptional(left.Type, right.Type)
 	case "":
 		return cmp.Compare(left.Created, right.Created)
 	default:
@@ -93,7 +93,7 @@ func compareIssueSummary(key string, left, right Issue) int {
 	}
 }
 
-func compareOptionalInt64(left, right *int64) int {
+func compareOptional[T cmp.Ordered](left, right *T) int {
 	switch {
 	case left == nil && right == nil:
 		return 0

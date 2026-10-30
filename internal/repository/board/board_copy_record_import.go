@@ -78,7 +78,7 @@ func (i *copyRecordImporter) importHeader(value boardcopy.RecordHeader) error {
 	if err := i.queries.ProjectInsertCopiedBoard(
 		i.ctx,
 		query.ProjectInsertCopiedBoardParams{
-			ID: i.boardID, ProjectID: i.projectID, Name: i.name,
+			ID: i.boardID, ProjectID: i.projectID, Name: new(i.name),
 			Description: description, CreatedAt: value.Board.CreatedAt,
 			IssueIDPrefix: &prefix, IssueIDStrategy: &strategy,
 			IssueSummaryMaxBytes: &summaryMaxBytes,
@@ -112,9 +112,9 @@ func (i *copyRecordImporter) importIssue(value boardcopy.CopyIssue) error {
 	err = i.queries.BoardInsertCopiedIssue(
 		i.ctx,
 		query.BoardInsertCopiedIssueParams{
-			Uid: issueUID.Bytes(), ID: issueID, BoardID: i.boardID, Title: value.Title,
-			Kind: value.Kind, Lifecycle: value.Lifecycle,
-			Priority: value.Priority, CreatedAt: value.CreatedAt,
+			Uid: issueUID.Bytes(), ID: issueID, BoardID: i.boardID, Title: new(value.Title),
+			Kind: new(value.Kind), Lifecycle: new(value.Lifecycle),
+			Priority: new(value.Priority), CreatedAt: value.CreatedAt,
 			UpdatedAt: value.UpdatedAt, ClosedAt: value.ClosedAt,
 			WaitingReason: value.WaitingReason, WaitingSince: value.WaitingSince,
 			Summary:  rewriteOptionalCopyMarkdown(value.Summary, i.rewrite),

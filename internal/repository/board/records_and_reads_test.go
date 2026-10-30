@@ -74,7 +74,7 @@ func TestRepositoryPersistsRecordsAndCompletionValues(t *testing.T) {
 	result, err := repository.ReadResult(t.Context(), issue.ResultRequest{IssueID: "record-1"})
 	require.NoError(t, err)
 	assert.Equal(t, issue.Result{
-		IssueID: "record-1", Title: "Recovery record", Body: "Repository section complete.",
+		IssueID: "record-1", Title: new("Recovery record"), Body: "Repository section complete.",
 	}, result)
 
 	cursor, err := repository.ReadChangeCursor(t.Context())

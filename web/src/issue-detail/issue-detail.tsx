@@ -38,6 +38,7 @@ import { Textarea } from "@/components/ui/textarea";
 import type {
   AttachmentClient,
 } from "../api.ts";
+import { ConflictLink } from "../conflicts/conflict-link.tsx";
 import { issuePath } from "../board-scope.ts";
 import {
   AttachmentRecords,
@@ -336,14 +337,14 @@ export function issueMetadataDraft(detail: IssueDetail): IssueMetadataDraft {
     title: issue.title,
     type: issue.type,
     priority: issue.priority,
-    summary: detail.summary?.source ?? "",
-    details: detail.details?.source ?? "",
-    labels: issue.labels.join(", "),
-    parent: selectedNode?.parentId ?? "",
+    summary: issue.conflicts.some(({ field }) => field === "summary") ? undefined : detail.summary?.source ?? "",
+    details: issue.conflicts.some(({ field }) => field === "details") ? undefined : detail.details?.source ?? "",
+    labels: issue.conflicts.some(({ field }) => field === "labels") ? undefined : issue.labels.join(", "),
+    parent: issue.conflicts.some(({ field }) => field === "parent") ? undefined : selectedNode?.parentId ?? "",
   };
 }
 
-/** editIssueMetadataInput replaces the complete metadata form in one request. */
+/** editIssueMetadataInput replaces the resolved metadata fields in one request. */
 export function editIssueMetadataInput(
   issueId: string,
   actor: string,
@@ -351,13 +352,13 @@ export function editIssueMetadataInput(
 ) {
   return {
     issueId,
-    title: draft.title.trim(),
+    title: draft.title?.trim(),
     type: draft.type,
     priority: draft.priority,
     summarySource: draft.summary,
     detailsSource: draft.details,
-    labels: { values: metadataLabels(draft.labels) },
-    parentId: draft.parent.trim(),
+    ...(draft.labels === undefined ? {} : { labels: { values: metadataLabels(draft.labels) } }),
+    parentId: draft.parent?.trim(),
     context: mutationContext(actor),
   };
 }
@@ -728,7 +729,10 @@ export function IssueDetailPage({
           request={logRequest}
           retry={() => void logRequest.refetch()}
         />
-        <CurrentIssueState state={state} />
+        <CurrentIssueState
+          state={state}
+          unresolved={issue.conflicts.some(({ field }) => field === "state")}
+        />
         {canMutateServer && (
           <IssueLogComposer
             body={logBody}
@@ -794,11 +798,16 @@ export function IssueHeader({
           </span>
         ))}
       </div>
-      <h1 id="issue-title">{summary.title}</h1>
+      <h1 id="issue-title">{summary.title ?? "Title unresolved"}</h1>
       <div className="issue-detail-badges" aria-label="Issue classification">
         <IssueStatusBadge status={summary.status} />
+        {(summary.conflicts.length > 0 || summary.eligibilityConflicts.length > 0) && (
+          <ConflictLink boardId={summary.boardId} source={summary.source} issueId={summary.eligibilityConflicts.length > 0 ? undefined : summary.id} />
+        )}
         <span className="metadata-chip">{issueTypeLabel(summary.type)}</span>
-        <span className="metadata-chip">P{summary.priority}</span>
+        <span className="metadata-chip">
+          {summary.priority === undefined ? "Priority unresolved" : `P${summary.priority}`}
+        </span>
       </div>
       <IssueWaitingReason issue={summary} mode="detail" />
     </header>
@@ -920,10 +929,14 @@ export function PrimaryRecord({
 
       <section className="issue-detail-section" aria-labelledby="summary-title">
         <h2 id="summary-title">Summary</h2>
-        <Markdown content={detail.summary} empty="No summary." />
+        <Markdown
+          content={detail.summary}
+          empty={issue.conflicts.some(({ field }) => field === "summary")
+            ? "Summary unresolved." : "No summary."}
+        />
       </section>
 
-      {hasMarkdown(detail.details) && (
+      {(hasMarkdown(detail.details) || issue.conflicts.some(({ field }) => field === "details")) && (
         <Collapsible
           className="issue-detail-section issue-details"
           open={detailsOpen}
@@ -936,18 +949,18 @@ export function PrimaryRecord({
             <h2 id="details-title">Details</h2>
           </CollapsibleTrigger>
           <CollapsibleContent keepMounted>
-            <Markdown content={detail.details} />
+            <Markdown content={detail.details} empty="Details unresolved." />
           </CollapsibleContent>
         </Collapsible>
       )}
 
-      {hasMarkdown(detail.result) && (
+      {(hasMarkdown(detail.result) || issue.conflicts.some(({ field }) => field === "result")) && (
         <section
           className="issue-detail-section"
           aria-labelledby="result-title"
         >
           <h2 id="result-title">Result</h2>
-          <Markdown content={detail.result} />
+          <Markdown content={detail.result} empty="Result unresolved." />
         </section>
       )}
     </>
@@ -974,7 +987,8 @@ export function IssueActions({
 }) {
   const actions = availableLifecycleActions(summary, actor);
   const actorMissing = actor.trim() === "";
-  const pinLabel = actorMissing
+  const pinUnresolved = summary.conflicts.some(({ field }) => field === "pins");
+  const pinLabel = pinUnresolved ? "Pin state unresolved" : actorMissing
     ? `Set actor in Settings to ${pinned ? "unpin" : "pin"}`
     : pinned
       ? "Unpin from board"
@@ -1003,7 +1017,7 @@ export function IssueActions({
           type="button"
           className="issue-action-quiet"
           variant="ghost"
-          disabled={pending || actorMissing}
+          disabled={pending || actorMissing || pinUnresolved}
           onClick={changePin}
         >
           {pinned ? (
@@ -1124,7 +1138,7 @@ function CheckpointRecord({ detail }: { detail: IssueDetail }) {
         </div>
         <div>
           <dt>Lifecycle</dt>
-          <dd>{enumLabel(IssueLifecycle[issue.lifecycle])}</dd>
+          <dd>{issue.lifecycle === undefined ? "Unresolved" : enumLabel(IssueLifecycle[issue.lifecycle])}</dd>
         </div>
         <div>
           <dt>Revision</dt>
@@ -1255,7 +1269,12 @@ export function RelationshipBand({
   if (issue === undefined) {
     return null;
   }
+  const dependenciesUnresolved = issue.conflicts.some(
+    ({ field }) => field === "dependencies",
+  );
+  const parentUnresolved = issue.conflicts.some(({ field }) => field === "parent");
   const hasRelations =
+    dependenciesUnresolved || parentUnresolved ||
     detail.prerequisites.length > 0 ||
     detail.dependents.length > 0 ||
     detail.containment?.nodes.some(
@@ -1314,18 +1333,20 @@ export function RelationshipBand({
           </TabsList>
           <TabsContent keepMounted value="dependencies">
             <DependencyPanel
-              add={canMutate ? addDependency : undefined}
+              add={canMutate && !dependenciesUnresolved ? addDependency : undefined}
               boardId={issue.boardId}
               source={source}
               currentIssueId={issue.id}
               dependencies={detail.prerequisites}
+              unresolved={dependenciesUnresolved}
               pending={pending}
               query={dependencyQuery}
-              remove={canMutate ? removeDependency : undefined}
+              remove={canMutate && !dependenciesUnresolved ? removeDependency : undefined}
               setQuery={setDependencyQuery}
             />
           </TabsContent>
           <TabsContent keepMounted value="hierarchy">
+            {parentUnresolved && <p>Containment unresolved.</p>}
             <HierarchyPanel detail={detail} />
           </TabsContent>
           <TabsContent keepMounted value="dependents">
@@ -1374,8 +1395,10 @@ function DependencyPanel({
   query,
   remove,
   setQuery,
+  unresolved = false,
 }: {
   add?: (id: string) => void;
+  unresolved?: boolean;
   boardId: string;
   source?: SourceRef;
   currentIssueId: string;
@@ -1423,8 +1446,11 @@ function DependencyPanel({
           </Button>
         )}
       </div>
+      {unresolved && dependencies.length > 0 && (
+        <p>Some dependencies are unresolved.</p>
+      )}
       <RelationshipList
-        empty="No dependencies."
+        empty={unresolved ? "Dependencies unresolved." : "No dependencies."}
         issues={dependencies}
         remove={remove}
         pending={pending}
@@ -1473,7 +1499,7 @@ function DependencyPanel({
                     disabled={pending}
                     onClick={() => add(candidate.id)}
                   >
-                    <span>{candidate.title}</span>
+                    <span>{candidate.title ?? "Title unresolved"}</span>
                     <small>{candidate.id}</small>
                   </Button>
                 </li>
@@ -1614,7 +1640,21 @@ function IssueLogComposer({
 }
 
 /** CurrentIssueState renders retained mutable State after immutable Log history. */
-export function CurrentIssueState({ state }: { state: StateRecord | undefined }) {
+export function CurrentIssueState({
+  state,
+  unresolved = false,
+}: {
+  state: StateRecord | undefined;
+  unresolved?: boolean;
+}) {
+  if (unresolved) {
+    return (
+      <section className="issue-detail-section">
+        <h2>State</h2>
+        <p>State unresolved.</p>
+      </section>
+    );
+  }
   if (
     state === undefined ||
     (!hasMarkdown(state.body) && !hasMarkdown(state.nextAction))

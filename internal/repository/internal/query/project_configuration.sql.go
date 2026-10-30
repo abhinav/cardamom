@@ -17,7 +17,8 @@ SELECT
     issue_summary_max_bytes,
     attachment_max_bytes,
     board_pins_max_count,
-    archived_at
+    id, project_id, name, description, created_at,
+    archived_at, archived_by, archive_reason
 FROM boards
 WHERE id = ?1
 `
@@ -28,7 +29,14 @@ type ProjectGetBoardConfigurationRow struct {
 	IssueSummaryMaxBytes *int64
 	AttachmentMaxBytes   *int64
 	BoardPinsMaxCount    *int64
+	ID                   string
+	ProjectID            string
+	Name                 *string
+	Description          *string
+	CreatedAt            time.Time
 	ArchivedAt           *time.Time
+	ArchivedBy           *string
+	ArchiveReason        *string
 }
 
 // The board configuration writer reads lifecycle in the same transaction as
@@ -42,7 +50,14 @@ func (q *Queries) ProjectGetBoardConfiguration(ctx context.Context, id string) (
 		&i.IssueSummaryMaxBytes,
 		&i.AttachmentMaxBytes,
 		&i.BoardPinsMaxCount,
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
 		&i.ArchivedAt,
+		&i.ArchivedBy,
+		&i.ArchiveReason,
 	)
 	return i, err
 }

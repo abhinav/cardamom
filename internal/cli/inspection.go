@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"regexp"
 	"slices"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -14,9 +15,9 @@ import (
 
 type listCommand struct {
 	UnderID     issueID    `name:"under" predictor:"issues" placeholder:"ISSUE" help:"List strict containment descendants of this issue."`
-	Statuses    []string   `name:"status" sep:"," enum:"ready,blocked,in_progress,waiting,closed,cancelled" placeholder:"STATUS" help:"Effective issue status to include: ready, blocked, in_progress, waiting, closed, or cancelled. Repeat or separate values with commas to match any status. Defaults to ready, blocked, in_progress, and waiting."`
+	Statuses    []string   `name:"status" sep:"," enum:"ready,blocked,in_progress,waiting,closed,cancelled,unresolved" placeholder:"STATUS" help:"Effective issue status to include: ready, blocked, in_progress, waiting, closed, cancelled, or unresolved. Repeat or separate values with commas to match any status. Defaults to ready, blocked, in_progress, waiting, and unresolved."`
 	Assignee    *string    `name:"assignee" placeholder:"ACTOR" help:"Match active custody by this actor."`
-	Type        string     `name:"type" placeholder:"TYPE" help:"Match one issue type: workstream, task, checkpoint, or routine."`
+	Type        string     `name:"type" placeholder:"TYPE" help:"Match one issue type: workstream, task, checkpoint, routine, or unresolved."`
 	Labels      labelTerms `name:"label" predictor:"labels" placeholder:"TERM" help:"Label term. No prefix or + requires; - excludes. Repeat for multiple labels."`
 	LabelsAny   []string   `name:"label-any" placeholder:"LABEL" help:"Match issues carrying at least one supplied label. Repeat for alternatives."`
 	NoAssignee  bool       `name:"no-assignee" help:"Match issues without active custody."`
@@ -48,7 +49,7 @@ func (c *listCommand) Run(inv *Invocation, operation ListIssuesOperation) error 
 		return UsageErrorf("--limit must not be negative")
 	}
 	if c.Type != "" && !slices.Contains(
-		[]string{"workstream", "task", "checkpoint", "routine"},
+		[]string{"workstream", "task", "checkpoint", "routine", "unresolved"},
 		c.Type,
 	) {
 		return UsageErrorf("unsupported issue type %q", c.Type)
@@ -72,6 +73,7 @@ func (c *listCommand) Run(inv *Invocation, operation ListIssuesOperation) error 
 		for _, status := range issue.NonTerminalStatuses() {
 			statuses = append(statuses, status.String())
 		}
+		statuses = append(statuses, issue.StatusUnresolved.String())
 	}
 	result, err := operation.ListIssues(inv.Context, issue.ListRequest{
 		UnderID: c.UnderID.String(), Statuses: statuses, Assignee: c.Assignee,
@@ -137,9 +139,9 @@ func renderReadyIssueSummaries(output *Output, summaries []issue.Summary) error 
 			waitingReason = summary.Issue.Waiting.Reason
 		}
 		if _, err := fmt.Fprintf(
-			writer, "%s\t%d\t%s\t%s\t%s\t%s\n",
-			summary.Issue.ID, summary.Issue.Priority, summary.Issue.Status,
-			summary.Issue.Type, singleLine(summary.Issue.Title),
+			writer, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			summary.Issue.ID, issuePriority(summary.Issue.Priority), summary.Issue.Status,
+			issueTypeLabel(summary.Issue.Type), issueTitle(summary.Issue.Title),
 			singleLine(waitingReason),
 		); err != nil {
 			return fmt.Errorf("write ready issue list: %w", err)
@@ -191,9 +193,9 @@ func renderIssueSummaries(output *Output, summaries []issue.Summary) error {
 	}
 	for _, summary := range summaries {
 		if _, err := fmt.Fprintf(
-			writer, "%s\t%d\t%s\t%s\t%s\n",
-			summary.Issue.ID, summary.Issue.Priority, summary.Issue.Status,
-			summary.Issue.Type, singleLine(summary.Issue.Title),
+			writer, "%s\t%s\t%s\t%s\t%s\n",
+			summary.Issue.ID, issuePriority(summary.Issue.Priority), summary.Issue.Status,
+			issueTypeLabel(summary.Issue.Type), issueTitle(summary.Issue.Title),
 		); err != nil {
 			return fmt.Errorf("write issue list: %w", err)
 		}
@@ -319,7 +321,7 @@ func writeIssueContext(output *Output, current issue.Context) error {
 		for _, ancestor := range current.Ancestors {
 			if err := output.WriteString(fmt.Sprintf(
 				"- %s: %s (%d log entries)\n",
-				ancestor.Issue.ID, ancestor.Issue.Title, ancestor.LogSummary.Count,
+				ancestor.Issue.ID, issueTitle(ancestor.Issue.Title), ancestor.LogSummary.Count,
 			)); err != nil {
 				return err
 			}
@@ -341,7 +343,7 @@ func writeIssueContext(output *Output, current issue.Context) error {
 			return err
 		}
 		for _, result := range current.DependencyResults {
-			if err := output.WriteString("- " + result.Issue.ID + ": " + result.Issue.Title + "\n" + result.Body + "\n"); err != nil {
+			if err := output.WriteString("- " + result.Issue.ID + ": " + issueTitle(result.Issue.Title) + "\n" + result.Body + "\n"); err != nil {
 				return err
 			}
 		}
@@ -354,7 +356,7 @@ func writeIssueContext(output *Output, current issue.Context) error {
 			return err
 		}
 		for _, pin := range current.Pins {
-			if err := output.WriteString(fmt.Sprintf("- %s: %s\n", pin.ID, singleLine(pin.Title))); err != nil {
+			if err := output.WriteString(fmt.Sprintf("- %s: %s\n", pin.ID, issueTitle(pin.Title))); err != nil {
 				return err
 			}
 		}
@@ -363,4 +365,39 @@ func writeIssueContext(output *Output, current issue.Context) error {
 		}
 	}
 	return nil
+}
+
+// issueTitle keeps missing titles visible without fabricating a current value.
+func issueTitle(value *string) string {
+	if value == nil {
+		return "Unresolved title"
+	}
+	return singleLine(*value)
+}
+
+func issueTypeLabel(value *string) string {
+	if value == nil {
+		return "unresolved"
+	}
+	return *value
+}
+
+func issuePriority(value *int) string {
+	if value == nil {
+		return "unresolved"
+	}
+	return strconv.Itoa(*value)
+}
+
+// formatIssueConflicts identifies unavailable assignments without hiding usable fields.
+func formatIssueConflicts(conflicts []issue.ConflictReference) string {
+	values := make([]string, len(conflicts))
+	for index, conflict := range conflicts {
+		field := conflict.Field.String()
+		if conflict.Key != "" {
+			field += fmt.Sprintf("[%q]", conflict.Key)
+		}
+		values[index] = fmt.Sprintf("%s (%s)", field, conflict.ID)
+	}
+	return strings.Join(values, ", ")
 }

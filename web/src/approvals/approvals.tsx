@@ -262,7 +262,7 @@ export function approvalPresentation(
     issueID: summary.id,
     readiness: "Ready",
     reasonID: `approval-reason-${summary.id}`,
-    title: summary.title,
+    title: summary.title ?? "Title unresolved",
   };
 }
 

@@ -31,14 +31,29 @@ import {
 } from "./model.ts";
 
 describe("availableLifecycleActions", () => {
+  it("allows direct work with a disputed title but not disputed execution inputs", () => {
+    const issue = create(IssueSummarySchema, {
+      lifecycle: IssueLifecycle.OPEN,
+      type: IssueType.TASK,
+      conflicts: [{ id: "title-conflict", field: "title" }],
+    });
+    expect(availableLifecycleActions(issue, "scotty")).toContain(LifecycleAction.CLAIM);
+    issue.type = undefined;
+    expect(availableLifecycleActions(issue, "scotty")).not.toContain(LifecycleAction.CLAIM);
+    issue.type = IssueType.TASK;
+    issue.eligibilityConflicts = [{ $typeName: "cardamom.private.v1.ConflictReference", id: "prerequisite-conflict", field: "lifecycle" }];
+    expect(availableLifecycleActions(issue, "scotty")).not.toContain(LifecycleAction.CLAIM);
+  });
   it("offers claim or release according to current custody", () => {
     const open = create(IssueSummarySchema, {
       id: "cm-task",
       lifecycle: IssueLifecycle.OPEN,
+      type: IssueType.TASK,
     });
     const claimed = create(IssueSummarySchema, {
       id: "cm-task",
       lifecycle: IssueLifecycle.OPEN,
+      type: IssueType.TASK,
       activeClaim: create(ActiveClaimSchema, { actor: "scotty" }),
     });
 
@@ -132,6 +147,16 @@ describe("lifecycleActionLabel", () => {
 });
 
 describe("checkpointDecisionPresentation", () => {
+  it("does not present disputed decisions or prerequisites as ready", () => {
+    for (const conflict of ["checkpoint", "dependencies", "waiting", "state"]) {
+      const issue = create(IssueSummarySchema, {
+        lifecycle: IssueLifecycle.OPEN,
+        type: IssueType.CHECKPOINT,
+        conflicts: [{ id: "conflict", field: conflict }],
+      });
+      expect(checkpointDecisionPresentation(issue).state).toBe("waiting");
+    }
+  });
   it("projects readiness from browser-visible checkpoint state", () => {
     const ready = create(IssueSummarySchema, {
       lifecycle: IssueLifecycle.OPEN,
@@ -190,6 +215,13 @@ describe("checkpointDecisionPresentation", () => {
 });
 
 describe("issue journal presentation", () => {
+  it("preserves known State while lifecycle is unresolved", () => {
+    const current = create(StateRecordSchema, { body: { source: "Known work" } });
+    const issue = create(IssueSummarySchema, {
+      conflicts: [{ id: "lifecycle-conflict", field: "lifecycle" }],
+    });
+    expect(currentIssueState(issue, current)).toBe(current);
+  });
   const retainedSnapshot = create(LogEntrySchema, {
     id: "log-retained",
     payload: {

@@ -70,6 +70,9 @@ type IssueCounts struct {
 	// Total is the number of issues in the board.
 	Total int
 
+	// Unresolved counts issues whose effective status depends on disputed state.
+	Unresolved int
+
 	// Ready is the number of issues whose effective status is ready.
 	Ready int
 

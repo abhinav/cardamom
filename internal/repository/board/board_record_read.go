@@ -135,12 +135,15 @@ func readCopyRecordHeader(
 		return header, fmt.Errorf("load source board configuration: %w", err)
 	}
 
+	if source.BoardName == nil {
+		return header, errkind.Errorf(errkind.Conflict, "backup cannot encode an unresolved board name")
+	}
 	return boardcopy.RecordHeader{
 		Version:         boardcopy.CopySnapshotVersion,
 		SourceLineageID: sourceView.LineageID,
 		SourceRevision:  sourceView.Revision,
 		Board: boardcopy.CopyBoard{
-			ID: source.BoardID, Name: source.BoardName,
+			ID: source.BoardID, Name: *source.BoardName,
 			Description: source.BoardDescription, CreatedAt: source.BoardCreatedAt,
 		},
 		Configuration: resolveCopyConfiguration(
@@ -203,19 +206,19 @@ func resolveCopyConfiguration(
 	resolved := configuration.Defaults()
 	for _, layer := range layers {
 		if value := layer.Issue.ID.Prefix; value != nil {
-			resolved.Issue.ID.Prefix = *value
+			resolved.Issue.ID.Prefix = value
 		}
 		if value := layer.Issue.ID.Strategy; value != nil {
-			resolved.Issue.ID.Strategy = *value
+			resolved.Issue.ID.Strategy = value
 		}
 		if value := layer.Issue.Summary.MaxBytes; value != nil {
-			resolved.Issue.Summary.MaxBytes = *value
+			resolved.Issue.Summary.MaxBytes = value
 		}
 		if value := layer.Attachment.MaxBytes; value != nil {
-			resolved.Attachment.MaxBytes = *value
+			resolved.Attachment.MaxBytes = value
 		}
 		if value := layer.Board.Pins.MaxCount; value != nil {
-			resolved.Board.Pins.MaxCount = *value
+			resolved.Board.Pins.MaxCount = value
 		}
 	}
 	return resolved
@@ -266,9 +269,13 @@ func (p *copyRecordPager) readIssues(
 			return true
 		}
 		for _, row := range rows {
+			if row.Title == nil || row.Kind == nil || row.Lifecycle == nil || row.Priority == nil {
+				yield(nil, errkind.Errorf(errkind.Conflict, "backup cannot encode unresolved issue %s", row.ID))
+				return false
+			}
 			record := boardcopy.CopyIssue{
-				ID: row.ID, Title: row.Title, Kind: row.Kind,
-				Lifecycle: row.Lifecycle, Priority: row.Priority,
+				ID: row.ID, Title: *row.Title, Kind: *row.Kind,
+				Lifecycle: *row.Lifecycle, Priority: *row.Priority,
 				CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
 				ClosedAt: row.ClosedAt, WaitingReason: row.WaitingReason,
 				WaitingSince: row.WaitingSince, Summary: row.Summary,
@@ -591,11 +598,12 @@ func (p *copyRecordPager) readPins(
 	yield func(boardcopy.Record, error) bool,
 ) bool {
 	var afterPosition int64
+	var afterUID []byte
 	for {
 		rows, err := p.queries.BoardListCopyPinPage(
 			p.ctx,
 			query.BoardListCopyPinPageParams{
-				BoardID: p.boardID, AfterPosition: afterPosition,
+				BoardID: p.boardID, AfterPosition: afterPosition, AfterIssueUid: afterUID,
 				PageSize: p.pageSize,
 			},
 		)
@@ -607,7 +615,7 @@ func (p *copyRecordPager) readPins(
 			return true
 		}
 		for _, row := range rows {
-			afterPosition = row.Position
+			afterPosition, afterUID = row.Position, row.IssueUid
 			record := boardcopy.CopyPin{
 				Order: p.counts.Pins, IssueID: row.IssueID,
 			}

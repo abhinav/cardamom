@@ -20,6 +20,7 @@ import {
 import { AttachmentService } from "./gen/cardamom/private/v1/attachment_pb.ts";
 import { CheckpointService } from "./gen/cardamom/private/v1/checkpoint_pb.ts";
 import { WatchResource } from "./gen/cardamom/private/v1/change_pb.ts";
+import { ConflictService } from "./gen/cardamom/private/v1/conflicts_pb.ts";
 import { ConfigurationService } from "./gen/cardamom/private/v1/configuration_pb.ts";
 import { ExecutionService } from "./gen/cardamom/private/v1/execution_pb.ts";
 import {
@@ -170,6 +171,7 @@ function queryKeysForResource(resource: WatchResource): QueryKey[] {
       ];
     case WatchResource.BOARD:
       return [
+        createConnectQueryKey({ schema: ConflictService, cardinality: undefined }),
         createConnectQueryKey({
           schema: ProjectService.method.getBoard,
           cardinality: "finite",
@@ -181,6 +183,7 @@ function queryKeysForResource(resource: WatchResource): QueryKey[] {
       ];
     case WatchResource.ISSUES:
       return [
+        createConnectQueryKey({ schema: ConflictService, cardinality: undefined }),
         createConnectQueryKey({ schema: IssueService, cardinality: undefined }),
         createConnectQueryKey({
           schema: AttachmentService,

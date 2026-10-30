@@ -38,10 +38,10 @@ func boardSettingsEvents(
 	next *board.State,
 ) []boardhistory.Event {
 	events := make([]boardhistory.Event, 0, 2)
-	if current.Name() != next.Name() {
+	if !optionalStringsEqual(current.Name(), next.Name()) {
 		events = append(events, boardhistory.Event{
 			OccurredAt: at,
-			Payload:    &boardhistory.BoardNameSet{Name: next.Name()},
+			Payload:    &boardhistory.BoardNameSet{Name: *next.Name()},
 		})
 	}
 	if !reflect.DeepEqual(current.Description(), next.Description()) {

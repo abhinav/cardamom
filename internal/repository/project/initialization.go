@@ -194,7 +194,7 @@ func initializeFreshProject(
 		state, err := board.Load(board.Snapshot{
 			ID:        board.ID(boardID),
 			ProjectID: namespace.ID().String(),
-			Name:      *request.BoardName,
+			Name:      request.BoardName,
 			Created:   created,
 		})
 		if err != nil {

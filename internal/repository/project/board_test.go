@@ -124,15 +124,31 @@ func TestCountBoardIssuesReadsUIDBackedStatusRelationships(t *testing.T) {
 		) VALUES
 			(X'01010101010101010101010101010101', 'ready', ?, 'Ready', 'task', 'open', 2, 1, 1),
 			(X'02020202020202020202020202020202', 'claimed', ?, 'Claimed', 'task', 'open', 2, 1, 1),
-			(X'03030303030303030303030303030303', 'blocked', ?, 'Blocked', 'task', 'open', 2, 1, 1);
+			(X'03030303030303030303030303030303', 'blocked', ?, 'Blocked', 'task', 'open', 2, 1, 1),
+            (X'04040404040404040404040404040404', 'unknown-life', ?, 'Unknown lifecycle', 'task', NULL, 2, 1, 1),
+            (X'05050505050505050505050505050505', 'unknown-wait', ?, 'Unknown waiting', 'task', 'open', 2, 1, 1),
+            (X'06060606060606060606060606060606', 'unknown-prerequisite', ?, 'Unknown prerequisite', 'task', 'open', 2, 1, 1),
+            (X'07070707070707070707070707070707', 'known-blocked', ?, 'Known blocker and unknown prerequisite', 'task', 'open', 2, 1, 1);
+        INSERT INTO board_conflicts (id, board_id, kind, issue_uid, revision) VALUES
+            ('life-conflict', ?, 'issue.lifecycle.set', X'04040404040404040404040404040404', 0),
+            ('wait-conflict', ?, 'issue.waiting.set', X'05050505050505050505050505050505', 0);
+        INSERT INTO board_conflict_issues (conflict_id, issue_uid, field) VALUES
+            ('life-conflict', X'04040404040404040404040404040404', 'lifecycle'),
+            ('wait-conflict', X'05050505050505050505050505050505', 'waiting');
 		INSERT INTO active_claims (
 			issue_uid, board_id, actor, started_at, started_revision
 		) VALUES (X'02020202020202020202020202020202', ?, 'captain', 1, 1);
 		INSERT INTO dependencies (board_id, issue_uid, prerequisite_uid)
-		VALUES (?, X'03030303030303030303030303030303', X'01010101010101010101010101010101');
+		VALUES (?, X'03030303030303030303030303030303', X'01010101010101010101010101010101'),
+               (?, X'06060606060606060606060606060606', X'04040404040404040404040404040404'),
+               (?, X'07070707070707070707070707070707', X'04040404040404040404040404040404'),
+               (?, X'07070707070707070707070707070707', X'01010101010101010101010101010101');
 	`,
 		selected.ID().String(), selected.ID().String(), selected.ID().String(),
+		selected.ID().String(), selected.ID().String(), selected.ID().String(), selected.ID().String(),
 		selected.ID().String(), selected.ID().String(),
+		selected.ID().String(),
+		selected.ID().String(), selected.ID().String(), selected.ID().String(), selected.ID().String(),
 	)
 	require.NoError(t, err)
 	require.NoError(t, change.Commit())
@@ -144,7 +160,7 @@ func TestCountBoardIssuesReadsUIDBackedStatusRelationships(t *testing.T) {
 	counts, err := countBoardIssues(t.Context(), query.New(view), selected.ID())
 	require.NoError(t, err)
 	assert.Equal(t, boardpkg.IssueCounts{
-		Total: 3, Ready: 1, Blocked: 1, InProgress: 1,
+		Total: 7, Ready: 1, Blocked: 2, InProgress: 1, Unresolved: 3,
 	}, counts)
 }
 
@@ -228,7 +244,7 @@ func TestRepositoryEditsBoardSettingsAtOneCanonicalRevision(t *testing.T) {
 	})
 	require.NoError(t, err)
 
-	assert.Equal(t, name, edited.Name())
+	assert.Equal(t, &name, edited.Name())
 	assert.Equal(t, &description, edited.Description())
 	assert.Equal(t, before+1, canonicalRevision(t, persistence))
 	stored, err := repository.Board(t.Context(), board.ID())
@@ -275,7 +291,7 @@ func TestRepositoryDoesNotPublishRevisionForNoOpBoardSettingsEdit(t *testing.T) 
 			request: func(board *boardpkg.State) boardpkg.EditRequest {
 				name := board.Name()
 				return boardpkg.EditRequest{
-					BoardID: board.ID(), Settings: boardpkg.SettingsEdit{Name: &name},
+					BoardID: board.ID(), Settings: boardpkg.SettingsEdit{Name: name},
 				}
 			},
 		},
@@ -297,7 +313,7 @@ func TestRepositoryDoesNotPublishRevisionForNoOpBoardSettingsEdit(t *testing.T) 
 				return boardpkg.EditRequest{
 					BoardID: board.ID(),
 					Settings: boardpkg.SettingsEdit{
-						Name: &name, Description: boardpkg.ReplaceDescription(&description),
+						Name: name, Description: boardpkg.ReplaceDescription(&description),
 					},
 				}
 			},

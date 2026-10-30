@@ -36,7 +36,7 @@ SELECT EXISTS (
 
 type ProjectCopyBoardNameExistsParams struct {
 	ProjectID string
-	Name      string
+	Name      *string
 }
 
 func (q *Queries) ProjectCopyBoardNameExists(ctx context.Context, arg ProjectCopyBoardNameExistsParams) (bool, error) {
@@ -77,7 +77,7 @@ INSERT INTO boards (
 type ProjectInsertCopiedBoardParams struct {
 	ID                   string
 	ProjectID            string
-	Name                 string
+	Name                 *string
 	Description          *string
 	CreatedAt            time.Time
 	IssueIDPrefix        *string

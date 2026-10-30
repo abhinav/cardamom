@@ -50,10 +50,10 @@ type BoardGetIssueStateParams struct {
 type BoardGetIssueStateRow struct {
 	Uid                     []byte
 	ID                      string
-	Title                   string
-	Kind                    string
-	Lifecycle               string
-	Priority                int64
+	Title                   *string
+	Kind                    *string
+	Lifecycle               *string
+	Priority                *int64
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 	ClosedAt                *time.Time
@@ -140,10 +140,10 @@ type BoardInsertIssueParams struct {
 	Uid           []byte
 	ID            string
 	BoardID       string
-	Title         string
-	Kind          string
-	Lifecycle     string
-	Priority      int64
+	Title         *string
+	Kind          *string
+	Lifecycle     *string
+	Priority      *int64
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	ClosedAt      *time.Time
@@ -207,10 +207,10 @@ WHERE issue.board_id = ?1
 type BoardListIssueStatesRow struct {
 	Uid                     []byte
 	ID                      string
-	Title                   string
-	Kind                    string
-	Lifecycle               string
-	Priority                int64
+	Title                   *string
+	Kind                    *string
+	Lifecycle               *string
+	Priority                *int64
 	CreatedAt               time.Time
 	UpdatedAt               time.Time
 	ClosedAt                *time.Time
@@ -292,10 +292,10 @@ WHERE board_id = ?11
 `
 
 type BoardUpdateIssueParams struct {
-	Title         string
-	Kind          string
-	Lifecycle     string
-	Priority      int64
+	Title         *string
+	Kind          *string
+	Lifecycle     *string
+	Priority      *int64
 	UpdatedAt     time.Time
 	ClosedAt      *time.Time
 	WaitingReason *string

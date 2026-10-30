@@ -78,8 +78,8 @@ func TestServiceListBoardPinsPreservesInsertionOrder(t *testing.T) {
 	projectOne := testProject(t, "project-1", "Project One")
 	boardOne := testBoard(t, "board-1", projectOne.ID(), "Board One", nil)
 	pins := &testBoardPins{values: []issue.Reference{
-		{ID: "issue-b", Title: "Second", Type: "task", Status: "ready", Priority: 1},
-		{ID: "issue-a", Title: "First", Type: "routine", Status: "waiting", Priority: 2},
+		{ID: "issue-b", Title: new("Second"), Type: new("task"), Status: "ready", Priority: new(1)},
+		{ID: "issue-a", Title: new("First"), Type: new("routine"), Status: "waiting", Priority: new(2)},
 	}}
 	client := newTestClient(t, testConfig{
 		Catalog:      &testCatalog{boards: []*board.State{boardOne}},
@@ -105,7 +105,7 @@ func TestServiceMutatesBoardPinsThroughIssueOwnership(t *testing.T) {
 	projectOne := testProject(t, "project-1", "Project One")
 	boardOne := testBoard(t, "board-1", projectOne.ID(), "Board One", nil)
 	reference := issue.Reference{
-		ID: "issue-a", Title: "Pinned", Type: "task", Status: "ready", Priority: 1,
+		ID: "issue-a", Title: new("Pinned"), Type: new("task"), Status: "ready", Priority: new(1),
 	}
 	pins := &testBoardPins{
 		pinResult:   board.PinMutation{Issue: reference, Changed: true},
@@ -362,8 +362,8 @@ func TestServiceGetIssue(t *testing.T) {
 			"selected": {
 				Detail: issue.Detail{
 					Issue: issue.Issue{
-						ID: "selected", Title: "Selected issue", Type: "task",
-						Lifecycle: "open", Status: "ready", Priority: 1,
+						ID: "selected", Title: new("Selected issue"), Type: new("task"),
+						Lifecycle: new("open"), Status: "ready", Priority: new(1),
 						Created: 20, Updated: 30,
 						Summary: new("**Summary**"), Details: new("Expanded details"),
 						State: new("_Current state_"),
@@ -379,7 +379,7 @@ func TestServiceGetIssue(t *testing.T) {
 						testIssueReference("dependent", "Dependent", "task", "ready", 2),
 					},
 					CurrentResult: &issue.Result{
-						IssueID: "selected", Title: "Selected issue", Body: "Result body",
+						IssueID: "selected", Title: new("Selected issue"), Body: "Result body",
 					},
 					LogSummary: issue.LogSummary{Count: 2, LatestID: new(issue.LogID("cmt_12121212121212121212121212121212"))},
 					Story: issue.Story{
@@ -397,8 +397,8 @@ func TestServiceGetIssue(t *testing.T) {
 					Board: issue.BoardDescription{Description: &boardDescription},
 					Ancestors: []issue.ContextEntry{{
 						Issue: issue.Issue{
-							ID: "root", Title: "Root", Type: "workstream",
-							Lifecycle: "open", Status: "ready", Priority: 0,
+							ID: "root", Title: new("Root"), Type: new("workstream"),
+							Lifecycle: new("open"), Status: "ready", Priority: new(0),
 							Created: 1, Updated: 2,
 							Summary: new("Root summary"), State: new("Root state"),
 						},
@@ -412,8 +412,8 @@ func TestServiceGetIssue(t *testing.T) {
 			},
 			"closed-dep": {
 				Detail: issue.Detail{Issue: issue.Issue{
-					ID: "closed-dep", Title: "Closed dependency", Type: "task",
-					Lifecycle: "closed", Status: "closed", Priority: 3,
+					ID: "closed-dep", Title: new("Closed dependency"), Type: new("task"),
+					Lifecycle: new("closed"), Status: "closed", Priority: new(3),
 					Created: 3, Updated: 4, Closed: new(int64(4)),
 				}},
 			},
@@ -705,7 +705,7 @@ func testBoard(
 ) *board.State {
 	t.Helper()
 	value, err := board.Load(board.Snapshot{
-		ID: board.ID(id), ProjectID: projectID.String(), Name: name,
+		ID: board.ID(id), ProjectID: projectID.String(), Name: new(name),
 		Description: description, Created: time.Unix(2, 0).UTC(),
 	})
 	require.NoError(t, err)
@@ -731,13 +731,39 @@ func testIssue(
 	created int64,
 ) issue.Issue {
 	return issue.Issue{
-		ID: id, Title: title, Type: kind, Lifecycle: lifecycle, Status: status,
-		Priority: priority, Created: created, Updated: created,
+		ID: id, Title: new(title), Type: new(kind), Lifecycle: new(lifecycle), Status: status,
+		Priority: new(priority), Created: created, Updated: created,
 	}
 }
 
 func testIssueReference(id, title, kind, status string, priority int) issue.Reference {
 	return issue.Reference{
-		ID: id, Title: title, Type: kind, Status: status, Priority: priority,
+		ID: id, Title: new(title), Type: new(kind), Status: status, Priority: new(priority),
 	}
+}
+
+func TestServiceListIssuesSelectsUnresolvedClassification(t *testing.T) {
+	projectOne := testProject(t, "project-1", "Project One")
+	boardOne := testBoard(t, "board-1", projectOne.ID(), "Board One", nil)
+	reader := &testBoardReader{issues: []issue.Summary{
+		{Issue: issue.Issue{ID: "an-unresolved", Title: new("Disputed role"), Status: "unresolved", Priority: new(2), Conflicts: []issue.ConflictReference{{ID: "conflict-kind", Field: issue.FieldKind}, {ID: "conflict-lifecycle", Field: issue.FieldLifecycle}}}},
+		testIssueSummary("an-task", "Known role", "task", "open", "ready", 1, 10, nil, false),
+	}, filteredTotal: new(1)}
+	readers := NewMockBoardReaderFactory(gomock.NewController(t))
+	readers.EXPECT().Reader(boardOne.ID()).Return(reader, nil)
+	client := newTestClient(t, testConfig{Catalog: &testCatalog{boards: []*board.State{boardOne}}, IssueBoards: testIssueLocator{}, BoardReaders: readers, Markdown: markdown.New()})
+	response, err := client.ListIssues(t.Context(), connect.NewRequest(&privatev1.ListIssuesRequest{
+		Scope:      &privatev1.BoardScope{Selection: &privatev1.BoardScope_BoardId{BoardId: "board-1"}},
+		Types:      []privatev1.IssueType{privatev1.IssueType_ISSUE_TYPE_UNSPECIFIED},
+		Lifecycles: []privatev1.IssueLifecycle{privatev1.IssueLifecycle_ISSUE_LIFECYCLE_UNSPECIFIED},
+		Statuses:   []privatev1.IssueStatus{privatev1.IssueStatus_ISSUE_STATUS_UNRESOLVED},
+	}))
+	require.NoError(t, err)
+	require.Len(t, response.Msg.Issues, 1)
+	assert.Equal(t, "an-unresolved", response.Msg.Issues[0].Id)
+	assert.Nil(t, response.Msg.Issues[0].Type)
+	assert.Nil(t, response.Msg.Issues[0].Lifecycle)
+	require.NotEmpty(t, reader.requests)
+	assert.Equal(t, []string{"unresolved"}, reader.requests[0].Types)
+	assert.Equal(t, []string{"unresolved"}, reader.requests[0].Lifecycles)
 }

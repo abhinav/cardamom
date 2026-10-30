@@ -89,7 +89,7 @@ func (l testIssueLocator) BoardForIssue(_ context.Context, issueID string) (boar
 func testBoard(t *testing.T, id string) *board.State {
 	t.Helper()
 	board, err := board.Load(board.Snapshot{
-		ID: board.ID(id), ProjectID: "project-test", Name: id,
+		ID: board.ID(id), ProjectID: "project-test", Name: new(id),
 		Created: time.Unix(1784376000, 0).UTC(),
 	})
 	require.NoError(t, err)

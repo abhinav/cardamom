@@ -38,58 +38,6 @@ func (q *Queries) BoardDeletePin(ctx context.Context, arg BoardDeletePinParams) 
 	return q.db.ExecContext(ctx, boardDeletePin, arg.BoardID, arg.IssueUid)
 }
 
-const boardGetPinIssueReference = `-- name: BoardGetPinIssueReference :one
-SELECT
-    issue.id,
-    issue.title,
-    issue.kind,
-    CAST(CASE
-        WHEN issue.lifecycle <> 'open' THEN issue.lifecycle
-        WHEN claim.issue_uid IS NOT NULL THEN 'in_progress'
-        WHEN issue.waiting_reason IS NOT NULL THEN 'waiting'
-        WHEN EXISTS (
-            SELECT 1
-            FROM dependencies AS dependency
-            JOIN issues AS prerequisite
-                ON prerequisite.uid = dependency.prerequisite_uid
-            WHERE dependency.issue_uid = issue.uid
-                AND prerequisite.lifecycle <> 'closed'
-        ) THEN 'blocked'
-        ELSE 'ready'
-    END AS TEXT) AS status,
-    issue.priority
-FROM issues AS issue
-LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
-WHERE issue.board_id = ?1
-    AND issue.id = ?2
-`
-
-type BoardGetPinIssueReferenceParams struct {
-	BoardID string
-	IssueID string
-}
-
-type BoardGetPinIssueReferenceRow struct {
-	ID       string
-	Title    string
-	Kind     string
-	Status   string
-	Priority int64
-}
-
-func (q *Queries) BoardGetPinIssueReference(ctx context.Context, arg BoardGetPinIssueReferenceParams) (BoardGetPinIssueReferenceRow, error) {
-	row := q.db.QueryRowContext(ctx, boardGetPinIssueReference, arg.BoardID, arg.IssueID)
-	var i BoardGetPinIssueReferenceRow
-	err := row.Scan(
-		&i.ID,
-		&i.Title,
-		&i.Kind,
-		&i.Status,
-		&i.Priority,
-	)
-	return i, err
-}
-
 const boardInsertPin = `-- name: BoardInsertPin :one
 INSERT INTO board_pins (board_id, issue_uid, position)
 SELECT
@@ -113,12 +61,28 @@ func (q *Queries) BoardInsertPin(ctx context.Context, arg BoardInsertPinParams) 
 	return position, err
 }
 
+const boardInsertPinAtPosition = `-- name: BoardInsertPinAtPosition :exec
+INSERT INTO board_pins (board_id, issue_uid, position)
+VALUES (?1, ?2, ?3)
+`
+
+type BoardInsertPinAtPositionParams struct {
+	BoardID  string
+	IssueUid []byte
+	Position int64
+}
+
+func (q *Queries) BoardInsertPinAtPosition(ctx context.Context, arg BoardInsertPinAtPositionParams) error {
+	_, err := q.db.ExecContext(ctx, boardInsertPinAtPosition, arg.BoardID, arg.IssueUid, arg.Position)
+	return err
+}
+
 const boardListPinIDs = `-- name: BoardListPinIDs :many
 SELECT issue.id
 FROM board_pins AS pin
 JOIN issues AS issue ON issue.uid = pin.issue_uid
 WHERE pin.board_id = ?1
-ORDER BY pin.position
+ORDER BY pin.position, pin.issue_uid
 `
 
 func (q *Queries) BoardListPinIDs(ctx context.Context, boardID string) ([]string, error) {
@@ -134,72 +98,6 @@ func (q *Queries) BoardListPinIDs(ctx context.Context, boardID string) ([]string
 			return nil, err
 		}
 		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const boardListPinReferences = `-- name: BoardListPinReferences :many
-SELECT
-    issue.id,
-    issue.title,
-    issue.kind,
-    CAST(CASE
-        WHEN issue.lifecycle <> 'open' THEN issue.lifecycle
-        WHEN claim.issue_uid IS NOT NULL THEN 'in_progress'
-        WHEN issue.waiting_reason IS NOT NULL THEN 'waiting'
-        WHEN EXISTS (
-            SELECT 1
-            FROM dependencies AS dependency
-            JOIN issues AS prerequisite
-                ON prerequisite.uid = dependency.prerequisite_uid
-            WHERE dependency.issue_uid = issue.uid
-                AND prerequisite.lifecycle <> 'closed'
-        ) THEN 'blocked'
-        ELSE 'ready'
-    END AS TEXT) AS status,
-    issue.priority
-FROM board_pins AS pin
-JOIN issues AS issue
-    ON issue.board_id = pin.board_id
-    AND issue.uid = pin.issue_uid
-LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
-WHERE pin.board_id = ?1
-ORDER BY pin.position
-`
-
-type BoardListPinReferencesRow struct {
-	ID       string
-	Title    string
-	Kind     string
-	Status   string
-	Priority int64
-}
-
-func (q *Queries) BoardListPinReferences(ctx context.Context, boardID string) ([]BoardListPinReferencesRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListPinReferences, boardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []BoardListPinReferencesRow
-	for rows.Next() {
-		var i BoardListPinReferencesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.Title,
-			&i.Kind,
-			&i.Status,
-			&i.Priority,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
 	}
 	if err := rows.Close(); err != nil {
 		return nil, err
@@ -229,4 +127,17 @@ func (q *Queries) BoardPinExists(ctx context.Context, arg BoardPinExistsParams) 
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const boardReadPinConflict = `-- name: BoardReadPinConflict :one
+SELECT id FROM board_conflicts
+WHERE board_id = ?1 AND kind = 'board.pin'
+ORDER BY id LIMIT 1
+`
+
+func (q *Queries) BoardReadPinConflict(ctx context.Context, boardID string) (string, error) {
+	row := q.db.QueryRowContext(ctx, boardReadPinConflict, boardID)
+	var id string
+	err := row.Scan(&id)
+	return id, err
 }

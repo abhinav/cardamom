@@ -4,6 +4,9 @@ import (
 	"context"
 	"errors"
 
+	domainboard "go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/boardconflict"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
@@ -13,6 +16,7 @@ import (
 type boardSnapshot struct {
 	revision     int64
 	description  *string
+	conflicts    []domainboard.ConflictReference
 	issues       []snapshotIssue
 	dependencies []snapshotDependency
 	containment  []snapshotContainment
@@ -72,6 +76,17 @@ func (r *Repository) readBoardSnapshot(ctx context.Context) (out boardSnapshot, 
 		return out, err
 	}
 	out.description = description
+	boardConflicts, err := query.New(view).ProjectReadBoardConflicts(ctx, new(r.boardID.String()))
+	if err != nil {
+		return out, err
+	}
+	for _, conflict := range boardConflicts {
+		field, err := (boardconflict.Unit{Kind: boardhistory.EventKind(conflict.Kind)}).BoardField()
+		if err != nil {
+			return out, err
+		}
+		out.conflicts = append(out.conflicts, domainboard.ConflictReference{ID: conflict.ID, Field: field})
+	}
 
 	ids, err := r.listBoardIssueIDs(ctx, view)
 	if err != nil {

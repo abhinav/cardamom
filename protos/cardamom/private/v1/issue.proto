@@ -3,6 +3,7 @@ syntax = "proto3";
 package cardamom.private.v1;
 
 import "cardamom/private/v1/content.proto";
+import "cardamom/private/v1/conflict_reference.proto";
 import "cardamom/private/v1/mutation.proto";
 import "cardamom/private/v1/scope.proto";
 import "cardamom/private/v1/source.proto";
@@ -10,7 +11,8 @@ import "google/protobuf/timestamp.proto";
 
 // IssueType identifies the workflow role of an issue.
 enum IssueType {
-  // ISSUE_TYPE_UNSPECIFIED is not a valid persisted issue type.
+  // ISSUE_TYPE_UNSPECIFIED selects unresolved types in collection filters.
+  // It is not a persisted type; unresolved current values are absent.
   ISSUE_TYPE_UNSPECIFIED = 0;
 
   // ISSUE_TYPE_WORKSTREAM identifies a finite container of related work.
@@ -28,7 +30,8 @@ enum IssueType {
 
 // IssueLifecycle is the persisted lifecycle of an issue.
 enum IssueLifecycle {
-  // ISSUE_LIFECYCLE_UNSPECIFIED is not a persisted lifecycle.
+  // ISSUE_LIFECYCLE_UNSPECIFIED selects unresolved lifecycles in filters.
+  // It is not a persisted lifecycle; unresolved current values are absent.
   ISSUE_LIFECYCLE_UNSPECIFIED = 0;
 
   // ISSUE_LIFECYCLE_OPEN identifies unfinished work.
@@ -63,6 +66,9 @@ enum IssueStatus {
 
   // ISSUE_STATUS_CANCELLED identifies work that will not be completed.
   ISSUE_STATUS_CANCELLED = 6;
+
+  // ISSUE_STATUS_UNRESOLVED has no authoritative eligibility state.
+  ISSUE_STATUS_UNRESOLVED = 7;
 }
 
 // IssueSort selects an ordering supported by browser issue collections.
@@ -149,20 +155,20 @@ message IssueSummary {
   // board_id identifies the board that owns the issue.
   string board_id = 2;
 
-  // title is the human-readable issue title.
-  string title = 3;
+  // title is the current human-readable title, absent when unresolved.
+  optional string title = 3;
 
   // type identifies the issue's workflow role.
-  IssueType type = 4;
+  optional IssueType type = 4;
 
   // lifecycle is the issue's persisted lifecycle.
-  IssueLifecycle lifecycle = 5;
+  optional IssueLifecycle lifecycle = 5;
 
   // status is the issue's effective browser status.
   IssueStatus status = 6;
 
   // priority is the domain ordering priority, where lower values run first.
-  int32 priority = 7;
+  optional int32 priority = 7;
 
   // active_claim describes current custody when the issue is claimed.
   optional ActiveClaim active_claim = 8;
@@ -190,6 +196,13 @@ message IssueSummary {
 
   // source identifies the server that supplied this issue in aggregate mode.
   optional SourceRef source = 16;
+
+  // conflicts identifies unresolved issue fields, independently of status.
+  repeated ConflictReference conflicts = 17;
+
+  // eligibility_conflicts identifies unresolved prerequisite or inherited
+  // context facts that prevent automatic selection.
+  repeated ConflictReference eligibility_conflicts = 18;
 }
 
 // RelatedIssue is the compact issue representation used by relationships.
@@ -200,20 +213,23 @@ message RelatedIssue {
   // board_id identifies the board that owns the issue.
   string board_id = 2;
 
-  // title is the human-readable issue title.
-  string title = 3;
+  // title is the current human-readable title, absent when unresolved.
+  optional string title = 3;
 
   // type identifies the issue's workflow role.
-  IssueType type = 4;
+  optional IssueType type = 4;
 
   // status is the issue's effective browser status.
   IssueStatus status = 5;
 
   // priority is the domain ordering priority, where lower values run first.
-  int32 priority = 6;
+  optional int32 priority = 6;
 
   // source identifies the server that supplied this issue in aggregate mode.
   optional SourceRef source = 7;
+
+  // conflicts identifies unresolved fields without loading their alternatives.
+  repeated ConflictReference conflicts = 8;
 }
 
 // AncestorContext carries current context inherited from one ancestor.
@@ -251,8 +267,8 @@ message PinnedIssueContext {
   // id is the pinned issue's stable identity.
   string id = 1;
 
-  // title is the pinned issue's current title.
-  string title = 2;
+  // title is the pinned issue's current title, absent when unresolved.
+  optional string title = 2;
 }
 
 // IssueContext contains inherited stable context in presentation order.

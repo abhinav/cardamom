@@ -8,7 +8,6 @@ import (
 
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/execution"
-	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
 // ListIssues reads filtered issue summaries from one coherent board snapshot.
@@ -174,7 +173,7 @@ func matchesIssueRequest(
 			return false
 		}
 	}
-	if len(request.Lifecycles) > 0 && !slices.Contains(request.Lifecycles, value.Lifecycle) {
+	if len(request.Lifecycles) > 0 && !matchesOptionalSelection(request.Lifecycles, value.Lifecycle) {
 		return false
 	}
 	if request.Assignee != nil && (value.Assignee == nil || *value.Assignee != *request.Assignee) {
@@ -183,10 +182,10 @@ func matchesIssueRequest(
 	if request.NoAssignee && value.Assignee != nil {
 		return false
 	}
-	if request.Type != "" && value.Type != request.Type {
+	if request.Type != "" && !matchesOptionalSelection([]string{request.Type}, value.Type) {
 		return false
 	}
-	if len(request.Types) > 0 && !slices.Contains(request.Types, value.Type) {
+	if len(request.Types) > 0 && !matchesOptionalSelection(request.Types, value.Type) {
 		return false
 	}
 	for _, label := range request.LabelsAll {
@@ -208,10 +207,10 @@ func matchesIssueRequest(
 			return false
 		}
 	}
-	if request.TitleContains != "" && !normalizedContains(value.Title, request.TitleContains) {
+	if request.TitleContains != "" && (value.Title == nil || !normalizedContains(*value.Title, request.TitleContains)) {
 		return false
 	}
-	if request.TitleRegexp != nil && !request.TitleRegexp.MatchString(value.Title) {
+	if request.TitleRegexp != nil && (value.Title == nil || !request.TitleRegexp.MatchString(*value.Title)) {
 		return false
 	}
 	return true
@@ -221,22 +220,16 @@ func normalizedContains(value, substring string) bool {
 	return strings.Contains(strings.ToLower(value), strings.ToLower(substring))
 }
 
-func (r *Repository) readBlockedIssueIDs(
-	ctx context.Context,
-	scope queryScope,
-) (out map[issue.ID]struct{}, err error) {
-	ids, err := query.New(scope).BoardListBlockedIssueIDs(ctx, r.boardID.String())
-	if err != nil {
-		return nil, err
-	}
-	blocked := make(map[issue.ID]struct{})
-	for _, id := range ids {
-		blocked[issue.ID(id)] = struct{}{}
-	}
-	return blocked, nil
-}
-
 func containsIssueID(values map[issue.ID]struct{}, id issue.ID) bool {
 	_, ok := values[id]
 	return ok
+}
+
+// matchesOptionalSelection treats the query-only unresolved selector as
+// absence, without inventing a persisted kind or lifecycle value.
+func matchesOptionalSelection(selected []string, value *string) bool {
+	if value == nil {
+		return slices.Contains(selected, "unresolved")
+	}
+	return slices.Contains(selected, *value)
 }

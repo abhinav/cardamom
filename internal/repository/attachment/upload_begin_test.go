@@ -82,6 +82,39 @@ func TestRepositoryBeginAndStatusUpload(t *testing.T) {
 	assert.Equal(t, begun, status)
 }
 
+func TestRepositoryUnknownArchiveRejectsUploadWritesButAllowsReads(t *testing.T) {
+	entropy := make([]byte, 128)
+	for i := range entropy {
+		entropy[i] = byte(i)
+	}
+	fixture := openUploadFixture(t, entropy)
+	upload := fixture.begin(t, "captain", nil, nil)
+	change, err := fixture.persistence.Change(t.Context())
+	require.NoError(t, err)
+	_, err = change.ExecContext(t.Context(), `
+INSERT INTO board_conflicts (id, board_id, kind, revision)
+VALUES ('archive-conflict', 'board-test', 'board.archive.set', 0)`)
+	require.NoError(t, err)
+	require.NoError(t, change.Commit())
+	require.NoError(t, change.Done())
+
+	_, err = fixture.service.BeginUpload(t.Context(), domainattachment.BeginUploadRequest{
+		Invocation:  domainattachment.NewInvocation("captain"),
+		Association: fixture.association, Filename: fixture.filename,
+	})
+	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+	assert.ErrorContains(t, err, "archive-conflict")
+	_, err = fixture.service.WriteChunk(t.Context(), domainattachment.WriteChunkRequest{
+		Invocation: domainattachment.NewInvocation("captain"), UploadID: upload.ID,
+		ExpectedOffset: 0, Content: []byte("content"),
+	})
+	assert.Equal(t, errkind.Conflict, errkind.Of(err))
+	retained, err := fixture.service.GetUpload(t.Context(), domainattachment.GetUploadRequest{UploadID: upload.ID})
+	require.NoError(t, err)
+	assert.Zero(t, retained.AcceptedOffset)
+	assert.Equal(t, 1, countRows(t, fixture.persistence, "attachment_uploads"))
+}
+
 func TestRepositoryBeginRequiresDurableStaging(t *testing.T) {
 	fixture := openUploadFixture(t, bytes.Repeat([]byte{9}, 64))
 	fixture.repository.blobs.syncDirectory = func(string) error {

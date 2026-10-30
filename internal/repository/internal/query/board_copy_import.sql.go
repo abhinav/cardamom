@@ -113,10 +113,10 @@ type BoardInsertCopiedIssueParams struct {
 	Uid           []byte
 	ID            string
 	BoardID       string
-	Title         string
-	Kind          string
-	Lifecycle     string
-	Priority      int64
+	Title         *string
+	Kind          *string
+	Lifecycle     *string
+	Priority      *int64
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	ClosedAt      *time.Time

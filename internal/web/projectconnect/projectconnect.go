@@ -399,6 +399,7 @@ func (s *Service) board(
 	out := &privatev1.Board{
 		Id: value.ID().String(), ProjectId: value.ProjectID(),
 		Name: value.Name(), Description: description,
+		Conflicts: boardConflictReferences(value.Conflicts()),
 		CreatedAt: timestamp(value.Created().Unix()),
 	}
 	if archived := value.Archived(); archived != nil {
@@ -430,6 +431,7 @@ func (s *Service) optionalMarkdown(
 
 func validIssueTypes() []privatev1.IssueType {
 	return []privatev1.IssueType{
+		privatev1.IssueType_ISSUE_TYPE_UNSPECIFIED,
 		privatev1.IssueType_ISSUE_TYPE_WORKSTREAM,
 		privatev1.IssueType_ISSUE_TYPE_TASK,
 		privatev1.IssueType_ISSUE_TYPE_CHECKPOINT,
@@ -439,6 +441,7 @@ func validIssueTypes() []privatev1.IssueType {
 
 func validIssueStatuses() []privatev1.IssueStatus {
 	return []privatev1.IssueStatus{
+		privatev1.IssueStatus_ISSUE_STATUS_UNRESOLVED,
 		privatev1.IssueStatus_ISSUE_STATUS_READY,
 		privatev1.IssueStatus_ISSUE_STATUS_BLOCKED,
 		privatev1.IssueStatus_ISSUE_STATUS_IN_PROGRESS,
@@ -451,7 +454,7 @@ func validIssueStatuses() []privatev1.IssueStatus {
 func boardSummary(value *board.State) *privatev1.BoardSummary {
 	out := &privatev1.BoardSummary{
 		Id: value.ID().String(), ProjectId: value.ProjectID(),
-		Name: value.Name(),
+		Name: value.Name(), Conflicts: boardConflictReferences(value.Conflicts()),
 	}
 	if archived := value.Archived(); archived != nil {
 		out.Archived = archiveMessage(archived)
@@ -471,7 +474,7 @@ func issueInventoryMessage(counts board.IssueCounts) *privatev1.BoardArchiveIssu
 		Total: uint64(counts.Total), Ready: uint64(counts.Ready),
 		Blocked: uint64(counts.Blocked), InProgress: uint64(counts.InProgress),
 		Waiting: uint64(counts.Waiting), Closed: uint64(counts.Closed),
-		Cancelled: uint64(counts.Cancelled),
+		Cancelled: uint64(counts.Cancelled), Unresolved: uint64(counts.Unresolved),
 	}
 }
 
@@ -511,4 +514,12 @@ func cloneSourceRef(value *privatev1.SourceRef) *privatev1.SourceRef {
 
 func mutationInvocation(value *privatev1.MutationContext) board.Invocation {
 	return board.NewInvocation(value.GetActor())
+}
+
+func boardConflictReferences(values []board.ConflictReference) []*privatev1.ConflictReference {
+	out := make([]*privatev1.ConflictReference, 0, len(values))
+	for _, value := range values {
+		out = append(out, &privatev1.ConflictReference{Id: value.ID, Field: value.Field.String()})
+	}
+	return out
 }

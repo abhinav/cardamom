@@ -1,0 +1,21 @@
+# Conflict inspection uses the selected local board and keeps JSON free of notices.
+exec git init -b main
+exec card --store $WORK/store init --prefix review-
+exec card --store $WORK/store conflicts
+cmp stdout $WORK/golden/empty.txt
+! stderr .
+exec card --store $WORK/store --json conflicts list
+cmpjson stdout $WORK/golden/empty.json
+! stderr .
+
+# Repair requires an explicit choice before it opens the board.
+! exec card --store $WORK/store resolve missing
+! stdout .
+cmp stderr $WORK/golden/choice.txt
+
+-- golden/empty.txt --
+No unresolved conflicts.
+-- golden/empty.json --
+{"conflicts":[],"next":""}
+-- golden/choice.txt --
+error: resolve: choose one of --take, --file, relationship repair flags, or --waiting

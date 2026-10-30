@@ -284,8 +284,9 @@ func validateGeneratedOwnership(
 	if metadata.BoardID != provenance.BoardID {
 		return fmt.Errorf("generated path %q belongs to board %q, not %q", file.Path(), metadata.BoardID, provenance.BoardID)
 	}
-	if metadata.BoardName != provenance.BoardName {
-		return fmt.Errorf("generated path %q names board %q, not %q", file.Path(), metadata.BoardName, provenance.BoardName)
+	if (metadata.BoardName == nil) != (provenance.BoardName == nil) ||
+		(metadata.BoardName != nil && *metadata.BoardName != *provenance.BoardName) {
+		return fmt.Errorf("generated path %q names board %q, not %q", file.Path(), requiredValue(metadata.BoardName), requiredValue(provenance.BoardName))
 	}
 	if metadata.Identity != file.Identity() {
 		return fmt.Errorf("generated path %q belongs to identity %q, not %q", file.Path(), metadata.Identity, file.Identity())

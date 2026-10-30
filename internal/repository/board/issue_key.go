@@ -2,7 +2,6 @@ package board
 
 import (
 	"context"
-	"database/sql"
 	"errors"
 
 	"go.abhg.dev/cardamom/internal/boardhistory"
@@ -34,46 +33,31 @@ func (r *Repository) resolveExternalKey(
 	scope queryScope,
 	key planning.ExternalKey,
 ) (issue.ID, error) {
-	id, err := query.New(scope).BoardGetIssueIDByExternalKey(
-		ctx,
-		query.BoardGetIssueIDByExternalKeyParams{
-			BoardID: r.boardID.String(), ExternalKey: key.String(),
-		},
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", errkind.Errorf(
-			errkind.NotFound,
-			"issue not found: external key %q",
-			key,
-		)
-	}
+	owner, err := r.readExternalKeyOwner(ctx, scope, &key)
 	if err != nil {
 		return "", err
 	}
-	return issue.ID(id), nil
+	if owner == nil {
+		return "", errkind.Errorf(errkind.NotFound, "issue not found: external key %q", key)
+	}
+	return owner.IssueID, nil
 }
 
-func (r *Repository) readExternalKeyOwner(
-	ctx context.Context,
-	scope queryScope,
-	key *planning.ExternalKey,
-) (*planning.ExternalKeyOwner, error) {
+func (r *Repository) readExternalKeyOwner(ctx context.Context, scope queryScope, key *planning.ExternalKey) (*planning.ExternalKeyOwner, error) {
 	if key == nil {
 		return nil, nil
 	}
-	id, err := query.New(scope).BoardGetIssueIDByExternalKey(
-		ctx,
-		query.BoardGetIssueIDByExternalKeyParams{
-			BoardID: r.boardID.String(), ExternalKey: key.String(),
-		},
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return nil, nil
-	}
+	row, err := query.New(scope).BoardGetIssueIDByExternalKey(ctx, query.BoardGetIssueIDByExternalKeyParams{BoardID: r.boardID.String(), ExternalKey: key.String()})
 	if err != nil {
 		return nil, err
 	}
-	return &planning.ExternalKeyOwner{Key: *key, IssueID: issue.ID(id)}, nil
+	if row.ConflictID != nil {
+		return nil, errkind.Errorf(errkind.Conflict, "external key %q is unresolved in conflict %s", key, *row.ConflictID)
+	}
+	if row.ID == nil {
+		return nil, nil
+	}
+	return &planning.ExternalKeyOwner{Key: *key, IssueID: issue.ID(*row.ID)}, nil
 }
 
 func (r *Repository) readExternalKeys(

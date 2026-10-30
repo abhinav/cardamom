@@ -55,23 +55,30 @@ func (q *Queries) BoardGetIssueContextDescription(ctx context.Context, boardID s
 }
 
 const boardGetIssueIDByExternalKey = `-- name: BoardGetIssueIDByExternalKey :one
-SELECT issue.id
-FROM issue_external_keys AS key
-JOIN issues AS issue ON issue.uid = key.issue_uid
-WHERE key.board_id = ?1
-    AND key.external_key = ?2
+SELECT issue.id, conflict.id AS conflict_id
+FROM boards AS board
+LEFT JOIN issue_external_keys AS key ON key.board_id = board.id AND key.external_key = ?1
+LEFT JOIN issues AS issue ON issue.uid = key.issue_uid
+LEFT JOIN board_conflicts AS conflict ON conflict.board_id = board.id
+    AND conflict.kind = 'board.external_key' AND conflict.member_key = ?1
+WHERE board.id = ?2
 `
 
 type BoardGetIssueIDByExternalKeyParams struct {
-	BoardID     string
 	ExternalKey string
+	BoardID     string
 }
 
-func (q *Queries) BoardGetIssueIDByExternalKey(ctx context.Context, arg BoardGetIssueIDByExternalKeyParams) (string, error) {
-	row := q.db.QueryRowContext(ctx, boardGetIssueIDByExternalKey, arg.BoardID, arg.ExternalKey)
-	var id string
-	err := row.Scan(&id)
-	return id, err
+type BoardGetIssueIDByExternalKeyRow struct {
+	ID         *string
+	ConflictID *string
+}
+
+func (q *Queries) BoardGetIssueIDByExternalKey(ctx context.Context, arg BoardGetIssueIDByExternalKeyParams) (BoardGetIssueIDByExternalKeyRow, error) {
+	row := q.db.QueryRowContext(ctx, boardGetIssueIDByExternalKey, arg.ExternalKey, arg.BoardID)
+	var i BoardGetIssueIDByExternalKeyRow
+	err := row.Scan(&i.ID, &i.ConflictID)
+	return i, err
 }
 
 const boardGetIssueLogSummary = `-- name: BoardGetIssueLogSummary :one

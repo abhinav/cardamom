@@ -22,15 +22,21 @@ func (r *Repository) ListPins(
 		return nil, err
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	rows, err := query.New(view).BoardListPinReferences(ctx, r.boardID.String())
+	ids, err := query.New(view).BoardListPinIDs(ctx, r.boardID.String())
 	if err != nil {
 		return nil, err
 	}
-	values := make([]issue.Reference, 0, len(rows))
-	for _, row := range rows {
-		values = append(values, pinReference(
-			row.ID, row.Title, row.Kind, row.Status, row.Priority,
-		))
+	presentation, err := r.readIssuePresentation(ctx, view)
+	if err != nil {
+		return nil, err
+	}
+	values := make([]issue.Reference, 0, len(ids))
+	for _, id := range ids {
+		reference, err := presentation.Reference(issue.ID(id))
+		if err != nil {
+			return nil, err
+		}
+		values = append(values, reference)
 	}
 	return values, nil
 }
@@ -64,6 +70,15 @@ func (r *Repository) PinIssue(
 	}
 	if exists {
 		return domainboard.PinMutation{Issue: reference}, mutation.change.Commit()
+	}
+	// A new pin consumes the complete collection's count and final position.
+	// Existing-pin no-ops and unpin do not need those unresolved assignments.
+	conflictID, err := queries.BoardReadPinConflict(ctx, r.boardID.String())
+	if err == nil {
+		return out, errkind.Errorf(errkind.Conflict, "pin collection is unresolved in conflict %s", conflictID)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return out, err
 	}
 	count, err := queries.BoardCountPins(ctx, r.boardID.String())
 	if err != nil {
@@ -151,31 +166,18 @@ func (r *Repository) pinIssueReference(
 	mutation *mutation,
 	id issue.ID,
 ) (issue.Reference, error) {
-	row, err := query.New(mutation.change).BoardGetPinIssueReference(
-		ctx,
-		query.BoardGetPinIssueReferenceParams{
-			BoardID: r.boardID.String(), IssueID: id.String(),
-		},
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return issue.Reference{}, errkind.Errorf(
-			errkind.NotFound, "issue not found: %s", id,
-		)
-	}
+	presentation, err := r.readIssuePresentation(ctx, mutation.change)
 	if err != nil {
 		return issue.Reference{}, err
 	}
-	return pinReference(row.ID, row.Title, row.Kind, row.Status, row.Priority), nil
-}
-
-func pinReference(
-	id string,
-	title string,
-	kind string,
-	status string,
-	priority int64,
-) issue.Reference {
-	return issue.Reference{
-		ID: id, Title: title, Type: kind, Status: status, Priority: int(priority),
+	reference, err := presentation.Reference(id)
+	if err != nil {
+		return issue.Reference{}, err
 	}
+	for _, conflict := range reference.Conflicts {
+		if conflict.Field == issue.FieldPins {
+			return issue.Reference{}, errkind.Errorf(errkind.Conflict, "pin membership is unresolved in conflict %s", conflict.ID)
+		}
+	}
+	return reference, nil
 }

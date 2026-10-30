@@ -41,7 +41,7 @@ func runFailingAttachmentGet(t *testing.T, destination string, force bool) error
 	boardID, err := board.NewID("board-test")
 	require.NoError(t, err)
 	selected, err := board.Load(board.Snapshot{
-		ID: boardID, ProjectID: "project-test", Name: "Test",
+		ID: boardID, ProjectID: "project-test", Name: new("Test"),
 		Created: time.Unix(1, 0).UTC(),
 	})
 	require.NoError(t, err)

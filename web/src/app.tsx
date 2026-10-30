@@ -96,6 +96,8 @@ import {
 } from "./server-access.tsx";
 import { boardForIdentity } from "./provenance.ts";
 
+const ConflictsRoute = lazy(() => import("./conflicts/conflicts.tsx").then(({ ConflictsRoute }) => ({ default: ConflictsRoute })));
+
 const ApprovalsRoute = lazy(() =>
   import("./approvals/approvals.tsx").then(({ ApprovalsRoute }) => ({
     default: ApprovalsRoute,
@@ -303,7 +305,8 @@ function ApplicationShell({
   // Archived boards remain explicit read targets, but the shell must not offer
   // mutations that the repository lifecycle guard will reject.
   const canMutateSelection = canMutateServer &&
-    (selection.kind !== "board" || selectedBoard?.archived === undefined);
+    (selection.kind !== "board" || (selectedBoard?.archived === undefined &&
+      !selectedBoard?.conflicts.some(({ field }) => field === "archive")));
   const boardName =
     selection.kind === "unresolved"
       ? "Boards"
@@ -315,7 +318,7 @@ function ApplicationShell({
           : selection.sourceId !== undefined
             ? "Source boards"
             : "All boards"
-        : (selectedBoard?.name ?? `${selection.boardId} unavailable`);
+        : (selectedBoard?.name ?? selectedBoard?.id ?? `${selection.boardId} unavailable`);
   const selectLabel = (label: string) => {
     const destination = labelCollectionLocation(
       location.pathname,
@@ -429,6 +432,7 @@ function ApplicationShell({
               <NavLink to={boardScopeHref(selection, "routines")} end>
                 Routines
               </NavLink>
+              {selection.kind === "board" && <NavLink to={boardScopeHref(selection, "conflicts")}>Conflicts</NavLink>}
             </>
           )}
         </nav>
@@ -694,6 +698,9 @@ function RouteContent({
       },
       { replace: navigation === "replace" },
     );
+  const conflictsRoute = selection.kind === "board"
+    ? <ConflictsRoute key={scopeKey(selection)} boardId={selection.boardId} source={selection.source} canMutate={canMutateServer && !aggregateMode} />
+    : <NotFoundPage />;
   const boardRoute = (
     <BoardRoute
       actor={preferences.actor}
@@ -772,6 +779,8 @@ function RouteContent({
         <Route path="/board/:boardId" element={boardRoute} />
         <Route path="/source/:sourceId/board/:boardId" element={boardRoute} />
         <Route path="/all" element={boardRoute} />
+        <Route path="/board/:boardId/conflicts" element={conflictsRoute} />
+        <Route path="/source/:sourceId/board/:boardId/conflicts" element={conflictsRoute} />
         <Route path="/board/:boardId/approvals" element={approvalsRoute} />
         <Route
           path="/source/:sourceId/board/:boardId/approvals"

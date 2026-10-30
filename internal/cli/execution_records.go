@@ -2,9 +2,11 @@ package cli
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
+	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/issue/record"
@@ -18,7 +20,7 @@ import (
 // ClaimOperations supplies the two domain-owned claim modes.
 type ClaimOperations interface {
 	ClaimIssue(context.Context, issue.Invocation, execution.ClaimIssueRequest) (execution.ClaimIssueResult, error)
-	ClaimNext(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimIssueResult, error)
+	ClaimNext(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimNextResult, error)
 }
 
 var _ ClaimOperations = (*execution.Executor)(nil)
@@ -66,30 +68,42 @@ func (c *claimCommand) Run(inv *Invocation, operations ClaimOperations) error {
 	}
 
 	domainInvocation := issue.NewInvocation(inv.Actor)
-	var result execution.ClaimIssueResult
-	var err error
+	var view *issue.View
 	if c.ID != "" {
-		result, err = operations.ClaimIssue(inv.Context, domainInvocation, execution.ClaimIssueRequest{
+		result, err := operations.ClaimIssue(inv.Context, domainInvocation, execution.ClaimIssueRequest{
 			ID: c.ID.String(), Assignee: inv.Actor, ContextDepth: contextDepth,
 		})
+		if err != nil {
+			return err
+		}
+		view = &result.Issue
 	} else {
-		result, err = operations.ClaimNext(inv.Context, domainInvocation, execution.ClaimNextRequest{
+		result, err := operations.ClaimNext(inv.Context, domainInvocation, execution.ClaimNextRequest{
 			UnderID: c.Under.String(), Assignee: inv.Actor,
 			LabelsAll: c.Labels.add, LabelsAny: c.LabelsAny,
 			LabelsNone: c.Labels.remove,
 			Watch:      c.Watch, ContextDepth: contextDepth,
 		})
+		if result.SkippedConflicts > 0 {
+			if _, outputErr := fmt.Fprintf(inv.Output.Stderr(), "Skipped %d issues due to conflicts. Run \"card conflicts\" to list conflicts.\n", result.SkippedConflicts); outputErr != nil {
+				return errors.Join(err, fmt.Errorf("write conflict diagnostic: %w", outputErr))
+			}
+		}
+		if err != nil {
+			return err
+		}
+		view = result.Issue
 	}
-	if err != nil {
-		return err
+	if view == nil {
+		return errkind.Errorf(errkind.Conflict, "no ready issues")
 	}
 	if inv.Output.JSON() {
-		return inv.Output.WriteJSON(newIssueViewOutput(result.Issue).jsonValue())
+		return inv.Output.WriteJSON(newIssueViewOutput(*view).jsonValue())
 	}
-	if err := inv.Output.Noticef("Claimed %s as %s.", result.Issue.Detail.Issue.ID, inv.Actor); err != nil {
+	if err := inv.Output.Noticef("Claimed %s as %s.", view.Detail.Issue.ID, inv.Actor); err != nil {
 		return err
 	}
-	return inv.Output.WriteString(formatIssueView(result.Issue))
+	return inv.Output.WriteString(formatIssueView(*view))
 }
 
 // ReleaseOperations relinquishes domain-owned claim custody.
@@ -710,9 +724,9 @@ func (c *resultShowCommand) Run(inv *Invocation, operations ResultReadOperations
 }
 
 type resultOutput struct {
-	IssueID string `json:"issue_id"`
-	Title   string `json:"title,omitempty"`
-	Body    string `json:"body"`
+	IssueID string  `json:"issue_id"`
+	Title   *string `json:"title,omitempty"`
+	Body    string  `json:"body"`
 }
 
 func newResultOutput(result issue.Result) resultOutput {
@@ -857,7 +871,7 @@ func formatIssueView(view issue.View) string {
 			output.WriteByte('\n')
 		}
 		for _, ancestor := range view.Context.Ancestors {
-			fmt.Fprintf(&output, "Ancestor %s: %s\n", ancestor.Issue.ID, ancestor.Issue.Title)
+			fmt.Fprintf(&output, "Ancestor %s: %s\n", ancestor.Issue.ID, issueTitle(ancestor.Issue.Title))
 			if ancestor.Issue.Summary != nil {
 				writeMarkdown(&output, *ancestor.Issue.Summary)
 			}
@@ -878,14 +892,14 @@ func formatIssueView(view issue.View) string {
 			fmt.Fprintf(&output, "Log entries: %d\n\n", ancestor.LogSummary.Count)
 		}
 		for _, result := range view.Context.DependencyResults {
-			fmt.Fprintf(&output, "Completed prerequisite %s: %s\n", result.Issue.ID, result.Issue.Title)
+			fmt.Fprintf(&output, "Completed prerequisite %s: %s\n", result.Issue.ID, issueTitle(result.Issue.Title))
 			writeMarkdown(&output, result.Body)
 			output.WriteByte('\n')
 		}
 		if len(view.Context.Pins) > 0 {
 			output.WriteString("Pinned issues:\n")
 			for _, pin := range view.Context.Pins {
-				fmt.Fprintf(&output, "- %s: %s\n", pin.ID, singleLine(pin.Title))
+				fmt.Fprintf(&output, "- %s: %s\n", pin.ID, issueTitle(pin.Title))
 			}
 			output.WriteByte('\n')
 		}
@@ -893,10 +907,16 @@ func formatIssueView(view issue.View) string {
 
 	current := view.Detail.Issue
 	fmt.Fprintf(&output, "Issue %s\n", current.ID)
-	fmt.Fprintf(&output, "Title: %s\n", current.Title)
-	fmt.Fprintf(&output, "Type: %s\n", current.Type)
+	fmt.Fprintf(&output, "Title: %s\n", issueTitle(current.Title))
+	fmt.Fprintf(&output, "Type: %s\n", issueTypeLabel(current.Type))
 	fmt.Fprintf(&output, "Status: %s\n", current.Status)
-	fmt.Fprintf(&output, "Priority: %d\n", current.Priority)
+	fmt.Fprintf(&output, "Priority: %s\n", issuePriority(current.Priority))
+	if len(current.Conflicts) > 0 {
+		fmt.Fprintf(&output, "Conflicts: %s\n", formatIssueConflicts(current.Conflicts))
+	}
+	if len(view.Detail.EligibilityConflicts) > 0 {
+		fmt.Fprintf(&output, "Eligibility conflicts: %s\n", formatIssueConflicts(view.Detail.EligibilityConflicts))
+	}
 	if current.Assignee != nil {
 		fmt.Fprintf(&output, "Assignee: %s\n", *current.Assignee)
 	}

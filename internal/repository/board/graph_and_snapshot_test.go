@@ -97,7 +97,7 @@ func TestRepositoryApplyDocumentUsesPresenceAndReplacesRelationships(t *testing.
 
 	view, err := repository.ReadIssue(t.Context(), issue.ReadRequest{IssueID: "graph-5"})
 	require.NoError(t, err)
-	assert.Equal(t, "Renamed", view.Detail.Issue.Title)
+	assert.Equal(t, new("Renamed"), view.Detail.Issue.Title)
 	assert.Equal(t, new("Original summary."), view.Detail.Issue.Summary)
 	assert.Equal(t, []string{"second"}, view.Detail.Labels)
 	assert.Equal(t, new("graph-2"), view.Detail.ParentID)
@@ -314,13 +314,12 @@ func TestRepositoryReadsDumpSnapshot(t *testing.T) {
 		BoardID: "board-test", Revision: 4,
 		Issues: []dump.Issue{
 			{
-				ID: "local-1", Title: "Program", Type: "workstream", Status: "ready",
-				Priority: 2, Created: created.Unix(), Updated: created.Unix(),
+				ID: "local-1", Title: new("Program"), Type: new("workstream"), Status: "ready",
+				Priority: new(2), Created: created.Unix(), Updated: created.Unix(),
 				Revision: 4, Labels: []string{"program"},
-			},
-			{
-				ID: "local-2", Title: "Task", Type: "task", Status: "blocked",
-				Priority: 2, Created: created.Unix(), Updated: created.Unix(),
+			}, {
+				ID: "local-2", Title: new("Task"), Type: new("task"), Status: "blocked",
+				Priority: new(2), Created: created.Unix(), Updated: created.Unix(),
 				Revision: 3, Labels: []string{"backend"},
 			},
 		},

@@ -33,8 +33,8 @@ func TestRepositoryEditsIssueMetadataAndGraphStateAtomically(t *testing.T) {
 		AddDependencies: []string{"edit-2"}, AddLabels: []string{"backend", "urgent"},
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "Implementation", edited.Issue.Issue.Title)
-	assert.Equal(t, "workstream", edited.Issue.Issue.Type)
+	assert.Equal(t, new("Implementation"), edited.Issue.Issue.Title)
+	assert.Equal(t, new("workstream"), edited.Issue.Issue.Type)
 	assert.Equal(t, []string{"backend", "urgent"}, edited.Issue.Labels)
 	require.Len(t, edited.Issue.DependsOn, 1)
 	assert.Equal(t, "edit-2", edited.Issue.DependsOn[0].ID)
@@ -92,7 +92,7 @@ func TestRepositoryEditRollsBackWhenRevisionPublicationFails(t *testing.T) {
 
 	view, err := repository.ReadIssue(t.Context(), issue.ReadRequest{IssueID: "rollback-1"})
 	require.NoError(t, err)
-	assert.Equal(t, "Original", view.Detail.Issue.Title)
+	assert.Equal(t, new("Original"), view.Detail.Issue.Title)
 	assert.Equal(t, int64(1), view.Detail.Issue.Revision)
 
 	change, err = repository.store.Change(t.Context())

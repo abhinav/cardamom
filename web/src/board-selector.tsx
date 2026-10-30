@@ -45,7 +45,7 @@ export interface BoardConfigurationTarget {
 
 interface AvailableBoard extends BoardConfigurationTarget {
   projectId: string;
-  name: string;
+  name?: string;
   /** archived is present when the board is readable but omitted from active discovery. */
   archived?: BoardSummary["archived"];
 }
@@ -162,7 +162,7 @@ export function BoardPickerRoute({
                     source: board.source,
                   })}
                 >
-                  <span>{board.name}</span>
+                  <span>{board.name ?? board.id}</span>
                   <span>{boardCatalogMetadata(board, aggregate)}</span>
                 </Link>
               ))}
@@ -441,14 +441,14 @@ export function BoardSelectorBoardRow({
         className="board-selector-option"
         variant="ghost"
         aria-current={selected || undefined}
-        aria-label={`Select ${board.name}`}
+        aria-label={`Select ${board.name ?? board.id}`}
         onClick={() =>
           onSelectScope({ kind: "board", boardId: board.id, source: board.source })
         }
       >
         <SelectionMark selected={selected} />
         <span className="board-selector-option-copy">
-          <span className="board-selector-option-primary">{board.name}</span>
+          <span className="board-selector-option-primary">{board.name ?? board.id}</span>
           <span className="board-selector-option-secondary">
             {projectName}
           </span>
@@ -460,8 +460,8 @@ export function BoardSelectorBoardRow({
           className="board-selector-action"
           variant="ghost"
           size="icon-sm"
-          aria-label={`Configure ${board.name}`}
-          title={`Board configuration: ${board.name}`}
+          aria-label={`Configure ${board.name ?? board.id}`}
+          title={`Board configuration: ${board.name ?? board.id}`}
           onClick={() => onOpenBoardConfiguration(board)}
         >
           <Settings aria-hidden="true" />
@@ -525,7 +525,7 @@ function visibleProjectUnits(
             normalizedQuery === "" ||
             projectMatches ||
             sourceMatches ||
-            normalizedName(board.name).includes(normalizedQuery),
+            normalizedName(board.name ?? board.id).includes(normalizedQuery),
         )
         .sort(compareByName);
       return {
@@ -698,7 +698,7 @@ function selectedScopeLabels(
     };
   }
   return {
-    primary: board.name,
+    primary: board.name ?? board.id,
     secondary:
       `${board.source?.sourceId === undefined ? "" : `${board.source.sourceId} / `}` +
 	  (projects.find((project) =>
@@ -758,10 +758,10 @@ function normalizedName(name: string): string {
 }
 
 function compareByName(
-  left: { id: string; name: string },
-  right: { id: string; name: string },
+  left: { id: string; name?: string },
+  right: { id: string; name?: string },
 ): number {
-  return left.name.localeCompare(right.name, undefined, {
+  return (left.name ?? left.id).localeCompare(right.name ?? right.id, undefined, {
     sensitivity: "base",
   }) || left.id.localeCompare(right.id);
 }

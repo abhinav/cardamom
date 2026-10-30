@@ -122,12 +122,12 @@ func (*boardPinsCommand) Run(invocation *Invocation, operations BoardPinOperatio
 	for _, value := range values {
 		if _, err := fmt.Fprintf(
 			writer,
-			"%s\t%d\t%s\t%s\t%s\n",
+			"%s\t%s\t%s\t%s\t%s\n",
 			value.ID,
-			value.Priority,
+			issuePriority(value.Priority),
 			value.Status,
-			value.Type,
-			singleLine(value.Title),
+			issueTypeLabel(value.Type),
+			issueTitle(value.Title),
 		); err != nil {
 			return fmt.Errorf("write board pins: %w", err)
 		}
@@ -152,12 +152,12 @@ func renderBoardPinMutation(output *Output, operation string, result board.PinMu
 
 	switch {
 	case operation == "pin" && result.Changed:
-		return output.Noticef("pinned %s: %s", result.Issue.ID, singleLine(result.Issue.Title))
+		return output.Noticef("pinned %s: %s", result.Issue.ID, issueTitle(result.Issue.Title))
 	case operation == "pin":
-		return output.Noticef("%s is already pinned: %s", result.Issue.ID, singleLine(result.Issue.Title))
+		return output.Noticef("%s is already pinned: %s", result.Issue.ID, issueTitle(result.Issue.Title))
 	case result.Changed:
-		return output.Noticef("unpinned %s: %s", result.Issue.ID, singleLine(result.Issue.Title))
+		return output.Noticef("unpinned %s: %s", result.Issue.ID, issueTitle(result.Issue.Title))
 	default:
-		return output.Noticef("%s is not pinned: %s", result.Issue.ID, singleLine(result.Issue.Title))
+		return output.Noticef("%s is not pinned: %s", result.Issue.ID, issueTitle(result.Issue.Title))
 	}
 }

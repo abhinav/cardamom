@@ -12,8 +12,8 @@ import (
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
-// CheckBackup rejects selected boards whose reference markers the current
-// backup format cannot preserve. It borrows view; callers must retain that
+// CheckBackup rejects markers and conflicts the current backup format cannot
+// preserve. It borrows view; callers must retain that
 // same view while reading records so admission and capture share one snapshot.
 func (r *BackupReader) CheckBackup(ctx context.Context, view *store.View, selection backup.Selection) error {
 	reader := query.New(view)
@@ -37,5 +37,5 @@ func (r *BackupReader) CheckBackup(ctx context.Context, view *store.View, select
 		return errkind.Errorf(errkind.Conflict,
 			"backup cannot preserve reference marker %q on board %q", marker, boardID)
 	}
-	return nil
+	return checkBackupConflicts(ctx, reader, selection)
 }

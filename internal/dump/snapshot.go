@@ -6,6 +6,7 @@ package dump
 import (
 	"errors"
 
+	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/issue"
 )
 
@@ -20,8 +21,8 @@ type Provenance struct {
 	// BoardID is the stable identity of the source board.
 	BoardID string
 
-	// BoardName is the user-visible name of the source board.
-	BoardName string
+	// BoardName is the user-visible name, or nil while that value is unresolved.
+	BoardName *string
 }
 
 func (p Provenance) validate() error {
@@ -32,7 +33,7 @@ func (p Provenance) validate() error {
 		return errors.New("dump project name is required")
 	case p.BoardID == "":
 		return errors.New("dump board ID is required")
-	case p.BoardName == "":
+	case p.BoardName != nil && *p.BoardName == "":
 		return errors.New("dump board name is required")
 	default:
 		return nil
@@ -48,8 +49,11 @@ type BoardSnapshot struct {
 	// Revision is the canonical board revision shared by every included read.
 	Revision int64
 
-	// Description is nil when the board has no shared description.
+	// Description is nil when absent or unresolved, as identified by Conflicts.
 	Description *string
+
+	// Conflicts identifies unavailable board settings and overrides.
+	Conflicts []board.ConflictReference
 
 	// Issues contains every current issue projection in the board.
 	Issues []Issue
@@ -89,17 +93,20 @@ type Issue struct {
 	// ID is the stable issue identity.
 	ID string
 
-	// Title is the issue's current user-visible title.
-	Title string
+	// Title is the current title, or nil while that value is unresolved.
+	Title *string
 
-	// Type is workstream, task, checkpoint, or routine.
-	Type string
+	// Type is workstream, task, checkpoint, routine, or nil when unresolved.
+	Type *string
 
-	// Status is ready, blocked, in_progress, waiting, closed, or cancelled.
+	// Status is ready, blocked, in_progress, waiting, closed, cancelled, or unresolved.
 	Status string
 
-	// Priority ranges from 0 (highest) through 4 (lowest).
-	Priority int
+	// Priority ranges from 0 (highest) through 4 (lowest), or is nil when unresolved.
+	Priority *int
+
+	// Conflicts identifies values with no authoritative current assignment.
+	Conflicts []issue.ConflictReference
 
 	// Assignee is the active claim owner when the issue is in progress.
 	Assignee *string

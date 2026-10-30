@@ -3,7 +3,6 @@ package board
 import (
 	"context"
 	"errors"
-	"slices"
 
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
@@ -25,13 +24,13 @@ func (r *Repository) ClaimIssue(ctx context.Context, command execution.ClaimIssu
 	} else if errkind.Of(stateErr) != errkind.NotFound {
 		return out, stateErr
 	}
-	prerequisites, err := r.readPrerequisiteStates(ctx, mutation.change, command.IssueID)
+	presentation, err := r.readIssuePresentation(ctx, mutation.change)
 	if err != nil {
 		return out, err
 	}
 	board, err := execution.LoadClaimIssue(execution.ClaimIssueSnapshot{
 		BoardID: r.boardID, Revision: mutation.current, Candidate: candidate,
-		Prerequisites: prerequisites, OccurredAt: mutation.occurredAt,
+		Prerequisites: presentation.ClaimPrerequisites(command.IssueID), OccurredAt: mutation.occurredAt,
 	})
 	if err != nil {
 		return out, err
@@ -44,20 +43,18 @@ func (r *Repository) ClaimIssue(ctx context.Context, command execution.ClaimIssu
 }
 
 // ClaimNext atomically selects and claims the first eligible pool issue.
-func (r *Repository) ClaimNext(ctx context.Context, command execution.ClaimNext) (out execution.IssueClaimed, err error) {
+func (r *Repository) ClaimNext(ctx context.Context, command execution.ClaimNext) (out execution.NextIssueClaimed, err error) {
 	mutation, err := r.beginMutation(ctx)
 	if err != nil {
 		return out, err
 	}
 	defer func() { err = errors.Join(err, mutation.change.Done()) }()
-	candidate, labels, prerequisites, err := r.selectClaimCandidate(ctx, mutation, command)
+	snapshot, err := r.selectClaimCandidate(ctx, mutation, command)
 	if err != nil {
 		return out, err
 	}
-	board, err := execution.LoadClaimNext(execution.ClaimNextSnapshot{
-		BoardID: r.boardID, Revision: mutation.current, Candidate: candidate,
-		Labels: labels, Prerequisites: prerequisites, OccurredAt: mutation.occurredAt,
-	})
+	snapshot.BoardID, snapshot.Revision, snapshot.OccurredAt = r.boardID, mutation.current, mutation.occurredAt
+	board, err := execution.LoadClaimNext(snapshot)
 	if err != nil {
 		return out, err
 	}
@@ -65,57 +62,48 @@ func (r *Repository) ClaimNext(ctx context.Context, command execution.ClaimNext)
 	if err != nil {
 		return out, err
 	}
-	return r.commitClaim(ctx, mutation, out)
+	if out.Issue == nil {
+		return out, nil
+	}
+	committed, err := r.commitClaim(ctx, mutation, execution.IssueClaimed{Issue: *out.Issue})
+	if err != nil {
+		return out, err
+	}
+	out.Issue = &committed.Issue
+	out.CommittedRevision = committed.CommittedRevision
+	return out, nil
 }
 
 func (r *Repository) selectClaimCandidate(
 	ctx context.Context,
 	mutation *mutation,
 	command execution.ClaimNext,
-) (*issue.State, []issue.Label, []issue.State, error) {
-	index, err := r.readBoardIssueIndex(ctx, mutation.change)
+) (execution.ClaimNextSnapshot, error) {
+	index, err := r.readIssuePresentation(ctx, mutation.change)
 	if err != nil {
-		return nil, nil, nil, err
+		return execution.ClaimNextSnapshot{}, err
 	}
-	descendants, err := r.descendantSet(ctx, mutation.change, command.UnderID.String())
-	if err != nil {
-		return nil, nil, nil, err
+	if command.UnderID != "" {
+		if !index.Contains(command.UnderID) {
+			return execution.ClaimNextSnapshot{}, errkind.Errorf(errkind.NotFound, "issue not found: %s", command.UnderID)
+		}
 	}
 	values := make([]issue.BoardIssueSummary, 0)
-	for id := range index.states {
-		if descendants != nil {
-			if _, ok := descendants[id]; !ok {
-				continue
-			}
+	skipped := 0
+	for id := range index.IDs() {
+		if !index.CouldBeUnder(id, command.UnderID) {
+			continue
 		}
-		summary := index.summary(id)
-		eligibility, err := execution.EvaluateEligibility(summary)
-		if err != nil {
-			return nil, nil, nil, err
+		summary := index.Summary(id)
+		if !execution.MatchesKnownClaimLabels(summary, command) {
+			continue
+		}
+		eligibility := index.Eligibility(id, summary)
+		if eligibility.SkippedForConflict() {
+			skipped++
+			continue
 		}
 		if !eligibility.ReadyForClaim() {
-			continue
-		}
-		matched := true
-		for _, label := range command.LabelsAll {
-			matched = matched && slices.Contains(summary.Labels, label.String())
-		}
-		if !matched {
-			continue
-		}
-		if len(command.LabelsAny) > 0 {
-			matched = false
-			for _, label := range command.LabelsAny {
-				matched = matched || slices.Contains(summary.Labels, label.String())
-			}
-			if !matched {
-				continue
-			}
-		}
-		for _, label := range command.LabelsNone {
-			matched = matched && !slices.Contains(summary.Labels, label.String())
-		}
-		if !matched {
 			continue
 		}
 		values = append(values, issue.BoardIssueSummary{
@@ -125,19 +113,21 @@ func (r *Repository) selectClaimCandidate(
 	}
 	values = issue.OrderSummaries(issue.ListRequest{Sort: "priority"}, values)
 	if len(values) == 0 {
-		return nil, nil, nil, nil
+		return execution.ClaimNextSnapshot{SkippedConflicts: skipped}, nil
 	}
 	selectedID, err := issue.NewID(values[0].Summary.Issue.ID)
 	if err != nil {
-		return nil, nil, nil, err
+		return execution.ClaimNextSnapshot{}, err
 	}
-	selected := index.states[selectedID].state
+	selected, _, err := r.readIssueState(ctx, mutation.change, selectedID)
+	if err != nil {
+		return execution.ClaimNextSnapshot{}, err
+	}
 	labelValues, err := labelsFromStrings(values[0].Summary.Labels)
 	if err != nil {
-		return nil, nil, nil, err
+		return execution.ClaimNextSnapshot{}, err
 	}
-	prerequisites, err := r.readPrerequisiteStates(ctx, mutation.change, selected.ID())
-	return &selected, labelValues, prerequisites, err
+	return execution.ClaimNextSnapshot{Candidate: &selected, Labels: labelValues, Prerequisites: index.ClaimPrerequisites(selected.ID()), SkippedConflicts: skipped}, nil
 }
 
 func (r *Repository) commitClaim(ctx context.Context, mutation *mutation, out execution.IssueClaimed) (execution.IssueClaimed, error) {

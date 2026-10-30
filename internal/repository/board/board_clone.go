@@ -133,6 +133,12 @@ func (r *CloneRepository) Clone(ctx context.Context, request boardclone.Request)
 		return out, err
 	}
 	importer.firstRevision, importer.lastRevision = revisions.FirstRevision(), revisions.LastRevision()
+	if err := cloneIssueProjections(ctx, reader, writer, importer); err != nil {
+		return out, err
+	}
+	if err := clonePinProjections(ctx, reader, writer, header.ID); err != nil {
+		return out, fmt.Errorf("clone pin positions: %w", err)
+	}
 	pager := copyRecordPager{ctx: ctx, queries: reader, boardID: header.ID, pageSize: copyRecordPageSize}
 	for record, err := range cloneProjectionRecords(&pager) {
 		if err != nil {
@@ -144,6 +150,9 @@ func (r *CloneRepository) Clone(ctx context.Context, request boardclone.Request)
 	}
 	mutationCount, err := repositoryhistory.CloneV1(ctx, view, change, request.BoardID)
 	if err != nil {
+		return out, err
+	}
+	if err := cloneConflicts(ctx, reader, writer, header.ID, importer.lastRevision); err != nil {
 		return out, err
 	}
 	if err := cloneReferenceMarkers(ctx, reader, writer, header.ID); err != nil {
@@ -184,7 +193,14 @@ func (r *CloneRepository) checkDestination(
 		return fmt.Errorf("inspect destination board name: %w", err)
 	}
 	if exists {
-		return errkind.Errorf(errkind.Conflict, "destination project already contains a board named %q", header.Name)
+		return errkind.Errorf(errkind.Conflict, "destination project already contains a board named %q", *header.Name)
+	}
+	strategyConflict, err := reader.BoardReadStrategyConflict(ctx, header.ID)
+	if err == nil {
+		return errkind.Errorf(errkind.Conflict, "source issue ID strategy is unresolved in conflict %s", strategyConflict)
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
 	}
 	// Strategy checks resolve local defaults only to establish eligibility.
 	// Cloning transfers nullable board overrides, never these resolved values.
@@ -203,7 +219,7 @@ func (r *CloneRepository) checkDestination(
 		return err
 	}
 	if err := boardclone.RequireRandomIDs("source",
-		resolveCopyConfiguration(r.SourceConfiguration, sourceProject, boardOverrides).Issue.ID.Strategy); err != nil {
+		*resolveCopyConfiguration(r.SourceConfiguration, sourceProject, boardOverrides).Issue.ID.Strategy); err != nil {
 		return err
 	}
 	projectRow, err := writer.ProjectGetProjectConfiguration(ctx, request.ProjectID.String())
@@ -216,7 +232,7 @@ func (r *CloneRepository) checkDestination(
 		return err
 	}
 	return boardclone.RequireRandomIDs("destination",
-		resolveCopyConfiguration(r.DestinationConfiguration, destinationProject, boardOverrides).Issue.ID.Strategy)
+		*resolveCopyConfiguration(r.DestinationConfiguration, destinationProject, boardOverrides).Issue.ID.Strategy)
 }
 
 func (r *CloneRepository) newWriter(ctx context.Context, reader *query.Queries, boardID board.ID) (board.WriterUID, error) {
@@ -331,5 +347,13 @@ func cloneProjectionImporter(ctx context.Context, reader, writer *query.Queries,
 }
 
 func cloneProjectionRecords(pager *copyRecordPager) iter.Seq2[boardcopy.Record, error] {
-	return func(yield func(boardcopy.Record, error) bool) { pager.read(yield) }
+	return func(yield func(boardcopy.Record, error) bool) {
+		// Issue rows and pin positions are copied directly because backup
+		// records require resolved fields and use a contiguous pin order.
+		_ = pager.readLabels(yield) && pager.readDependencies(yield) &&
+			pager.readContainment(yield) && pager.readExternalKeys(yield) &&
+			pager.readLogEntries(yield) && pager.readStates(yield) &&
+			pager.readResults(yield) && pager.readCheckpoints(yield) &&
+			pager.readAttachments(yield)
+	}
 }

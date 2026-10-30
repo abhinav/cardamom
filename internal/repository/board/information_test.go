@@ -97,6 +97,7 @@ func TestRepository_ReadIssueInventory(t *testing.T) {
 			{Status: issue.StatusWaiting, Count: 1},
 			{Status: issue.StatusClosed, Count: 1},
 			{Status: issue.StatusCancelled, Count: 0},
+			{Status: issue.StatusUnresolved, Count: 0},
 		},
 	}, inventory)
 }

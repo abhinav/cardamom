@@ -10,6 +10,7 @@ import (
 	"github.com/alecthomas/kong"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/board/selection"
+	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/project"
 	projectcreation "go.abhg.dev/cardamom/internal/project/creation"
 	projectinspection "go.abhg.dev/cardamom/internal/project/inspection"
@@ -265,18 +266,18 @@ func (c *projectShowCommand) Run(
 			"Configuration:\n"+
 			"  Issue ID prefix:      %s\n"+
 			"  Issue ID strategy:    %s\n"+
-			"  Summary maximum:      %d bytes\n"+
-			"  Attachment maximum:   %d bytes\n"+
-			"  Board pin maximum:     %d\n"+
+			"  Summary maximum:      %s bytes\n"+
+			"  Attachment maximum:   %s bytes\n"+
+			"  Board pin maximum:     %s\n"+
 			"Boards:\n",
 		record.ID,
 		record.Name,
 		detail.Project.Created().Format(time.RFC3339),
-		record.Configuration.Issue.ID.Prefix,
-		record.Configuration.Issue.ID.Strategy,
-		record.Configuration.Issue.Summary.MaxBytes,
-		record.Configuration.Attachment.MaxBytes,
-		record.Configuration.Board.Pins.MaxCount,
+		effectiveConfigurationValue(record.Configuration.Issue.ID.Prefix),
+		effectiveConfigurationValue(record.Configuration.Issue.ID.Strategy),
+		effectiveConfigurationValue(record.Configuration.Issue.Summary.MaxBytes),
+		effectiveConfigurationValue(record.Configuration.Attachment.MaxBytes),
+		effectiveConfigurationValue(record.Configuration.Board.Pins.MaxCount),
 	)); err != nil {
 		return err
 	}
@@ -285,7 +286,7 @@ func (c *projectShowCommand) Run(
 	}
 	for _, board := range record.Boards {
 		if err := invocation.Output.WriteString(fmt.Sprintf(
-			"  %s\t%s\n", board.ID, board.Name,
+			"  %s\t%s\n", board.ID, boardDisplayName(board.Name, board.ID),
 		)); err != nil {
 			return err
 		}
@@ -451,24 +452,8 @@ func newProjectDetailOut(detail projectinspection.Detail) projectDetailOut {
 	}
 	return projectDetailOut{
 		projectSummaryOut: newProjectSummaryOut(detail.Project),
-		Configuration: InfoConfiguration{
-			Issue: InfoIssueConfiguration{
-				ID: InfoIssueIDConfiguration{
-					Prefix:   effective.Issue.ID.Prefix.String(),
-					Strategy: effective.Issue.ID.Strategy.String(),
-				},
-				Summary: InfoSummaryConfiguration{
-					MaxBytes: effective.Issue.Summary.MaxBytes.Uint64(),
-				},
-			},
-			Attachment: InfoAttachmentConfiguration{
-				MaxBytes: effective.Attachment.MaxBytes.Uint64(),
-			},
-			Board: InfoBoardConfiguration{Pins: InfoPinConfiguration{
-				MaxCount: effective.Board.Pins.MaxCount.Uint64(),
-			}},
-		},
-		Boards: boards,
+		Configuration:     NewInfoConfiguration(effective),
+		Boards:            boards,
 	}
 }
 
@@ -523,7 +508,15 @@ func (c *boardListCommand) Run(invocation *Invocation, catalog BoardCatalog) err
 		return WriteJSONLines(invocation.Output, records)
 	}
 	for _, record := range records {
-		line := fmt.Sprintf("%s\t%s\n", record.ID, record.Name)
+		line := fmt.Sprintf("%s\t%s", record.ID, boardDisplayName(record.Name, record.ID))
+		if len(record.Conflicts) > 0 {
+			fields := make([]string, 0, len(record.Conflicts))
+			for _, conflict := range record.Conflicts {
+				fields = append(fields, conflict.Field.String())
+			}
+			line += "\tunresolved: " + strings.Join(fields, ", ")
+		}
+		line += "\n"
 		if err := invocation.Output.WriteString(line); err != nil {
 			return err
 		}
@@ -556,9 +549,9 @@ func (c *boardArchiveCommand) Run(invocation *Invocation, boards *board.Service,
 	if !result.Changed {
 		return invocation.Output.Noticef("board %s is already archived (%d issues)", result.Board.ID(), result.Issues.Total)
 	}
-	return invocation.Output.Noticef("archived %s (%d issues: %d ready, %d blocked, %d in progress, %d waiting, %d closed, %d cancelled)",
+	return invocation.Output.Noticef("archived %s (%d issues: %d ready, %d blocked, %d in progress, %d waiting, %d closed, %d cancelled, %d unresolved)",
 		result.Board.ID(), result.Issues.Total, result.Issues.Ready, result.Issues.Blocked,
-		result.Issues.InProgress, result.Issues.Waiting, result.Issues.Closed, result.Issues.Cancelled)
+		result.Issues.InProgress, result.Issues.Waiting, result.Issues.Closed, result.Issues.Cancelled, result.Issues.Unresolved)
 }
 
 // boardUnarchiveCommand selects one explicit board to restore to active service.
@@ -656,7 +649,7 @@ func (c *boardUseCommand) Run(invocation *Invocation, resolver *selection.Resolv
 	if invocation.Output.JSON() {
 		return invocation.Output.WriteJSON(newBoardSummaryOut(board))
 	}
-	return invocation.Output.Noticef("using %s (%s)", board.ID(), board.Name())
+	return invocation.Output.Noticef("using %s (%s)", board.ID(), boardDisplayName(board.Name(), board.ID().String()))
 }
 
 type boardShowCommand struct {
@@ -665,22 +658,30 @@ type boardShowCommand struct {
 
 // Run resolves and renders one board without changing checkout selection.
 func (c *boardShowCommand) Run(invocation *Invocation, resolver *selection.Resolver) error {
-	board, err := resolveBoard(invocation, c.Selector, resolver)
+	selected, err := resolveBoard(invocation, c.Selector, resolver)
 	if err != nil {
 		return err
 	}
 	if invocation.Output.JSON() {
-		return invocation.Output.WriteJSON(newBoardDetailOut(board))
+		return invocation.Output.WriteJSON(newBoardDetailOut(selected))
 	}
 	description := "(none)"
-	if value := board.Description(); value != nil {
+	if value := selected.Description(); value != nil {
 		description = *value
 	}
-	return invocation.Output.WriteString(fmt.Sprintf(
+	if selected.Unresolved(board.FieldDescription) {
+		description = "unresolved"
+	}
+	var text strings.Builder
+	fmt.Fprintf(&text,
 		"ID:      %s\nProject: %s\nName:    %s\nCreated: %s\nDescription: %s\n",
-		board.ID(), board.ProjectID(), board.Name(),
-		board.Created().Format(time.RFC3339), description,
-	))
+		selected.ID(), selected.ProjectID(), boardDisplayName(selected.Name(), selected.ID().String()),
+		selected.Created().Format(time.RFC3339), description,
+	)
+	for _, conflict := range selected.Conflicts() {
+		fmt.Fprintf(&text, "Unresolved %s: %s\n", conflict.Field, conflict.ID)
+	}
+	return invocation.Output.WriteString(text.String())
 }
 
 type boardEditCommand struct {
@@ -765,11 +766,12 @@ func resolveBoard(
 }
 
 type boardSummaryOut struct {
-	ID        string                   `json:"id"`
-	ProjectID string                   `json:"project_id"`
-	Name      string                   `json:"name"`
-	Created   int64                    `json:"created"`
-	Archived  *boardArchiveMetadataOut `json:"archived,omitempty"`
+	ID        string                    `json:"id"`
+	ProjectID string                    `json:"project_id"`
+	Name      *string                   `json:"name"`
+	Created   int64                     `json:"created"`
+	Archived  *boardArchiveMetadataOut  `json:"archived,omitempty"`
+	Conflicts []board.ConflictReference `json:"conflicts,omitempty"`
 }
 
 // boardArchiveMetadataOut is the stable JSON representation of current archive
@@ -783,12 +785,19 @@ type boardArchiveMetadataOut struct {
 func newBoardSummaryOut(board *board.State) boardSummaryOut {
 	out := boardSummaryOut{
 		ID: board.ID().String(), ProjectID: board.ProjectID(),
-		Name: board.Name(), Created: board.Created().Unix(),
+		Name: board.Name(), Created: board.Created().Unix(), Conflicts: board.Conflicts(),
 	}
 	if archived := board.Archived(); archived != nil {
 		out.Archived = &boardArchiveMetadataOut{Actor: archived.Actor, At: archived.At.Unix(), Reason: archived.Reason}
 	}
 	return out
+}
+
+func boardDisplayName(name *string, id string) string {
+	if name == nil {
+		return id
+	}
+	return *name
 }
 
 type boardDetailOut struct {
@@ -830,6 +839,7 @@ func newBoardIssueInventoryOut(counts board.IssueCounts) boardIssueInventoryOut 
 		{Status: "waiting", Count: counts.Waiting},
 		{Status: "closed", Count: counts.Closed},
 		{Status: "cancelled", Count: counts.Cancelled},
+		{Status: "unresolved", Count: counts.Unresolved},
 	}}
 }
 
@@ -936,7 +946,9 @@ type InfoBoard struct {
 	ProjectID string `json:"project_id"`
 
 	// Name is the board's user-visible name.
-	Name string `json:"name"`
+	Name *string `json:"name"`
+	// Conflicts identify unresolved board settings.
+	Conflicts []board.ConflictReference `json:"conflicts,omitempty"`
 }
 
 // InfoSchema identifies persisted and running schema versions.
@@ -958,6 +970,30 @@ type InfoConfiguration struct {
 
 	// Board contains effective board policy.
 	Board InfoBoardConfiguration `json:"board"`
+	// Conflicts identify effective settings with no authoritative value.
+	Conflicts []configuration.ConflictReference `json:"conflicts,omitempty"`
+}
+
+// NewInfoConfiguration preserves both known effective values and unresolved
+// references in the CLI information representation.
+func NewInfoConfiguration(value configuration.Configuration) InfoConfiguration {
+	out := InfoConfiguration{Conflicts: value.Conflicts}
+	if value.Issue.ID.Prefix != nil {
+		out.Issue.ID.Prefix = new(value.Issue.ID.Prefix.String())
+	}
+	if value.Issue.ID.Strategy != nil {
+		out.Issue.ID.Strategy = new(value.Issue.ID.Strategy.String())
+	}
+	if value.Issue.Summary.MaxBytes != nil {
+		out.Issue.Summary.MaxBytes = new(value.Issue.Summary.MaxBytes.Uint64())
+	}
+	if value.Attachment.MaxBytes != nil {
+		out.Attachment.MaxBytes = new(value.Attachment.MaxBytes.Uint64())
+	}
+	if value.Board.Pins.MaxCount != nil {
+		out.Board.Pins.MaxCount = new(value.Board.Pins.MaxCount.Uint64())
+	}
+	return out
 }
 
 // InfoBoardConfiguration contains effective board policy.
@@ -969,7 +1005,7 @@ type InfoBoardConfiguration struct {
 // InfoPinConfiguration contains the effective pin admission limit.
 type InfoPinConfiguration struct {
 	// MaxCount is the largest admitted pin collection.
-	MaxCount uint64 `json:"max_count"`
+	MaxCount *uint64 `json:"max_count"`
 }
 
 // InfoIssueConfiguration contains effective issue policy.
@@ -984,22 +1020,22 @@ type InfoIssueConfiguration struct {
 // InfoIssueIDConfiguration contains effective issue identity policy.
 type InfoIssueIDConfiguration struct {
 	// Prefix is prepended to newly allocated issue IDs.
-	Prefix string `json:"prefix"`
+	Prefix *string `json:"prefix"`
 
 	// Strategy selects the issue suffix allocation strategy.
-	Strategy string `json:"strategy"`
+	Strategy *string `json:"strategy"`
 }
 
 // InfoSummaryConfiguration contains the effective summary limit.
 type InfoSummaryConfiguration struct {
 	// MaxBytes is the largest accepted summary in bytes.
-	MaxBytes uint64 `json:"max_bytes"`
+	MaxBytes *uint64 `json:"max_bytes"`
 }
 
 // InfoAttachmentConfiguration contains the effective attachment limit.
 type InfoAttachmentConfiguration struct {
 	// MaxBytes is the largest admitted attachment in bytes.
-	MaxBytes uint64 `json:"max_bytes"`
+	MaxBytes *uint64 `json:"max_bytes"`
 }
 
 // InfoRevision identifies the latest committed logical store change.
@@ -1049,21 +1085,21 @@ func (*infoCommand) Run(invocation *Invocation, operation InfoOperation) error {
 		"Schema:\n  Database: %d\n  Code:     %d\n" +
 		"Configuration:\n  Issue ID prefix:      %s\n" +
 		"  Issue ID strategy:    %s\n" +
-		"  Summary maximum:      %d bytes\n" +
-		"  Attachment maximum:   %d bytes\n" +
-		"  Board pin maximum:     %d\n" +
+		"  Summary maximum:      %s bytes\n" +
+		"  Attachment maximum:   %s bytes\n" +
+		"  Board pin maximum:     %s\n" +
 		"Revision:\n  Current: %d\nIssues:\n  Total: %d\n"
 	if err := invocation.Output.WriteString(fmt.Sprintf(
 		humanSummary,
 		result.Store.Directory, result.Store.DatabasePath,
 		result.Project.ID, result.Project.Name,
-		result.Board.ID, result.Board.ProjectID, result.Board.Name,
+		result.Board.ID, result.Board.ProjectID, boardDisplayName(result.Board.Name, result.Board.ID),
 		result.Schema.DatabaseVersion, result.Schema.CodeVersion,
-		result.Configuration.Issue.ID.Prefix,
-		result.Configuration.Issue.ID.Strategy,
-		result.Configuration.Issue.Summary.MaxBytes,
-		result.Configuration.Attachment.MaxBytes,
-		result.Configuration.Board.Pins.MaxCount,
+		effectiveConfigurationValue(result.Configuration.Issue.ID.Prefix),
+		effectiveConfigurationValue(result.Configuration.Issue.ID.Strategy),
+		effectiveConfigurationValue(result.Configuration.Issue.Summary.MaxBytes),
+		effectiveConfigurationValue(result.Configuration.Attachment.MaxBytes),
+		effectiveConfigurationValue(result.Configuration.Board.Pins.MaxCount),
 		result.Revision.Current, result.Issues.Total,
 	)); err != nil {
 		return err

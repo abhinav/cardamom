@@ -47,7 +47,7 @@ describe("issue collection queries", () => {
     expect(request.limit).toBe(100);
   });
 
-  it("limits the default type filter to ordinary work", () => {
+  it("includes unresolved kinds in the default ordinary-work filter", () => {
     const scope = toBoardScopeMessage({ kind: "board", boardId: "board-1" });
 
     const request = buildIssueQuery(scope!, defaultBoardView);
@@ -56,8 +56,9 @@ describe("issue collection queries", () => {
       IssueType.WORKSTREAM,
       IssueType.TASK,
       IssueType.CHECKPOINT,
+      IssueType.UNSPECIFIED,
     ]);
-    expect(request.lifecycles).toEqual([1, 2]);
+    expect(request.lifecycles).toEqual([1, 2, 0]);
     expect(request.sort).toBe(IssueSort.UPDATED_AT);
     expect(request.direction).toBe(SortDirection.DESCENDING);
   });
@@ -75,6 +76,17 @@ describe("issue collection queries", () => {
 });
 
 describe("kanban grouping", () => {
+  it("keeps issues with unknown type and lifecycle in visible conflict groups", () => {
+    const unresolved = {
+      ...issue("cm-conflict", IssueStatus.UNRESOLVED, IssueType.TASK, 1, 10),
+      type: undefined,
+      lifecycle: undefined,
+      title: undefined,
+      priority: undefined,
+    };
+    expect(groupIssues([unresolved], "type", "current").find(({ label }) => label === "Unresolved type")?.issues).toEqual([unresolved]);
+    expect(groupIssues([unresolved], "status", "current").find(({ label }) => label === "Unresolved")?.issues).toEqual([unresolved]);
+  });
   it("keeps current status columns stable and omits cancelled work by default", () => {
     const issues = [
       issue("cm-ready", IssueStatus.READY, IssueType.TASK, 1, 10),
@@ -92,6 +104,7 @@ describe("kanban grouping", () => {
       "In progress",
       "Waiting",
       "Closed",
+      "Unresolved",
     ]);
     expect(groups.map((group) => group.issues.map((item) => item.id))).toEqual([
       ["cm-ready"],
@@ -99,6 +112,7 @@ describe("kanban grouping", () => {
       ["cm-active"],
       ["cm-waiting"],
       ["cm-closed"],
+      [],
     ]);
   });
 
@@ -125,6 +139,7 @@ describe("kanban grouping", () => {
       ["cm-active-newer", "cm-active-older"],
       ["cm-waiting"],
       ["cm-closed-newer", "cm-closed-older"],
+      [],
     ]);
   });
 
@@ -163,6 +178,7 @@ describe("kanban grouping", () => {
       "Workstream",
       "Task",
       "Checkpoint",
+      "Unresolved type",
     ]);
     expect(routineGroups.map((group) => group.label)).toEqual(["Routine"]);
     expect(routineGroups[0]?.issues).toEqual([routine]);
@@ -212,6 +228,8 @@ function issue(
 ): IssueSummary {
   return {
     $typeName: "cardamom.private.v1.IssueSummary",
+    conflicts: [],
+    eligibilityConflicts: [],
     id,
     boardId: "board-1",
     title: id,

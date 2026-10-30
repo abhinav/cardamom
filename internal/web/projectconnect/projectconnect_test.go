@@ -68,8 +68,10 @@ func TestServiceBootstrapAndBoard(t *testing.T) {
 	assert.Equal(t, "board-2", bootstrap.Msg.GetServerDefaultBoardId())
 	assert.Equal(t, uint64(20260718164341), bootstrap.Msg.GetSchemaVersion())
 	assert.Equal(t, "v1.2.3", bootstrap.Msg.GetVersion())
-	assert.Len(t, bootstrap.Msg.GetIssueTypes(), 4)
-	assert.Len(t, bootstrap.Msg.GetIssueStatuses(), 6)
+	assert.Contains(t, bootstrap.Msg.GetIssueTypes(), privatev1.IssueType_ISSUE_TYPE_UNSPECIFIED)
+	assert.Len(t, bootstrap.Msg.GetIssueTypes(), 5)
+	assert.Contains(t, bootstrap.Msg.GetIssueStatuses(), privatev1.IssueStatus_ISSUE_STATUS_UNRESOLVED)
+	assert.Len(t, bootstrap.Msg.GetIssueStatuses(), 7)
 
 	response, err := client.GetBoard(
 		t.Context(),
@@ -261,7 +263,7 @@ func (c *testCatalog) CreateBoard(
 	c.created = append(c.created, request)
 	value, err := board.Load(board.Snapshot{
 		ID: "created-board", ProjectID: request.ProjectID,
-		Name: request.Name, Description: request.Description,
+		Name: new(request.Name), Description: request.Description,
 		Created: time.Unix(3, 0).UTC(),
 	})
 	if err != nil {
@@ -311,7 +313,8 @@ func (c *testCatalog) UnarchiveBoard(
 	if err != nil {
 		return nil, false, err
 	}
-	return state, state.Unarchive(), nil
+	changed, err := state.Unarchive()
+	return state, changed, err
 }
 
 func testProject(t *testing.T, id, name string) *project.State {
@@ -332,7 +335,7 @@ func testBoard(
 ) *board.State {
 	t.Helper()
 	value, err := board.Load(board.Snapshot{
-		ID: board.ID(id), ProjectID: projectID.String(), Name: name,
+		ID: board.ID(id), ProjectID: projectID.String(), Name: new(name),
 		Description: description, Created: time.Unix(2, 0).UTC(),
 	})
 	require.NoError(t, err)

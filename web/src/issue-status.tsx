@@ -10,6 +10,7 @@ type IssueState =
   | "waiting"
   | "closed"
   | "cancelled"
+  | "unresolved"
   | "unknown";
 
 /**
@@ -20,6 +21,8 @@ export function issueStatusPresentation(
   status: IssueStatus,
 ): { label: string; state: IssueState } {
   switch (status) {
+    case IssueStatus.UNRESOLVED:
+      return { label: "Unresolved", state: "unresolved" };
     case IssueStatus.READY:
       return { label: "Ready", state: "ready" };
     case IssueStatus.BLOCKED:

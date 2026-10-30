@@ -3,60 +3,7 @@ SELECT issue.id
 FROM board_pins AS pin
 JOIN issues AS issue ON issue.uid = pin.issue_uid
 WHERE pin.board_id = sqlc.arg(board_id)
-ORDER BY pin.position;
-
--- name: BoardListPinReferences :many
-SELECT
-    issue.id,
-    issue.title,
-    issue.kind,
-    CAST(CASE
-        WHEN issue.lifecycle <> 'open' THEN issue.lifecycle
-        WHEN claim.issue_uid IS NOT NULL THEN 'in_progress'
-        WHEN issue.waiting_reason IS NOT NULL THEN 'waiting'
-        WHEN EXISTS (
-            SELECT 1
-            FROM dependencies AS dependency
-            JOIN issues AS prerequisite
-                ON prerequisite.uid = dependency.prerequisite_uid
-            WHERE dependency.issue_uid = issue.uid
-                AND prerequisite.lifecycle <> 'closed'
-        ) THEN 'blocked'
-        ELSE 'ready'
-    END AS TEXT) AS status,
-    issue.priority
-FROM board_pins AS pin
-JOIN issues AS issue
-    ON issue.board_id = pin.board_id
-    AND issue.uid = pin.issue_uid
-LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
-WHERE pin.board_id = sqlc.arg(board_id)
-ORDER BY pin.position;
-
--- name: BoardGetPinIssueReference :one
-SELECT
-    issue.id,
-    issue.title,
-    issue.kind,
-    CAST(CASE
-        WHEN issue.lifecycle <> 'open' THEN issue.lifecycle
-        WHEN claim.issue_uid IS NOT NULL THEN 'in_progress'
-        WHEN issue.waiting_reason IS NOT NULL THEN 'waiting'
-        WHEN EXISTS (
-            SELECT 1
-            FROM dependencies AS dependency
-            JOIN issues AS prerequisite
-                ON prerequisite.uid = dependency.prerequisite_uid
-            WHERE dependency.issue_uid = issue.uid
-                AND prerequisite.lifecycle <> 'closed'
-        ) THEN 'blocked'
-        ELSE 'ready'
-    END AS TEXT) AS status,
-    issue.priority
-FROM issues AS issue
-LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
-WHERE issue.board_id = sqlc.arg(board_id)
-    AND issue.id = sqlc.arg(issue_id);
+ORDER BY pin.position, pin.issue_uid;
 
 -- name: BoardPinExists :one
 SELECT EXISTS (
@@ -85,3 +32,12 @@ RETURNING position;
 DELETE FROM board_pins
 WHERE board_id = sqlc.arg(board_id)
     AND issue_uid = sqlc.arg(issue_uid);
+
+-- name: BoardInsertPinAtPosition :exec
+INSERT INTO board_pins (board_id, issue_uid, position)
+VALUES (sqlc.arg(board_id), sqlc.arg(issue_uid), sqlc.arg(position));
+
+-- name: BoardReadPinConflict :one
+SELECT id FROM board_conflicts
+WHERE board_id = sqlc.arg(board_id) AND kind = 'board.pin'
+ORDER BY id LIMIT 1;

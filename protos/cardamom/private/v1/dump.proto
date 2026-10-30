@@ -57,8 +57,8 @@ message DumpManifest {
   // board_id identifies the rendered board.
   string board_id = 3;
 
-  // board_name is the board name recorded in every generated file.
-  string board_name = 4;
+  // board_name is absent when the board name is unresolved.
+  optional string board_name = 4;
 
   // revision is the canonical source revision represented by every file.
   uint64 revision = 5;

@@ -3,6 +3,7 @@ syntax = "proto3";
 package cardamom.private.v1;
 
 import "cardamom/private/v1/content.proto";
+import "cardamom/private/v1/conflict_reference.proto";
 import "cardamom/private/v1/issue.proto";
 import "cardamom/private/v1/mutation.proto";
 import "cardamom/private/v1/scope.proto";
@@ -41,14 +42,18 @@ message BoardSummary {
   // project_id identifies the project that owns the board.
   string project_id = 2;
 
-  // name is the human-readable board name.
-  string name = 3;
+  // name is the current board name, absent when unresolved.
+  optional string name = 3;
 
   // source identifies the server that supplied this board in aggregate mode.
   optional SourceRef source = 4;
 
-  // archived is present for an archived board and absent for an active board.
+  // archived is present for an archived board. Absence means active only
+  // when conflicts contains no archive-state dispute.
   optional BoardArchive archived = 5;
+
+  // conflicts identifies unresolved board metadata or archive state.
+  repeated ConflictReference conflicts = 6;
 }
 
 // BoardArchive is the board's current logical archive state. Unarchiving clears
@@ -72,8 +77,8 @@ message Board {
   // project_id identifies the project that owns the board.
   string project_id = 2;
 
-  // name is the human-readable board name.
-  string name = 3;
+  // name is the current board name, absent when unresolved.
+  optional string name = 3;
 
   // description is the optional shared context inherited by board issues.
   optional MarkdownContent description = 4;
@@ -84,8 +89,12 @@ message Board {
   // source identifies the server that supplied this board in aggregate mode.
   optional SourceRef source = 6;
 
-  // archived is present for an archived board and absent for an active board.
+  // archived is present for an archived board. Absence means active only
+  // when conflicts contains no archive-state dispute.
   optional BoardArchive archived = 7;
+
+  // conflicts identifies unresolved board metadata or archive state.
+  repeated ConflictReference conflicts = 8;
 }
 
 // ListProjectsRequest requests every project in catalog order.
@@ -273,6 +282,9 @@ message BoardArchiveIssueCounts {
 
   // cancelled is the number of issues whose effective status is cancelled.
   uint64 cancelled = 7;
+
+  // unresolved is the number of issues with no authoritative effective status.
+  uint64 unresolved = 8;
 }
 
 // UnarchiveBoardRequest selects a board to restore to active service.

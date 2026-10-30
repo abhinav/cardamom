@@ -89,7 +89,8 @@ archive-4
       {"status": "in_progress", "count": 0},
       {"status": "waiting", "count": 1},
       {"status": "closed", "count": 0},
-      {"status": "cancelled", "count": 0}
+      {"status": "cancelled", "count": 0},
+      {"status": "unresolved", "count": 0}
     ]
   }
 }
@@ -120,7 +121,8 @@ archive-4
       {"status": "in_progress", "count": 0},
       {"status": "waiting", "count": 1},
       {"status": "closed", "count": 0},
-      {"status": "cancelled", "count": 0}
+      {"status": "cancelled", "count": 0},
+      {"status": "unresolved", "count": 0}
     ]
   }
 }

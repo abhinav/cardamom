@@ -88,7 +88,7 @@ cardamom:
   board_id: board_00000000000000000000
   board_name: Primary board
   generated_identity: board
-  body_sha256: e03b50e9072007e595b860940318dff14cb59520dec2db74e8774cc8062320e2
+  body_sha256: 9c0216aedd51312913b0b0c63a89490d7557a0fbb25ac214ad2b14c6b6a6547f
 ---
 
 # Cardamom board dump
@@ -117,6 +117,7 @@ No board description.
 | Waiting | 0 |
 | Closed | 0 |
 | Cancelled | 0 |
+| Unresolved | 0 |
 
 ## Containment
 

@@ -9,9 +9,9 @@ import (
 
 func TestOrderSummariesAppliesGlobalOrderLimitAndTieBreaker(t *testing.T) {
 	values := []BoardIssueSummary{
-		{BoardID: "board-b", Summary: Summary{Issue: Issue{ID: "issue-z", Title: "Zulu", Priority: 1}}},
-		{BoardID: "board-b", Summary: Summary{Issue: Issue{ID: "issue-b", Title: "Alpha", Priority: 1}}},
-		{BoardID: "board-a", Summary: Summary{Issue: Issue{ID: "issue-a", Title: "Alpha", Priority: 1}}},
+		{BoardID: "board-b", Summary: Summary{Issue: Issue{ID: "issue-z", Title: new("Zulu"), Priority: new(1)}}},
+		{BoardID: "board-b", Summary: Summary{Issue: Issue{ID: "issue-b", Title: new("Alpha"), Priority: new(1)}}},
+		{BoardID: "board-a", Summary: Summary{Issue: Issue{ID: "issue-a", Title: new("Alpha"), Priority: new(1)}}},
 	}
 
 	ordered := OrderSummaries(ListRequest{Sort: "title", Limit: 2}, values)
@@ -25,10 +25,10 @@ func TestOrderSummariesAppliesGlobalOrderLimitAndTieBreaker(t *testing.T) {
 func TestOrderSummariesDefaultsToCreationOrderBeforeIssueIdentity(t *testing.T) {
 	values := []BoardIssueSummary{
 		{BoardID: "board-a", Summary: Summary{Issue: Issue{
-			ID: "issue-a", Priority: 0, Created: 2,
+			ID: "issue-a", Priority: new(0), Created: 2,
 		}}},
 		{BoardID: "board-a", Summary: Summary{Issue: Issue{
-			ID: "issue-z", Priority: 4, Created: 1,
+			ID: "issue-z", Priority: new(4), Created: 1,
 		}}},
 	}
 
@@ -42,10 +42,10 @@ func TestOrderSummariesDefaultsToCreationOrderBeforeIssueIdentity(t *testing.T) 
 func TestOrderSummariesPriorityUsesCreationBeforeIssueIdentity(t *testing.T) {
 	values := []BoardIssueSummary{
 		{BoardID: "board-a", Summary: Summary{Issue: Issue{
-			ID: "issue-a", Priority: 1, Created: 2,
+			ID: "issue-a", Priority: new(1), Created: 2,
 		}}},
 		{BoardID: "board-a", Summary: Summary{Issue: Issue{
-			ID: "issue-z", Priority: 1, Created: 1,
+			ID: "issue-z", Priority: new(1), Created: 1,
 		}}},
 	}
 
@@ -59,10 +59,10 @@ func TestOrderSummariesPriorityUsesCreationBeforeIssueIdentity(t *testing.T) {
 func TestOrderSummariesReversePriorityReversesCreationTieBreaker(t *testing.T) {
 	values := []BoardIssueSummary{
 		{BoardID: "board-a", Summary: Summary{Issue: Issue{
-			ID: "issue-a", Priority: 1, Created: 2,
+			ID: "issue-a", Priority: new(1), Created: 2,
 		}}},
 		{BoardID: "board-a", Summary: Summary{Issue: Issue{
-			ID: "issue-z", Priority: 1, Created: 1,
+			ID: "issue-z", Priority: new(1), Created: 1,
 		}}},
 	}
 
@@ -79,8 +79,8 @@ func TestNormalizeOrderTreatsIssueIDAsAnUnknownPublicSort(t *testing.T) {
 
 func TestOrderSummariesIgnoresReverseForUnknownSort(t *testing.T) {
 	values := []BoardIssueSummary{
-		{BoardID: "board-b", Summary: Summary{Issue: Issue{ID: "issue-low", Priority: 4, Created: 1}}},
-		{BoardID: "board-a", Summary: Summary{Issue: Issue{ID: "issue-high", Priority: 0, Created: 2}}},
+		{BoardID: "board-b", Summary: Summary{Issue: Issue{ID: "issue-low", Priority: new(4), Created: 1}}},
+		{BoardID: "board-a", Summary: Summary{Issue: Issue{ID: "issue-high", Priority: new(0), Created: 2}}},
 	}
 
 	ordered := OrderSummaries(ListRequest{Sort: "unknown", Reverse: true}, values)

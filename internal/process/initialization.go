@@ -86,7 +86,7 @@ func (i *initializer) Initialize(
 				err,
 			)
 		}
-		effective.Issue.ID.Prefix = prefix
+		effective.Issue.ID.Prefix = &prefix
 	}
 
 	result := cli.InitResult{
@@ -106,7 +106,7 @@ func (i *initializer) Initialize(
 			name := initialized.Namespace.Board.Name()
 			result.BoardCreated = true
 			result.BoardID = &boardID
-			result.BoardName = &name
+			result.BoardName = name
 		}
 	}
 	if !i.config.DisableGitIgnore {
@@ -186,19 +186,19 @@ func prefixString(prefix *configuration.Prefix) *string {
 func resolveStoreConfiguration(overrides configuration.Overrides) configuration.Configuration {
 	defaults := configuration.Defaults()
 	if overrides.Issue.ID.Prefix != nil {
-		defaults.Issue.ID.Prefix = *overrides.Issue.ID.Prefix
+		defaults.Issue.ID.Prefix = new(*overrides.Issue.ID.Prefix)
 	}
 	if overrides.Issue.ID.Strategy != nil {
-		defaults.Issue.ID.Strategy = *overrides.Issue.ID.Strategy
+		defaults.Issue.ID.Strategy = new(*overrides.Issue.ID.Strategy)
 	}
 	if overrides.Issue.Summary.MaxBytes != nil {
-		defaults.Issue.Summary.MaxBytes = *overrides.Issue.Summary.MaxBytes
+		defaults.Issue.Summary.MaxBytes = new(*overrides.Issue.Summary.MaxBytes)
 	}
 	if overrides.Attachment.MaxBytes != nil {
-		defaults.Attachment.MaxBytes = *overrides.Attachment.MaxBytes
+		defaults.Attachment.MaxBytes = new(*overrides.Attachment.MaxBytes)
 	}
 	if overrides.Board.Pins.MaxCount != nil {
-		defaults.Board.Pins.MaxCount = *overrides.Board.Pins.MaxCount
+		defaults.Board.Pins.MaxCount = new(*overrides.Board.Pins.MaxCount)
 	}
 	return defaults
 }

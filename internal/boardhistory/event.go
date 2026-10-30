@@ -20,10 +20,7 @@ type Event struct {
 
 // Kind returns the finite semantic kind of the event payload.
 func (e Event) Kind() EventKind {
-	if e.Payload == nil {
-		return ""
-	}
-	return e.Payload.kind()
+	return PayloadKind(e.Payload)
 }
 
 // Payload is one typed semantic value in the closed V1 event vocabulary.
@@ -32,6 +29,15 @@ type Payload interface {
 	kind() EventKind
 	validateV1() error
 	valueV1() any
+}
+
+// PayloadKind returns the finite semantic kind of a payload.
+// A nil payload has no kind.
+func PayloadKind(payload Payload) EventKind {
+	if payload == nil {
+		return ""
+	}
+	return payload.kind()
 }
 
 // EventKind identifies one semantic event representation in format V1.
@@ -49,3 +55,19 @@ type EventID struct {
 	// Ordinal is the event's zero-based position within the mutation.
 	Ordinal uint64
 }
+
+// MarshalEvent encodes one event in the canonical retained format.
+// Conflict projections use the same typed values as the journal;
+// the returned bytes do not append or commit a mutation.
+func MarshalEvent(event Event) ([]byte, error) {
+	return encodeEvent(event)
+}
+
+// UnmarshalEvent restores one canonical retained event.
+// Unsupported formats, invalid values, and noncanonical bytes are rejected.
+func UnmarshalEvent(encoded []byte) (Event, error) {
+	return decodeEvent(encoded)
+}
+
+// ValidateEvent checks the maintained event contract without encoding a body.
+func ValidateEvent(event Event) error { return validateEvent(event) }

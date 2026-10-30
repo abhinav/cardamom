@@ -61,7 +61,7 @@ func TestInitializerInitializesProjectCatalog(t *testing.T) {
 			} else {
 				require.NotNil(t, result.Namespace.Board)
 				assert.Equal(t, mustBoardID(t, "board-initial"), result.Namespace.Board.ID())
-				assert.Equal(t, test.wantBoard, result.Namespace.Board.Name())
+				assert.Equal(t, new(test.wantBoard), result.Namespace.Board.Name())
 			}
 
 			persistence, err := store.Open(t.Context(), store.Config{Path: path})
@@ -85,7 +85,7 @@ func TestInitializerInitializesProjectCatalog(t *testing.T) {
 				assert.Empty(t, boards)
 			} else {
 				require.Len(t, boards, 1)
-				assert.Equal(t, test.wantBoard, boards[0].Name())
+				assert.Equal(t, new(test.wantBoard), boards[0].Name())
 				assertBoardHistoryBaseline(t, persistence, boards[0].ID(), 1)
 				view, err := persistence.View(t.Context())
 				require.NoError(t, err)

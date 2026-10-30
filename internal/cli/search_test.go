@@ -70,8 +70,8 @@ func TestSearchCommandEmitsOneJSONEnvelope(t *testing.T) {
 		Matches: []issue.SearchMatch{{
 			Summary: issue.Summary{
 				Issue: issue.Issue{
-					ID: "an-1", Title: "Found", Type: "task", Lifecycle: "open",
-					Status: "ready", Priority: 2, Created: 10, Updated: 11, Revision: 3,
+					ID: "an-1", Title: new("Found"), Type: new("task"), Lifecycle: new("open"),
+					Status: "ready", Priority: new(2), Created: 10, Updated: 11, Revision: 3,
 				},
 				Labels: []string{"area:search"},
 			},

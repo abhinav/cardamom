@@ -51,6 +51,7 @@ func TestNewHandlerMountsGeneratedServices(t *testing.T) {
 	t.Parallel()
 
 	path, handler := NewHandler(HandlerConfig{
+		Conflict:      new(privatev1connect.UnimplementedConflictServiceHandler),
 		Project:       unimplementedProjectService{},
 		Configuration: unimplementedConfigurationService{},
 		Information:   unimplementedInformationService{},
@@ -151,6 +152,7 @@ func TestNewHandlerEnforcesReadOnlyAccess(t *testing.T) {
 	t.Run("ReadOnly", func(t *testing.T) {
 		project := new(recordingProjectService)
 		_, handler := NewHandler(HandlerConfig{
+			Conflict:      new(privatev1connect.UnimplementedConflictServiceHandler),
 			AccessMode:    AccessModeReadOnly,
 			Project:       project,
 			Configuration: unimplementedConfigurationService{},
@@ -193,6 +195,7 @@ func TestNewHandlerEnforcesReadOnlyAccess(t *testing.T) {
 	t.Run("ReadWrite", func(t *testing.T) {
 		project := new(recordingProjectService)
 		_, handler := NewHandler(HandlerConfig{
+			Conflict:      new(privatev1connect.UnimplementedConflictServiceHandler),
 			Project:       project,
 			Configuration: unimplementedConfigurationService{},
 			Information:   unimplementedInformationService{},

@@ -9,6 +9,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/issue"
 )
 
@@ -21,8 +22,8 @@ func TestRenderProducesDeterministicLinkedMarkdown(t *testing.T) {
 	snapshot := Snapshot{
 		BoardID: "board-1", Revision: 42, Description: &description,
 		Issues: []Issue{
-			{ID: "an-b", Title: "Child [beta]", Type: "task", Status: "closed", Priority: 2, Created: 1_752_144_000, Updated: 1_752_148_200, StartedAt: &started, Closed: &closed, Revision: 41},
-			{ID: "an-a", Title: "Root | alpha", Type: "workstream", Status: "ready", Priority: 1, Assignee: &assignee, Created: 1_752_140_400, Updated: 1_752_144_000, Summary: new("Authored **Markdown**.\n\n- stays a list"), Details: new("Expanded material."), State: new("Run `card show`."), NextAction: new("Inspect the output."), Revision: 40, Labels: []string{"zeta", "a`b"}},
+			{ID: "an-b", Title: new("Child [beta]"), Type: new("task"), Status: "closed", Priority: new(2), Created: 1_752_144_000, Updated: 1_752_148_200, StartedAt: &started, Closed: &closed, Revision: 41},
+			{ID: "an-a", Title: new("Root | alpha"), Type: new("workstream"), Status: "ready", Priority: new(1), Assignee: &assignee, Created: 1_752_140_400, Updated: 1_752_144_000, Summary: new("Authored **Markdown**.\n\n- stays a list"), Details: new("Expanded material."), State: new("Run `card show`."), NextAction: new("Inspect the output."), Revision: 40, Labels: []string{"zeta", "a`b"}},
 		},
 		Containment:  []Containment{{ChildID: "an-a", ParentID: parentID}, {ChildID: "an-b", ParentID: "an-a"}},
 		Dependencies: []Dependency{{ChildID: "an-a", ParentID: "an-dep"}, {ChildID: "an-blocked", ParentID: "an-a"}},
@@ -109,8 +110,8 @@ func TestRenderWholeBoardUsesCanonicalPathsAndREADME(t *testing.T) {
 	rendered, err := render(Snapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "an-w", Title: "Workstream", Type: "workstream", Status: "cancelled"},
-			{ID: "an-t", Title: "Task", Type: "task", Status: "closed"},
+			{ID: "an-w", Title: new("Workstream"), Type: new("workstream"), Status: "cancelled"},
+			{ID: "an-t", Title: new("Task"), Type: new("task"), Status: "closed"},
 		},
 		Provenance: testProvenance("board-1"),
 		Selection:  WholeBoard(),
@@ -126,9 +127,9 @@ func TestRenderOrdersIssuePresentationByCreation(t *testing.T) {
 	rendered, err := render(Snapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "issue-a", Title: "Newer", Type: "task", Status: "ready", Priority: 0, Created: 3},
-			{ID: "issue-m", Title: "Parent", Type: "workstream", Status: "ready", Priority: 2, Created: 1},
-			{ID: "issue-z", Title: "Older", Type: "task", Status: "ready", Priority: 4, Created: 2},
+			{ID: "issue-a", Title: new("Newer"), Type: new("task"), Status: "ready", Priority: new(0), Created: 3},
+			{ID: "issue-m", Title: new("Parent"), Type: new("workstream"), Status: "ready", Priority: new(2), Created: 1},
+			{ID: "issue-z", Title: new("Older"), Type: new("task"), Status: "ready", Priority: new(4), Created: 2},
 		},
 		Containment: []Containment{
 			{ChildID: "issue-z", ParentID: "issue-m"},
@@ -169,9 +170,9 @@ func TestRenderIssueWithDescendantsIsCollectionEntrypoint(t *testing.T) {
 	rendered, err := render(Snapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "an-root", Title: "Root task", Type: "task", Status: "ready"},
-			{ID: "an-child", Title: "Child workstream", Type: "workstream", Status: "in_progress"},
-			{ID: "an-leaf", Title: "Leaf", Type: "task", Status: "cancelled"},
+			{ID: "an-root", Title: new("Root task"), Type: new("task"), Status: "ready"},
+			{ID: "an-child", Title: new("Child workstream"), Type: new("workstream"), Status: "in_progress"},
+			{ID: "an-leaf", Title: new("Leaf"), Type: new("task"), Status: "cancelled"},
 		},
 		Containment: []Containment{
 			{ChildID: "an-child", ParentID: "an-root"},
@@ -194,8 +195,8 @@ func TestRenderNamedIssuesOnlyOmitsDescendantSummary(t *testing.T) {
 	rendered, err := render(Snapshot{
 		BoardID: "board-1",
 		Issues: []Issue{
-			{ID: "an-parent", Title: "Parent", Type: "task", Status: "ready"},
-			{ID: "an-child", Title: "Child", Type: "task", Status: "closed"},
+			{ID: "an-parent", Title: new("Parent"), Type: new("task"), Status: "ready"},
+			{ID: "an-child", Title: new("Child"), Type: new("task"), Status: "closed"},
 		},
 		Containment: []Containment{{ChildID: "an-child", ParentID: "an-parent"}},
 		Provenance:  testProvenance("board-1"),
@@ -212,7 +213,7 @@ func TestRenderLogEntriesUseStableExplicitAnchors(t *testing.T) {
 	const logID = issue.LogID("log_0123456789abcdef0123456789abcdef")
 	rendered, err := render(Snapshot{
 		BoardID: "board-1",
-		Issues:  []Issue{{ID: "an-issue", Title: "Issue"}},
+		Issues:  []Issue{{ID: "an-issue", Title: new("Issue")}},
 		LogEntries: []LogEntry{{
 			ID: logID, IssueID: "an-issue", Kind: "post",
 			Author: new("captain"), Committer: new("captain"),
@@ -246,7 +247,7 @@ func TestRenderLogEntriesUseStableExplicitAnchors(t *testing.T) {
 
 func TestRenderRejectsUnsafeIssuePath(t *testing.T) {
 	_, err := render(Snapshot{
-		BoardID: "board-1", Issues: []Issue{{ID: "../escape", Title: "Escape"}},
+		BoardID: "board-1", Issues: []Issue{{ID: "../escape", Title: new("Escape")}},
 		Provenance: testProvenance("board-1"),
 		Selection:  WholeBoard(),
 	})
@@ -299,4 +300,36 @@ func generatedFileContent(t *testing.T, file *GeneratedFile) []byte {
 	closeErr := reader.Close()
 	require.NoError(t, errors.Join(readErr, closeErr))
 	return content
+}
+
+func TestRenderUnresolvedIssueValues(t *testing.T) {
+	rendered, err := render(Snapshot{
+		BoardID: "board-1", Issues: []Issue{{ID: "an-issue", Status: "unresolved", Conflicts: []issue.ConflictReference{{ID: "conflict-title", Field: issue.FieldTitle}, {ID: "conflict-kind", Field: issue.FieldKind}, {ID: "conflict-priority", Field: issue.FieldPriority}, {ID: "conflict-state", Field: issue.FieldState}, {ID: "conflict-summary", Field: issue.FieldSummary}}}},
+		Provenance: testProvenance("board-1"), Selection: WholeBoard(),
+	})
+	require.NoError(t, err)
+	body := renderedBody(t, rendered.Files, "issues/an-issue.md")
+	assert.Contains(t, body, "# an-issue: Unresolved title")
+	assert.Contains(t, body, "| Type | unresolved |")
+	assert.Contains(t, body, "| Priority | unresolved |")
+	assert.Contains(t, body, "state: `conflict-state`")
+	assert.Contains(t, body, "## Summary\n\nUnresolved. See the conflict references above.")
+	assert.Contains(t, body, "**Next action**\n\nUnresolved. See the conflict references above.")
+}
+
+func TestRenderPreservesUnresolvedBoardNameInOwnership(t *testing.T) {
+	provenance := testProvenance("board-1")
+	provenance.BoardName = nil
+	require.NoError(t, provenance.validate())
+	rendered, err := render(Snapshot{BoardID: "board-1", Conflicts: []board.ConflictReference{{ID: "conflict-name", Field: board.FieldName}, {ID: "conflict-description", Field: board.FieldDescription}}, Provenance: provenance, Selection: WholeBoard()})
+	require.NoError(t, err)
+	require.NotEmpty(t, rendered.Files)
+	assert.Contains(t, renderedBody(t, rendered.Files, "README.md"), "Unresolved. See the conflict references below.")
+	assert.Contains(t, renderedBody(t, rendered.Files, "README.md"), "description: `conflict-description`")
+	for _, file := range rendered.Files {
+		metadata, body, err := decodeOwnedFile(generatedFileContent(t, file))
+		require.NoError(t, err)
+		assert.Nil(t, metadata.BoardName)
+		require.NoError(t, validateGeneratedOwnership(provenance, file, metadata, digest(body)))
+	}
 }

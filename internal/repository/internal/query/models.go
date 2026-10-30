@@ -8,6 +8,17 @@ import (
 	"time"
 )
 
+type BoardConflict struct {
+	ID         string
+	BoardID    string
+	Kind       string
+	Category   string
+	IssueUid   []byte
+	RelatedUid []byte
+	MemberKey  string
+	Revision   int64
+}
+
 type BoardMutationCommit struct {
 	BoardID      string
 	WriterUid    []byte

@@ -66,13 +66,19 @@ func (r *Repository) allocateIssueID(
 	mutation *mutation,
 	policy configuration.IssueIDConfiguration,
 ) (issue.ID, error) {
-	prefix := policy.Prefix.String()
-	if prefix == "" {
-		prefix = r.idPrefix
+	conflictID, err := query.New(mutation.change).BoardReadIdentityConflict(ctx, r.boardID.String())
+	if err == nil {
+		return "", errkind.Errorf(errkind.Conflict, "issue identity configuration is unresolved in conflict %s", conflictID)
 	}
-	strategy := policy.Strategy.String()
-	if strategy == "" {
-		strategy = r.idStrategy
+	if !errors.Is(err, sql.ErrNoRows) {
+		return "", err
+	}
+	prefix, strategy := r.idPrefix, r.idStrategy
+	if policy.Prefix != nil {
+		prefix = policy.Prefix.String()
+	}
+	if policy.Strategy != nil {
+		strategy = policy.Strategy.String()
 	}
 	if strategy == "sequential" {
 		for {

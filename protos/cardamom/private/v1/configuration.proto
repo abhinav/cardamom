@@ -3,6 +3,7 @@ syntax = "proto3";
 package cardamom.private.v1;
 
 import "cardamom/private/v1/mutation.proto";
+import "cardamom/private/v1/conflict_reference.proto";
 import "google/protobuf/field_mask.proto";
 
 // ConfigurationScope identifies one layer in the configuration hierarchy.
@@ -35,7 +36,8 @@ enum ConfigurationIssueIDStrategy {
   CONFIGURATION_ISSUE_ID_STRATEGY_SEQUENTIAL = 2;
 }
 
-// Configuration contains one fully resolved nested configuration.
+// Configuration contains effective values and unresolved-field references.
+// An absent effective value means unresolved, not inheritance.
 message Configuration {
   // issue contains issue authoring and identity policy.
   ConfigurationIssue issue = 1;
@@ -45,9 +47,12 @@ message Configuration {
 
   // board contains board-scoped coordination policy.
   ConfigurationBoard board = 3;
+
+  // conflicts identifies effective values with no authoritative result.
+  repeated ConflictReference conflicts = 4;
 }
 
-// ConfigurationIssue contains fully resolved issue policy.
+// ConfigurationIssue contains effective issue policy.
 message ConfigurationIssue {
   // id controls issue identity allocation.
   ConfigurationIssueID id = 1;
@@ -56,37 +61,37 @@ message ConfigurationIssue {
   ConfigurationSummary summary = 2;
 }
 
-// ConfigurationIssueID contains fully resolved issue identity policy.
+// ConfigurationIssueID contains effective issue identity policy.
 message ConfigurationIssueID {
   // prefix is prepended to newly allocated issue IDs.
-  string prefix = 1;
+  optional string prefix = 1;
 
   // strategy selects random or sequential suffix allocation.
-  ConfigurationIssueIDStrategy strategy = 2;
+  optional ConfigurationIssueIDStrategy strategy = 2;
 }
 
-// ConfigurationSummary contains fully resolved summary policy.
+// ConfigurationSummary contains effective summary policy.
 message ConfigurationSummary {
   // max_bytes is the largest accepted summary in bytes.
-  uint64 max_bytes = 1;
+  optional uint64 max_bytes = 1;
 }
 
-// ConfigurationAttachment contains fully resolved attachment policy.
+// ConfigurationAttachment contains effective attachment policy.
 message ConfigurationAttachment {
   // max_bytes is the largest attachment admitted for a new upload.
-  uint64 max_bytes = 1;
+  optional uint64 max_bytes = 1;
 }
 
-// ConfigurationBoard contains fully resolved board policy.
+// ConfigurationBoard contains effective board policy.
 message ConfigurationBoard {
   // pins controls the ordered pinned-issue collection.
   ConfigurationPins pins = 1;
 }
 
-// ConfigurationPins contains fully resolved board pin policy.
+// ConfigurationPins contains effective board pin policy.
 message ConfigurationPins {
   // max_count is the largest admitted pinned-issue collection.
-  uint64 max_count = 1;
+  optional uint64 max_count = 1;
 }
 
 // ConfigurationOverrides contains one nested layer of optional values.
@@ -159,6 +164,9 @@ message ConfigurationLayer {
 
   // overrides contains values explicitly supplied by this layer.
   ConfigurationOverrides overrides = 2;
+
+  // conflicts distinguishes disputed overrides from inherited values.
+  repeated ConflictReference conflicts = 3;
 }
 
 // ConfigurationOrigins identifies the source of every effective field.

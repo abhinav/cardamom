@@ -112,7 +112,12 @@ func (p *Planner) resolveConfiguration(
 	return p.configuration.ResolveConfiguration(ctx, p.boardID)
 }
 
-func validateSummary(summary string, maximum configuration.ByteLimit) error {
+// validateSummary consumes the effective limit only for nonempty content.
+// Callers require that configuration field before passing nonempty summaries.
+func validateSummary(summary string, maximum *configuration.ByteLimit) error {
+	if summary == "" {
+		return nil
+	}
 	if uint64(len(summary)) <= maximum.Uint64() {
 		return nil
 	}

@@ -42,6 +42,31 @@ func TestResolver_Resolve_precedence(t *testing.T) {
 	assert.Same(t, defaultBoard, selected)
 }
 
+func TestResolver_Resolve_inspectsBoardWithUnresolvedNameAndArchive(t *testing.T) {
+	state, err := board.Load(board.Snapshot{
+		ID: "board-conflicted", ProjectID: "project-one", Created: time.Unix(10, 0),
+		Conflicts: []board.ConflictReference{
+			{ID: "conflict-name", Field: board.FieldName},
+			{ID: "conflict-archive", Field: board.FieldArchive},
+		},
+	})
+	require.NoError(t, err)
+	catalog := NewMockCatalog(gomock.NewController(t))
+	catalog.EXPECT().List(gomock.Any()).Return([]*board.State{state}, nil)
+	catalog.EXPECT().Get(gomock.Any(), state.ID()).Return(state, nil)
+	binding := NewMockBinding(gomock.NewController(t))
+	binding.EXPECT().Read().Return(state.ID(), nil)
+	resolver := NewResolver(catalog, binding, NewMockIssueLocator(gomock.NewController(t)))
+	selector := testBoardSelector(t, state.ID().String())
+
+	selected, err := resolver.Resolve(t.Context(), Request{Selector: &selector})
+	require.NoError(t, err)
+	assert.Same(t, state, selected)
+	selected, err = resolver.Resolve(t.Context(), Request{})
+	require.NoError(t, err)
+	assert.Same(t, state, selected)
+}
+
 func TestResolver_Resolve_rejectsIssueBoardMismatch(t *testing.T) {
 	defaultBoard := testBoard(t, "board-default", "Default")
 	secondBoard := testBoard(t, "board-second", "Second")
@@ -196,7 +221,7 @@ func testBoard(t *testing.T, id, name string) *board.State {
 	state, err := board.Load(board.Snapshot{
 		ID:        boardID,
 		ProjectID: "project-one",
-		Name:      name,
+		Name:      new(name),
 		Created:   time.Unix(10, 0).UTC(),
 	})
 	require.NoError(t, err)

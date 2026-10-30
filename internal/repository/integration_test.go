@@ -121,7 +121,7 @@ func openAggregateBoardRepository(
 func validateDumpGraphs(snapshot dump.BoardSnapshot) error {
 	issues := make(map[string]string, len(snapshot.Issues))
 	for _, value := range snapshot.Issues {
-		issues[value.Title] = value.ID
+		issues[*value.Title] = value.ID
 	}
 	dependencies := make(map[string]string, len(snapshot.Dependencies))
 	for _, value := range snapshot.Dependencies {
