@@ -3,7 +3,6 @@ experimental = true
 
 [env]
 GOBIN = "{{ config_root }}/bin"
-_.path = ["{{ config_root }}/bin"]
 
 [tools]
 buf = "latest"
