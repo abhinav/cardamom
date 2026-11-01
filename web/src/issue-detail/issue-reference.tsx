@@ -20,7 +20,7 @@ export function IssueReferenceLink({
     >
       <span className="issue-reference-title">
         <IssueStatusDot status={issue.status} />
-        <span>{issue.title}</span>
+        <span>{issue.title ?? "Title unresolved"}</span>
       </span>
       <small>{issue.id}</small>
     </Link>

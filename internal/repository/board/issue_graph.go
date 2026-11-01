@@ -254,13 +254,21 @@ func (r *Repository) applySnapshot(
 	if err != nil {
 		return planning.ApplySnapshot{}, err
 	}
+	keyConflicts, err := query.New(scope).BoardListExternalKeyConflicts(ctx, r.boardID.String())
+	if err != nil {
+		return planning.ApplySnapshot{}, err
+	}
+	conflictedKeys := make(map[planning.ExternalKey]string, len(keyConflicts))
+	for _, conflict := range keyConflicts {
+		conflictedKeys[planning.ExternalKey(conflict.MemberKey)] = conflict.ID
+	}
 	foreignBoards, err := r.readForeignIssueBoards(ctx, scope, referencedIssueIDs)
 	if err != nil {
 		return planning.ApplySnapshot{}, err
 	}
 	return planning.ApplySnapshot{
 		BoardID: r.boardID, Revision: revision, IssueIDs: ids, Issues: issues,
-		ForeignIssueBoards: foreignBoards, ExternalKeys: externalKeys,
+		ForeignIssueBoards: foreignBoards, ExternalKeys: externalKeys, ExternalKeyConflicts: conflictedKeys,
 	}, nil
 }
 

@@ -18,7 +18,7 @@ func issueOriginEvent(state issue.State) boardhistory.Event {
 		Payload: &boardhistory.IssueOrigin{
 			UID:       snapshot.UID,
 			PublicID:  snapshot.ID.String(),
-			Title:     snapshot.Title,
+			Title:     *snapshot.Title,
 			Kind:      snapshot.Kind.String(),
 			Lifecycle: snapshot.Lifecycle.String(),
 			Priority:  int64(snapshot.Priority.Int()),
@@ -174,15 +174,15 @@ func recordIssueChanges(mutation *mutation, before, after issue.State) {
 			},
 		})
 	}
-	if before.Title() != after.Title() {
+	if !reflect.DeepEqual(before.Title(), after.Title()) {
 		mutation.record(boardhistory.Event{
 			OccurredAt: at,
 			Payload: &boardhistory.IssueTitleSet{
-				IssueUID: uid, Title: after.Title(),
+				IssueUID: uid, Title: *after.Title(),
 			},
 		})
 	}
-	if before.Kind() != after.Kind() {
+	if !reflect.DeepEqual(before.Kind(), after.Kind()) {
 		mutation.record(boardhistory.Event{
 			OccurredAt: at,
 			Payload: &boardhistory.IssueKindSet{
@@ -190,7 +190,7 @@ func recordIssueChanges(mutation *mutation, before, after issue.State) {
 			},
 		})
 	}
-	if before.Lifecycle() != after.Lifecycle() ||
+	if !reflect.DeepEqual(before.Lifecycle(), after.Lifecycle()) ||
 		!reflect.DeepEqual(before.ClosedAt(), after.ClosedAt()) {
 		mutation.record(boardhistory.Event{
 			OccurredAt: at,
@@ -201,7 +201,7 @@ func recordIssueChanges(mutation *mutation, before, after issue.State) {
 			},
 		})
 	}
-	if before.Priority() != after.Priority() {
+	if !reflect.DeepEqual(before.Priority(), after.Priority()) {
 		mutation.record(boardhistory.Event{
 			OccurredAt: at,
 			Payload: &boardhistory.IssuePrioritySet{

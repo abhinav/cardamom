@@ -1,6 +1,7 @@
 package execution
 
 import (
+	"context"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -85,8 +86,8 @@ func TestExecutorClaimWatchRetriesWithoutSleeping(t *testing.T) {
 		}
 		changes := NewMockChanges(gomock.NewController(t))
 		gomock.InOrder(
-			changes.EXPECT().ClaimNext(gomock.Any(), command).Return(IssueClaimed{}, errNoReady),
-			changes.EXPECT().ClaimNext(gomock.Any(), command).Return(IssueClaimed{Issue: state}, nil),
+			changes.EXPECT().ClaimNext(gomock.Any(), command).Return(NextIssueClaimed{SkippedConflicts: 3}, nil),
+			changes.EXPECT().ClaimNext(gomock.Any(), command).Return(NextIssueClaimed{Issue: &state, SkippedConflicts: 2}, nil),
 		)
 		reader := NewMockIssueReader(gomock.NewController(t))
 		reader.EXPECT().ReadIssue(gomock.Any(), issue.ReadRequest{
@@ -102,7 +103,8 @@ func TestExecutorClaimWatchRetriesWithoutSleeping(t *testing.T) {
 			LabelsNone: []string{"paused"},
 		})
 		require.NoError(t, err)
-		assert.Equal(t, view, result.Issue)
+		assert.Equal(t, &view, result.Issue)
+		assert.Equal(t, 2, result.SkippedConflicts)
 	})
 }
 
@@ -121,6 +123,37 @@ func TestExecutorClaimNextRejectsInvalidLabelSelectors(t *testing.T) {
 		},
 	)
 	require.ErrorContains(t, err, "label cannot start with + or -")
+}
+
+func TestExecutorClaimNextPreservesSkippedCountWithoutReadyWork(t *testing.T) {
+	changes := NewMockChanges(gomock.NewController(t))
+	changes.EXPECT().ClaimNext(gomock.Any(), ClaimNext{Assignee: "worker", LabelsAll: []issue.Label{}, LabelsAny: []issue.Label{}, LabelsNone: []issue.Label{}}).
+		Return(NextIssueClaimed{SkippedConflicts: 4}, nil)
+	executor := NewExecutor(changes, NewMockIssueReader(gomock.NewController(t)))
+
+	result, err := executor.ClaimNext(t.Context(), issue.NewInvocation("worker"), ClaimNextRequest{Assignee: "worker"})
+	require.NoError(t, err)
+	assert.Nil(t, result.Issue)
+	assert.Equal(t, 4, result.SkippedConflicts)
+}
+
+func TestExecutorClaimWatchPreservesSkippedCountOnCancellation(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		ctx, cancel := context.WithCancel(t.Context())
+		defer cancel()
+		changes := NewMockChanges(gomock.NewController(t))
+		changes.EXPECT().ClaimNext(gomock.Any(), ClaimNext{Assignee: "worker", LabelsAll: []issue.Label{}, LabelsAny: []issue.Label{}, LabelsNone: []issue.Label{}}).
+			DoAndReturn(func(context.Context, ClaimNext) (NextIssueClaimed, error) {
+				cancel()
+				return NextIssueClaimed{SkippedConflicts: 2}, nil
+			})
+		executor := NewExecutor(changes, NewMockIssueReader(gomock.NewController(t)))
+
+		result, err := executor.ClaimNext(ctx, issue.NewInvocation("worker"), ClaimNextRequest{Assignee: "worker", Watch: true})
+		assert.ErrorIs(t, err, context.Canceled)
+		assert.Nil(t, result.Issue)
+		assert.Equal(t, 2, result.SkippedConflicts)
+	})
 }
 
 func TestExecutorExposesEligibilityReads(t *testing.T) {
@@ -166,10 +199,10 @@ func executionTestIssue(
 	state, err := issue.Load(issue.Snapshot{
 		UID:         executionTestUID(t),
 		ID:          issue.MustID(id),
-		Title:       id,
-		Kind:        issue.KindTask,
-		Lifecycle:   lifecycle,
-		Priority:    issue.PriorityNormal,
+		Title:       new(id),
+		Kind:        new(issue.KindTask),
+		Lifecycle:   new(lifecycle),
+		Priority:    new(issue.PriorityNormal),
 		ActiveClaim: claim,
 		Created:     time.Unix(1, 0).UTC(),
 		Updated:     time.Unix(2, 0).UTC(),

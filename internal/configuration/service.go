@@ -115,9 +115,12 @@ type Layer struct {
 
 	// Overrides contains values explicitly set at this layer.
 	Overrides Overrides
+
+	// Conflicts distinguish unresolved board fields from inherited values.
+	Conflicts []ConflictReference
 }
 
-// View contains the ordered layers and fully resolved configuration.
+// View contains ordered layers and the effective values that are resolved.
 type View struct {
 	// BuiltIn contains Cardamom's compiled defaults.
 	BuiltIn Configuration
@@ -131,10 +134,10 @@ type View struct {
 	// Board contains logical board overrides.
 	Board Layer
 
-	// Effective contains the highest-precedence value for every field.
+	// Effective contains each resolved value; disputed board overrides are absent.
 	Effective Configuration
 
-	// Origins identifies the source of every effective field.
+	// Origins identifies the layer supplying or disputing each field.
 	Origins Origins
 }
 
@@ -151,7 +154,7 @@ type ProjectView struct {
 	// Project contains logical project overrides.
 	Project Layer
 
-	// Effective contains the highest-precedence value for every field.
+	// Effective contains the highest-precedence value through project scope.
 	Effective Configuration
 
 	// Origins identifies the source of every effective field.
@@ -168,6 +171,9 @@ type DatabaseLayers struct {
 
 	// Board contains board-level overrides.
 	Board Overrides
+
+	// BoardConflicts identify unresolved board overrides.
+	BoardConflicts []ConflictReference
 }
 
 //go:generate go tool mockgen -destination mocks_test.go -package configuration -typed -write_package_comment=false . Store,Repository
@@ -283,6 +289,7 @@ func (s *Service) Resolve(ctx context.Context, boardID board.ID) (View, error) {
 		storeOverrides,
 		layers.Project,
 		layers.Board,
+		layers.BoardConflicts,
 	), nil
 }
 
@@ -325,7 +332,8 @@ func (s *Service) ResolveProject(
 	}, nil
 }
 
-// ResolveConfiguration returns the fully resolved configuration for one board.
+// ResolveConfiguration returns known effective values and conflict references.
+// Callers must require only the fields their operation consumes.
 func (s *Service) ResolveConfiguration(
 	ctx context.Context,
 	boardID board.ID,
@@ -343,7 +351,10 @@ func (s *Service) ResolveBoardPinLimit(
 	if err != nil {
 		return 0, err
 	}
-	return resolved.Board.Pins.MaxCount, nil
+	if err := resolved.RequireResolved(FieldBoardPinsMaxCount); err != nil {
+		return 0, err
+	}
+	return *resolved.Board.Pins.MaxCount, nil
 }
 
 // Update atomically applies one finite layer patch and returns the resulting view.
@@ -421,6 +432,7 @@ func resolve(
 	store Overrides,
 	projectOverrides Overrides,
 	boardOverrides Overrides,
+	boardConflicts []ConflictReference,
 ) View {
 	builtIn := Defaults()
 	view := View{
@@ -433,6 +445,7 @@ func resolve(
 		},
 		Board: Layer{
 			Source: Source{Scope: ScopeBoard, Identity: boardID.String()}, Overrides: boardOverrides,
+			Conflicts: boardConflicts,
 		},
 	}
 	view.Effective, view.Origins = resolveLayers(
@@ -472,23 +485,45 @@ func applyLayer(
 	layer Layer,
 ) {
 	if value := layer.Overrides.Issue.ID.Prefix; value != nil {
-		effective.Issue.ID.Prefix = *value
+		effective.Issue.ID.Prefix = new(*value)
 		origins.Issue.ID.Prefix = layer.Source
 	}
 	if value := layer.Overrides.Issue.ID.Strategy; value != nil {
-		effective.Issue.ID.Strategy = *value
+		effective.Issue.ID.Strategy = new(*value)
 		origins.Issue.ID.Strategy = layer.Source
 	}
 	if value := layer.Overrides.Issue.Summary.MaxBytes; value != nil {
-		effective.Issue.Summary.MaxBytes = *value
+		effective.Issue.Summary.MaxBytes = new(*value)
 		origins.Issue.Summary.MaxBytes = layer.Source
 	}
 	if value := layer.Overrides.Attachment.MaxBytes; value != nil {
-		effective.Attachment.MaxBytes = *value
+		effective.Attachment.MaxBytes = new(*value)
 		origins.Attachment.MaxBytes = layer.Source
 	}
 	if value := layer.Overrides.Board.Pins.MaxCount; value != nil {
-		effective.Board.Pins.MaxCount = *value
+		effective.Board.Pins.MaxCount = new(*value)
 		origins.Board.Pins.MaxCount = layer.Source
+	}
+
+	// An unresolved board override cannot select an inherited operative value.
+	for _, reference := range layer.Conflicts {
+		effective.Conflicts = append(effective.Conflicts, reference)
+		switch reference.Field {
+		case FieldIssueIDPrefix:
+			effective.Issue.ID.Prefix = nil
+			origins.Issue.ID.Prefix = layer.Source
+		case FieldIssueIDStrategy:
+			effective.Issue.ID.Strategy = nil
+			origins.Issue.ID.Strategy = layer.Source
+		case FieldIssueSummaryMaxBytes:
+			effective.Issue.Summary.MaxBytes = nil
+			origins.Issue.Summary.MaxBytes = layer.Source
+		case FieldAttachmentMaxBytes:
+			effective.Attachment.MaxBytes = nil
+			origins.Attachment.MaxBytes = layer.Source
+		case FieldBoardPinsMaxCount:
+			effective.Board.Pins.MaxCount = nil
+			origins.Board.Pins.MaxCount = layer.Source
+		}
 	}
 }

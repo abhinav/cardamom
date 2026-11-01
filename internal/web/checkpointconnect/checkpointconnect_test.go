@@ -41,8 +41,8 @@ func TestServiceListActionableCheckpointsUsesGlobalDomainOrder(t *testing.T) {
 	readerOne.EXPECT().ReadIssue(
 		gomock.Any(), issue.ReadRequest{IssueID: "checkpoint-1", ContextDepth: new(0)},
 	).Return(issue.View{Detail: issue.Detail{Issue: issue.Issue{
-		ID: "checkpoint-1", Title: "Gate one", Type: "checkpoint",
-		Lifecycle: "open", Status: "ready", Priority: 1,
+		ID: "checkpoint-1", Title: new("Gate one"), Type: new("checkpoint"),
+		Lifecycle: new("open"), Status: "ready", Priority: new(1),
 		Created: 20, Updated: 20, Summary: new("Gate **one**"),
 	}}}, nil)
 	readerTwo := NewMockBoardReader(gomock.NewController(t))
@@ -249,7 +249,7 @@ func testBoard(t *testing.T, id string, projectID project.ID, name string) *boar
 	t.Helper()
 	value, err := board.Load(board.Snapshot{
 		ID: board.ID(id), ProjectID: projectID.String(),
-		Name: name, Created: time.Unix(2, 0).UTC(),
+		Name: new(name), Created: time.Unix(2, 0).UTC(),
 	})
 	require.NoError(t, err)
 	return value
@@ -261,8 +261,8 @@ func testIssue(
 	created int64,
 ) issue.Issue {
 	return issue.Issue{
-		ID: id, Title: title, Type: kind, Lifecycle: lifecycle, Status: status,
-		Priority: priority, Created: created, Updated: created,
+		ID: id, Title: new(title), Type: new(kind), Lifecycle: new(lifecycle), Status: status,
+		Priority: new(priority), Created: created, Updated: created,
 	}
 }
 
@@ -271,7 +271,7 @@ func testIssueReference(
 	priority int,
 ) issue.Reference {
 	return issue.Reference{
-		ID: id, Title: title, Type: kind, Status: status, Priority: priority,
+		ID: id, Title: new(title), Type: new(kind), Status: status, Priority: new(priority),
 	}
 }
 

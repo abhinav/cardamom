@@ -88,10 +88,13 @@ message ClaimIssueResponse {
   IssueDetail issue = 1;
 }
 
-// ClaimNextIssueResponse contains the selected issue and requested context.
+// ClaimNextIssueResponse reports selection and conflict exclusions.
 message ClaimNextIssueResponse {
-  // issue is the canonical issue view after custody is acquired.
+  // issue is the selected issue with requested context, absent when none is ready.
   IssueDetail issue = 1;
+
+  // skipped_conflicts counts otherwise eligible issues withheld by conflicts.
+  uint64 skipped_conflicts = 2;
 }
 
 // ReleaseIssueRequest relinquishes one actor-owned claim.

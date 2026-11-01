@@ -19,11 +19,13 @@ func TestPlannerResolvesConfigurationForEachOperation(t *testing.T) {
 	first := configuration.Defaults()
 	firstPrefix, err := configuration.NewPrefix("first-")
 	require.NoError(t, err)
-	first.Issue.ID.Prefix = firstPrefix
-	first.Issue.Summary.MaxBytes, err = configuration.NewByteLimit(4)
+	first.Issue.ID.Prefix = &firstPrefix
+	firstLimit, err := configuration.NewByteLimit(4)
+	first.Issue.Summary.MaxBytes = &firstLimit
 	require.NoError(t, err)
 	second := first
-	second.Issue.Summary.MaxBytes, err = configuration.NewByteLimit(2)
+	secondLimit, err := configuration.NewByteLimit(2)
+	second.Issue.Summary.MaxBytes = &secondLimit
 	require.NoError(t, err)
 	configurations := &changingConfiguration{values: []configuration.Configuration{first, second}}
 	boardID, err := board.NewID("board-test")
@@ -49,6 +51,49 @@ func TestPlannerResolvesConfigurationForEachOperation(t *testing.T) {
 	)
 	assert.ErrorContains(t, err, "summary is 4 bytes; maximum is 2 bytes")
 	assert.Equal(t, 2, configurations.calls)
+}
+
+func TestPlannerConsumesOnlyRequiredConfiguration(t *testing.T) {
+	resolved := configuration.Defaults()
+	resolved.Issue.ID.Prefix = nil
+	resolved.Issue.Summary.MaxBytes = nil
+	resolved.Conflicts = []configuration.ConflictReference{
+		{ID: "prefix-conflict", Field: configuration.FieldIssueIDPrefix},
+		{ID: "summary-limit-conflict", Field: configuration.FieldIssueSummaryMaxBytes},
+	}
+	configurations := &changingConfiguration{values: []configuration.Configuration{
+		resolved, resolved, resolved, resolved, resolved,
+	}}
+	changes := NewMockChanges(gomock.NewController(t))
+	state := applicationTestIssue(t, "an-1", issuekernel.StatusReady)
+	changes.EXPECT().EditIssue(gomock.Any(), gomock.Any()).Return(IssueEdited{Issue: state}, nil).Times(2)
+	changes.EXPECT().ApplyDocument(gomock.Any(), resolved.Issue.ID, gomock.Any(), ApplyModeCommit).
+		Return(DocumentApplied{}, nil)
+	reader := NewMockIssueReader(gomock.NewController(t))
+	reader.EXPECT().ReadIssue(gomock.Any(), gomock.Any()).Return(issuekernel.View{}, nil).Times(2)
+	planner := NewPlanner(changes, reader, &PlannerOptions{
+		BoardID: "board", Configuration: configurations,
+	})
+
+	_, err := planner.EditIssue(t.Context(), issuekernel.NewInvocation("planner"), EditIssueRequest{
+		ID: "an-1", Priority: new(issuekernel.PriorityHigh.Int()),
+	})
+	require.NoError(t, err)
+	_, err = planner.EditIssue(t.Context(), issuekernel.NewInvocation("planner"), EditIssueRequest{
+		ID: "an-1", SummarySet: true,
+	})
+	require.NoError(t, err)
+	_, err = planner.EditIssue(t.Context(), issuekernel.NewInvocation("planner"), EditIssueRequest{
+		ID: "an-1", SummarySet: true, Summary: new("New summary"),
+	})
+	assert.ErrorContains(t, err, "summary-limit-conflict")
+	_, err = planner.ApplyDocument(t.Context(), issuekernel.NewInvocation("planner"), ApplyDocumentRequest{
+		Version: 1, Mode: ApplyModeCommit, OnExisting: ApplyExistingUpdate,
+		Issues: []ApplyIssue{{ID: new("an-1"), Priority: new(1)}},
+	})
+	require.NoError(t, err)
+	_, err = planner.CreateIssue(t.Context(), issuekernel.NewInvocation("planner"), CreateIssueRequest{Title: "New issue"})
+	assert.ErrorContains(t, err, "prefix-conflict")
 }
 
 func TestApplyDocumentNormalizesTypedReferencesAndPresence(t *testing.T) {
@@ -379,10 +424,10 @@ func applicationTestIssue(t *testing.T, id string, status issuekernel.Status) is
 	state, err := issuekernel.Load(issuekernel.Snapshot{
 		UID:         planningTestUID(t, 7),
 		ID:          issuekernel.MustID(id),
-		Title:       id,
-		Kind:        issuekernel.KindTask,
-		Lifecycle:   lifecycle,
-		Priority:    issuekernel.PriorityNormal,
+		Title:       new(id),
+		Kind:        new(issuekernel.KindTask),
+		Lifecycle:   new(lifecycle),
+		Priority:    new(issuekernel.PriorityNormal),
 		ActiveClaim: activeClaim,
 		Created:     time.Unix(1, 0),
 		Updated:     time.Unix(2, 0),

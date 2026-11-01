@@ -13,7 +13,7 @@ import { unaryRouteQueryOptions } from "./query-runtime.ts";
 interface IssueTitle {
   id: string;
   boardId: string;
-  title: string;
+  title?: string;
   source?: SourceRef;
 }
 
@@ -84,7 +84,7 @@ export function routeDocumentTitle(
   }
   const issueBoardName =
     boardForIdentity(boards, issue.boardId, issue.source)?.name ?? issue.boardId;
-  return `${issue.id}: ${issue.title} - ${issueBoardName} - Cardamom`;
+  return `${issue.id}: ${issue.title ?? "Title unresolved"} - ${issueBoardName} - Cardamom`;
 }
 
 function issueRouteId(pathname: string): string | undefined {

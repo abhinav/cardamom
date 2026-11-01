@@ -55,7 +55,7 @@ INSERT INTO boards (
 type ProjectCreateBoardParams struct {
 	ID          string
 	ProjectID   string
-	Name        string
+	Name        *string
 	Description *string
 	CreatedAt   time.Time
 }
@@ -106,7 +106,7 @@ WHERE id = ?3
 `
 
 type ProjectUpdateBoardSettingsParams struct {
-	Name        string
+	Name        *string
 	Description *string
 	ID          string
 }

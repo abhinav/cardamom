@@ -29,7 +29,7 @@ type Changes interface {
 	// ClaimIssue persists an explicit claim.
 	ClaimIssue(context.Context, ClaimIssue) (IssueClaimed, error)
 	// ClaimNext selects and persists the next eligible claim atomically.
-	ClaimNext(context.Context, ClaimNext) (IssueClaimed, error)
+	ClaimNext(context.Context, ClaimNext) (NextIssueClaimed, error)
 	// ReleaseIssue relinquishes execution custody.
 	ReleaseIssue(context.Context, ReleaseIssue) (IssueReleased, error)
 	// CloseIssue persists successful completion.

@@ -1162,10 +1162,10 @@ func (c *MockClaimOperationsClaimIssueCall) DoAndReturn(f func(context.Context, 
 }
 
 // ClaimNext mocks base method.
-func (m *MockClaimOperations) ClaimNext(arg0 context.Context, arg1 issue.Invocation, arg2 execution.ClaimNextRequest) (execution.ClaimIssueResult, error) {
+func (m *MockClaimOperations) ClaimNext(arg0 context.Context, arg1 issue.Invocation, arg2 execution.ClaimNextRequest) (execution.ClaimNextResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClaimNext", arg0, arg1, arg2)
-	ret0, _ := ret[0].(execution.ClaimIssueResult)
+	ret0, _ := ret[0].(execution.ClaimNextResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -1183,19 +1183,19 @@ type MockClaimOperationsClaimNextCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockClaimOperationsClaimNextCall) Return(arg0 execution.ClaimIssueResult, arg1 error) *MockClaimOperationsClaimNextCall {
+func (c *MockClaimOperationsClaimNextCall) Return(arg0 execution.ClaimNextResult, arg1 error) *MockClaimOperationsClaimNextCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockClaimOperationsClaimNextCall) Do(f func(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimIssueResult, error)) *MockClaimOperationsClaimNextCall {
+func (c *MockClaimOperationsClaimNextCall) Do(f func(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimNextResult, error)) *MockClaimOperationsClaimNextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockClaimOperationsClaimNextCall) DoAndReturn(f func(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimIssueResult, error)) *MockClaimOperationsClaimNextCall {
+func (c *MockClaimOperationsClaimNextCall) DoAndReturn(f func(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimNextResult, error)) *MockClaimOperationsClaimNextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

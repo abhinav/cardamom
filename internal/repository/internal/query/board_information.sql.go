@@ -45,7 +45,7 @@ WHERE issue.board_id = ?1
 
 type BoardCountInventoryIssuesByStatusParams struct {
 	BoardID string
-	Status  string
+	Status  *string
 }
 
 func (q *Queries) BoardCountInventoryIssuesByStatus(ctx context.Context, arg BoardCountInventoryIssuesByStatusParams) (int64, error) {

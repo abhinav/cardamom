@@ -2,11 +2,9 @@ package board
 
 import (
 	"context"
-	"fmt"
 
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/must"
-	"go.abhg.dev/cardamom/internal/repository/internal/query"
 	"go.abhg.dev/cardamom/internal/repository/store"
 )
 
@@ -35,31 +33,17 @@ func (r *Repository) ReadIssueInventory(
 	view *store.View,
 ) (IssueInventory, error) {
 	must.NotBeNilf(view, "board information View is required")
-	queries := query.New(view)
-	total, err := queries.BoardCountInventoryIssues(ctx, r.boardID.String())
+	presentation, err := r.readIssuePresentation(ctx, view)
 	if err != nil {
-		return IssueInventory{}, fmt.Errorf("count board issues: %w", err)
+		return IssueInventory{}, err
 	}
-	out := IssueInventory{Total: int(total)}
+	counts := make(map[string]int)
+	for id := range presentation.IDs() {
+		counts[presentation.Summary(id).Issue.Status]++
+	}
+	out := IssueInventory{Total: presentation.Len()}
 	for _, status := range issue.ValidStatuses() {
-		count, err := queries.BoardCountInventoryIssuesByStatus(
-			ctx,
-			query.BoardCountInventoryIssuesByStatusParams{
-				BoardID: r.boardID.String(),
-				Status:  status.String(),
-			},
-		)
-		if err != nil {
-			return IssueInventory{}, fmt.Errorf(
-				"count %s issues: %w",
-				status.String(),
-				err,
-			)
-		}
-		out.ByStatus = append(out.ByStatus, IssueStatusCount{
-			Status: status,
-			Count:  int(count),
-		})
+		out.ByStatus = append(out.ByStatus, IssueStatusCount{Status: status, Count: counts[status.String()]})
 	}
 	return out, nil
 }

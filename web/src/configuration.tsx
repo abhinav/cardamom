@@ -1,3 +1,4 @@
+import { ConflictLink } from "./conflicts/conflict-link.tsx";
 import type { MessageInitShape } from "@bufbuild/protobuf";
 import { useMutation, useTransport } from "@connectrpc/connect-query";
 import { useQuery } from "@tanstack/react-query";
@@ -83,7 +84,7 @@ export function ConfigurationRoute({
   boardName,
   canMutateServer,
 }: ConfigurationRouteProps) {
-  if (boardId === undefined || boardName === undefined) {
+  if (boardId === undefined) {
     return (
       <section className="route-placeholder" aria-labelledby="configuration-title">
         <p className="route-kicker">Settings</p>
@@ -98,7 +99,7 @@ export function ConfigurationRoute({
       key={boardId}
       actor={actor}
       boardId={boardId}
-      boardName={boardName}
+      boardName={boardName ?? boardId}
       canMutateServer={canMutateServer}
     />
   );
@@ -198,6 +199,7 @@ function BoardConfigurationRoute({
     : layerForScope(view, editor.scope);
   return (
     <>
+      {view.layers.some((layer) => layer.conflicts.length > 0) && <div className="configuration-conflicts"><ConflictLink boardId={boardId} /></div>}
       <ConfigurationContent
         boardName={boardName}
         canMutateServer={canMutateServer}
@@ -209,7 +211,7 @@ function BoardConfigurationRoute({
             mode,
             scope,
             field: field.path,
-            draft: fieldOverride(layer.overrides, field.path) ?? inherited.raw,
+            draft: fieldOverride(layer.overrides, field.path) ?? inherited.raw ?? "",
           });
           setSubmission({ kind: "idle" });
         }}
@@ -364,6 +366,7 @@ function ConfigurationLayerView({
       </header>
       <div className="configuration-layer-fields">
         {configurationFields.map((field) => {
+          const disputed = layer.conflicts.some(({ field: path }) => path === field.path);
           const override = fieldOverride(layer.overrides, field.path);
           const effective = fieldValue(view.effective, field.path);
           const origin = fieldOrigin(view.origins, field.path);
@@ -372,14 +375,14 @@ function ConfigurationLayerView({
               <span className="configuration-field-label">{field.label}</span>
               <code>{field.path}</code>
               <strong>
-                {override === undefined
+                {disputed ? "Unresolved" : override === undefined
                   ? "Inherited"
                   : fieldDisplayValue(field.path, override)}
               </strong>
               <span className="configuration-layer-effective">
                 Effective for board: {fieldDisplayValue(field.path, effective)} from {scopeLabel(origin?.scope)}
               </span>
-              {canMutateServer && !readOnly && (
+              {canMutateServer && !readOnly && !disputed && (
                 <div className="configuration-field-actions">
                   <Button
                     type="button"
@@ -665,14 +668,17 @@ export function configurationPreview(
       source: scopeLabel(fieldOrigin(view.origins, field)?.scope),
     };
   }
-  let raw = "";
+  let raw: string | undefined = "";
   let source = "Built-in";
   for (const layer of view.layers) {
     const layerScope = layer.source?.scope ?? ConfigurationScope.UNSPECIFIED;
     const candidate = layerScope === scope
       ? draft
       : fieldOverride(layer.overrides, field);
-    if (candidate !== undefined) {
+    if (layer.conflicts.some(({ field: path }) => path === field) && layerScope !== scope) {
+      raw = undefined;
+      source = scopeLabel(layerScope);
+    } else if (candidate !== undefined) {
       raw = candidate;
       source = scopeLabel(layerScope);
     }
@@ -684,8 +690,8 @@ function configurationInherited(
   view: ConfigurationView,
   scope: ConfigurationScope,
   field: ConfigurationFieldPath,
-): { raw: string; value: string; source: string } {
-  let raw = "";
+): { raw: string | undefined; value: string; source: string } {
+  let raw: string | undefined = "";
   let source = "Built-in";
   for (const layer of view.layers) {
     const layerScope = layer.source?.scope ?? ConfigurationScope.UNSPECIFIED;
@@ -693,7 +699,10 @@ function configurationInherited(
       break;
     }
     const candidate = fieldOverride(layer.overrides, field);
-    if (candidate !== undefined) {
+    if (layer.conflicts.some(({ field: path }) => path === field)) {
+      raw = undefined;
+      source = scopeLabel(layerScope);
+    } else if (candidate !== undefined) {
       raw = candidate;
       source = scopeLabel(layerScope);
     }
@@ -723,18 +732,20 @@ function layerForScope(
 function fieldValue(
   configuration: Configuration | undefined,
   field: ConfigurationFieldPath,
-): string {
+): string | undefined {
   switch (field) {
     case "issue.id.prefix":
-      return configuration?.issue?.id?.prefix ?? "";
+      return configuration?.issue?.id?.prefix;
     case "issue.id.strategy":
-      return strategyName(configuration?.issue?.id?.strategy);
+      return configuration?.issue?.id?.strategy === undefined
+        ? undefined
+        : strategyName(configuration.issue.id.strategy);
     case "issue.summary.max_bytes":
-      return configuration?.issue?.summary?.maxBytes.toString() ?? "";
+      return configuration?.issue?.summary?.maxBytes?.toString();
     case "attachment.max_bytes":
-      return configuration?.attachment?.maxBytes.toString() ?? "";
+      return configuration?.attachment?.maxBytes?.toString();
     case "board.pins.max_count":
-      return configuration?.board?.pins?.maxCount.toString() ?? "";
+      return configuration?.board?.pins?.maxCount?.toString();
   }
 }
 
@@ -777,8 +788,11 @@ function fieldOrigin(
 }
 
 function fieldDisplayValue(field: ConfigurationFieldPath, raw: string | undefined): string {
-  if (raw === undefined || raw === "") {
-    return "Unavailable";
+  if (raw === undefined) {
+    return "Unresolved";
+  }
+  if (raw === "") {
+    return field === "issue.id.prefix" ? "No prefix" : "Unavailable";
   }
   return field.endsWith("max_bytes") ? formatBytes(BigInt(raw)) : raw;
 }

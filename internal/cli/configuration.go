@@ -398,12 +398,13 @@ func parseConfigurationByteLimit(value string) (configuration.ByteLimit, error) 
 // configurationOut is the CLI's typed JSON and human configuration view.
 // Raw-layer values and origins are nil when that layer inherits the field.
 type configurationOut struct {
-	Scope   string                  `json:"scope"`
-	Store   string                  `json:"store"`
-	Project string                  `json:"project"`
-	Board   *string                 `json:"board"`
-	Values  configurationValuesOut  `json:"values"`
-	Origins configurationOriginsOut `json:"origins"`
+	Scope     string                            `json:"scope"`
+	Store     string                            `json:"store"`
+	Project   string                            `json:"project"`
+	Board     *string                           `json:"board"`
+	Values    configurationValuesOut            `json:"values"`
+	Origins   configurationOriginsOut           `json:"origins"`
+	Conflicts []configuration.ConflictReference `json:"conflicts,omitempty"`
 }
 
 // configurationValuesOut mirrors the nested typed configuration shape with
@@ -513,6 +514,7 @@ func newEffectiveConfigurationOutForTarget(
 	effective configuration.Configuration,
 	origins configuration.Origins,
 ) configurationOut {
+	converted := NewInfoConfiguration(effective)
 	return configurationOut{
 		Scope:   "effective",
 		Store:   storeIdentity,
@@ -520,22 +522,14 @@ func newEffectiveConfigurationOutForTarget(
 		Board:   boardIdentity,
 		Values: configurationValuesOut{
 			Issue: configurationIssueValuesOut{
-				ID: configurationIssueIDValuesOut{
-					Prefix:   new(effective.Issue.ID.Prefix.String()),
-					Strategy: new(effective.Issue.ID.Strategy.String()),
-				},
-				Summary: configurationSummaryValuesOut{
-					MaxBytes: new(effective.Issue.Summary.MaxBytes.Uint64()),
-				},
+				ID:      configurationIssueIDValuesOut{Prefix: converted.Issue.ID.Prefix, Strategy: converted.Issue.ID.Strategy},
+				Summary: configurationSummaryValuesOut{MaxBytes: converted.Issue.Summary.MaxBytes},
 			},
-			Attachment: configurationAttachmentValuesOut{
-				MaxBytes: new(effective.Attachment.MaxBytes.Uint64()),
-			},
-			Board: configurationBoardValuesOut{Pins: configurationPinValuesOut{
-				MaxCount: new(effective.Board.Pins.MaxCount.Uint64()),
-			}},
+			Attachment: configurationAttachmentValuesOut{MaxBytes: converted.Attachment.MaxBytes},
+			Board:      configurationBoardValuesOut{Pins: configurationPinValuesOut{MaxCount: converted.Board.Pins.MaxCount}},
 		},
-		Origins: newEffectiveConfigurationOriginsOut(origins),
+		Conflicts: effective.Conflicts,
+		Origins:   newEffectiveConfigurationOriginsOut(origins),
 	}
 }
 
@@ -575,12 +569,13 @@ func newLayerConfigurationOut(
 		layer = view.Board
 	}
 	return configurationOut{
-		Scope:   scope.String(),
-		Store:   view.Store.Source.Identity,
-		Project: view.Project.Source.Identity,
-		Board:   new(view.Board.Source.Identity),
-		Values:  newLayerConfigurationValuesOut(layer.Overrides),
-		Origins: newLayerConfigurationOriginsOut(layer),
+		Scope:     scope.String(),
+		Store:     view.Store.Source.Identity,
+		Project:   view.Project.Source.Identity,
+		Board:     new(view.Board.Source.Identity),
+		Values:    newLayerConfigurationValuesOut(layer.Overrides),
+		Conflicts: layer.Conflicts,
+		Origins:   newLayerConfigurationOriginsOut(layer),
 	}
 }
 
@@ -637,6 +632,21 @@ func newLayerConfigurationOriginsOut(
 	if layer.Overrides.Board.Pins.MaxCount != nil {
 		origins.Board.Pins.MaxCount = newConfigurationSourceOut(layer.Source)
 	}
+	for _, conflict := range layer.Conflicts {
+		source := newConfigurationSourceOut(layer.Source)
+		switch conflict.Field {
+		case configuration.FieldIssueIDPrefix:
+			origins.Issue.ID.Prefix = source
+		case configuration.FieldIssueIDStrategy:
+			origins.Issue.ID.Strategy = source
+		case configuration.FieldIssueSummaryMaxBytes:
+			origins.Issue.Summary.MaxBytes = source
+		case configuration.FieldAttachmentMaxBytes:
+			origins.Attachment.MaxBytes = source
+		case configuration.FieldBoardPinsMaxCount:
+			origins.Board.Pins.MaxCount = source
+		}
+	}
 	return origins
 }
 
@@ -664,26 +674,31 @@ func renderConfiguration(output *Output, value configurationOut) error {
 		writer, "issue.id.prefix",
 		formatConfigurationValue(value.Values.Issue.ID.Prefix),
 		value.Origins.Issue.ID.Prefix,
+		value.Conflicts,
 	)
 	writeConfigurationRow(
 		writer, "issue.id.strategy",
 		formatConfigurationValue(value.Values.Issue.ID.Strategy),
 		value.Origins.Issue.ID.Strategy,
+		value.Conflicts,
 	)
 	writeConfigurationRow(
 		writer, "issue.summary.max_bytes",
 		formatConfigurationValue(value.Values.Issue.Summary.MaxBytes),
 		value.Origins.Issue.Summary.MaxBytes,
+		value.Conflicts,
 	)
 	writeConfigurationRow(
 		writer, "attachment.max_bytes",
 		formatConfigurationValue(value.Values.Attachment.MaxBytes),
 		value.Origins.Attachment.MaxBytes,
+		value.Conflicts,
 	)
 	writeConfigurationRow(
 		writer, "board.pins.max_count",
 		formatConfigurationValue(value.Values.Board.Pins.MaxCount),
 		value.Origins.Board.Pins.MaxCount,
+		value.Conflicts,
 	)
 	if err := writer.Flush(); err != nil {
 		return fmt.Errorf("write configuration output: %w", err)
@@ -696,7 +711,14 @@ func writeConfigurationRow(
 	key string,
 	value string,
 	origin *configurationSourceOut,
+	conflicts []configuration.ConflictReference,
 ) {
+	for _, conflict := range conflicts {
+		if conflict.Field.String() == key {
+			value = "unresolved"
+			break
+		}
+	}
 	_, _ = fmt.Fprintf(
 		writer,
 		"%s\t%s\t%s\n",
@@ -716,4 +738,11 @@ func formatConfigurationOrigin(origin *configurationSourceOut) string {
 		return "-"
 	}
 	return fmt.Sprintf("%s (%s)", origin.Scope, origin.Identity)
+}
+
+func effectiveConfigurationValue[T any](value *T) string {
+	if value == nil {
+		return "unresolved"
+	}
+	return fmt.Sprint(*value)
 }

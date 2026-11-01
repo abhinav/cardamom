@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 
+import { ConflictLink } from "./conflicts/conflict-link.tsx";
 import type { BoardScopeSelection } from "./board-scope.ts";
 import { WatchResource } from "./gen/cardamom/private/v1/change_pb.ts";
 import { ProjectService, type Board } from "./gen/cardamom/private/v1/project_pb.ts";
@@ -36,12 +37,12 @@ export function boardSettingsBoardId(
 export function boardSettingsUpdateInput(
   boardId: string,
   actor: string,
-  name: string,
-  descriptionSource: string,
+  name: string | undefined,
+  descriptionSource: string | undefined,
 ) {
   return {
     boardId,
-    name: name.trim(),
+    name: name?.trim(),
     descriptionSource,
     context: { actor: actor.trim() },
   };
@@ -62,10 +63,7 @@ export function boardSettingsLoaded(
   }
   return {
     initialized: true,
-    draft: {
-      name: board.name,
-      descriptionSource: board.description?.source ?? "",
-    },
+    draft: boardSettingsDraft(board),
     mode: "read",
     submission: { kind: "idle" },
   };
@@ -316,10 +314,7 @@ function EditableBoardConfigurationDialog({
               onBeginEdit={(nextMode) => {
                 setEditor((current) => ({
                   ...current,
-                  draft: {
-                    name: load.data.name,
-                    descriptionSource: load.data.description?.source ?? "",
-                  },
+                  draft: boardSettingsDraft(load.data),
                   mode: nextMode,
                   submission: { kind: "idle" },
                 }));
@@ -327,10 +322,7 @@ function EditableBoardConfigurationDialog({
               onCancelEdit={() => {
                 setEditor((current) => ({
                   ...current,
-                  draft: {
-                    name: load.data.name,
-                    descriptionSource: load.data.description?.source ?? "",
-                  },
+                  draft: boardSettingsDraft(load.data),
                   mode: "read",
                   submission: { kind: "idle" },
                 }));
@@ -343,7 +335,9 @@ function EditableBoardConfigurationDialog({
               }
               onSubmit={submit}
             />
-            <BoardLifecycleControls
+            {load.data.conflicts.some(({ field }) => field === "archive") ? (
+              <p>Archive state unresolved.</p>
+            ) : <BoardLifecycleControls
               archived={load.data.archived !== undefined}
               expanded={archiveExpanded}
               reason={archiveReason}
@@ -358,7 +352,7 @@ function EditableBoardConfigurationDialog({
               onReasonChange={setArchiveReason}
               onArchive={() => void changeLifecycle("archive")}
               onUnarchive={() => void changeLifecycle("unarchive")}
-            />
+            />}
           </>
         )}
       </DialogContent>
@@ -408,7 +402,7 @@ export function BoardSettingsContent({
             autoFocus
             required
             type="text"
-            value={draft.name}
+            value={draft.name ?? ""}
             onChange={(event) =>
               onChangeDraft({ ...draft, name: event.currentTarget.value })
             }
@@ -421,7 +415,7 @@ export function BoardSettingsContent({
             id={fieldId}
             autoFocus
             rows={9}
-            value={draft.descriptionSource}
+            value={draft.descriptionSource ?? ""}
             onChange={(event) =>
               onChangeDraft({
                 ...draft,
@@ -466,12 +460,14 @@ export function BoardContextContent({
   onBeginEdit,
 }: BoardContextContentProps) {
   const renderedDescription = board.description?.renderedHtml ?? "";
-  const editable = board.archived === undefined && onBeginEdit !== undefined;
+  const editable = board.archived === undefined &&
+    !board.conflicts.some(({ field }) => field === "archive") && onBeginEdit !== undefined;
   return (
     <div className="board-settings-content">
+      {board.conflicts.length > 0 && <ConflictLink boardId={board.id} source={board.source} />}
       <div className="board-settings-field-row">
-        <h3>{board.name}</h3>
-        {editable && (
+        <h3>{board.name ?? "Name unresolved"}</h3>
+        {editable && board.name !== undefined && (
           <Button
             type="button"
             className="board-settings-icon-button"
@@ -486,7 +482,9 @@ export function BoardContextContent({
         )}
       </div>
       <div className="board-settings-field-row board-settings-description-row">
-        {renderedDescription === "" ? (
+        {board.conflicts.some(({ field }) => field === "description") ? (
+          <p className="empty-copy">Description unresolved.</p>
+        ) : renderedDescription === "" ? (
           <p className="empty-copy">No description.</p>
         ) : (
           <div
@@ -494,7 +492,7 @@ export function BoardContextContent({
             dangerouslySetInnerHTML={{ __html: renderedDescription }}
           />
         )}
-        {editable && (
+        {editable && !board.conflicts.some(({ field }) => field === "description") && (
           <Button
             type="button"
             className="board-settings-icon-button"
@@ -512,9 +510,19 @@ export function BoardContextContent({
   );
 }
 
+// A disputed description is not an empty description to save with a name edit.
+function boardSettingsDraft(board: Board): BoardSettingsDraft {
+  return {
+    name: board.name,
+    descriptionSource: board.conflicts.some(({ field }) => field === "description")
+      ? undefined
+      : board.description?.source ?? "",
+  };
+}
+
 interface BoardSettingsDraft {
-  name: string;
-  descriptionSource: string;
+  name: string | undefined;
+  descriptionSource: string | undefined;
 }
 
 /** BoardSettingsEditorState owns user input across background board refreshes. */

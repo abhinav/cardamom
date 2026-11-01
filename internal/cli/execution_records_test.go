@@ -20,7 +20,7 @@ func TestClaimCommand_directIssueIncludesActorAndContext(t *testing.T) {
 	view := testIssueView("an-routine", "routine", "in_progress")
 	view.Detail.Issue.State = new("Preserve the diagnostic position.")
 	view.Detail.Issue.NextAction = new("Inspect the secondary relay.")
-	view.Context.Pins = []issue.PinnedIssue{{ID: "an-pin", Title: "Pinned issue"}}
+	view.Context.Pins = []issue.PinnedIssue{{ID: "an-pin", Title: new("Pinned issue")}}
 	request := execution.ClaimIssueRequest{
 		ID: "an-routine", Assignee: "worker-a", ContextDepth: new(0),
 	}
@@ -69,10 +69,51 @@ func TestClaimCommand_directIssueIncludesActorAndContext(t *testing.T) {
 	assert.Empty(t, stderr.String())
 }
 
+func TestClaimCommandReportsConflictsWithoutContaminatingJSON(t *testing.T) {
+	for _, test := range []struct {
+		name           string
+		claimed        bool
+		operationError error
+		wantExit       int
+	}{
+		{"claimed", true, nil, ExitSuccess},
+		{"no ready issue", false, nil, ExitOperation},
+		{"watch cancelled", false, context.Canceled, ExitCanceled},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			result := execution.ClaimNextResult{SkippedConflicts: 2}
+			if test.claimed {
+				result.Issue = new(testIssueView("an-ready", "task", "in_progress"))
+			}
+			operations := NewMockClaimOperations(gomock.NewController(t))
+			operations.EXPECT().ClaimNext(gomock.Any(), gomock.Any(), gomock.Any()).Return(result, test.operationError)
+			stdout, stderr, app := executionTestApplication(t, strings.NewReader(""), true,
+				kong.BindTo(operations, (*ClaimOperations)(nil)),
+			)
+			args := []string{"--actor", "worker", "--json", "claim"}
+			if test.operationError != nil {
+				args = append(args, "--watch")
+			}
+			code := app.Run(t.Context(), args)
+			assert.Equal(t, test.wantExit, code)
+			assert.Contains(t, stderr.String(), `Skipped 2 issues due to conflicts. Run "card conflicts" to list conflicts.`)
+			if test.claimed {
+				assert.Contains(t, stdout.String(), `"id":"an-ready"`)
+				assert.NotContains(t, stdout.String(), "Skipped")
+			} else {
+				assert.Empty(t, stdout.String())
+				if test.operationError == nil {
+					assert.Contains(t, stderr.String(), "no ready issues")
+				}
+			}
+		})
+	}
+}
+
 func TestFormatIssueViewSingleLinesPinnedTitles(t *testing.T) {
 	view := testIssueView("an-task", "task", "ready")
 	view.Context.Pins = []issue.PinnedIssue{{
-		ID: "an-pin", Title: "Pinned\nissue\tname",
+		ID: "an-pin", Title: new("Pinned\nissue\tname"),
 	}}
 
 	assert.Contains(
@@ -91,7 +132,7 @@ func TestClaimCommand_automaticSelectionPassesPoolFilters(t *testing.T) {
 		LabelsNone: []string{"paused"},
 		Watch:      true,
 	}
-	result := execution.ClaimIssueResult{Issue: testIssueView("an-next", "task", "in_progress")}
+	result := execution.ClaimNextResult{Issue: new(testIssueView("an-next", "task", "in_progress"))}
 	operations := NewMockClaimOperations(gomock.NewController(t))
 	operations.EXPECT().ClaimNext(
 		gomock.Any(),
@@ -155,8 +196,8 @@ func TestLifecycleCommandsRenderDeterministicResultsAndParentNotices(t *testing.
 	request := execution.CloseIssuesRequest{IDs: []string{"an-2", "an-1"}}
 	result := execution.CloseIssuesResult{
 		Issues: []issue.Summary{
-			{Issue: issue.Issue{ID: "an-2", Title: "Second", Lifecycle: "closed", Status: "closed"}},
-			{Issue: issue.Issue{ID: "an-1", Title: "First", Lifecycle: "closed", Status: "closed"}},
+			{Issue: issue.Issue{ID: "an-2", Title: new("Second"), Lifecycle: new("closed"), Status: "closed"}},
+			{Issue: issue.Issue{ID: "an-1", Title: new("First"), Lifecycle: new("closed"), Status: "closed"}},
 		},
 		ParentsWithoutOpenChildren: []string{"an-parent-b", "an-parent-a"},
 	}
@@ -185,7 +226,7 @@ func TestLifecycleCommandsUseNarrowDomainOperations(t *testing.T) {
 	t.Run("Release", func(t *testing.T) {
 		request := execution.ReleaseIssueRequest{ID: "an-1"}
 		result := execution.ReleaseIssueResult{Issue: issue.Detail{
-			Issue: issue.Issue{ID: "an-1", Title: "Released", Lifecycle: "open", Status: "ready"},
+			Issue: issue.Issue{ID: "an-1", Title: new("Released"), Lifecycle: new("open"), Status: "ready"},
 		}}
 		operations := NewMockReleaseOperations(gomock.NewController(t))
 		operations.EXPECT().ReleaseIssue(
@@ -210,7 +251,7 @@ func TestLifecycleCommandsUseNarrowDomainOperations(t *testing.T) {
 		request := execution.ReleaseIssueRequest{ID: "an-1", WaitingReason: &reason}
 		result := execution.ReleaseIssueResult{Issue: issue.Detail{
 			Issue: issue.Issue{
-				ID: "an-1", Lifecycle: "open", Status: "waiting",
+				ID: "an-1", Lifecycle: new("open"), Status: "waiting",
 				Waiting: &issue.Waiting{Reason: reason, Since: 10},
 			},
 		}}
@@ -289,7 +330,7 @@ func TestCheckpointCommandsMapPublicVerbsAndPreserveReasonMarkdown(t *testing.T)
 		request := execution.CheckpointRequest{IssueID: "an-gate", Reason: markdown}
 		result := execution.ResolveCheckpointResult{
 			Decision: issue.CheckpointDecisionView{Outcome: "approved", Reason: markdown},
-			Issue:    &issue.Issue{ID: "an-gate", Lifecycle: "closed", Status: "closed"},
+			Issue:    &issue.Issue{ID: "an-gate", Lifecycle: new("closed"), Status: "closed"},
 		}
 		operations := NewMockCheckpointOperations(gomock.NewController(t))
 		operations.EXPECT().ApproveCheckpoint(
@@ -540,7 +581,7 @@ func TestResultCommandsKeepResultSeparateAndRequireDomainValidation(t *testing.T
 
 	t.Run("ShowJSON", func(t *testing.T) {
 		request := record.GetResultRequest{IssueID: "an-1"}
-		result := issue.Result{IssueID: "an-1", Title: "Decision", Body: "Outcome\n"}
+		result := issue.Result{IssueID: "an-1", Title: new("Decision"), Body: "Outcome\n"}
 		operations := NewMockResultReadOperations(gomock.NewController(t))
 		operations.EXPECT().GetResult(gomock.Any(), request).Return(result, nil)
 		stdout, stderr, app := executionTestApplication(t, strings.NewReader(""), true,
@@ -559,8 +600,8 @@ func (cancelingClaimOperations) ClaimIssue(context.Context, issue.Invocation, ex
 	return execution.ClaimIssueResult{}, assert.AnError
 }
 
-func (cancelingClaimOperations) ClaimNext(ctx context.Context, _ issue.Invocation, _ execution.ClaimNextRequest) (execution.ClaimIssueResult, error) {
-	return execution.ClaimIssueResult{}, ctx.Err()
+func (cancelingClaimOperations) ClaimNext(ctx context.Context, _ issue.Invocation, _ execution.ClaimNextRequest) (execution.ClaimNextResult, error) {
+	return execution.ClaimNextResult{}, ctx.Err()
 }
 
 func executionTestApplication(t *testing.T, stdin *strings.Reader, stdinIsTerminal bool, options ...kong.Option) (*bytes.Buffer, *bytes.Buffer, *Application) {
@@ -580,8 +621,8 @@ func testIssueView(id, kind, status string) issue.View {
 	return issue.View{
 		Detail: issue.Detail{
 			Issue: issue.Issue{
-				ID: id, Title: "Test issue", Type: kind, Lifecycle: "open", Status: status,
-				Priority: 2, Summary: &summary, Revision: 7,
+				ID: id, Title: new("Test issue"), Type: new(kind), Lifecycle: new("open"), Status: status,
+				Priority: new(2), Summary: &summary, Revision: 7,
 			},
 			Labels: []string{"area:cli"},
 		},
@@ -589,4 +630,17 @@ func testIssueView(id, kind, status string) issue.View {
 			Board: issue.BoardDescription{Description: &boardDescription},
 		},
 	}
+}
+
+func TestFormatIssueViewPreservesUnresolvedFields(t *testing.T) {
+	view := testIssueView("an-task", "task", "ready")
+	view.Detail.Issue.Title = nil
+	view.Detail.Issue.Priority = nil
+	view.Detail.Issue.Conflicts = []issue.ConflictReference{{ID: "conflict-title", Field: issue.FieldTitle}, {ID: "conflict-priority", Field: issue.FieldPriority}}
+	rendered := formatIssueView(view)
+	assert.Contains(t, rendered, "Title: Unresolved title")
+	assert.Contains(t, rendered, "Priority: unresolved")
+	assert.Contains(t, rendered, "Conflicts: title (conflict-title), priority (conflict-priority)")
+	assert.Contains(t, rendered, "Type: task")
+	assert.NotContains(t, rendered, "%!")
 }

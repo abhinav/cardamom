@@ -158,10 +158,10 @@ func (c *MockChangesClaimIssueCall) DoAndReturn(f func(context.Context, ClaimIss
 }
 
 // ClaimNext mocks base method.
-func (m *MockChanges) ClaimNext(arg0 context.Context, arg1 ClaimNext) (IssueClaimed, error) {
+func (m *MockChanges) ClaimNext(arg0 context.Context, arg1 ClaimNext) (NextIssueClaimed, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClaimNext", arg0, arg1)
-	ret0, _ := ret[0].(IssueClaimed)
+	ret0, _ := ret[0].(NextIssueClaimed)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -179,19 +179,19 @@ type MockChangesClaimNextCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockChangesClaimNextCall) Return(arg0 IssueClaimed, arg1 error) *MockChangesClaimNextCall {
+func (c *MockChangesClaimNextCall) Return(arg0 NextIssueClaimed, arg1 error) *MockChangesClaimNextCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockChangesClaimNextCall) Do(f func(context.Context, ClaimNext) (IssueClaimed, error)) *MockChangesClaimNextCall {
+func (c *MockChangesClaimNextCall) Do(f func(context.Context, ClaimNext) (NextIssueClaimed, error)) *MockChangesClaimNextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockChangesClaimNextCall) DoAndReturn(f func(context.Context, ClaimNext) (IssueClaimed, error)) *MockChangesClaimNextCall {
+func (c *MockChangesClaimNextCall) DoAndReturn(f func(context.Context, ClaimNext) (NextIssueClaimed, error)) *MockChangesClaimNextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

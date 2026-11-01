@@ -17,6 +17,9 @@ import (
 )
 
 func (r *Repository) insertIssue(ctx context.Context, mutation *mutation, state issue.State) error {
+	if err := state.RequireResolved(issue.FieldTitle, issue.FieldKind, issue.FieldLifecycle, issue.FieldPriority); err != nil {
+		return err
+	}
 	snapshot := state.Snapshot()
 	if err := query.New(mutation.change).BoardInsertIssue(
 		ctx,
@@ -25,9 +28,9 @@ func (r *Repository) insertIssue(ctx context.Context, mutation *mutation, state 
 			ID:            snapshot.ID.String(),
 			BoardID:       r.boardID.String(),
 			Title:         snapshot.Title,
-			Kind:          snapshot.Kind.String(),
-			Lifecycle:     snapshot.Lifecycle.String(),
-			Priority:      int64(snapshot.Priority.Int()),
+			Kind:          kindText(snapshot.Kind),
+			Lifecycle:     lifecycleText(snapshot.Lifecycle),
+			Priority:      priorityInteger(snapshot.Priority),
 			CreatedAt:     snapshot.Created,
 			UpdatedAt:     snapshot.Updated,
 			ClosedAt:      snapshot.ClosedAt,
@@ -53,9 +56,9 @@ func (r *Repository) updateIssue(ctx context.Context, mutation *mutation, state 
 		ctx,
 		query.BoardUpdateIssueParams{
 			Title:         snapshot.Title,
-			Kind:          snapshot.Kind.String(),
-			Lifecycle:     snapshot.Lifecycle.String(),
-			Priority:      int64(snapshot.Priority.Int()),
+			Kind:          kindText(snapshot.Kind),
+			Lifecycle:     lifecycleText(snapshot.Lifecycle),
+			Priority:      priorityInteger(snapshot.Priority),
 			UpdatedAt:     snapshot.Updated,
 			ClosedAt:      snapshot.ClosedAt,
 			WaitingReason: waitingReason(snapshot.Waiting),
@@ -78,10 +81,10 @@ type persistedIssue struct {
 	// uid, id, title, kind, lifecycle, and priority come from the issue row.
 	uid       []byte
 	id        string
-	title     string
-	kind      string
-	lifecycle string
-	priority  int64
+	title     *string
+	kind      *string
+	lifecycle *string
+	priority  *int64
 
 	// createdAt and updatedAt come from the issue row.
 	createdAt time.Time
@@ -121,35 +124,21 @@ type issueStateAtRevision struct {
 	revision domainboard.Revision
 }
 
-// boardIssueIndex contains the issue metadata needed by list and claim-pool
-// selection. Detail-only records remain outside this board-wide read model.
+// boardIssueIndex retains full records for existing detail and content-list
+// readers. Presentation and eligibility use the same compact index as claim
+// selection; only this content-bearing reader loads full issue states.
 type boardIssueIndex struct {
-	// states contains every issue in the selected board snapshot.
-	states map[issue.ID]issueStateAtRevision
-
-	// labels contains sorted persisted label values keyed by issue.
-	labels map[issue.ID][]string
-
-	// blocked contains issues with at least one unresolved prerequisite.
-	blocked map[issue.ID]struct{}
+	states       map[issue.ID]issueStateAtRevision
+	presentation *issuePresentation
 }
 
 func (idx boardIssueIndex) summary(id issue.ID) issue.Summary {
+	value := idx.presentation.Summary(id)
+	status := value.Issue.Status
 	state := idx.states[id]
-	labels := idx.labels[id]
-	if labels == nil {
-		labels = []string{}
-	}
-	_, blocked := idx.blocked[id]
-	summary := issue.Summary{
-		Issue:   issueProjection(state.state, state.revision),
-		Labels:  labels,
-		Blocked: blocked,
-	}
-	if blocked && summary.Issue.Status == issue.StatusReady.String() {
-		summary.Issue.Status = issue.StatusBlocked.String()
-	}
-	return summary
+	value.Issue = issueProjection(state.state, state.revision)
+	value.Issue.Status = status
+	return value
 }
 
 func (idx boardIssueIndex) references(ids []string) ([]issue.Reference, error) {
@@ -163,11 +152,12 @@ func (idx boardIssueIndex) references(ids []string) ([]issue.Reference, error) {
 		summary := idx.summary(id)
 		status := summary.Issue.Status
 		values = append(values, issue.Reference{
-			ID:       id.String(),
-			Title:    state.state.Title(),
-			Type:     state.state.Kind().String(),
-			Status:   status,
-			Priority: state.state.Priority().Int(),
+			ID:        id.String(),
+			Title:     state.state.Title(),
+			Type:      kindText(state.state.Kind()),
+			Status:    status,
+			Priority:  priorityNumber(state.state.Priority()),
+			Conflicts: state.state.Conflicts(),
 		})
 	}
 	idx.orderReferencesByCreation(values)
@@ -182,14 +172,15 @@ func (idx boardIssueIndex) openReferences(ids []string) ([]issue.Reference, erro
 		if !ok {
 			return nil, fmt.Errorf("related issue %q is absent from board snapshot", id)
 		}
-		if state.state.Lifecycle() == issue.LifecycleOpen {
+		if lifecycle := state.state.Lifecycle(); lifecycle == nil || *lifecycle == issue.LifecycleOpen {
 			summary := idx.summary(id)
 			values = append(values, issue.Reference{
-				ID:       id.String(),
-				Title:    state.state.Title(),
-				Type:     state.state.Kind().String(),
-				Status:   summary.Issue.Status,
-				Priority: state.state.Priority().Int(),
+				ID:        id.String(),
+				Title:     state.state.Title(),
+				Type:      kindText(state.state.Kind()),
+				Status:    summary.Issue.Status,
+				Priority:  priorityNumber(state.state.Priority()),
+				Conflicts: state.state.Conflicts(),
 			})
 		}
 	}
@@ -230,7 +221,11 @@ func (r *Repository) readIssueState(
 	if err != nil {
 		return issue.State{}, 0, err
 	}
-	value, err := loadPersistedIssue(persistedIssueFromGet(row))
+	conflicts, err := r.readIssueConflictReferences(ctx, scope, row.Uid)
+	if err != nil {
+		return issue.State{}, 0, err
+	}
+	value, err := loadPersistedIssue(persistedIssueFromGet(row), conflicts[string(row.Uid)])
 	return value.state, value.revision, err
 }
 
@@ -242,15 +237,11 @@ func (r *Repository) readBoardIssueIndex(
 	if err != nil {
 		return boardIssueIndex{}, err
 	}
-	labels, err := r.readBoardIssueLabels(ctx, scope)
+	presentation, err := r.readIssuePresentation(ctx, scope)
 	if err != nil {
 		return boardIssueIndex{}, err
 	}
-	blocked, err := r.readBlockedIssueIDs(ctx, scope)
-	if err != nil {
-		return boardIssueIndex{}, err
-	}
-	return boardIssueIndex{states: states, labels: labels, blocked: blocked}, nil
+	return boardIssueIndex{states: states, presentation: presentation}, nil
 }
 
 func (r *Repository) readBoardIssueStates(
@@ -261,9 +252,13 @@ func (r *Repository) readBoardIssueStates(
 	if err != nil {
 		return nil, err
 	}
+	conflicts, err := r.readIssueConflictReferences(ctx, scope, nil)
+	if err != nil {
+		return nil, err
+	}
 	states := make(map[issue.ID]issueStateAtRevision)
 	for _, row := range rows {
-		value, err := loadPersistedIssue(persistedIssueFromList(row))
+		value, err := loadPersistedIssue(persistedIssueFromList(row), conflicts[string(row.Uid)])
 		if err != nil {
 			return nil, err
 		}
@@ -326,22 +321,34 @@ func persistedIssueFromList(row query.BoardListIssueStatesRow) persistedIssue {
 	}
 }
 
-func loadPersistedIssue(row persistedIssue) (issueStateAtRevision, error) {
+func loadPersistedIssue(row persistedIssue, conflicts []issue.ConflictReference) (issueStateAtRevision, error) {
 	uid, err := issue.ParseUID(row.uid)
 	if err != nil {
 		return issueStateAtRevision{}, err
 	}
-	kind, err := issue.NewKind(row.kind)
-	if err != nil {
-		return issueStateAtRevision{}, err
+	var kind *issue.Kind
+	if row.kind != nil {
+		value, err := issue.NewKind(*row.kind)
+		if err != nil {
+			return issueStateAtRevision{}, err
+		}
+		kind = &value
 	}
-	lifecycle, err := issue.NewLifecycle(row.lifecycle)
-	if err != nil {
-		return issueStateAtRevision{}, err
+	var lifecycle *issue.Lifecycle
+	if row.lifecycle != nil {
+		value, err := issue.NewLifecycle(*row.lifecycle)
+		if err != nil {
+			return issueStateAtRevision{}, err
+		}
+		lifecycle = &value
 	}
-	priority, err := issue.NewPriority(int(row.priority))
-	if err != nil {
-		return issueStateAtRevision{}, err
+	var priority *issue.Priority
+	if row.priority != nil {
+		value, err := issue.NewPriority(int(*row.priority))
+		if err != nil {
+			return issueStateAtRevision{}, err
+		}
+		priority = &value
 	}
 	var claim *issue.ClaimState
 	if (row.claimActor == nil) != (row.claimStartedAt == nil) {
@@ -383,6 +390,7 @@ func loadPersistedIssue(row persistedIssue) (issueStateAtRevision, error) {
 		Details:       stringValue(row.details),
 		RecoveryState: recovery,
 		Result:        stringValue(row.resultBody),
+		Conflicts:     conflicts,
 	})
 	return issueStateAtRevision{
 		state:    state,
@@ -439,10 +447,10 @@ func issueProjection(state issue.State, revision domainboard.Revision) issue.Iss
 	return issue.Issue{
 		ID:          state.ID().String(),
 		Title:       state.Title(),
-		Type:        state.Kind().String(),
-		Lifecycle:   state.Lifecycle().String(),
+		Type:        kindText(state.Kind()),
+		Lifecycle:   lifecycleText(state.Lifecycle()),
 		Status:      state.Status().String(),
-		Priority:    state.Priority().Int(),
+		Priority:    priorityNumber(state.Priority()),
 		Assignee:    optionalString(state.Assignee().String()),
 		ActiveClaim: activeClaim,
 		Created:     state.Created().Unix(),
@@ -455,6 +463,7 @@ func issueProjection(state issue.State, revision domainboard.Revision) issue.Iss
 		State:       optionalString(state.RecoveryState()),
 		NextAction:  nextAction,
 		Revision:    int64(revision),
+		Conflicts:   state.Conflicts(),
 	}
 }
 
@@ -500,4 +509,50 @@ func stringValue(value *string) string {
 		return ""
 	}
 	return *value
+}
+
+// readIssueConflictReferences loads compact absence metadata without reading
+// alternative bodies. A nil UID selects all issues in the board snapshot.
+func (r *Repository) readIssueConflictReferences(ctx context.Context, scope queryScope, uid []byte) (map[string][]issue.ConflictReference, error) {
+	rows, err := query.New(scope).BoardReadIssueConflicts(ctx, query.BoardReadIssueConflictsParams{BoardID: r.boardID.String(), IssueUid: uid})
+	if err != nil {
+		return nil, err
+	}
+	values := make(map[string][]issue.ConflictReference)
+	for _, row := range rows {
+		field, err := issue.ParseField(row.Field)
+		if err != nil {
+			return nil, err
+		}
+		values[string(row.IssueUid)] = append(values[string(row.IssueUid)], issue.ConflictReference{ID: row.ID, Field: field, Key: row.MemberKey})
+	}
+	return values, nil
+}
+
+func kindText(value *issue.Kind) *string {
+	if value == nil {
+		return nil
+	}
+	return new(value.String())
+}
+
+func lifecycleText(value *issue.Lifecycle) *string {
+	if value == nil {
+		return nil
+	}
+	return new(value.String())
+}
+
+func priorityNumber(value *issue.Priority) *int {
+	if value == nil {
+		return nil
+	}
+	return new(value.Int())
+}
+
+func priorityInteger(value *issue.Priority) *int64 {
+	if value == nil {
+		return nil
+	}
+	return new(int64(value.Int()))
 }

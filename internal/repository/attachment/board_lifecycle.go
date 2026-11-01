@@ -6,13 +6,14 @@ import (
 	"errors"
 
 	"go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
 // requireMutableBoard enforces board lifecycle inside the attachment writer's
 // transaction, so archival cannot interleave with an accepted blob mutation.
 func requireMutableBoard(ctx context.Context, queries *query.Queries, boardID board.ID) error {
-	archived, err := queries.AttachmentBoardArchived(ctx, boardID.String())
+	lifecycle, err := queries.AttachmentBoardLifecycle(ctx, boardID.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		// Preserve the attachment operation's more specific target-not-found error;
 		// its subsequent validation still prevents a write for a missing board.
@@ -21,7 +22,10 @@ func requireMutableBoard(ctx context.Context, queries *query.Queries, boardID bo
 	if err != nil {
 		return err
 	}
-	if archived {
+	if lifecycle.ArchiveConflictID != nil {
+		return errkind.Errorf(errkind.Conflict, "board archive state is unresolved (conflict %s)", *lifecycle.ArchiveConflictID)
+	}
+	if lifecycle.Archived {
 		return board.ErrArchived
 	}
 	return nil

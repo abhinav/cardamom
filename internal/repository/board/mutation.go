@@ -2,12 +2,14 @@ package board
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"time"
 
 	domainboard "go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/boardhistory"
+	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	repositoryhistory "go.abhg.dev/cardamom/internal/repository/boardhistory"
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
@@ -64,6 +66,13 @@ func (r *Repository) beginMutation(
 	}
 	row, err := query.New(change).BoardGetRevision(ctx, r.boardID.String())
 	if err != nil {
+		return nil, errors.Join(err, change.Done())
+	}
+	archiveConflict, err := query.New(change).BoardReadArchiveConflict(ctx, r.boardID.String())
+	if err == nil {
+		return nil, errors.Join(errkind.Errorf(errkind.Conflict, "board archive state is unresolved in conflict %s", archiveConflict), change.Done())
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
 		return nil, errors.Join(err, change.Done())
 	}
 	// Explicit reads use separate paths and remain available for archived boards;

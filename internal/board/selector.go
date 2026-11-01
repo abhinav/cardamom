@@ -25,5 +25,9 @@ func (s Selector) String() string { return s.value }
 
 // Matches reports whether candidate has the selected identity or exact name.
 func (s Selector) Matches(candidate *State) bool {
-	return candidate != nil && (s.value == candidate.ID().String() || s.value == candidate.Name())
+	if candidate == nil {
+		return false
+	}
+	name := candidate.Name()
+	return s.value == candidate.ID().String() || name != nil && s.value == *name
 }

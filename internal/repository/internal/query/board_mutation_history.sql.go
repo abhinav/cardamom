@@ -62,7 +62,7 @@ WHERE board.id = ?1
 `
 
 type BoardHistoryGetBoardBaselineRow struct {
-	Name                 string
+	Name                 *string
 	Description          *string
 	CreatedAtText        string
 	ArchivedAtText       string
@@ -506,10 +506,10 @@ type BoardHistoryNextIssueParams struct {
 type BoardHistoryNextIssueRow struct {
 	Uid                     []byte
 	ID                      string
-	Title                   string
-	Kind                    string
-	Lifecycle               string
-	Priority                int64
+	Title                   *string
+	Kind                    *string
+	Lifecycle               *string
+	Priority                *int64
 	CreatedAtText           string
 	UpdatedAtText           string
 	ClosedAtText            string
@@ -666,4 +666,22 @@ func (q *Queries) BoardHistoryNextPin(ctx context.Context, arg BoardHistoryNextP
 	var i BoardHistoryNextPinRow
 	err := row.Scan(&i.IssueUid, &i.Position)
 	return i, err
+}
+
+const boardHistoryReadMarker = `-- name: BoardHistoryReadMarker :one
+SELECT marker_bytes FROM board_mutation_commits
+WHERE board_id = ?1 AND writer_uid = ?2 AND sequence = ?3
+`
+
+type BoardHistoryReadMarkerParams struct {
+	BoardID   string
+	WriterUid []byte
+	Sequence  int64
+}
+
+func (q *Queries) BoardHistoryReadMarker(ctx context.Context, arg BoardHistoryReadMarkerParams) ([]byte, error) {
+	row := q.db.QueryRowContext(ctx, boardHistoryReadMarker, arg.BoardID, arg.WriterUid, arg.Sequence)
+	var marker_bytes []byte
+	err := row.Scan(&marker_bytes)
+	return marker_bytes, err
 }

@@ -39,7 +39,8 @@ export type BoardPage =
   | "list"
   | "approvals"
   | "routines"
-  | "settings";
+  | "settings"
+  | "conflicts";
 
 /** routeBoardScope derives board identity from the current URL. */
 export function routeBoardScope(
@@ -100,7 +101,7 @@ export function routeBoardPage(pathname: string): BoardPage {
     page === "list" ||
     page === "approvals" ||
     page === "routines" ||
-    (page === "settings" && scope.kind === "board")
+    ((page === "settings" || page === "conflicts") && scope.kind === "board")
   ) {
     return page;
   }
@@ -119,7 +120,7 @@ export function boardScopePath(
       ? `/board/${encodeURIComponent(selection.boardId)}`
       : `/source/${encodeURIComponent(sourceID)}/board/${encodeURIComponent(selection.boardId)}`;
   }
-  if (page === "board" || (page === "settings" && selection.kind === "all")) {
+  if (page === "board" || ((page === "settings" || page === "conflicts") && selection.kind === "all")) {
     return base;
   }
   return `${base}/${page}`;

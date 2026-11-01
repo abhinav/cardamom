@@ -50,12 +50,12 @@ func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 	assert.Equal(t, Configuration{
 		Issue: IssueConfiguration{
 			ID: IssueIDConfiguration{
-				Prefix: boardPrefix, Strategy: IDStrategySequential,
+				Prefix: new(boardPrefix), Strategy: new(IDStrategySequential),
 			},
-			Summary: SummaryConfiguration{MaxBytes: projectSummary},
+			Summary: SummaryConfiguration{MaxBytes: new(projectSummary)},
 		},
-		Attachment: AttachmentConfiguration{MaxBytes: boardAttachment},
-		Board:      BoardConfiguration{Pins: PinConfiguration{MaxCount: boardPins}},
+		Attachment: AttachmentConfiguration{MaxBytes: new(boardAttachment)},
+		Board:      BoardConfiguration{Pins: PinConfiguration{MaxCount: new(boardPins)}},
 	}, resolved.Effective)
 	assert.Equal(t, ScopeBoard, resolved.Origins.Issue.ID.Prefix.Scope)
 	assert.Equal(t, ScopeProject, resolved.Origins.Issue.ID.Strategy.Scope)
@@ -72,7 +72,7 @@ func TestService_Resolve_appliesLivePerFieldPrecedence(t *testing.T) {
 	repository.EXPECT().ReadConfigurationLayers(gomock.Any(), boardID).Return(layers, nil)
 	resolved, err = service.Resolve(t.Context(), boardID)
 	require.NoError(t, err)
-	assert.Equal(t, secondPrefix, resolved.Effective.Issue.ID.Prefix)
+	assert.Equal(t, new(secondPrefix), resolved.Effective.Issue.ID.Prefix)
 	assert.Equal(t, ScopeStore, resolved.Origins.Issue.ID.Prefix.Scope)
 }
 
@@ -97,8 +97,8 @@ func TestService_ResolveProject_stopsAtProjectLayer(t *testing.T) {
 	resolved, err := service.ResolveProject(t.Context(), projectID)
 	require.NoError(t, err)
 
-	assert.Equal(t, projectPrefix, resolved.Effective.Issue.ID.Prefix)
-	assert.Equal(t, IDStrategySequential, resolved.Effective.Issue.ID.Strategy)
+	assert.Equal(t, new(projectPrefix), resolved.Effective.Issue.ID.Prefix)
+	assert.Equal(t, new(IDStrategySequential), resolved.Effective.Issue.ID.Strategy)
 	assert.Equal(t, ScopeProject, resolved.Origins.Issue.ID.Prefix.Scope)
 	assert.Equal(t, ScopeProject, resolved.Origins.Issue.ID.Strategy.Scope)
 	assert.Equal(t, "/stores/test", resolved.Store.Source.Identity)
@@ -136,14 +136,14 @@ func TestService_UpdateProject_returnsProjectScopedView(t *testing.T) {
 	)
 	require.NoError(t, err)
 
-	assert.Equal(t, projectPrefix, resolved.Effective.Issue.ID.Prefix)
-	assert.Equal(t, IDStrategySequential, resolved.Effective.Issue.ID.Strategy)
+	assert.Equal(t, new(projectPrefix), resolved.Effective.Issue.ID.Prefix)
+	assert.Equal(t, new(IDStrategySequential), resolved.Effective.Issue.ID.Strategy)
 	assert.Equal(t, ScopeProject, resolved.Origins.Issue.ID.Strategy.Scope)
 }
 
 func TestDefaults(t *testing.T) {
 	assert.Equal(t, "cm-", Defaults().Issue.ID.Prefix.String())
-	assert.Equal(t, IDStrategyRandom, Defaults().Issue.ID.Strategy)
+	assert.Equal(t, new(IDStrategyRandom), Defaults().Issue.ID.Strategy)
 	assert.Equal(t, uint64(2048), Defaults().Issue.Summary.MaxBytes.Uint64())
 	assert.Equal(t, uint64(104857600), Defaults().Attachment.MaxBytes.Uint64())
 	assert.Equal(t, uint64(8), Defaults().Board.Pins.MaxCount.Uint64())

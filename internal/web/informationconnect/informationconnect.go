@@ -84,7 +84,7 @@ func informationResponse(
 		},
 		Board: &privatev1.BoardSummary{
 			Id: report.Board.ID().String(), ProjectId: report.Board.ProjectID(),
-			Name: report.Board.Name(),
+			Name: report.Board.Name(), Conflicts: boardConflictReferences(report.Board.Conflicts()),
 		},
 		Schema: &privatev1.SchemaInformation{
 			DatabaseVersion: uint64(report.Schema.DatabaseVersion),
@@ -100,28 +100,31 @@ func informationResponse(
 	}, nil
 }
 
-func configurationMessage(
-	value configuration.Configuration,
-) *privatev1.Configuration {
-	return &privatev1.Configuration{
-		Issue: &privatev1.ConfigurationIssue{
-			Id: &privatev1.ConfigurationIssueID{
-				Prefix:   value.Issue.ID.Prefix.String(),
-				Strategy: configurationIssueIDStrategy(value.Issue.ID.Strategy),
-			},
-			Summary: &privatev1.ConfigurationSummary{
-				MaxBytes: value.Issue.Summary.MaxBytes.Uint64(),
-			},
-		},
-		Attachment: &privatev1.ConfigurationAttachment{
-			MaxBytes: value.Attachment.MaxBytes.Uint64(),
-		},
-		Board: &privatev1.ConfigurationBoard{
-			Pins: &privatev1.ConfigurationPins{
-				MaxCount: value.Board.Pins.MaxCount.Uint64(),
-			},
-		},
+func configurationMessage(value configuration.Configuration) *privatev1.Configuration {
+	out := &privatev1.Configuration{
+		Issue:      &privatev1.ConfigurationIssue{Id: &privatev1.ConfigurationIssueID{}, Summary: &privatev1.ConfigurationSummary{}},
+		Attachment: &privatev1.ConfigurationAttachment{},
+		Board:      &privatev1.ConfigurationBoard{Pins: &privatev1.ConfigurationPins{}},
 	}
+	if value.Issue.ID.Prefix != nil {
+		out.Issue.Id.Prefix = new(value.Issue.ID.Prefix.String())
+	}
+	if value.Issue.ID.Strategy != nil {
+		out.Issue.Id.Strategy = configurationIssueIDStrategy(*value.Issue.ID.Strategy).Enum()
+	}
+	if value.Issue.Summary.MaxBytes != nil {
+		out.Issue.Summary.MaxBytes = new(value.Issue.Summary.MaxBytes.Uint64())
+	}
+	if value.Attachment.MaxBytes != nil {
+		out.Attachment.MaxBytes = new(value.Attachment.MaxBytes.Uint64())
+	}
+	if value.Board.Pins.MaxCount != nil {
+		out.Board.Pins.MaxCount = new(value.Board.Pins.MaxCount.Uint64())
+	}
+	for _, conflict := range value.Conflicts {
+		out.Conflicts = append(out.Conflicts, &privatev1.ConflictReference{Id: conflict.ID, Field: conflict.Field.String()})
+	}
+	return out
 }
 
 func configurationIssueIDStrategy(
@@ -139,6 +142,8 @@ func configurationIssueIDStrategy(
 
 func issueStatus(value issue.Status) (privatev1.IssueStatus, error) {
 	switch value {
+	case issue.StatusUnresolved:
+		return privatev1.IssueStatus_ISSUE_STATUS_UNRESOLVED, nil
 	case issue.StatusReady:
 		return privatev1.IssueStatus_ISSUE_STATUS_READY, nil
 	case issue.StatusBlocked:
@@ -155,4 +160,12 @@ func issueStatus(value issue.Status) (privatev1.IssueStatus, error) {
 		return privatev1.IssueStatus_ISSUE_STATUS_UNSPECIFIED,
 			fmt.Errorf("unsupported issue status %q", value.String())
 	}
+}
+
+func boardConflictReferences(values []board.ConflictReference) []*privatev1.ConflictReference {
+	out := make([]*privatev1.ConflictReference, 0, len(values))
+	for _, value := range values {
+		out = append(out, &privatev1.ConflictReference{Id: value.ID, Field: value.Field.String()})
+	}
+	return out
 }

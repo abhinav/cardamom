@@ -68,7 +68,7 @@ func InferredPrefix(projectName string) Prefix {
 	}
 	body = bytes.TrimRight(body, "-")
 	if len(body) == 0 {
-		return Defaults().Issue.ID.Prefix
+		return *Defaults().Issue.ID.Prefix
 	}
 	body = append(body, '-')
 	prefix, err := NewPrefix(string(body))
@@ -188,7 +188,9 @@ func NewByteLimit(value uint64) (ByteLimit, error) {
 // Uint64 returns the limit in bytes.
 func (l ByteLimit) Uint64() uint64 { return uint64(l) }
 
-// Configuration is one fully resolved nested configuration.
+// Configuration contains effective policy and references for disputed fields.
+// An unresolved field has no value; callers require the fields their operation
+// consumes with RequireResolved before dereferencing them.
 type Configuration struct {
 	// Issue contains issue authoring and identity policy.
 	Issue IssueConfiguration
@@ -198,9 +200,12 @@ type Configuration struct {
 
 	// Board contains board-scoped coordination policy.
 	Board BoardConfiguration
+
+	// Conflicts identify effective fields that have no authoritative value.
+	Conflicts []ConflictReference
 }
 
-// IssueConfiguration contains fully resolved issue policy.
+// IssueConfiguration contains effective issue policy.
 type IssueConfiguration struct {
 	// ID controls issue identity allocation.
 	ID IssueIDConfiguration
@@ -209,37 +214,37 @@ type IssueConfiguration struct {
 	Summary SummaryConfiguration
 }
 
-// IssueIDConfiguration contains fully resolved issue identity policy.
+// IssueIDConfiguration contains effective issue identity policy.
 type IssueIDConfiguration struct {
-	// Prefix is prepended to newly allocated issue IDs.
-	Prefix Prefix
+	// Prefix is prepended to newly allocated issue IDs, or nil while unresolved.
+	Prefix *Prefix
 
-	// Strategy selects random or sequential suffix allocation.
-	Strategy IDStrategy
+	// Strategy selects random or sequential allocation, or is nil while unresolved.
+	Strategy *IDStrategy
 }
 
-// SummaryConfiguration contains fully resolved summary policy.
+// SummaryConfiguration contains effective summary policy.
 type SummaryConfiguration struct {
-	// MaxBytes is the largest accepted summary in bytes.
-	MaxBytes ByteLimit
+	// MaxBytes is the summary limit in bytes, or nil while unresolved.
+	MaxBytes *ByteLimit
 }
 
-// AttachmentConfiguration contains fully resolved attachment policy.
+// AttachmentConfiguration contains effective attachment policy.
 type AttachmentConfiguration struct {
-	// MaxBytes is the largest attachment admitted for a new upload.
-	MaxBytes ByteLimit
+	// MaxBytes is the new-upload limit in bytes, or nil while unresolved.
+	MaxBytes *ByteLimit
 }
 
-// BoardConfiguration contains fully resolved board policy.
+// BoardConfiguration contains effective board policy.
 type BoardConfiguration struct {
 	// Pins controls the board's ordered pinned-issue collection.
 	Pins PinConfiguration
 }
 
-// PinConfiguration contains fully resolved board pin policy.
+// PinConfiguration contains effective board pin policy.
 type PinConfiguration struct {
-	// MaxCount is the largest admitted pinned-issue collection.
-	MaxCount board.PinLimit
+	// MaxCount is the pin admission limit, or nil while unresolved.
+	MaxCount *board.PinLimit
 }
 
 // Defaults returns Cardamom's built-in fully resolved configuration.
@@ -258,12 +263,12 @@ func Defaults() Configuration {
 	}
 	return Configuration{
 		Issue: IssueConfiguration{
-			ID:      IssueIDConfiguration{Prefix: prefix, Strategy: IDStrategyRandom},
-			Summary: SummaryConfiguration{MaxBytes: summary},
+			ID:      IssueIDConfiguration{Prefix: &prefix, Strategy: new(IDStrategyRandom)},
+			Summary: SummaryConfiguration{MaxBytes: &summary},
 		},
-		Attachment: AttachmentConfiguration{MaxBytes: attachment},
+		Attachment: AttachmentConfiguration{MaxBytes: &attachment},
 		Board: BoardConfiguration{
-			Pins: PinConfiguration{MaxCount: board.PinLimit(DefaultPinMaxCount)},
+			Pins: PinConfiguration{MaxCount: new(board.PinLimit(DefaultPinMaxCount))},
 		},
 	}
 }

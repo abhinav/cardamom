@@ -12,9 +12,25 @@ import {
   boardSettingsUpdateInput,
 } from "./board-settings.tsx";
 import type { Board } from "./gen/cardamom/private/v1/project_pb.ts";
+import { BoardSchema } from "./gen/cardamom/private/v1/project_pb.ts";
 import { SourceRefSchema } from "./gen/cardamom/private/v1/source_pb.ts";
 
 describe("Board settings workflow", () => {
+  it("shows disputed metadata without offering ordinary field edits", () => {
+    const value = create(BoardSchema, {
+      id: "board-1",
+      conflicts: [{ id: "name-conflict", field: "name" }, { id: "description-conflict", field: "description" }],
+    });
+    const markup = renderToStaticMarkup(
+      BoardContextContent({ board: value, onBeginEdit: vi.fn() }),
+    );
+    expect(markup).toContain("Name unresolved");
+    expect(markup).toContain("Description unresolved.");
+    expect(markup).not.toContain("No description.");
+    expect(markup).not.toContain("Edit board name");
+    expect(markup).not.toContain("Edit board description");
+    expect(boardSettingsUpdateInput("board-1", "worker", undefined, "Known description").name).toBeUndefined();
+  });
   it("is available only for a concrete board selection", () => {
     expect(boardSettingsBoardId({ kind: "board", boardId: "board-1" })).toBe(
       "board-1",
@@ -199,6 +215,7 @@ describe("Board settings workflow", () => {
 function board(name: string, source: string): Board {
   return {
     $typeName: "cardamom.private.v1.Board",
+    conflicts: [],
     id: "board-1",
     projectId: "project-1",
     name,

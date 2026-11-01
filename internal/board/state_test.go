@@ -13,7 +13,7 @@ import (
 func TestStateArchiveLifecycleIsIdempotent(t *testing.T) {
 	state := testBoardState(t, Snapshot{
 		ID: testBoardID(t, "board-one"), ProjectID: "project-one",
-		Name: "Development", Created: time.Unix(10, 0).UTC(),
+		Name: new("Development"), Created: time.Unix(10, 0).UTC(),
 	})
 	reason := "Retired context"
 
@@ -29,16 +29,20 @@ func TestStateArchiveLifecycleIsIdempotent(t *testing.T) {
 	assert.False(t, changed)
 	assert.Equal(t, &reason, state.Archived().Reason)
 
-	assert.True(t, state.Unarchive())
+	changed, err = state.Unarchive()
+	require.NoError(t, err)
+	assert.True(t, changed)
 	assert.Nil(t, state.Archived())
 	assert.NoError(t, state.RequireMutable())
-	assert.False(t, state.Unarchive())
+	changed, err = state.Unarchive()
+	require.NoError(t, err)
+	assert.False(t, changed)
 }
 
 func TestStateArchivedRejectsSettingsMutation(t *testing.T) {
 	state := testBoardState(t, Snapshot{
 		ID: testBoardID(t, "board-one"), ProjectID: "project-one",
-		Name: "Development", Created: time.Unix(10, 0).UTC(),
+		Name: new("Development"), Created: time.Unix(10, 0).UTC(),
 		Archived: &Archive{Actor: "captain", At: time.Unix(20, 0).UTC()},
 	})
 	name := "Replacement"
@@ -54,7 +58,7 @@ func TestStateEditSettings(t *testing.T) {
 	state := testBoardState(t, Snapshot{
 		ID:          testBoardID(t, "board-one"),
 		ProjectID:   "project-one",
-		Name:        "Development",
+		Name:        new("Development"),
 		Description: &current,
 		Created:     time.Unix(10, 0).UTC(),
 	})
@@ -70,9 +74,9 @@ func TestStateEditSettings(t *testing.T) {
 	assert.Equal(t, state.ID(), edited.ID())
 	assert.Equal(t, state.ProjectID(), edited.ProjectID())
 	assert.Equal(t, state.Created(), edited.Created())
-	assert.Equal(t, "Release operations", edited.Name())
+	assert.Equal(t, new("Release operations"), edited.Name())
 	assert.Equal(t, &description, edited.Description())
-	assert.Equal(t, "Development", state.Name())
+	assert.Equal(t, new("Development"), state.Name())
 	assert.Equal(t, &current, state.Description())
 }
 
@@ -80,7 +84,7 @@ func TestStateEditSettingsRejectsInvalidAtomicEdit(t *testing.T) {
 	state := testBoardState(t, Snapshot{
 		ID:        testBoardID(t, "board-one"),
 		ProjectID: "project-one",
-		Name:      "Development",
+		Name:      new("Development"),
 		Created:   time.Unix(10, 0).UTC(),
 	})
 	name := "Release operations"
@@ -92,7 +96,7 @@ func TestStateEditSettingsRejectsInvalidAtomicEdit(t *testing.T) {
 	})
 
 	assert.Equal(t, errkind.InvalidInput, errkind.Of(err))
-	assert.Equal(t, "Development", state.Name())
+	assert.Equal(t, new("Development"), state.Name())
 }
 
 func TestRevisionValidate(t *testing.T) {

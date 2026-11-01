@@ -13,7 +13,7 @@ func TestServiceCreatesBoard(t *testing.T) {
 	created := testBoardState(t, Snapshot{
 		ID:        testBoardID(t, "board-one"),
 		ProjectID: "project-one",
-		Name:      "Development",
+		Name:      new("Development"),
 		Created:   time.Unix(10, 0).UTC(),
 	})
 	request := CreateRequest{ProjectID: created.ProjectID(), Name: "Development"}
@@ -31,13 +31,13 @@ func TestServiceReadsBoardCatalog(t *testing.T) {
 	primary := testBoardState(t, Snapshot{
 		ID:        testBoardID(t, "board-one"),
 		ProjectID: "project-one",
-		Name:      "Development",
+		Name:      new("Development"),
 		Created:   time.Unix(10, 0).UTC(),
 	})
 	secondary := testBoardState(t, Snapshot{
 		ID:        testBoardID(t, "board-two"),
 		ProjectID: "project-one",
-		Name:      "Operations",
+		Name:      new("Operations"),
 		Created:   time.Unix(20, 0).UTC(),
 	})
 	catalog := NewMockCatalog(gomock.NewController(t))
@@ -63,7 +63,7 @@ func TestServiceEditsBoardSettings(t *testing.T) {
 	edited := testBoardState(t, Snapshot{
 		ID:        testBoardID(t, "board-one"),
 		ProjectID: "project-one",
-		Name:      "Operations",
+		Name:      new("Operations"),
 		Created:   time.Unix(10, 0).UTC(),
 	})
 	name := "Operations"

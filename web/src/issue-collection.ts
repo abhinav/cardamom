@@ -148,14 +148,14 @@ export function groupIssues(
     key: `type:${type}`,
     label: issueTypeLabel(type),
     issues: orderIssues(
-      issues.filter((issue) => issue.type === type),
+      issues.filter((issue) => (issue.type ?? IssueType.UNSPECIFIED) === type),
       sort,
       direction,
     ),
   }));
 }
 
-export function issueTypeLabel(type: IssueType): string {
+export function issueTypeLabel(type: IssueType | undefined): string {
   switch (type) {
     case IssueType.WORKSTREAM:
       return "Workstream";
@@ -166,7 +166,7 @@ export function issueTypeLabel(type: IssueType): string {
     case IssueType.ROUTINE:
       return "Routine";
     default:
-      return "Unknown";
+      return "Unresolved type";
   }
 }
 
@@ -195,6 +195,7 @@ const ordinaryIssueTypes = [
   IssueType.WORKSTREAM,
   IssueType.TASK,
   IssueType.CHECKPOINT,
+  IssueType.UNSPECIFIED,
 ] as const;
 
 const selectableIssueTypes = [
@@ -205,7 +206,7 @@ const selectableIssueTypes = [
 function lifecycleValues(filter: IssueLifecycleFilter): IssueLifecycle[] {
   switch (filter) {
     case "current":
-      return [IssueLifecycle.OPEN, IssueLifecycle.CLOSED];
+      return [IssueLifecycle.OPEN, IssueLifecycle.CLOSED, IssueLifecycle.UNSPECIFIED];
     case "open":
       return [IssueLifecycle.OPEN];
     case "closed":
@@ -244,6 +245,7 @@ function statusValues(filter: IssueLifecycleFilter): IssueStatus[] {
         IssueStatus.IN_PROGRESS,
         IssueStatus.WAITING,
         IssueStatus.CLOSED,
+        IssueStatus.UNRESOLVED,
       ];
     case "open":
       return [
@@ -251,6 +253,7 @@ function statusValues(filter: IssueLifecycleFilter): IssueStatus[] {
         IssueStatus.BLOCKED,
         IssueStatus.IN_PROGRESS,
         IssueStatus.WAITING,
+        IssueStatus.UNRESOLVED,
       ];
     case "closed":
       return [IssueStatus.CLOSED];
@@ -264,6 +267,7 @@ function statusValues(filter: IssueLifecycleFilter): IssueStatus[] {
         IssueStatus.WAITING,
         IssueStatus.CLOSED,
         IssueStatus.CANCELLED,
+        IssueStatus.UNRESOLVED,
       ];
   }
 }
@@ -336,7 +340,8 @@ function isIssueStatus(value: unknown): value is IssueStatus {
     value === IssueStatus.IN_PROGRESS ||
     value === IssueStatus.WAITING ||
     value === IssueStatus.CLOSED ||
-    value === IssueStatus.CANCELLED
+    value === IssueStatus.CANCELLED ||
+    value === IssueStatus.UNRESOLVED
   );
 }
 
@@ -387,7 +392,7 @@ function compareNaturalOrder(left: IssueSummary, right: IssueSummary): number {
     return leftGroup - rightGroup;
   }
   if (leftGroup === 1) {
-    const priority = left.priority - right.priority;
+    const priority = compareOptionalPriority(left.priority, right.priority);
     if (priority !== 0) {
       return priority;
     }
@@ -424,14 +429,24 @@ function compareIssueField(
 ): number {
   switch (sort) {
     case "priority":
-      return left.priority - right.priority;
+      return compareOptionalPriority(left.priority, right.priority);
     case "updated":
       return compareTimestamp(left.updatedAt, right.updatedAt);
     case "created":
       return compareTimestamp(left.createdAt, right.createdAt);
     case "title":
+      if (left.title === undefined) return right.title === undefined ? 0 : -1;
+      if (right.title === undefined) return 1;
       return left.title.localeCompare(right.title);
   }
+}
+
+// Missing values sort before known values, matching the server's optional-field
+// ordering without assigning a scheduling priority to an unresolved issue.
+function compareOptionalPriority(left: number | undefined, right: number | undefined): number {
+  if (left === undefined) return right === undefined ? 0 : -1;
+  if (right === undefined) return 1;
+  return left - right;
 }
 
 function compareTimestamp(

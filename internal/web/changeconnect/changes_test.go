@@ -331,7 +331,7 @@ func testBoard(
 ) *board.State {
 	t.Helper()
 	value, err := board.Load(board.Snapshot{
-		ID: board.ID(id), ProjectID: projectID.String(), Name: name,
+		ID: board.ID(id), ProjectID: projectID.String(), Name: new(name),
 		Description: description, Created: time.Unix(2, 0).UTC(),
 	})
 	require.NoError(t, err)

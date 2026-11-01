@@ -326,8 +326,8 @@ type DumpManifest struct {
 	ProjectName string `protobuf:"bytes,2,opt,name=project_name,json=projectName,proto3" json:"project_name,omitempty"`
 	// board_id identifies the rendered board.
 	BoardId string `protobuf:"bytes,3,opt,name=board_id,json=boardId,proto3" json:"board_id,omitempty"`
-	// board_name is the board name recorded in every generated file.
-	BoardName string `protobuf:"bytes,4,opt,name=board_name,json=boardName,proto3" json:"board_name,omitempty"`
+	// board_name is absent when the board name is unresolved.
+	BoardName *string `protobuf:"bytes,4,opt,name=board_name,json=boardName,proto3,oneof" json:"board_name,omitempty"`
 	// revision is the canonical source revision represented by every file.
 	Revision uint64 `protobuf:"varint,5,opt,name=revision,proto3" json:"revision,omitempty"`
 	// selection is the normalized issue selection represented by the artifact.
@@ -392,8 +392,8 @@ func (x *DumpManifest) GetBoardId() string {
 }
 
 func (x *DumpManifest) GetBoardName() string {
-	if x != nil {
-		return x.BoardName
+	if x != nil && x.BoardName != nil {
+		return *x.BoardName
 	}
 	return ""
 }
@@ -596,19 +596,20 @@ const file_cardamom_private_v1_dump_proto_rawDesc = "" +
 	"\x04path\x18\x01 \x01(\tR\x04path\x12\x1a\n" +
 	"\bidentity\x18\x02 \x01(\tR\bidentity\x12\x1d\n" +
 	"\n" +
-	"size_bytes\x18\x03 \x01(\x04R\tsizeBytes\"\xc6\x02\n" +
+	"size_bytes\x18\x03 \x01(\x04R\tsizeBytes\"\xda\x02\n" +
 	"\fDumpManifest\x12\x1d\n" +
 	"\n" +
 	"project_id\x18\x01 \x01(\tR\tprojectId\x12!\n" +
 	"\fproject_name\x18\x02 \x01(\tR\vprojectName\x12\x19\n" +
-	"\bboard_id\x18\x03 \x01(\tR\aboardId\x12\x1d\n" +
+	"\bboard_id\x18\x03 \x01(\tR\aboardId\x12\"\n" +
 	"\n" +
-	"board_name\x18\x04 \x01(\tR\tboardName\x12\x1a\n" +
+	"board_name\x18\x04 \x01(\tH\x00R\tboardName\x88\x01\x01\x12\x1a\n" +
 	"\brevision\x18\x05 \x01(\x04R\brevision\x12@\n" +
 	"\tselection\x18\x06 \x01(\v2\".cardamom.private.v1.DumpSelectionR\tselection\x12\x1f\n" +
 	"\vissue_count\x18\a \x01(\rR\n" +
 	"issueCount\x12;\n" +
-	"\x05files\x18\b \x03(\v2%.cardamom.private.v1.DumpFileManifestR\x05files\"`\n" +
+	"\x05files\x18\b \x03(\v2%.cardamom.private.v1.DumpFileManifestR\x05filesB\r\n" +
+	"\v_board_name\"`\n" +
 	"\rDumpFileChunk\x12\x1d\n" +
 	"\n" +
 	"file_index\x18\x01 \x01(\rR\tfileIndex\x12\x16\n" +
@@ -673,6 +674,7 @@ func file_cardamom_private_v1_dump_proto_init() {
 		(*DumpSelection_WholeBoard)(nil),
 		(*DumpSelection_Issues)(nil),
 	}
+	file_cardamom_private_v1_dump_proto_msgTypes[5].OneofWrappers = []any{}
 	file_cardamom_private_v1_dump_proto_msgTypes[7].OneofWrappers = []any{
 		(*RenderDumpResponse_Manifest)(nil),
 		(*RenderDumpResponse_FileChunk)(nil),

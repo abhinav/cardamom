@@ -87,38 +87,6 @@ func (q *Queries) BoardListBlockIDs(ctx context.Context, arg BoardListBlockIDsPa
 	return items, nil
 }
 
-const boardListBlockedIssueIDs = `-- name: BoardListBlockedIssueIDs :many
-SELECT DISTINCT issue.id
-FROM dependencies AS dependency
-JOIN issues AS issue ON issue.uid = dependency.issue_uid
-JOIN issues AS prerequisite ON prerequisite.uid = dependency.prerequisite_uid
-WHERE dependency.board_id = ?1
-    AND prerequisite.lifecycle <> 'closed'
-`
-
-func (q *Queries) BoardListBlockedIssueIDs(ctx context.Context, boardID string) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, boardListBlockedIssueIDs, boardID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		items = append(items, id)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const boardListContainmentParents = `-- name: BoardListContainmentParents :many
 SELECT child.id AS child_id, parent.id AS parent_id
 FROM containment AS relation

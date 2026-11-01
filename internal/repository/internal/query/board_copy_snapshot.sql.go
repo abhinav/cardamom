@@ -33,7 +33,7 @@ WHERE board.id = ?1
 
 type BoardGetCopySourceRow struct {
 	BoardID                     string
-	BoardName                   string
+	BoardName                   *string
 	BoardDescription            *string
 	BoardCreatedAt              time.Time
 	ProjectIssueIDPrefix        *string
@@ -310,10 +310,10 @@ type BoardListCopyIssuePageParams struct {
 
 type BoardListCopyIssuePageRow struct {
 	ID            string
-	Title         string
-	Kind          string
-	Lifecycle     string
-	Priority      int64
+	Title         *string
+	Kind          *string
+	Lifecycle     *string
+	Priority      *int64
 	CreatedAt     time.Time
 	UpdatedAt     time.Time
 	ClosedAt      *time.Time
@@ -488,28 +488,37 @@ func (q *Queries) BoardListCopyLogEntryPage(ctx context.Context, arg BoardListCo
 }
 
 const boardListCopyPinPage = `-- name: BoardListCopyPinPage :many
-SELECT pin.position, issue.id AS issue_id
+SELECT pin.position, pin.issue_uid, issue.id AS issue_id
 FROM board_pins AS pin
 JOIN issues AS issue ON issue.uid = pin.issue_uid
 WHERE pin.board_id = ?1
-    AND pin.position > ?2
-ORDER BY pin.position
-LIMIT ?3
+    AND (pin.position > ?2
+        OR (pin.position = ?2
+            AND pin.issue_uid > ?3))
+ORDER BY pin.position, pin.issue_uid
+LIMIT ?4
 `
 
 type BoardListCopyPinPageParams struct {
 	BoardID       string
 	AfterPosition int64
+	AfterIssueUid []byte
 	PageSize      int64
 }
 
 type BoardListCopyPinPageRow struct {
 	Position int64
+	IssueUid []byte
 	IssueID  string
 }
 
 func (q *Queries) BoardListCopyPinPage(ctx context.Context, arg BoardListCopyPinPageParams) ([]BoardListCopyPinPageRow, error) {
-	rows, err := q.db.QueryContext(ctx, boardListCopyPinPage, arg.BoardID, arg.AfterPosition, arg.PageSize)
+	rows, err := q.db.QueryContext(ctx, boardListCopyPinPage,
+		arg.BoardID,
+		arg.AfterPosition,
+		arg.AfterIssueUid,
+		arg.PageSize,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -517,7 +526,7 @@ func (q *Queries) BoardListCopyPinPage(ctx context.Context, arg BoardListCopyPin
 	var items []BoardListCopyPinPageRow
 	for rows.Next() {
 		var i BoardListCopyPinPageRow
-		if err := rows.Scan(&i.Position, &i.IssueID); err != nil {
+		if err := rows.Scan(&i.Position, &i.IssueUid, &i.IssueID); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

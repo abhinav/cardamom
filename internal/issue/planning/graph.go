@@ -327,6 +327,9 @@ type ApplySnapshot struct {
 	// ExternalKeys maps producer identities to selected-board issues.
 	ExternalKeys map[ExternalKey]issue.ID
 
+	// ExternalKeyConflicts retains keys with no authoritative current owner.
+	ExternalKeyConflicts map[ExternalKey]string
+
 	// AllocatedIDs aligns commit-only identities with document entries.
 	AllocatedIDs []issue.ID
 
@@ -461,8 +464,9 @@ func (p *ApplyPolicy) ApplyDocument(document ApplyDocument) (DocumentApplied, er
 type ApplyDocument struct {
 	issues   []applyDocumentIssue
 	existing ApplyExistingPolicy
-	// summaryMaxBytes is the effective summary limit for changed values.
-	summaryMaxBytes configuration.ByteLimit
+	// summaryMaxBytes is required only when the document writes nonempty
+	// summary content; unrelated updates can preserve an unresolved limit.
+	summaryMaxBytes *configuration.ByteLimit
 }
 
 // ReferencedIssueIDs returns unique durable IDs named by document targets and
@@ -535,10 +539,10 @@ type applyNode struct {
 	id           issue.ID
 	existing     bool
 	state        issue.State
-	title        string
-	kind         issue.Kind
-	lifecycle    issue.Lifecycle
-	priority     issue.Priority
+	title        *string
+	kind         *issue.Kind
+	lifecycle    *issue.Lifecycle
+	priority     *issue.Priority
 	summary      string
 	details      string
 	labels       []issue.Label
@@ -651,8 +655,8 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 			}
 			plan.nodes = append(plan.nodes, applyNode{
 				uid: allocatedUID, id: allocatedID,
-				kind: issue.KindTask, lifecycle: issue.LifecycleOpen,
-				priority: issue.PriorityNormal, parent: -1,
+				kind: new(issue.KindTask), lifecycle: new(issue.LifecycleOpen),
+				priority: new(issue.PriorityNormal), parent: -1,
 			})
 		}
 		if previous, duplicate := targets[node]; duplicate {
@@ -709,7 +713,10 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 				entry.action = ApplyActionSkip
 				continue
 			case ApplyExistingUpdate:
-				if node.lifecycle != issue.LifecycleOpen || node.state.ActiveClaim() != nil {
+				if err := node.state.RequireResolved(issue.FieldLifecycle); err != nil {
+					return applyPlan{}, err
+				}
+				if *node.lifecycle != issue.LifecycleOpen || node.state.ActiveClaim() != nil {
 					return applyPlan{}, errkind.Errorf(
 						errkind.InvalidInput,
 						"issue %d: existing issue %q must be open and unclaimed",
@@ -729,7 +736,17 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 		if err := p.applyMetadata(node, input, entry, document.summaryMaxBytes); err != nil {
 			return applyPlan{}, fmt.Errorf("issue %d: %w", inputIndex+1, err)
 		}
+		if node.existing && entry.bindKey {
+			if err := node.state.RequireResolved(issue.FieldExternalKeys); err != nil {
+				return applyPlan{}, err
+			}
+		}
 		if input.labels != nil {
+			if node.existing {
+				if err := node.state.RequireResolved(issue.FieldLabels); err != nil {
+					return applyPlan{}, err
+				}
+			}
 			labels, err := uniqueLabels(*input.labels)
 			if err != nil {
 				return applyPlan{}, fmt.Errorf("issue %d: %w", inputIndex+1, err)
@@ -740,6 +757,11 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 			entry.writeLabels = true
 		}
 		if input.dependsOn != nil {
+			if node.existing {
+				if err := node.state.RequireResolved(issue.FieldDependencies); err != nil {
+					return applyPlan{}, err
+				}
+			}
 			dependencies, err := resolveReferences(
 				*input.dependsOn,
 				aliasNodes,
@@ -754,8 +776,15 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 				return applyPlan{}, errkind.Errorf(errkind.InvalidInput, "an issue cannot be its own dependency")
 			}
 			for _, dependency := range dependencies {
-				if plan.nodes[dependency].lifecycle == issue.LifecycleCancelled &&
-					!slices.Contains(node.dependencies, dependency) {
+				if slices.Contains(node.dependencies, dependency) {
+					continue
+				}
+				if plan.nodes[dependency].existing {
+					if err := plan.nodes[dependency].state.RequireResolved(issue.FieldLifecycle); err != nil {
+						return applyPlan{}, err
+					}
+				}
+				if *plan.nodes[dependency].lifecycle == issue.LifecycleCancelled {
 					return applyPlan{}, errkind.Errorf(
 						errkind.InvalidInput,
 						"issue %d: new dependency cannot target cancelled issue %q",
@@ -768,6 +797,11 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 			node.dependencies = dependencies
 		} else if !node.existing {
 			entry.writeDependencies = true
+		}
+		if node.existing && input.parent.kind != ParentUnchanged {
+			if err := node.state.RequireResolved(issue.FieldParent, issue.FieldLifecycle); err != nil {
+				return applyPlan{}, err
+			}
 		}
 		switch input.parent.kind {
 		case ParentUnchanged:
@@ -790,6 +824,11 @@ func (p *ApplyPolicy) plan(document ApplyDocument) (applyPlan, error) {
 			}
 			if parent == entry.node {
 				return applyPlan{}, errkind.Errorf(errkind.InvalidInput, "containment would create a cycle")
+			}
+			if plan.nodes[parent].existing {
+				if err := plan.nodes[parent].state.RequireResolved(issue.FieldKind, issue.FieldLifecycle); err != nil {
+					return applyPlan{}, err
+				}
 			}
 			entry.writeParent = node.parent != parent
 			node.parent = parent
@@ -846,6 +885,9 @@ func (p *ApplyPolicy) resolveTarget(
 	if input.key == nil {
 		return node, existing, false, nil
 	}
+	if conflictID, ok := p.snapshot.ExternalKeyConflicts[*input.key]; ok {
+		return -1, false, false, errkind.Errorf(errkind.Conflict, "external key %q is unresolved in conflict %s", *input.key, conflictID)
+	}
 	if id, ok := p.snapshot.ExternalKeys[*input.key]; ok {
 		keyNode, complete := indexByID[id]
 		if !complete {
@@ -872,28 +914,36 @@ func (p *ApplyPolicy) applyMetadata(
 	node *applyNode,
 	input applyDocumentIssue,
 	entry *applyEntryPlan,
-	summaryMaxBytes configuration.ByteLimit,
+	summaryMaxBytes *configuration.ByteLimit,
 ) error {
+	if node.existing {
+		if err := requireEditResolved(node.state, EditIssue{
+			Title: input.title, Kind: input.kind, Priority: input.priority,
+			SummarySet: input.summary != nil, DetailsSet: input.details != nil,
+		}); err != nil {
+			return err
+		}
+	}
 	if input.title != nil {
 		title := strings.TrimSpace(*input.title)
 		if title == "" {
 			return errkind.Errorf(errkind.InvalidInput, "invalid input: title required")
 		}
-		entry.writeIssue = entry.writeIssue || node.title != title
-		node.title = title
+		entry.writeIssue = entry.writeIssue || node.title == nil || *node.title != title
+		node.title = new(title)
 	}
 	if input.kind != nil {
 		if node.existing {
-			if err := validateKindTransition(node.kind, *input.kind, nil); err != nil {
+			if err := validateKindTransition(*node.kind, *input.kind, nil); err != nil {
 				return err
 			}
 		}
-		entry.writeIssue = entry.writeIssue || node.kind != *input.kind
-		node.kind = *input.kind
+		entry.writeIssue = entry.writeIssue || *node.kind != *input.kind
+		node.kind = new(*input.kind)
 	}
 	if input.priority != nil {
-		entry.writeIssue = entry.writeIssue || node.priority != *input.priority
-		node.priority = *input.priority
+		entry.writeIssue = entry.writeIssue || *node.priority != *input.priority
+		node.priority = new(*input.priority)
 	}
 	if input.summary != nil {
 		if err := validateSummary(*input.summary, summaryMaxBytes); err != nil {
@@ -909,39 +959,15 @@ func (p *ApplyPolicy) applyMetadata(
 	return nil
 }
 
-func (p applyPlan) validateGraph() error {
-	if dependencyCycle(p.nodes) {
-		return errkind.Errorf(errkind.InvalidInput, "dependency graph must remain acyclic")
-	}
-	if containmentCycle(p.nodes) {
-		return errkind.Errorf(errkind.InvalidInput, "containment would create a cycle")
-	}
-	children := make([]int, len(p.nodes))
-	for _, node := range p.nodes {
-		if node.parent < 0 {
-			continue
-		}
-		parent := p.nodes[node.parent]
-		children[node.parent]++
-		if node.lifecycle == issue.LifecycleOpen &&
-			(parent.lifecycle != issue.LifecycleOpen ||
-				parent.kind != issue.KindWorkstream && parent.kind != issue.KindRoutine) {
-			return errkind.Errorf(
-				errkind.InvalidInput,
-				"invalid input: open issue requires an open workstream or routine parent",
-			)
+func (p *applyPlan) validateGraph() error {
+	nodes := make([]relationNode, len(p.nodes))
+	for index, node := range p.nodes {
+		nodes[index] = relationNode{
+			name: node.id.String(), kind: node.kind, lifecycle: node.lifecycle,
+			dependencies: node.dependencies, parent: node.parent,
 		}
 	}
-	for node, childCount := range children {
-		if childCount > 0 && p.nodes[node].kind == issue.KindTask {
-			return errkind.Errorf(
-				errkind.InvalidInput,
-				"invalid input: task issue %q cannot contain children",
-				p.nodes[node].id,
-			)
-		}
-	}
-	return nil
+	return validateRelationGraph(nodes)
 }
 
 func (p *ApplyPolicy) materialize(
@@ -1025,7 +1051,7 @@ func (p *ApplyPolicy) materializeState(node applyNode, entry applyEntryPlan) (is
 	}
 	return issue.Load(issue.Snapshot{
 		UID: node.uid, ID: node.id, Title: node.title, Kind: node.kind,
-		Lifecycle: issue.LifecycleOpen, Priority: node.priority,
+		Lifecycle: new(issue.LifecycleOpen), Priority: node.priority,
 		Created: p.snapshot.OccurredAt, Updated: p.snapshot.OccurredAt,
 		Summary: node.summary, Details: node.details,
 	})
@@ -1099,40 +1125,6 @@ func resolveReference(
 	}
 }
 
-func dependencyCycle(nodes []applyNode) bool {
-	state := make([]uint8, len(nodes))
-	var visit func(int) bool
-	visit = func(node int) bool {
-		state[node] = 1
-		for _, dependency := range nodes[node].dependencies {
-			if state[dependency] == 1 || state[dependency] == 0 && visit(dependency) {
-				return true
-			}
-		}
-		state[node] = 2
-		return false
-	}
-	for node := range nodes {
-		if state[node] == 0 && visit(node) {
-			return true
-		}
-	}
-	return false
-}
-
-func containmentCycle(nodes []applyNode) bool {
-	for start := range nodes {
-		seen := make(map[int]struct{})
-		for node := start; node >= 0; node = nodes[node].parent {
-			if _, ok := seen[node]; ok {
-				return true
-			}
-			seen[node] = struct{}{}
-		}
-	}
-	return false
-}
-
 func equalLabelSet(left, right []issue.Label) bool {
 	left = slices.Clone(left)
 	right = slices.Clone(right)
@@ -1172,17 +1164,25 @@ func (p *Planner) ApplyDocument(
 	_ issue.Invocation,
 	req ApplyDocumentRequest,
 ) (ApplyReceipt, error) {
-	configuration, err := p.resolveConfiguration(ctx)
+	resolved, err := p.resolveConfiguration(ctx)
 	if err != nil {
 		return ApplyReceipt{}, err
 	}
-	command, err := applyDocumentCommand(req, configuration.Issue.Summary.MaxBytes)
+	for _, input := range req.Issues {
+		if input.Summary != nil && *input.Summary != "" {
+			if err := resolved.RequireResolved(configuration.FieldIssueSummaryMaxBytes); err != nil {
+				return ApplyReceipt{}, err
+			}
+			break
+		}
+	}
+	command, err := applyDocumentCommand(req, resolved.Issue.Summary.MaxBytes)
 	if err != nil {
 		return ApplyReceipt{}, err
 	}
 	out, err := p.changes.ApplyDocument(
 		ctx,
-		configuration.Issue.ID,
+		resolved.Issue.ID,
 		command,
 		req.Mode,
 	)
@@ -1199,7 +1199,7 @@ func (p *Planner) ApplyDocument(
 
 func applyDocumentCommand(
 	req ApplyDocumentRequest,
-	summaryMaxBytes configuration.ByteLimit,
+	summaryMaxBytes *configuration.ByteLimit,
 ) (ApplyDocument, error) {
 	if req.Version != 1 {
 		return ApplyDocument{}, errkind.Errorf(

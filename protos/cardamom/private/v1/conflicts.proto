@@ -1,0 +1,189 @@
+syntax = "proto3";
+
+package cardamom.private.v1;
+
+import "cardamom/private/v1/issue.proto";
+import "cardamom/private/v1/source.proto";
+import "google/protobuf/timestamp.proto";
+
+// ConflictScope selects one board, including its source in aggregate mode.
+message ConflictScope {
+  string board_id = 1;
+  optional SourceRef source = 2;
+}
+
+// ConflictUnit identifies one retained assignment family and its subjects.
+message ConflictUnit {
+  // kind is the maintained boardhistory assignment name, such as issue.title.set.
+  string kind = 1;
+  string issue_uid = 2;
+  string related_uid = 3;
+  string key = 4;
+}
+
+// ConflictIssue associates stable history identity with a current public reference.
+message ConflictIssue {
+  string uid = 1;
+  RelatedIssue issue = 2;
+}
+
+// ConflictOrigin identifies an authored assignment, not a derived merge result.
+message ConflictOrigin {
+  string writer = 1;
+  uint64 sequence = 2;
+  uint64 ordinal = 3;
+}
+
+// ConflictAlternative contains metadata only. Bodies are retrieved individually.
+message ConflictAlternative {
+  string id = 1;
+  ConflictUnit unit = 2;
+  repeated ConflictOrigin origins = 3;
+  // waiting_present identifies positive waiting contributors without their bodies.
+  bool waiting_present = 4;
+}
+
+// ConflictSummary describes a field conflict or a finite constraint violation.
+message ConflictSummary {
+  // id is the review token; changes to contenders change this identity.
+  string id = 1;
+  ConflictUnit unit = 2;
+  // constraint is empty for a field, or relationships or execution.
+  string constraint = 3;
+  repeated RelatedIssue issues = 4;
+  uint32 alternatives = 5;
+}
+
+// ConflictInspection lists reviewed assignments without eagerly reading bodies.
+message ConflictInspection {
+  ConflictSummary summary = 1;
+  repeated ConflictAlternative alternatives = 2;
+  repeated ConflictIssue issues = 3;
+}
+
+// ConflictText preserves absence separately from an explicitly empty string.
+message ConflictText { optional string text = 1; }
+// ConflictLimit preserves an inherited board setting as an absent override.
+message ConflictLimit { optional int64 value = 1; }
+// ConflictLifecycle preserves closure time with the lifecycle assignment.
+message ConflictLifecycle {
+  string lifecycle = 1;
+  google.protobuf.Timestamp closed_at = 2;
+}
+// ConflictWaiting has no reason or timestamp when waiting is cleared.
+message ConflictWaiting {
+  optional string reason = 1;
+  google.protobuf.Timestamp since = 2;
+}
+// ConflictState contains a retained recovery record; absence clears the record.
+message ConflictState {
+  optional string body = 1;
+  optional string author = 2;
+  google.protobuf.Timestamp updated_at = 3;
+  optional string snapshot_log_entry_id = 4;
+  optional string next_action = 5;
+}
+// ConflictCheckpoint preserves a competing decision and its explanation.
+message ConflictCheckpoint {
+  string outcome = 1;
+  google.protobuf.Timestamp decided_at = 2;
+  string reason = 3;
+}
+// ConflictMembership represents one label, dependency, parent, or key assignment.
+message ConflictMembership {
+  bool present = 1;
+  // issue_uid identifies the owner, including an external key's competing owner.
+  string issue_uid = 2;
+  // related_uid identifies the prerequisite or parent when applicable.
+  string related_uid = 3;
+}
+// ConflictPin preserves order for a present pin.
+message ConflictPin { bool present = 1; int64 position = 2; }
+// ConflictArchive is empty when the board is active.
+message ConflictArchive {
+  optional string actor = 1;
+  google.protobuf.Timestamp at = 2;
+}
+
+// ConflictValue is one typed retained body; Unit determines its semantic field.
+message ConflictValue {
+  ConflictUnit unit = 1;
+  repeated ConflictIssue issues = 2;
+  oneof value {
+    ConflictText text = 3;
+    string kind = 4;
+    ConflictLifecycle lifecycle = 5;
+    int32 priority = 6;
+    ConflictWaiting waiting = 7;
+    ConflictState state = 8;
+    ConflictCheckpoint checkpoint = 9;
+    ConflictMembership membership = 10;
+    ConflictPin pin = 11;
+    ConflictArchive archive = 12;
+    ConflictText override_text = 13;
+    ConflictLimit override_limit = 14;
+  }
+}
+
+message ListConflictsRequest {
+  ConflictScope scope = 1;
+  optional string issue_id = 2;
+  string after = 3;
+  uint32 limit = 4;
+}
+message ListConflictsResponse {
+  repeated ConflictSummary conflicts = 1;
+  string next = 2;
+}
+message GetConflictRequest { ConflictScope scope = 1; string conflict_id = 2; }
+message GetConflictResponse { ConflictInspection conflict = 1; }
+message GetConflictAlternativeRequest {
+  ConflictScope scope = 1;
+  string conflict_id = 2;
+  string alternative_id = 3;
+}
+message GetConflictAlternativeResponse { ConflictValue value = 1; }
+
+// ConflictParentSelection uses public IDs; an absent parent removes containment.
+message ConflictParentSelection {
+  string child_id = 1;
+  optional string parent_id = 2;
+}
+// ConflictRelationsRepair submits one compound repair against the reviewed token.
+message ConflictRelationsRepair {
+  repeated string remove = 1;
+  repeated ConflictParentSelection parents = 2;
+}
+// ConflictExecutionRepair requires a waiting decision and preserves omitted fields.
+message ConflictExecutionRepair {
+  // waiting is keep or clear. An empty value is not a default.
+  string waiting = 1;
+  string waiting_assignment = 2;
+  optional string kind = 3;
+  optional string lifecycle = 4;
+}
+message ResolveConflictRequest {
+  ConflictScope scope = 1;
+  string conflict_id = 2;
+  oneof choice {
+    string take = 3;
+    string text = 4;
+    ConflictRelationsRepair relations = 5;
+    ConflictExecutionRepair execution = 6;
+  }
+}
+message ResolveConflictResponse { string conflict_id = 1; int64 revision = 2; }
+
+// ConflictService inspects retained alternatives and resolves reviewed state.
+service ConflictService {
+  rpc ListConflicts(ListConflictsRequest) returns (ListConflictsResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc GetConflict(GetConflictRequest) returns (GetConflictResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc GetConflictAlternative(GetConflictAlternativeRequest) returns (GetConflictAlternativeResponse) {
+    option idempotency_level = NO_SIDE_EFFECTS;
+  }
+  rpc ResolveConflict(ResolveConflictRequest) returns (ResolveConflictResponse);
+}

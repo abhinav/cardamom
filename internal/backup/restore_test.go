@@ -241,7 +241,7 @@ func TestRestoreService_resumesAfterCommittedBoard(t *testing.T) {
 	boards, err := destination.projects.ListAllBoards(t.Context())
 	require.NoError(t, err)
 	require.Len(t, boards, 1)
-	assert.Equal(t, "Alpha board", boards[0].Name())
+	assert.Equal(t, new("Alpha board"), boards[0].Name())
 
 	failingBoards.fail = false
 	result, err := service.Restore(
@@ -434,7 +434,7 @@ func restoreTestBoardSnapshot(
 	secondaryIssueID := issueID + "-secondary"
 	attachmentID := "att_" + strings.Repeat(publication.suffix, 25) + "a"
 	resolved := configuration.Defaults()
-	resolved.Board.Pins.MaxCount = board.PinLimit(7)
+	resolved.Board.Pins.MaxCount = new(board.PinLimit(7))
 	return restoreBoardSnapshot{
 		SourceLineageID: "store_0123456789abcdef0123456789abcdef",
 		SourceRevision:  12,
@@ -536,7 +536,7 @@ func projectNames(values []*project.State) []string {
 func boardNames(values []*board.State) []string {
 	out := make([]string, 0, len(values))
 	for _, value := range values {
-		out = append(out, value.Name())
+		out = append(out, *value.Name())
 	}
 	return out
 }

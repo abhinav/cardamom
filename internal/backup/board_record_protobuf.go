@@ -516,13 +516,13 @@ func configurationFromProto(
 	return configuration.Configuration{
 		Issue: configuration.IssueConfiguration{
 			ID: configuration.IssueIDConfiguration{
-				Prefix: prefix, Strategy: strategy,
+				Prefix: &prefix, Strategy: &strategy,
 			},
-			Summary: configuration.SummaryConfiguration{MaxBytes: summaryMaxBytes},
+			Summary: configuration.SummaryConfiguration{MaxBytes: &summaryMaxBytes},
 		},
-		Attachment: configuration.AttachmentConfiguration{MaxBytes: attachmentMaxBytes},
+		Attachment: configuration.AttachmentConfiguration{MaxBytes: &attachmentMaxBytes},
 		Board: configuration.BoardConfiguration{
-			Pins: configuration.PinConfiguration{MaxCount: pinMaxCount},
+			Pins: configuration.PinConfiguration{MaxCount: &pinMaxCount},
 		},
 	}, nil
 }

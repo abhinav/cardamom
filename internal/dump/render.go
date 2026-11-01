@@ -12,6 +12,9 @@ import (
 	"slices"
 	"strings"
 	"time"
+
+	"go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/issue"
 )
 
 var safeIssuePath = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._-]*$`)
@@ -142,7 +145,21 @@ func (v *renderView) boardPage() []byte {
 	writeLine(&out, "")
 	writeLine(&out, "## Board description")
 	writeLine(&out, "")
-	writeAuthored(&out, v.snapshot.Description, "No board description.")
+	absence := "No board description."
+	for _, conflict := range v.snapshot.Conflicts {
+		if conflict.Field == board.FieldDescription {
+			absence = "Unresolved. See the conflict references below."
+		}
+	}
+	writeAuthored(&out, v.snapshot.Description, absence)
+	if len(v.snapshot.Conflicts) > 0 {
+		writeLine(&out, "## Unresolved board values")
+		writeLine(&out, "")
+		for _, conflict := range v.snapshot.Conflicts {
+			writeLine(&out, "- "+escapeText(conflict.Field.String())+": "+code(conflict.ID))
+		}
+		writeLine(&out, "")
+	}
 	writeLine(&out, "## Lifecycle summary")
 	writeLine(&out, "")
 	counts := map[string]int{}
@@ -157,6 +174,7 @@ func (v *renderView) boardPage() []byte {
 	writeLine(&out, fmt.Sprintf("| Waiting | %d |", counts["waiting"]))
 	writeLine(&out, fmt.Sprintf("| Closed | %d |", counts["closed"]))
 	writeLine(&out, fmt.Sprintf("| Cancelled | %d |", counts["cancelled"]))
+	writeLine(&out, fmt.Sprintf("| Unresolved | %d |", counts["unresolved"]))
 	writeLine(&out, "")
 	writeLine(&out, "## Containment")
 	writeLine(&out, "")
@@ -178,9 +196,9 @@ func (v *renderView) boardPage() []byte {
 			if issue.Assignee != nil {
 				assignee = escapeTable(*issue.Assignee)
 			}
-			writeLine(&out, fmt.Sprintf("| [%s](%s) | %s | %s | %s | %d | %s |",
-				escapeText(issue.ID), canonicalIssuePath(issue), escapeTable(issue.Title),
-				escapeTable(issue.Type), escapeTable(issue.Status), issue.Priority, assignee))
+			writeLine(&out, fmt.Sprintf("| [%s](%s) | %s | %s | %s | %s | %s |",
+				escapeText(issue.ID), canonicalIssuePath(issue), escapeTable(issueTitle(issue.Title)),
+				escapeTable(requiredValue(issue.Type)), escapeTable(issue.Status), requiredValue(issue.Priority), assignee))
 		}
 	}
 	return finishMarkdown(out.Bytes())
@@ -227,58 +245,70 @@ func (v *renderView) writeContainmentTree(out *bytes.Buffer) {
 	writeLine(out, "")
 }
 
-func (v *renderView) issuePage(issue Issue) []byte {
+func (v *renderView) issuePage(record Issue) []byte {
 	var out bytes.Buffer
 	if v.snapshot.Selection.Mode == SelectionWholeBoard {
 		writeLine(&out, "[Board dump](../README.md)")
 		writeLine(&out, "")
 	}
-	writeLine(&out, "# "+escapeText(issue.ID)+": "+escapeText(issue.Title))
+	writeLine(&out, "# "+escapeText(record.ID)+": "+escapeText(issueTitle(record.Title)))
 	writeLine(&out, "")
 	writeLine(&out, "| Field | Value |")
 	writeLine(&out, "| --- | --- |")
-	writeLine(&out, "| Type | "+escapeTable(issue.Type)+" |")
-	writeLine(&out, "| Status | "+escapeTable(issue.Status)+" |")
-	writeLine(&out, fmt.Sprintf("| Priority | %d |", issue.Priority))
-	writeLine(&out, "| Assignee | "+optionalTable(issue.Assignee)+" |")
-	writeLine(&out, "| Created | "+timestamp(issue.Created)+" |")
-	writeLine(&out, "| Updated | "+timestamp(issue.Updated)+" |")
-	writeLine(&out, "| Started | "+optionalTimestamp(issue.StartedAt)+" |")
-	writeLine(&out, "| Closed | "+optionalTimestamp(issue.Closed)+" |")
-	writeLine(&out, fmt.Sprintf("| Revision | %d |", issue.Revision))
-	writeLine(&out, "| Labels | "+labelsText(issue.Labels)+" |")
+	writeLine(&out, "| Type | "+escapeTable(requiredValue(record.Type))+" |")
+	writeLine(&out, "| Status | "+escapeTable(record.Status)+" |")
+	writeLine(&out, fmt.Sprintf("| Priority | %s |", requiredValue(record.Priority)))
+	writeLine(&out, "| Assignee | "+optionalTable(record.Assignee)+" |")
+	writeLine(&out, "| Created | "+timestamp(record.Created)+" |")
+	writeLine(&out, "| Updated | "+timestamp(record.Updated)+" |")
+	writeLine(&out, "| Started | "+optionalTimestamp(record.StartedAt)+" |")
+	writeLine(&out, "| Closed | "+optionalTimestamp(record.Closed)+" |")
+	writeLine(&out, fmt.Sprintf("| Revision | %d |", record.Revision))
+	writeLine(&out, "| Labels | "+labelsText(record.Labels)+" |")
 
-	writeSection(&out, "Summary", issue.Summary, "None.")
-	writeSection(&out, "Details", issue.Details, "None.")
-	writeSection(&out, "Current state", issue.State, "None.")
-	if issue.NextAction != nil {
+	if len(record.Conflicts) > 0 {
+		writeLine(&out, "")
+		writeLine(&out, "## Unresolved values")
+		writeLine(&out, "")
+		for _, conflict := range record.Conflicts {
+			member := ""
+			if conflict.Key != "" {
+				member = " (" + conflict.Key + ")"
+			}
+			writeLine(&out, "- "+escapeText(conflict.Field.String()+member)+": "+code(conflict.ID))
+		}
+	}
+	writeSection(&out, "Summary", record.Summary, conflictAbsence(record, issue.FieldSummary))
+	writeSection(&out, "Details", record.Details, conflictAbsence(record, issue.FieldDetails))
+	writeSection(&out, "Current state", record.State, conflictAbsence(record, issue.FieldState))
+	if record.NextAction != nil || hasConflict(record, issue.FieldState) {
 		writeLine(&out, "**Next action**")
 		writeLine(&out, "")
-		writeAuthored(&out, issue.NextAction, "None.")
+		writeAuthored(&out, record.NextAction, conflictAbsence(record, issue.FieldState))
 	}
 	var result *string
 	for _, item := range v.snapshot.Results {
-		if item.IssueID == issue.ID {
+		if item.IssueID == record.ID {
 			result = &item.Body
 			break
 		}
 	}
-	writeSection(&out, "Result", result, "None.")
+	writeSection(&out, "Result", result, conflictAbsence(record, issue.FieldResult))
 	writeLine(&out, "## Graph context")
 	writeLine(&out, "")
-	v.writeRelation(&out, "Containment parent", issue.ID, relationContainmentParent)
-	v.writeRelation(&out, "Containment children", issue.ID, relationContainmentChildren)
-	v.writeRelation(&out, "Depends on", issue.ID, relationDependsOn)
-	v.writeRelation(&out, "Blocks", issue.ID, relationBlocks)
+	v.writeRelation(&out, "Containment parent", record.ID, relationContainmentParent)
+	v.writeRelation(&out, "Containment children", record.ID, relationContainmentChildren)
+	v.writeRelation(&out, "Depends on", record.ID, relationDependsOn)
+	v.writeRelation(&out, "Blocks", record.ID, relationBlocks)
 	if v.snapshot.Selection.Descendants == IncludeDescendants {
-		v.writeDescendantSummary(&out, issue.ID)
+		v.writeDescendantSummary(&out, record.ID)
 	}
 
 	writeLine(&out, "## Log")
 	writeLine(&out, "")
 	logEntryCount := 0
 	for _, logEntry := range v.snapshot.LogEntries {
-		if logEntry.IssueID != issue.ID {
+		if logEntry.IssueID != record.ID {
 			continue
 		}
 		logEntryCount++
@@ -500,7 +530,7 @@ func canonicalIssuePath(issue Issue) string {
 }
 
 func issueLink(issue Issue, prefix string) string {
-	return fmt.Sprintf("[%s: %s](%s%s)", escapeText(issue.ID), escapeText(issue.Title), prefix, canonicalIssuePath(issue))
+	return fmt.Sprintf("[%s: %s](%s%s)", escapeText(issue.ID), escapeText(issueTitle(issue.Title)), prefix, canonicalIssuePath(issue))
 }
 
 func writeSection(out *bytes.Buffer, heading string, body *string, absent string) {
@@ -598,4 +628,31 @@ func escapeText(value string) string {
 		out.WriteRune(character)
 	}
 	return out.String()
+}
+
+// issueTitle supplies readable identity when a conflict leaves the title absent.
+func issueTitle(title *string) string {
+	if title == nil {
+		return "Unresolved title"
+	}
+	return *title
+}
+
+// requiredValue renders a required projection without inventing a current value.
+func requiredValue[T any](value *T) string {
+	if value == nil {
+		return "unresolved"
+	}
+	return fmt.Sprint(*value)
+}
+
+func hasConflict(record Issue, field issue.Field) bool {
+	return slices.ContainsFunc(record.Conflicts, func(ref issue.ConflictReference) bool { return ref.Field == field })
+}
+
+func conflictAbsence(record Issue, field issue.Field) string {
+	if hasConflict(record, field) {
+		return "Unresolved. See the conflict references above."
+	}
+	return "None."
 }

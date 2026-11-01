@@ -17,9 +17,9 @@ type searchCommand struct {
 	Literal       bool       `name:"literal" help:"Treat the complete query as one literal phrase."`
 	Fields        []string   `name:"in" sep:"," enum:"title,summary,details,state,result,log" placeholder:"FIELD" help:"Search only these fields. Repeat or separate values with commas."`
 	UnderID       issueID    `name:"under" predictor:"issues" placeholder:"ISSUE" help:"Match strict containment descendants of this issue."`
-	Statuses      []string   `name:"status" sep:"," enum:"ready,blocked,in_progress,waiting,closed,cancelled" placeholder:"STATUS" help:"Effective issue status to include. Repeat or separate values with commas."`
+	Statuses      []string   `name:"status" sep:"," enum:"ready,blocked,in_progress,waiting,closed,cancelled,unresolved" placeholder:"STATUS" help:"Effective issue status to include. Repeat or separate values with commas."`
 	Assignee      *string    `name:"assignee" placeholder:"ACTOR" help:"Match active custody by this actor."`
-	Type          string     `name:"type" placeholder:"TYPE" help:"Match one issue type: workstream, task, checkpoint, or routine."`
+	Type          string     `name:"type" placeholder:"TYPE" help:"Match one issue type: workstream, task, checkpoint, routine, or unresolved."`
 	Labels        labelTerms `name:"label" predictor:"labels" placeholder:"TERM" help:"Label term. No prefix or + requires; - excludes. Repeat for multiple labels."`
 	LabelsAny     []string   `name:"label-any" placeholder:"LABEL" help:"Match issues carrying at least one supplied label. Repeat for alternatives."`
 	NoAssignee    bool       `name:"no-assignee" help:"Match issues without active custody."`
@@ -72,7 +72,7 @@ func (c *searchCommand) request() (issue.SearchRequest, error) {
 		return issue.SearchRequest{}, UsageErrorf("--limit must not be negative")
 	}
 	if c.Type != "" && !slices.Contains(
-		[]string{"workstream", "task", "checkpoint", "routine"},
+		[]string{"workstream", "task", "checkpoint", "routine", "unresolved"},
 		c.Type,
 	) {
 		return issue.SearchRequest{}, UsageErrorf("unsupported issue type %q", c.Type)
@@ -234,7 +234,7 @@ func writeSearchResult(output *Output, result issue.SearchResult) error {
 			match.Summary.Issue.ID,
 			match.Summary.Issue.Status,
 			strings.Join(fields, ","),
-			singleLine(match.Summary.Issue.Title),
+			issueTitle(match.Summary.Issue.Title),
 		); err != nil {
 			return fmt.Errorf("write search match: %w", err)
 		}

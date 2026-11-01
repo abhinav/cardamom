@@ -27,12 +27,14 @@ type commandTree struct {
 	Apply  applyCommand     `cmd:"" group:"planning" help:"Apply an issue graph from JSON."`
 	Edit   issueEditCommand `cmd:"" group:"planning" help:"Edit issue metadata and graph relationships."`
 
-	List    listCommand    `cmd:"" group:"inspection" help:"List issues."`
-	Search  searchCommand  `cmd:"" group:"inspection" help:"Search issue text."`
-	Ready   readyCommand   `cmd:"" group:"inspection" help:"List ready and waiting work."`
-	Blocked blockedCommand `cmd:"" group:"inspection" help:"List issues with open dependencies."`
-	Show    showCommand    `cmd:"" group:"inspection" help:"Show details for one issue."`
-	Dump    dumpCommand    `cmd:"" group:"inspection" help:"Publish a human-readable Markdown dump."`
+	List      listCommand      `cmd:"" group:"inspection" help:"List issues."`
+	Search    searchCommand    `cmd:"" group:"inspection" help:"Search issue text."`
+	Ready     readyCommand     `cmd:"" group:"inspection" help:"List ready and waiting work."`
+	Blocked   blockedCommand   `cmd:"" group:"inspection" help:"List issues with open dependencies."`
+	Show      showCommand      `cmd:"" group:"inspection" help:"Show details for one issue."`
+	Conflicts conflictsCommand `cmd:"" group:"inspection" help:"Inspect unresolved issue and board edits."`
+	Resolve   resolveCommand   `cmd:"" group:"planning" help:"Resolve reviewed conflict alternatives or constraints."`
+	Dump      dumpCommand      `cmd:"" group:"inspection" help:"Publish a human-readable Markdown dump."`
 
 	Claim      claimCommand      `cmd:"" group:"execution" help:"Claim ready work or a specific issue."`
 	Release    releaseCommand    `cmd:"" group:"execution" help:"Release custody held by the current actor."`

@@ -352,6 +352,12 @@ export function useIssueQueries(streams: readonly IssueStream[]): IssuePages {
   const cancelled = useIssueQuerySlot(
     byKey.get(`status:${IssueStatus.CANCELLED}`),
   );
+  const unresolved = useIssueQuerySlot(
+    byKey.get(`status:${IssueStatus.UNRESOLVED}`),
+  );
+  const unknownType = useIssueQuerySlot(
+    byKey.get(`type:${IssueType.UNSPECIFIED}`),
+  );
   const workstreams = useIssueQuerySlot(
     byKey.get(`type:${IssueType.WORKSTREAM}`),
   );
@@ -368,6 +374,8 @@ export function useIssueQueries(streams: readonly IssueStream[]): IssuePages {
     waiting,
     closed,
     cancelled,
+    unresolved,
+    unknownType,
     workstreams,
     tasks,
     checkpoints,

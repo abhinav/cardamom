@@ -36,7 +36,7 @@ func TestCloneRepositoryPreservesSharedStateAndHistory(t *testing.T) {
 	out, err := cloner.Clone(t.Context(), boardclone.Request{BoardID: "board-source", ProjectID: "project-destination"})
 	require.NoError(t, err)
 	assert.Equal(t, boardclone.Result{
-		BoardID: "board-source", Name: "Source", ProjectID: "project-destination",
+		BoardID: "board-source", Name: new("Source"), ProjectID: "project-destination",
 		Issues: 4, Mutations: 2, Blobs: 2,
 	}, out)
 	assertCloneSharedProjection(t, source, destination)

@@ -16,7 +16,7 @@ func (r *Repository) ReadDumpSnapshot(ctx context.Context) (dump.BoardSnapshot, 
 	}
 	out := dump.BoardSnapshot{
 		BoardID: r.boardID.String(), Revision: snapshot.revision,
-		Description:  snapshot.description,
+		Description: snapshot.description, Conflicts: snapshot.conflicts,
 		Issues:       make([]dump.Issue, 0, len(snapshot.issues)),
 		Dependencies: make([]dump.Dependency, 0, len(snapshot.dependencies)),
 		Containment:  make([]dump.Containment, 0, len(snapshot.containment)),
@@ -26,7 +26,7 @@ func (r *Repository) ReadDumpSnapshot(ctx context.Context) (dump.BoardSnapshot, 
 	for _, value := range snapshot.issues {
 		projection := value.projection
 		out.Issues = append(out.Issues, dump.Issue{
-			ID: projection.ID, Title: projection.Title, Type: projection.Type,
+			ID: projection.ID, Title: projection.Title, Type: projection.Type, Conflicts: projection.Conflicts,
 			Status: projection.Status, Priority: projection.Priority,
 			Assignee: projection.Assignee, Created: projection.Created,
 			Updated: projection.Updated, StartedAt: projection.StartedAt,

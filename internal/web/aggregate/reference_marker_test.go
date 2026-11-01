@@ -11,7 +11,7 @@ import (
 )
 
 func TestAggregateRetainsMarkerOnOldBoardRoute(t *testing.T) {
-	board := &v1.BoardSummary{Id: "board-old", ProjectId: "project", Name: "Original board"}
+	board := &v1.BoardSummary{Id: "board-old", ProjectId: "project", Name: new("Original board")}
 	server := newConfiguredSourceServer(t, &sourceHandler{
 		bootstrap: sourceBootstrap(board, true),
 		issue: func(_ context.Context, _ *connect.Request[v1.GetIssueRequest]) (*connect.Response[v1.GetIssueResponse], error) {

@@ -253,7 +253,7 @@ type BoardReadIssueResultParams struct {
 
 type BoardReadIssueResultRow struct {
 	ID    string
-	Title string
+	Title *string
 	Body  string
 }
 

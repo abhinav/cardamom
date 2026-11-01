@@ -25,7 +25,7 @@ func TestServiceRenderDumpStreamsManifestThenCanonicalFiles(t *testing.T) {
 	result := dump.RenderedDump{
 		Provenance: dump.Provenance{
 			ProjectID: "project-1", ProjectName: "Project one",
-			BoardID: "board-1", BoardName: "Board one",
+			BoardID: "board-1", BoardName: new("Board one"),
 		},
 		Revision:   12,
 		Selection:  dump.NamedIssuesOnly("an-a", "an-c"),

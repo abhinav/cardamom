@@ -4,6 +4,7 @@ package board
 
 import (
 	"errors"
+	"slices"
 	"strings"
 	"time"
 
@@ -55,17 +56,22 @@ type Snapshot struct {
 	// ProjectID identifies the project containing the board.
 	ProjectID string
 
-	// Name is the user-visible board name.
-	Name string
+	// Name is the user-visible board name, or nil while unresolved.
+	Name *string
 
-	// Description is the optional Markdown source shared by the board.
+	// Description is optional board Markdown. Conflicts distinguishes an
+	// unresolved description from an absent one.
 	Description *string
 
 	// Created records when the board was established.
 	Created time.Time
 
 	// Archived records the board's logical archive state, when present.
+	// Nil means active only when FieldArchive is resolved.
 	Archived *Archive
+
+	// Conflicts identify settings without authoritative current values.
+	Conflicts []ConflictReference
 }
 
 // State is an explicitly established coordination context within a project.
@@ -78,7 +84,7 @@ type State struct {
 	projectID string
 
 	// name is the normalized user-visible board name.
-	name string
+	name *string
 
 	// description owns a copy of the optional Markdown source.
 	description *string
@@ -88,6 +94,9 @@ type State struct {
 
 	// archived owns a copy of the optional logical archive metadata.
 	archived *Archive
+
+	// conflicts retain the cause of each absent disputed value.
+	conflicts []ConflictReference
 }
 
 // Load validates and restores one persisted board state.
@@ -99,8 +108,11 @@ func Load(snapshot Snapshot) (*State, error) {
 	if projectID == "" || strings.ContainsAny(projectID, " \t\r\n") {
 		return nil, errkind.Errorf(errkind.InvalidInput, "invalid project namespace: project identity required")
 	}
-	name := strings.TrimSpace(snapshot.Name)
-	if name == "" {
+	var name *string
+	if snapshot.Name != nil {
+		name = new(strings.TrimSpace(*snapshot.Name))
+	}
+	if name != nil && *name == "" {
 		return nil, errkind.Errorf(errkind.InvalidInput, "invalid project namespace: board name required")
 	}
 	if snapshot.Created.IsZero() {
@@ -113,14 +125,34 @@ func Load(snapshot Snapshot) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &State{
+	state := &State{
 		id:          snapshot.ID,
 		projectID:   projectID,
 		name:        name,
 		description: cloneString(snapshot.Description),
 		created:     snapshot.Created,
 		archived:    archived,
-	}, nil
+		conflicts:   slices.Clone(snapshot.Conflicts),
+	}
+	for _, reference := range state.conflicts {
+		if strings.TrimSpace(reference.ID) == "" || reference.Field.String() == "" {
+			return nil, errkind.Errorf(errkind.InvalidInput, "invalid board conflict reference")
+		}
+	}
+	if state.Unresolved(FieldName) {
+		if name != nil {
+			return nil, errkind.Errorf(errkind.InvalidInput, "unresolved board name must be absent")
+		}
+	} else if name == nil {
+		return nil, errkind.Errorf(errkind.InvalidInput, "board name is required when resolved")
+	}
+	if state.Unresolved(FieldDescription) && state.description != nil {
+		return nil, errkind.Errorf(errkind.InvalidInput, "unresolved board description must be absent")
+	}
+	if state.Unresolved(FieldArchive) && state.archived != nil {
+		return nil, errkind.Errorf(errkind.InvalidInput, "unresolved board archive state must be absent")
+	}
+	return state, nil
 }
 
 // ID returns the board's stable identity.
@@ -129,21 +161,50 @@ func (b *State) ID() ID { return b.id }
 // ProjectID returns the project containing the board.
 func (b *State) ProjectID() string { return b.projectID }
 
-// Name returns the user-visible board name.
-func (b *State) Name() string { return b.name }
+// Name returns the user-visible board name, or nil while unresolved.
+func (b *State) Name() *string { return cloneString(b.name) }
 
-// Description returns a copy of the board's Markdown source, or nil when unset.
+// Description returns the Markdown source, or nil when unset or unresolved.
+// Unresolved distinguishes an absent description from a disputed one.
 func (b *State) Description() *string { return cloneString(b.description) }
 
 // Created returns when the board was established.
 func (b *State) Created() time.Time { return b.created }
 
-// Archived returns a copy of the archive metadata, or nil when active.
+// Archived returns archive metadata, or nil when active or unresolved.
+// Unresolved(FieldArchive) distinguishes an active board from a disputed state.
 func (b *State) Archived() *Archive { return cloneArchive(b.archived) }
 
-// RequireMutable returns ErrArchived while the board is archived. Callers must
-// invoke it before changing state.
+// Conflicts returns the retained references for unresolved board settings.
+func (b *State) Conflicts() []ConflictReference { return slices.Clone(b.conflicts) }
+
+// Unresolved reports whether a setting has no authoritative current value.
+func (b *State) Unresolved(field Field) bool {
+	for _, reference := range b.conflicts {
+		if reference.Field == field {
+			return true
+		}
+	}
+	return false
+}
+
+// RequireResolved rejects operations that consume a disputed setting.
+// Unrelated fields remain usable while a conflict is awaiting resolution.
+func (b *State) RequireResolved(fields ...Field) error {
+	for _, reference := range b.conflicts {
+		if slices.Contains(fields, reference.Field) {
+			return errkind.Errorf(errkind.Conflict, "board setting %q is unresolved (conflict %s)", reference.Field.String(), reference.ID)
+		}
+	}
+	return nil
+}
+
+// RequireMutable rejects archived boards and unresolved archive state.
+// Callers must invoke it before changing state.
 func (b *State) RequireMutable() error {
+	if err := b.RequireResolved(FieldArchive); err != nil {
+		return err
+	}
 	if b.archived != nil {
 		return ErrArchived
 	}
@@ -153,6 +214,9 @@ func (b *State) RequireMutable() error {
 // ArchiveBoard records the first archive transition. Repeated calls preserve
 // the existing metadata and report false without validating replacement input.
 func (b *State) ArchiveBoard(actor string, at time.Time, reason *string) (bool, error) {
+	if err := b.RequireResolved(FieldArchive); err != nil {
+		return false, err
+	}
 	if b.archived != nil {
 		return false, nil
 	}
@@ -165,13 +229,17 @@ func (b *State) ArchiveBoard(actor string, at time.Time, reason *string) (bool, 
 }
 
 // Unarchive clears the current archive metadata. It reports false without
-// changing an already active board.
-func (b *State) Unarchive() bool {
+// changing an already active board. Unresolved archive state requires conflict
+// resolution before either archive transition.
+func (b *State) Unarchive() (bool, error) {
+	if err := b.RequireResolved(FieldArchive); err != nil {
+		return false, err
+	}
 	if b.archived == nil {
-		return false
+		return false, nil
 	}
 	b.archived = nil
-	return true
+	return true, nil
 }
 
 // SettingsEdit selects settings changed by one atomic board operation.
@@ -205,15 +273,21 @@ func (b *State) EditSettings(edit SettingsEdit) (*State, error) {
 	if edit.Name == nil && edit.Description == nil {
 		return nil, errkind.Errorf(errkind.InvalidInput, "invalid project namespace: board setting required")
 	}
-	name := b.name
+	name := cloneString(b.name)
 	if edit.Name != nil {
-		name = strings.TrimSpace(*edit.Name)
-		if name == "" {
+		if err := b.RequireResolved(FieldName); err != nil {
+			return nil, err
+		}
+		name = new(strings.TrimSpace(*edit.Name))
+		if *name == "" {
 			return nil, errkind.Errorf(errkind.InvalidInput, "invalid project namespace: board name required")
 		}
 	}
 	description := cloneString(b.description)
 	if edit.Description != nil {
+		if err := b.RequireResolved(FieldDescription); err != nil {
+			return nil, err
+		}
 		description = cloneString(edit.Description.replacement)
 		if description != nil && strings.TrimSpace(*description) == "" {
 			return nil, errkind.Errorf(errkind.InvalidInput, "invalid project namespace: board description required")
@@ -226,6 +300,7 @@ func (b *State) EditSettings(edit SettingsEdit) (*State, error) {
 		description: description,
 		created:     b.created,
 		archived:    cloneArchive(b.archived),
+		conflicts:   slices.Clone(b.conflicts),
 	}, nil
 }
 

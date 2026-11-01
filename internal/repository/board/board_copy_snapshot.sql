@@ -145,10 +145,12 @@ ORDER BY issue.id
 LIMIT sqlc.arg(page_size);
 
 -- name: BoardListCopyPinPage :many
-SELECT pin.position, issue.id AS issue_id
+SELECT pin.position, pin.issue_uid, issue.id AS issue_id
 FROM board_pins AS pin
 JOIN issues AS issue ON issue.uid = pin.issue_uid
 WHERE pin.board_id = sqlc.arg(board_id)
-    AND pin.position > sqlc.arg(after_position)
-ORDER BY pin.position
+    AND (pin.position > sqlc.arg(after_position)
+        OR (pin.position = sqlc.arg(after_position)
+            AND pin.issue_uid > sqlc.arg(after_issue_uid)))
+ORDER BY pin.position, pin.issue_uid
 LIMIT sqlc.arg(page_size);

@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	domainboard "go.abhg.dev/cardamom/internal/board"
+	"go.abhg.dev/cardamom/internal/boardhistory"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/issue/execution"
 	"go.abhg.dev/cardamom/internal/issue/planning"
@@ -136,7 +137,7 @@ func TestRepositoryPinsPreserveOrderAndAdmissionInvariant(t *testing.T) {
 	first, err := repository.PinIssue(t.Context(), issue.ID("task-1"), limit)
 	require.NoError(t, err)
 	assert.True(t, first.Changed)
-	assert.Equal(t, "First", first.Issue.Title)
+	assert.Equal(t, new("First"), first.Issue.Title)
 	cursorAfterFirst, err := repository.ReadChangeCursor(t.Context())
 	require.NoError(t, err)
 	assert.Greater(t, cursorAfterFirst.Revision, cursorBeforePin.Revision)
@@ -238,5 +239,48 @@ func TestRepositoryIssueContextIncludesPinnedIssueIDsAndTitles(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotNil(t, view.Context)
-	assert.Equal(t, []issue.PinnedIssue{{ID: "task-2", Title: "Pinned"}}, view.Context.Pins)
+	assert.Equal(t, []issue.PinnedIssue{{ID: "task-2", Title: new("Pinned")}}, view.Context.Pins)
+}
+
+func TestRepositoryPinMutationsRequireResolvedMembership(t *testing.T) {
+	repository := openBoardRepository(t, Config{BoardID: mustBoardID(t, "board-test"), IDPrefix: "pin-", IDStrategy: "sequential"})
+	_, err := planning.NewPlanner(repository, repository, nil).CreateIssue(t.Context(), issue.NewInvocation("planner"), planning.CreateIssueRequest{Title: "Possibly pinned", Type: "task"})
+	require.NoError(t, err)
+	installPresentationConflict(t, repository, "pin-conflict", boardhistory.EventBoardPin, "pin-1", issue.FieldPins)
+	before, err := repository.ReadChangeCursor(t.Context())
+	require.NoError(t, err)
+	limit, err := domainboard.NewPinLimit(8)
+	require.NoError(t, err)
+	_, err = repository.PinIssue(t.Context(), issue.ID("pin-1"), limit)
+	require.ErrorContains(t, err, "pin-conflict")
+	_, err = repository.UnpinIssue(t.Context(), issue.ID("pin-1"))
+	require.ErrorContains(t, err, "pin-conflict")
+	after, err := repository.ReadChangeCursor(t.Context())
+	require.NoError(t, err)
+	assert.Equal(t, before, after)
+	pins, err := repository.ListPins(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, pins)
+}
+
+func TestRepositoryNewPinRequiresOtherMembershipsResolved(t *testing.T) {
+	repository := openBoardRepository(t, Config{BoardID: mustBoardID(t, "board-test"), IDPrefix: "pin-", IDStrategy: "sequential"})
+	planner := planning.NewPlanner(repository, repository, nil)
+	for _, title := range []string{"Known pin", "Uncertain pin", "New pin"} {
+		_, err := planner.CreateIssue(t.Context(), issue.NewInvocation("planner"), planning.CreateIssueRequest{Title: title, Type: "task"})
+		require.NoError(t, err)
+	}
+	limit, err := domainboard.NewPinLimit(8)
+	require.NoError(t, err)
+	_, err = repository.PinIssue(t.Context(), issue.ID("pin-1"), limit)
+	require.NoError(t, err)
+	installPresentationConflict(t, repository, "other-pin-conflict", boardhistory.EventBoardPin, "pin-2", issue.FieldPins)
+	_, err = repository.PinIssue(t.Context(), issue.ID("pin-3"), limit)
+	require.ErrorContains(t, err, "other-pin-conflict")
+	unchanged, err := repository.PinIssue(t.Context(), issue.ID("pin-1"), limit)
+	require.NoError(t, err)
+	assert.False(t, unchanged.Changed)
+	removed, err := repository.UnpinIssue(t.Context(), issue.ID("pin-1"))
+	require.NoError(t, err)
+	assert.True(t, removed.Changed)
 }

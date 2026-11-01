@@ -63,7 +63,9 @@ func TestClonePreservesReferenceMarkersWithoutOtherBoard(t *testing.T) {
 
 	change, err := destination.Change(t.Context())
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, change.Done()) })
+	// Roll back before testing cancels t.Context.
+	// Otherwise database/sql can roll it back before cleanup.
+	defer func() { assert.NoError(t, change.Done()) }()
 	_, err = change.ExecContext(t.Context(), "UPDATE issues SET id=? WHERE uid=?", marker.ID.String(), marker.Candidates[0].UID.Bytes())
 	assert.ErrorContains(t, err, "retired reference")
 }

@@ -221,3 +221,7 @@ WHERE board_id = sqlc.arg(board_id)
     AND writer_uid = sqlc.arg(writer_uid)
     AND sequence = sqlc.arg(previous_sequence)
     AND marker_hash = sqlc.arg(previous_hash);
+
+-- name: BoardHistoryReadMarker :one
+SELECT marker_bytes FROM board_mutation_commits
+WHERE board_id = sqlc.arg(board_id) AND writer_uid = sqlc.arg(writer_uid) AND sequence = sqlc.arg(sequence);

@@ -68,12 +68,14 @@ func (e *Encoder) Summary(
 	return &privatev1.IssueSummary{
 		Id: value.Issue.ID, BoardId: boardID.String(), Title: value.Issue.Title,
 		Type: kind, Lifecycle: lifecycle, Status: status,
-		Priority: int32(value.Issue.Priority), ActiveClaim: activeClaim,
+		Priority: optionalPriority(value.Issue.Priority), ActiveClaim: activeClaim,
 		CreatedAt: timestamp(value.Issue.Created), UpdatedAt: timestamp(value.Issue.Updated),
 		StartedAt: optionalTimestamp(value.Issue.StartedAt),
 		ClosedAt:  optionalTimestamp(value.Issue.Closed),
 		Waiting:   waiting,
 		Labels:    cloneStrings(value.Labels), Blocked: value.Blocked,
+		Conflicts:            conflictReferences(value.Issue.Conflicts),
+		EligibilityConflicts: conflictReferences(value.EligibilityConflicts),
 	}, nil
 }
 
@@ -87,6 +89,7 @@ func (e *Encoder) Detail(
 	detail := view.Detail
 	summary, err := e.Summary(boardID, issue.Summary{
 		Issue: detail.Issue, Labels: detail.Labels, Blocked: detail.Blocked,
+		EligibilityConflicts: detail.EligibilityConflicts,
 	})
 	if err != nil {
 		return nil, err
@@ -364,31 +367,37 @@ func PresentationStatus(value issue.Issue, blocked bool) string {
 	return value.Status
 }
 
-func issueType(value string) (privatev1.IssueType, error) {
-	switch value {
+func issueType(value *string) (*privatev1.IssueType, error) {
+	if value == nil {
+		return nil, nil
+	}
+	switch *value {
 	case "workstream":
-		return privatev1.IssueType_ISSUE_TYPE_WORKSTREAM, nil
+		return privatev1.IssueType_ISSUE_TYPE_WORKSTREAM.Enum(), nil
 	case "task":
-		return privatev1.IssueType_ISSUE_TYPE_TASK, nil
+		return privatev1.IssueType_ISSUE_TYPE_TASK.Enum(), nil
 	case "checkpoint":
-		return privatev1.IssueType_ISSUE_TYPE_CHECKPOINT, nil
+		return privatev1.IssueType_ISSUE_TYPE_CHECKPOINT.Enum(), nil
 	case "routine":
-		return privatev1.IssueType_ISSUE_TYPE_ROUTINE, nil
+		return privatev1.IssueType_ISSUE_TYPE_ROUTINE.Enum(), nil
 	default:
-		return 0, fmt.Errorf("convert issue type %q", value)
+		return nil, fmt.Errorf("convert issue type %q", *value)
 	}
 }
 
-func issueLifecycle(value string) (privatev1.IssueLifecycle, error) {
-	switch value {
+func issueLifecycle(value *string) (*privatev1.IssueLifecycle, error) {
+	if value == nil {
+		return nil, nil
+	}
+	switch *value {
 	case "open":
-		return privatev1.IssueLifecycle_ISSUE_LIFECYCLE_OPEN, nil
+		return privatev1.IssueLifecycle_ISSUE_LIFECYCLE_OPEN.Enum(), nil
 	case "closed":
-		return privatev1.IssueLifecycle_ISSUE_LIFECYCLE_CLOSED, nil
+		return privatev1.IssueLifecycle_ISSUE_LIFECYCLE_CLOSED.Enum(), nil
 	case "cancelled":
-		return privatev1.IssueLifecycle_ISSUE_LIFECYCLE_CANCELLED, nil
+		return privatev1.IssueLifecycle_ISSUE_LIFECYCLE_CANCELLED.Enum(), nil
 	default:
-		return 0, fmt.Errorf("convert issue lifecycle %q", value)
+		return nil, fmt.Errorf("convert issue lifecycle %q", *value)
 	}
 }
 
@@ -397,6 +406,8 @@ func issueStatus(value string, blocked bool) (privatev1.IssueStatus, error) {
 		return privatev1.IssueStatus_ISSUE_STATUS_BLOCKED, nil
 	}
 	switch value {
+	case "unresolved":
+		return privatev1.IssueStatus_ISSUE_STATUS_UNRESOLVED, nil
 	case "ready":
 		return privatev1.IssueStatus_ISSUE_STATUS_READY, nil
 	case "blocked":
@@ -439,7 +450,8 @@ func issueReference(
 	}
 	return &privatev1.RelatedIssue{
 		Id: value.ID, BoardId: boardID.String(), Title: value.Title,
-		Type: kind, Status: status, Priority: int32(value.Priority),
+		Type: kind, Status: status, Priority: optionalPriority(value.Priority),
+		Conflicts: conflictReferences(value.Conflicts),
 	}, nil
 }
 
@@ -450,7 +462,7 @@ func issueDetailReference(
 	return issueReference(boardID, issue.Reference{
 		ID: value.Issue.ID, Title: value.Issue.Title, Type: value.Issue.Type,
 		Status:   PresentationStatus(value.Issue, value.Blocked),
-		Priority: value.Issue.Priority,
+		Priority: value.Issue.Priority, Conflicts: value.Issue.Conflicts,
 	})
 }
 
@@ -558,4 +570,24 @@ func cloneString(value *string) *string {
 	}
 	cloned := *value
 	return &cloned
+}
+
+// optionalPriority preserves a disputed priority instead of inventing a rank.
+func optionalPriority(value *int) *int32 {
+	if value == nil {
+		return nil
+	}
+	return new(int32(*value))
+}
+
+func conflictReferences(values []issue.ConflictReference) []*privatev1.ConflictReference {
+	out := make([]*privatev1.ConflictReference, 0, len(values))
+	for _, value := range values {
+		reference := &privatev1.ConflictReference{Id: value.ID, Field: value.Field.String()}
+		if value.Key != "" {
+			reference.MemberKey = new(value.Key)
+		}
+		out = append(out, reference)
+	}
+	return out
 }

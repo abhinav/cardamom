@@ -46,7 +46,7 @@ describe("application shell", () => {
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
       serverDefaultBoardId: "board-1",
@@ -65,8 +65,8 @@ describe("application shell", () => {
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
-        { id: "board-2", projectId: "project-1", name: "Secondary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
+        { id: "board-2", projectId: "project-1", name: "Secondary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
@@ -96,7 +96,7 @@ describe("application shell", () => {
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
@@ -121,7 +121,7 @@ describe("application shell", () => {
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
@@ -140,7 +140,7 @@ describe("application shell", () => {
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
@@ -161,7 +161,7 @@ describe("application shell", () => {
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
@@ -249,7 +249,7 @@ describe("application shell", () => {
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
@@ -291,7 +291,7 @@ describe("application shell", () => {
     const queryClient = new QueryClient();
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
@@ -375,8 +375,8 @@ describe("application shell", () => {
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       accessMode: AccessMode.READ_WRITE,
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
-        { id: "board-2", projectId: "project-1", name: "Secondary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
+        { id: "board-2", projectId: "project-1", name: "Secondary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });
@@ -414,7 +414,7 @@ describe("application shell", () => {
     const transport = createRouterTransport(() => {});
     queryClient.setQueryData(bootstrapQueryOptions(transport).queryKey, {
       boards: [
-        { id: "board-1", projectId: "project-1", name: "Primary" },
+        { id: "board-1", projectId: "project-1", name: "Primary", conflicts: [] },
       ],
       projects: [{ id: "project-1", name: "Cardamom" }],
     });

@@ -26,19 +26,36 @@ export function availableLifecycleActions(
     issue.lifecycle === IssueLifecycle.CLOSED ||
     issue.lifecycle === IssueLifecycle.CANCELLED
   ) {
-    return [LifecycleAction.REOPEN];
+    return issue.conflicts.some(({ field }) => field === "waiting")
+      ? []
+      : [LifecycleAction.REOPEN];
   }
   if (issue.lifecycle !== IssueLifecycle.OPEN) {
     return [];
   }
+  // Transition controls must not imply that disputed inputs are known. The
+  // server still checks prerequisites and descendants at mutation time.
+  const canTerminate = !issue.conflicts.some(
+    ({ field }) => field === "waiting" || field === "state",
+  );
+  const canCancel = canTerminate && !issue.conflicts.some(
+    ({ field }) => field === "dependencies",
+  );
   if (issue.type === IssueType.CHECKPOINT) {
-    return [LifecycleAction.CANCEL];
+    return canCancel ? [LifecycleAction.CANCEL] : [];
   }
 
   const normalizedActor = actor.trim();
   let custodyAction: LifecycleAction | undefined;
   if (issue.activeClaim === undefined) {
-    if (!issue.blocked) {
+    if (
+      issue.type !== undefined &&
+      !issue.blocked &&
+      !issue.eligibilityConflicts.some(
+        ({ field }) => field === "lifecycle" || field === "checkpoint",
+      ) &&
+      !issue.conflicts.some(({ field }) => field === "waiting" || field === "dependencies")
+    ) {
       custodyAction = LifecycleAction.CLAIM;
     }
   } else if (
@@ -50,8 +67,8 @@ export function availableLifecycleActions(
 
   return [
     ...(custodyAction === undefined ? [] : [custodyAction]),
-    LifecycleAction.CLOSE,
-    LifecycleAction.CANCEL,
+    ...(canTerminate && issue.type !== undefined ? [LifecycleAction.CLOSE] : []),
+    ...(canCancel ? [LifecycleAction.CANCEL] : []),
   ];
 }
 

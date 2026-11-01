@@ -77,6 +77,7 @@ type source struct {
 	config      SourceConfig
 	project     privatev1connect.ProjectServiceClient
 	issues      privatev1connect.IssueServiceClient
+	conflicts   privatev1connect.ConflictServiceClient
 	records     privatev1connect.RecordServiceClient
 	attachments privatev1connect.AttachmentServiceClient
 	checkpoints privatev1connect.CheckpointServiceClient
@@ -127,6 +128,7 @@ func New(ctx context.Context, cfg Config) (*Server, error) {
 			project:     privatev1connect.NewProjectServiceClient(client, baseURL),
 			issues:      privatev1connect.NewIssueServiceClient(client, baseURL),
 			records:     privatev1connect.NewRecordServiceClient(client, baseURL),
+			conflicts:   privatev1connect.NewConflictServiceClient(client, baseURL),
 			attachments: privatev1connect.NewAttachmentServiceClient(client, baseURL),
 			checkpoints: privatev1connect.NewCheckpointServiceClient(client, baseURL),
 			execution:   privatev1connect.NewExecutionServiceClient(client, baseURL),
@@ -189,6 +191,7 @@ func sourceChangeHTTPClient(client connect.HTTPClient) connect.HTTPClient {
 func (s *Server) Binding() Binding {
 	path, handler := web.NewHandler(web.HandlerConfig{
 		AccessMode:    web.AccessModeReadOnly,
+		Conflict:      &conflictService{server: s},
 		Project:       &projectService{server: s},
 		Configuration: new(privatev1connect.UnimplementedConfigurationServiceHandler),
 		Information:   new(privatev1connect.UnimplementedInformationServiceHandler),
@@ -413,6 +416,7 @@ func cloneBoards(values []*v1.BoardSummary) []*v1.BoardSummary {
 
 func aggregateIssueTypes() []v1.IssueType {
 	return []v1.IssueType{
+		v1.IssueType_ISSUE_TYPE_UNSPECIFIED,
 		v1.IssueType_ISSUE_TYPE_WORKSTREAM,
 		v1.IssueType_ISSUE_TYPE_TASK,
 		v1.IssueType_ISSUE_TYPE_CHECKPOINT,
@@ -422,6 +426,7 @@ func aggregateIssueTypes() []v1.IssueType {
 
 func aggregateIssueStatuses() []v1.IssueStatus {
 	return []v1.IssueStatus{
+		v1.IssueStatus_ISSUE_STATUS_UNRESOLVED,
 		v1.IssueStatus_ISSUE_STATUS_READY,
 		v1.IssueStatus_ISSUE_STATUS_BLOCKED,
 		v1.IssueStatus_ISSUE_STATUS_IN_PROGRESS,

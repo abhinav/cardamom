@@ -256,6 +256,10 @@ type Summary struct {
 	Issue   Issue
 	Labels  []string
 	Blocked bool
+	// EligibilityConflicts identifies unresolved inherited context or
+	// prerequisites that prevent automatic selection. Blocked records only
+	// independently known blockers, so callers can report conflict exclusions.
+	EligibilityConflicts []ConflictReference
 }
 
 // View is one issue detail and optional inherited context.
@@ -278,7 +282,7 @@ type PinnedIssue struct {
 	ID string
 
 	// Title is the pinned issue's current title.
-	Title string
+	Title *string
 }
 
 // ContextEntry is one ancestor issue and metadata about authored log entries.
@@ -295,7 +299,7 @@ type BoardDescription struct{ Description *string }
 // Result is one related issue's current durable outcome.
 type Result struct {
 	IssueID string
-	Title   string
+	Title   *string
 	Body    string
 }
 
@@ -324,15 +328,19 @@ type CheckpointView struct {
 }
 
 // Issue is the caller-facing projection of one durable issue.
+// Title, Type, Lifecycle, and Priority are absent only when disputed.
 type Issue struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
-	Type  string `json:"type"`
-	// Lifecycle is the persisted open, closed, or cancelled state.
-	Lifecycle string  `json:"lifecycle"`
+	ID string `json:"id"`
+	// Title is the current display title, or nil while unresolved.
+	Title *string `json:"title"`
+	// Type is the current issue kind, or nil while unresolved.
+	Type *string `json:"type"`
+	// Lifecycle is open, closed, or cancelled, or nil while unresolved.
+	Lifecycle *string `json:"lifecycle"`
 	Status    string  `json:"status"`
-	Priority  int     `json:"priority"`
-	Assignee  *string `json:"assignee,omitempty"`
+	// Priority is the current ordering value, or nil while unresolved.
+	Priority *int    `json:"priority"`
+	Assignee *string `json:"assignee,omitempty"`
 	// ActiveClaim is null when the issue has no current custody.
 	ActiveClaim *ActiveClaim `json:"active_claim"`
 	Created     int64        `json:"created"`
@@ -345,6 +353,9 @@ type Issue struct {
 	State       *string      `json:"state,omitempty"`
 	NextAction  *string      `json:"next_action,omitempty"`
 	Revision    int64        `json:"revision"`
+	// Conflicts distinguishes disputed fields from ordinary optional absence.
+	// Alternative bodies are read separately to preserve collection pagination.
+	Conflicts []ConflictReference `json:"conflicts,omitempty"`
 }
 
 // Waiting is the caller-facing reason and time for waiting status.
@@ -392,16 +403,21 @@ type Detail struct {
 	CheckpointDecision *CheckpointDecisionView
 	Story              Story
 	Blocked            bool
+	// EligibilityConflicts identifies unresolved prerequisite or inherited context.
+	EligibilityConflicts []ConflictReference
 }
 
 // Reference identifies one related issue and the current fields needed
 // to present and navigate issue relationships.
+// Title, Type, and Priority are absent only when disputed.
 type Reference struct {
-	ID       string `json:"id"`
-	Title    string `json:"title"`
-	Type     string `json:"type"`
-	Status   string `json:"status"`
-	Priority int    `json:"priority"`
+	ID       string  `json:"id"`
+	Title    *string `json:"title"`
+	Type     *string `json:"type"`
+	Status   string  `json:"status"`
+	Priority *int    `json:"priority"`
+	// Conflicts permits navigation to unresolved referenced fields.
+	Conflicts []ConflictReference `json:"conflicts,omitempty"`
 }
 
 // ContainmentNode is one issue in the selected issue's connected containment

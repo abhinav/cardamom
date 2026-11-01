@@ -38,6 +38,10 @@ FROM issues AS issue
 LEFT JOIN active_claims AS claim ON claim.issue_uid = issue.uid
 WHERE issue.board_id = ?1
     AND CASE
+        WHEN issue.lifecycle IS NULL OR EXISTS (
+            SELECT 1 FROM board_conflict_issues AS conflict
+            WHERE conflict.issue_uid = issue.uid AND conflict.field = 'waiting'
+        ) THEN 'unresolved'
         WHEN issue.lifecycle <> 'open' THEN issue.lifecycle
         WHEN claim.issue_uid IS NOT NULL THEN 'in_progress'
         WHEN issue.waiting_reason IS NOT NULL THEN 'waiting'
@@ -48,13 +52,20 @@ WHERE issue.board_id = ?1
             WHERE dependency.issue_uid = issue.uid
                 AND prerequisite.lifecycle <> 'closed'
         ) THEN 'blocked'
+        WHEN EXISTS (
+            SELECT 1
+            FROM dependencies AS dependency
+            JOIN issues AS prerequisite ON prerequisite.uid = dependency.prerequisite_uid
+            WHERE dependency.issue_uid = issue.uid
+                AND prerequisite.lifecycle IS NULL
+        ) THEN 'unresolved'
         ELSE 'ready'
     END = ?2
 `
 
 type ProjectCountBoardIssuesByStatusParams struct {
 	BoardID string
-	Status  string
+	Status  *string
 }
 
 // Effective status precedence matches board inventory and archive reporting.
@@ -75,7 +86,7 @@ WHERE id = ?1
 type ProjectGetBoardRow struct {
 	ID            string
 	ProjectID     string
-	Name          string
+	Name          *string
 	Description   *string
 	CreatedAt     time.Time
 	ArchivedAt    *time.Time
@@ -109,7 +120,7 @@ ORDER BY project_id, name, id
 type ProjectListAllBoardsRow struct {
 	ID            string
 	ProjectID     string
-	Name          string
+	Name          *string
 	Description   *string
 	CreatedAt     time.Time
 	ArchivedAt    *time.Time
@@ -154,6 +165,8 @@ SELECT id, project_id, name, description, created_at,
        archived_at, archived_by, archive_reason
 FROM boards
 WHERE archived_at IS NULL
+    AND NOT EXISTS (SELECT 1 FROM board_conflicts
+                    WHERE board_id = boards.id AND kind = 'board.archive.set')
 ORDER BY id
 LIMIT 2
 `
@@ -161,7 +174,7 @@ LIMIT 2
 type ProjectListBoardsForSoleSelectionRow struct {
 	ID            string
 	ProjectID     string
-	Name          string
+	Name          *string
 	Description   *string
 	CreatedAt     time.Time
 	ArchivedAt    *time.Time
@@ -207,13 +220,15 @@ SELECT id, project_id, name, description, created_at,
        archived_at, archived_by, archive_reason
 FROM boards
 WHERE project_id = ?1 AND archived_at IS NULL
+    AND NOT EXISTS (SELECT 1 FROM board_conflicts
+                    WHERE board_id = boards.id AND kind = 'board.archive.set')
 ORDER BY name, id
 `
 
 type ProjectListProjectBoardsRow struct {
 	ID            string
 	ProjectID     string
-	Name          string
+	Name          *string
 	Description   *string
 	CreatedAt     time.Time
 	ArchivedAt    *time.Time

@@ -21,10 +21,7 @@ import { Label } from "@/components/ui/label";
 import { issuePath } from "../board-scope.ts";
 import { WatchResource } from "../gen/cardamom/private/v1/change_pb.ts";
 import { ExecutionService } from "../gen/cardamom/private/v1/execution_pb.ts";
-import type {
-  ActiveClaim,
-  IssueSummary,
-} from "../gen/cardamom/private/v1/issue_pb.ts";
+import type { IssueSummary } from "../gen/cardamom/private/v1/issue_pb.ts";
 import {
   IssueService,
   IssueLifecycle,
@@ -35,6 +32,7 @@ import {
 } from "../gen/cardamom/private/v1/issue_pb.ts";
 import type { BoardScope } from "../gen/cardamom/private/v1/scope_pb.ts";
 import {
+  availableLifecycleActions,
   LifecycleAction,
   lifecycleActionLabel,
   type LifecycleAction as LifecycleActionValue,
@@ -59,15 +57,10 @@ interface RoutinesRouteProps {
   updateShowRetired: (showRetired: boolean) => void;
 }
 
-interface RoutineStateSource {
-  activeClaim?: Pick<ActiveClaim, "actor">;
-  lifecycle: IssueLifecycle;
-  status: IssueStatus;
-}
-
 interface RoutinePresentation {
   actions: LifecycleActionValue[];
   state:
+    | "Unresolved"
     | "Available"
     | "Blocked"
     | "Closed"
@@ -88,8 +81,9 @@ export function routineListInput(
           IssueLifecycle.OPEN,
           IssueLifecycle.CLOSED,
           IssueLifecycle.CANCELLED,
+          IssueLifecycle.UNSPECIFIED,
         ]
-      : [IssueLifecycle.OPEN],
+      : [IssueLifecycle.OPEN, IssueLifecycle.UNSPECIFIED],
     sort: IssueSort.UPDATED_AT,
     direction: SortDirection.DESCENDING,
   };
@@ -149,12 +143,14 @@ export async function changeRoutineLifecycle(
 
 /** routinePresentation derives the operator-facing state and locally knowable actions. */
 export function routinePresentation(
-  routine: RoutineStateSource,
+  routine: IssueSummary,
   actor: string,
   canMutate: boolean,
 ): RoutinePresentation {
   let state: RoutinePresentation["state"];
-  if (routine.lifecycle === IssueLifecycle.CLOSED) {
+  if (routine.lifecycle === undefined || routine.status === IssueStatus.UNRESOLVED) {
+    state = "Unresolved";
+  } else if (routine.lifecycle === IssueLifecycle.CLOSED) {
     state = "Closed";
   } else if (routine.lifecycle === IssueLifecycle.CANCELLED) {
     state = "Cancelled";
@@ -169,24 +165,7 @@ export function routinePresentation(
   if (!canMutate || actor.trim() === "") {
     return { state, actions: [] };
   }
-  if (
-    routine.lifecycle === IssueLifecycle.CLOSED ||
-    routine.lifecycle === IssueLifecycle.CANCELLED
-  ) {
-    return { state, actions: [LifecycleAction.REOPEN] };
-  }
-
-  const actions: LifecycleActionValue[] = [];
-  if (
-    routine.activeClaim === undefined &&
-    routine.status !== IssueStatus.BLOCKED
-  ) {
-    actions.push(LifecycleAction.CLAIM);
-  } else if (routine.activeClaim?.actor === actor.trim()) {
-    actions.push(LifecycleAction.RELEASE);
-  }
-  actions.push(LifecycleAction.CLOSE, LifecycleAction.CANCEL);
-  return { state, actions };
+  return { state, actions: availableLifecycleActions(routine, actor) };
 }
 
 export function RoutinesRoute({
@@ -289,7 +268,7 @@ export function RoutinesRoute({
           [issue.id]: updatedIssue,
         }));
       }
-      setOutcome(`${issue.title}: ${actionOutcome(action)}.`);
+      setOutcome(`${issue.title ?? "Title unresolved"}: ${actionOutcome(action)}.`);
     } catch (failure) {
       const message = failure instanceof Error ? failure.message : String(failure);
       setMutationErrors((current) => ({ ...current, [issue.id]: message }));
@@ -410,7 +389,7 @@ function RoutineCard({
               id={`routine-${issue.id}`}
               href={issuePath(issue.boardId, issue.id, issue.source)}
             >
-              {issue.title}
+              {issue.title ?? "Title unresolved"}
             </a>
           </h2>
           <p>{issue.id}</p>
@@ -498,6 +477,9 @@ function RouteState({
 }
 
 function routineStateKind(issue: IssueSummary): string {
+  if (issue.lifecycle === undefined || issue.status === IssueStatus.UNRESOLVED) {
+    return "unresolved";
+  }
   if (issue.lifecycle === IssueLifecycle.CLOSED) {
     return "closed";
   }

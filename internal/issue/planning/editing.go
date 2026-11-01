@@ -213,6 +213,9 @@ func (p *EditPolicy) EditIssue(command EditIssue) (IssueEdited, error) {
 	}
 
 	state := p.snapshot.Issue
+	if err := requireEditResolved(state, command); err != nil {
+		return IssueEdited{}, err
+	}
 	snapshot := state.Snapshot()
 	changed := false
 	if command.Title != nil {
@@ -220,26 +223,26 @@ func (p *EditPolicy) EditIssue(command EditIssue) (IssueEdited, error) {
 		if title == "" {
 			return IssueEdited{}, errkind.Errorf(errkind.InvalidInput, "invalid input: title required")
 		}
-		if title != state.Title() {
-			snapshot.Title = title
+		if title != *state.Title() {
+			snapshot.Title = new(title)
 			changed = true
 		}
 	}
-	if command.Kind != nil && *command.Kind != state.Kind() {
+	if command.Kind != nil && *command.Kind != *state.Kind() {
 		if _, err := issue.NewKind(command.Kind.String()); err != nil {
 			return IssueEdited{}, err
 		}
-		if err := validateKindTransition(state.Kind(), *command.Kind, p.snapshot.DirectChildren); err != nil {
+		if err := validateKindTransition(*state.Kind(), *command.Kind, p.snapshot.DirectChildren); err != nil {
 			return IssueEdited{}, err
 		}
-		snapshot.Kind = *command.Kind
+		snapshot.Kind = new(*command.Kind)
 		changed = true
 	}
-	if command.Priority != nil && *command.Priority != state.Priority() {
+	if command.Priority != nil && *command.Priority != *state.Priority() {
 		if _, err := issue.NewPriority(command.Priority.Int()); err != nil {
 			return IssueEdited{}, err
 		}
-		snapshot.Priority = *command.Priority
+		snapshot.Priority = new(*command.Priority)
 		changed = true
 	}
 	if command.SummarySet && command.Summary != state.Summary() {
@@ -250,7 +253,7 @@ func (p *EditPolicy) EditIssue(command EditIssue) (IssueEdited, error) {
 		snapshot.Details = command.Details
 		changed = true
 	}
-	if !snapshot.Kind.Executable() && state.ActiveClaim() != nil {
+	if snapshot.Kind != nil && !snapshot.Kind.Executable() && state.ActiveClaim() != nil {
 		return IssueEdited{}, errkind.Errorf(errkind.InvalidInput, "invalid input: %s issues cannot be assigned", snapshot.Kind)
 	}
 
@@ -306,6 +309,32 @@ func (p *EditPolicy) EditIssue(command EditIssue) (IssueEdited, error) {
 		Issue: state, Labels: labels, DependsOn: dependencies, Parent: parent,
 		Changed: true, ExternalKey: externalKey,
 	}, nil
+}
+
+// requireEditResolved checks only values this command replaces. Other missing
+// current values and their conflict references survive the snapshot update.
+func requireEditResolved(state issue.State, command EditIssue) error {
+	for _, edit := range []struct {
+		field issue.Field
+		set   bool
+	}{
+		{issue.FieldTitle, command.Title != nil},
+		{issue.FieldKind, command.Kind != nil},
+		{issue.FieldPriority, command.Priority != nil},
+		{issue.FieldSummary, command.SummarySet},
+		{issue.FieldDetails, command.DetailsSet},
+		{issue.FieldParent, command.ParentSet},
+		{issue.FieldDependencies, len(command.AddDependencies) > 0 || len(command.RemoveDependencies) > 0},
+		{issue.FieldLabels, command.ReplaceLabels != nil || len(command.AddLabels) > 0 || len(command.RemoveLabels) > 0},
+		{issue.FieldExternalKeys, command.ExternalKey != nil},
+	} {
+		if edit.set {
+			if err := state.RequireResolved(edit.field); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func validateEditOverlaps(command EditIssue) error {
@@ -406,11 +435,16 @@ func cloneIssueID(value *issue.ID) *issue.ID {
 
 // EditIssue validates caller input and executes edit issue.
 func (p *Planner) EditIssue(ctx context.Context, _ issue.Invocation, req EditIssueRequest) (EditIssueResult, error) {
-	configuration, err := p.resolveConfiguration(ctx)
+	resolved, err := p.resolveConfiguration(ctx)
 	if err != nil {
 		return EditIssueResult{}, err
 	}
-	command, err := editIssueCommand(req, configuration.Issue.Summary.MaxBytes)
+	if req.SummarySet && req.Summary != nil && *req.Summary != "" {
+		if err := resolved.RequireResolved(configuration.FieldIssueSummaryMaxBytes); err != nil {
+			return EditIssueResult{}, err
+		}
+	}
+	command, err := editIssueCommand(req, resolved.Issue.Summary.MaxBytes)
 	if err != nil {
 		return EditIssueResult{}, err
 	}
@@ -427,7 +461,7 @@ func (p *Planner) EditIssue(ctx context.Context, _ issue.Invocation, req EditIss
 
 func editIssueCommand(
 	req EditIssueRequest,
-	summaryMaxBytes configuration.ByteLimit,
+	summaryMaxBytes *configuration.ByteLimit,
 ) (EditIssue, error) {
 	if req.SummarySet && req.Summary != nil {
 		if err := validateSummary(*req.Summary, summaryMaxBytes); err != nil {

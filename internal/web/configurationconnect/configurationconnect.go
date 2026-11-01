@@ -234,41 +234,45 @@ func configurationView(view configuration.View) *privatev1.ConfigurationView {
 }
 
 func configurationLayer(layer configuration.Layer) *privatev1.ConfigurationLayer {
-	return &privatev1.ConfigurationLayer{
-		Source:    configurationSource(layer.Source),
-		Overrides: configurationOverrides(layer.Overrides),
+	out := &privatev1.ConfigurationLayer{Source: configurationSource(layer.Source), Overrides: configurationOverrides(layer.Overrides)}
+	for _, conflict := range layer.Conflicts {
+		out.Conflicts = append(out.Conflicts, &privatev1.ConflictReference{Id: conflict.ID, Field: conflict.Field.String()})
 	}
+	return out
 }
 
-func configurationValues(
-	value configuration.Configuration,
-) *privatev1.Configuration {
-	return &privatev1.Configuration{
-		Issue: &privatev1.ConfigurationIssue{
-			Id: &privatev1.ConfigurationIssueID{
-				Prefix:   value.Issue.ID.Prefix.String(),
-				Strategy: configurationIssueIDStrategy(value.Issue.ID.Strategy),
-			},
-			Summary: &privatev1.ConfigurationSummary{
-				MaxBytes: value.Issue.Summary.MaxBytes.Uint64(),
-			},
-		},
-		Attachment: &privatev1.ConfigurationAttachment{
-			MaxBytes: value.Attachment.MaxBytes.Uint64(),
-		},
-		Board: &privatev1.ConfigurationBoard{
-			Pins: &privatev1.ConfigurationPins{
-				MaxCount: value.Board.Pins.MaxCount.Uint64(),
-			},
-		},
+func configurationValues(value configuration.Configuration) *privatev1.Configuration {
+	out := &privatev1.Configuration{
+		Issue:      &privatev1.ConfigurationIssue{Id: &privatev1.ConfigurationIssueID{}, Summary: &privatev1.ConfigurationSummary{}},
+		Attachment: &privatev1.ConfigurationAttachment{},
+		Board:      &privatev1.ConfigurationBoard{Pins: &privatev1.ConfigurationPins{}},
 	}
+	if value.Issue.ID.Prefix != nil {
+		out.Issue.Id.Prefix = new(value.Issue.ID.Prefix.String())
+	}
+	if value.Issue.ID.Strategy != nil {
+		out.Issue.Id.Strategy = configurationIssueIDStrategy(*value.Issue.ID.Strategy).Enum()
+	}
+	if value.Issue.Summary.MaxBytes != nil {
+		out.Issue.Summary.MaxBytes = new(value.Issue.Summary.MaxBytes.Uint64())
+	}
+	if value.Attachment.MaxBytes != nil {
+		out.Attachment.MaxBytes = new(value.Attachment.MaxBytes.Uint64())
+	}
+	if value.Board.Pins.MaxCount != nil {
+		out.Board.Pins.MaxCount = new(value.Board.Pins.MaxCount.Uint64())
+	}
+	for _, conflict := range value.Conflicts {
+		out.Conflicts = append(out.Conflicts, &privatev1.ConflictReference{Id: conflict.ID, Field: conflict.Field.String()})
+	}
+	return out
 }
 
 func configurationOverridesFromValues(
 	value configuration.Configuration,
 ) *privatev1.ConfigurationOverrides {
 	prefix := value.Issue.ID.Prefix.String()
-	strategy := configurationIssueIDStrategy(value.Issue.ID.Strategy)
+	strategy := configurationIssueIDStrategy(*value.Issue.ID.Strategy)
 	summaryMaxBytes := value.Issue.Summary.MaxBytes.Uint64()
 	attachmentMaxBytes := value.Attachment.MaxBytes.Uint64()
 	pinMaxCount := value.Board.Pins.MaxCount.Uint64()

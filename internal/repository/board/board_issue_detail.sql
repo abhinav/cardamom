@@ -1,9 +1,11 @@
 -- name: BoardGetIssueIDByExternalKey :one
-SELECT issue.id
-FROM issue_external_keys AS key
-JOIN issues AS issue ON issue.uid = key.issue_uid
-WHERE key.board_id = sqlc.arg(board_id)
-    AND key.external_key = sqlc.arg(external_key);
+SELECT issue.id, conflict.id AS conflict_id
+FROM boards AS board
+LEFT JOIN issue_external_keys AS key ON key.board_id = board.id AND key.external_key = sqlc.arg(external_key)
+LEFT JOIN issues AS issue ON issue.uid = key.issue_uid
+LEFT JOIN board_conflicts AS conflict ON conflict.board_id = board.id
+    AND conflict.kind = 'board.external_key' AND conflict.member_key = sqlc.arg(external_key)
+WHERE board.id = sqlc.arg(board_id);
 
 -- name: BoardListIssueExternalKeys :many
 SELECT external_key

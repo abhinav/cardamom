@@ -121,10 +121,10 @@ func (c *MockBoardExecutorClaimIssueCall) DoAndReturn(f func(context.Context, is
 }
 
 // ClaimNext mocks base method.
-func (m *MockBoardExecutor) ClaimNext(arg0 context.Context, arg1 issue.Invocation, arg2 execution.ClaimNextRequest) (execution.ClaimIssueResult, error) {
+func (m *MockBoardExecutor) ClaimNext(arg0 context.Context, arg1 issue.Invocation, arg2 execution.ClaimNextRequest) (execution.ClaimNextResult, error) {
 	m.ctrl.T.Helper()
 	ret := m.ctrl.Call(m, "ClaimNext", arg0, arg1, arg2)
-	ret0, _ := ret[0].(execution.ClaimIssueResult)
+	ret0, _ := ret[0].(execution.ClaimNextResult)
 	ret1, _ := ret[1].(error)
 	return ret0, ret1
 }
@@ -142,19 +142,19 @@ type MockBoardExecutorClaimNextCall struct {
 }
 
 // Return rewrite *gomock.Call.Return
-func (c *MockBoardExecutorClaimNextCall) Return(arg0 execution.ClaimIssueResult, arg1 error) *MockBoardExecutorClaimNextCall {
+func (c *MockBoardExecutorClaimNextCall) Return(arg0 execution.ClaimNextResult, arg1 error) *MockBoardExecutorClaimNextCall {
 	c.Call = c.Call.Return(arg0, arg1)
 	return c
 }
 
 // Do rewrite *gomock.Call.Do
-func (c *MockBoardExecutorClaimNextCall) Do(f func(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimIssueResult, error)) *MockBoardExecutorClaimNextCall {
+func (c *MockBoardExecutorClaimNextCall) Do(f func(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimNextResult, error)) *MockBoardExecutorClaimNextCall {
 	c.Call = c.Call.Do(f)
 	return c
 }
 
 // DoAndReturn rewrite *gomock.Call.DoAndReturn
-func (c *MockBoardExecutorClaimNextCall) DoAndReturn(f func(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimIssueResult, error)) *MockBoardExecutorClaimNextCall {
+func (c *MockBoardExecutorClaimNextCall) DoAndReturn(f func(context.Context, issue.Invocation, execution.ClaimNextRequest) (execution.ClaimNextResult, error)) *MockBoardExecutorClaimNextCall {
 	c.Call = c.Call.DoAndReturn(f)
 	return c
 }

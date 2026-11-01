@@ -21,6 +21,9 @@ type HandlerConfig struct {
 	// Project serves project catalog and board RPCs.
 	Project privatev1connect.ProjectServiceHandler // required
 
+	// Conflict serves retained alternatives and reviewed resolution.
+	Conflict privatev1connect.ConflictServiceHandler // required
+
 	// Configuration serves layered configuration reads and mutations.
 	Configuration privatev1connect.ConfigurationServiceHandler // required
 
@@ -61,6 +64,7 @@ type HandlerConfig struct {
 // NewHandler registers every generated Cardamom service on one HTTP mux and returns
 // their common route prefix.
 func NewHandler(cfg HandlerConfig, opts ...connect.HandlerOption) (string, *http.ServeMux) {
+	must.NotBeNilf(cfg.Conflict, "web: conflict service handler is required")
 	must.NotBeNilf(cfg.Project, "web: project service handler is required")
 	must.NotBeNilf(cfg.Configuration, "web: configuration service handler is required")
 	must.NotBeNilf(cfg.Information, "web: information service handler is required")
@@ -83,7 +87,9 @@ func NewHandler(cfg HandlerConfig, opts ...connect.HandlerOption) (string, *http
 	}
 
 	mux := http.NewServeMux()
-	path, handler := privatev1connect.NewProjectServiceHandler(cfg.Project, opts...)
+	path, handler := privatev1connect.NewConflictServiceHandler(cfg.Conflict, opts...)
+	mux.Handle(path, handler)
+	path, handler = privatev1connect.NewProjectServiceHandler(cfg.Project, opts...)
 	mux.Handle(path, handler)
 	path, handler = privatev1connect.NewConfigurationServiceHandler(cfg.Configuration, opts...)
 	mux.Handle(path, handler)

@@ -120,6 +120,9 @@ func (r *baselineReader) events() iter.Seq2[history.Event, error] {
 }
 
 func (r *baselineReader) boardEvent() (history.Event, error) {
+	if r.board.Name == nil {
+		return history.Event{}, errors.New("board with unresolved name has no retained history")
+	}
 	createdAt, err := parseStoredTime(r.board.CreatedAtText)
 	if err != nil {
 		return history.Event{}, fmt.Errorf("read board creation time: %w", err)
@@ -139,7 +142,7 @@ func (r *baselineReader) boardEvent() (history.Event, error) {
 	return history.Event{
 		OccurredAt: r.observedAt,
 		Payload: &history.BoardOrigin{
-			CreatedAt: createdAt, Name: r.board.Name,
+			CreatedAt: createdAt, Name: *r.board.Name,
 			Description: r.board.Description, Archive: archive,
 			IssueIDPrefix:      r.board.IssueIDPrefix,
 			IssueIDStrategy:    r.board.IssueIDStrategy,
@@ -193,9 +196,12 @@ func (r *baselineReader) issueEvents(yield func(history.Event, error) bool) bool
 				Since:  *waitingSince,
 			}
 		}
+		if row.Title == nil || row.Kind == nil || row.Lifecycle == nil || row.Priority == nil {
+			return yieldError(yield, "read issue origin", errors.New("issue with unresolved fields has no retained history"))
+		}
 		origin := &history.IssueOrigin{
-			UID: uid, PublicID: row.ID, Title: row.Title,
-			Kind: row.Kind, Lifecycle: row.Lifecycle, Priority: row.Priority,
+			UID: uid, PublicID: row.ID, Title: *row.Title,
+			Kind: *row.Kind, Lifecycle: *row.Lifecycle, Priority: *row.Priority,
 			CreatedAt: createdAt, UpdatedAt: updatedAt,
 			ClosedAt: closedAt, Waiting: waiting, Summary: row.Summary,
 			Details: row.Details,

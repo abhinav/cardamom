@@ -14,6 +14,8 @@ Clone preserves its name, description, archive state, board configuration
 overrides, issue identities, relationships, records, pins, and attachments.
 It also retains the full mutation history and attachment files referenced
 by that history.
+Unresolved conflicts and their alternative identities remain available
+for inspection and resolution in the clone.
 
 Claims, assignees, leases, mail, and unfinished uploads stay local.
 An active claim does not prevent cloning,

@@ -229,7 +229,7 @@ func planningTestBoard(t *testing.T) *board.State {
 	t.Helper()
 	state, err := board.Load(board.Snapshot{
 		ID: "board-1", ProjectID: project.ID("project-1").String(),
-		Name: "Board", Created: time.Unix(1, 0).UTC(),
+		Name: new("Board"), Created: time.Unix(1, 0).UTC(),
 	})
 	require.NoError(t, err)
 	return state
@@ -237,7 +237,7 @@ func planningTestBoard(t *testing.T) *board.State {
 
 func planningTestIssue(id string) issue.Issue {
 	return issue.Issue{
-		ID: id, Title: "Issue", Type: "task", Lifecycle: "open",
-		Status: "ready", Priority: 2, Created: 1, Updated: 1,
+		ID: id, Title: new("Issue"), Type: new("task"), Lifecycle: new("open"),
+		Status: "ready", Priority: new(2), Created: 1, Updated: 1,
 	}
 }

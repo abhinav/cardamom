@@ -36,7 +36,7 @@ func TestServiceMapsEligibilityAndClaimNext(t *testing.T) {
 			LabelsAny:  []string{"phase:a", "phase:b"},
 			LabelsNone: []string{"paused"}, Watch: true, ContextDepth: new(0),
 		},
-	).Return(execution.ClaimIssueResult{Issue: issue.View{
+	).Return(execution.ClaimNextResult{Issue: &issue.View{
 		Detail: issue.Detail{Issue: executionTestIssue("an-ready")},
 	}}, nil)
 	factory := NewMockBoardExecutorFactory(gomock.NewController(t))
@@ -132,7 +132,7 @@ func (l executionLocator) BoardForIssue(_ context.Context, issueID string) (boar
 func executionTestBoard(t *testing.T) *board.State {
 	t.Helper()
 	state, err := board.Load(board.Snapshot{
-		ID: "board-1", ProjectID: "project-1", Name: "Board",
+		ID: "board-1", ProjectID: "project-1", Name: new("Board"),
 		Created: time.Unix(1, 0).UTC(),
 	})
 	require.NoError(t, err)
@@ -141,7 +141,22 @@ func executionTestBoard(t *testing.T) *board.State {
 
 func executionTestIssue(id string) issue.Issue {
 	return issue.Issue{
-		ID: id, Title: "Issue", Type: "task", Lifecycle: "open",
-		Status: "ready", Priority: 2, Created: 1, Updated: 1,
+		ID: id, Title: new("Issue"), Type: new("task"), Lifecycle: new("open"),
+		Status: "ready", Priority: new(2), Created: 1, Updated: 1,
 	}
+}
+
+func TestServiceClaimNextReportsSkippedConflictsWithoutAnIssue(t *testing.T) {
+	boardState := executionTestBoard(t)
+	executor := NewMockBoardExecutor(gomock.NewController(t))
+	executor.EXPECT().ClaimNext(gomock.Any(), issue.NewInvocation("worker"), gomock.Any()).Return(execution.ClaimNextResult{SkippedConflicts: 3}, nil)
+	factory := NewMockBoardExecutorFactory(gomock.NewController(t))
+	factory.EXPECT().Executor(boardState.ID()).Return(executor, nil)
+	service := New(Config{Scope: boardscope.New(executionCatalog{boardState}, executionLocator{}), Executors: factory, Views: issueview.New(markdown.New())})
+	response, err := service.ClaimNextIssue(t.Context(), connect.NewRequest(&privatev1.ClaimNextIssueRequest{
+		BoardId: boardState.ID().String(), Context: &privatev1.MutationContext{Actor: new("worker")},
+	}))
+	require.NoError(t, err)
+	assert.Nil(t, response.Msg.Issue)
+	assert.Equal(t, uint64(3), response.Msg.SkippedConflicts)
 }

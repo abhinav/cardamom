@@ -47,9 +47,9 @@ type issueContextEntryOutput struct {
 }
 
 type issueResultOutput struct {
-	IssueID string `json:"issue_id"`
-	Title   string `json:"title"`
-	Body    string `json:"body"`
+	IssueID string  `json:"issue_id"`
+	Title   *string `json:"title"`
+	Body    string  `json:"body"`
 }
 
 func newIssueDetailOutput(detail issue.Detail) issueDetailOutput {
@@ -81,8 +81,8 @@ type issueContextOutput struct {
 }
 
 type pinnedIssueOutput struct {
-	ID    string `json:"id"`
-	Title string `json:"title"`
+	ID    string  `json:"id"`
+	Title *string `json:"title"`
 }
 
 type boardDescriptionOutput struct {
@@ -202,10 +202,10 @@ func writeIssueDetail(
 		value string
 	}{
 		{name: "ID", value: detail.Issue.ID},
-		{name: "Title", value: detail.Issue.Title},
-		{name: "Type", value: detail.Issue.Type},
+		{name: "Title", value: issueTitle(detail.Issue.Title)},
+		{name: "Type", value: issueTypeLabel(detail.Issue.Type)},
 		{name: "Status", value: detail.Issue.Status},
-		{name: "Priority", value: strconv.Itoa(detail.Issue.Priority)},
+		{name: "Priority", value: issuePriority(detail.Issue.Priority)},
 		{name: "Assignee", value: assignee},
 		{name: "Parent", value: parent},
 	}
@@ -225,6 +225,19 @@ func writeIssueDetail(
 		{name: "Log entries", value: strconv.Itoa(detail.LogSummary.Count)},
 		{name: "Attachments", value: joinedOrDash(attachmentValues)},
 	}...)
+	if len(detail.Issue.Conflicts) > 0 {
+		fields = append(fields, struct {
+			name  string
+			value string
+		}{"Conflicts", formatIssueConflicts(detail.Issue.Conflicts)})
+	}
+	if len(detail.EligibilityConflicts) > 0 {
+		fields = append(fields, struct {
+			name  string
+			value string
+		}{"Eligibility conflicts", formatIssueConflicts(detail.EligibilityConflicts)})
+	}
+
 	for _, field := range fields {
 		if err := output.WriteString(field.name + ": " + field.value + "\n"); err != nil {
 			return err

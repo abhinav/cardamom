@@ -8,7 +8,6 @@ import (
 	"go.abhg.dev/cardamom/internal/cli"
 	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/information"
-	repositoryboard "go.abhg.dev/cardamom/internal/repository/board"
 	repositoryinformation "go.abhg.dev/cardamom/internal/repository/information"
 	"go.abhg.dev/cardamom/internal/storelocation"
 )
@@ -59,30 +58,14 @@ func (o *infoOperation) Read(
 		Board: cli.InfoBoard{
 			ID:        report.Board.ID().String(),
 			ProjectID: report.Board.ProjectID(),
-			Name:      report.Board.Name(),
+			Name:      report.Board.Name(), Conflicts: report.Board.Conflicts(),
 		},
 		Schema: cli.InfoSchema{
 			DatabaseVersion: report.Schema.DatabaseVersion,
 			CodeVersion:     report.Schema.CodeVersion,
 		},
-		Configuration: cli.InfoConfiguration{
-			Issue: cli.InfoIssueConfiguration{
-				ID: cli.InfoIssueIDConfiguration{
-					Prefix:   report.Configuration.Issue.ID.Prefix.String(),
-					Strategy: report.Configuration.Issue.ID.Strategy.String(),
-				},
-				Summary: cli.InfoSummaryConfiguration{
-					MaxBytes: report.Configuration.Issue.Summary.MaxBytes.Uint64(),
-				},
-			},
-			Attachment: cli.InfoAttachmentConfiguration{
-				MaxBytes: report.Configuration.Attachment.MaxBytes.Uint64(),
-			},
-			Board: cli.InfoBoardConfiguration{Pins: cli.InfoPinConfiguration{
-				MaxCount: report.Configuration.Board.Pins.MaxCount.Uint64(),
-			}},
-		},
-		Revision: cli.InfoRevision{Current: report.Revision.Current},
+		Configuration: cli.NewInfoConfiguration(report.Configuration),
+		Revision:      cli.InfoRevision{Current: report.Revision.Current},
 		Issues: cli.InfoIssueInventory{
 			Total: report.Issues.Total, ByStatus: statusCounts,
 		},
@@ -112,17 +95,9 @@ type informationReaderFactory struct {
 // Reader returns an information reader scoped to boardID.
 func (f *informationReaderFactory) Reader(
 	boardID board.ID,
-	effective configuration.Configuration,
+	_ configuration.Configuration,
 ) (information.Reader, error) {
-	boardRepository, err := repositoryboard.New(
-		f.runtime.store,
-		repositoryboard.Config{
-			BoardID:    boardID,
-			IDPrefix:   effective.Issue.ID.Prefix.String(),
-			IDStrategy: effective.Issue.ID.Strategy.String(),
-			Clock:      f.runtime.clock, Entropy: f.runtime.entropy,
-		},
-	)
+	boardRepository, err := f.runtime.boardRepository(boardID)
 	if err != nil {
 		return nil, err
 	}

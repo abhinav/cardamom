@@ -13,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/board"
 	"go.abhg.dev/cardamom/internal/board/selection"
+	"go.abhg.dev/cardamom/internal/configuration"
 	"go.abhg.dev/cardamom/internal/errkind"
 	"go.abhg.dev/cardamom/internal/issue"
 	"go.abhg.dev/cardamom/internal/project"
@@ -224,7 +225,7 @@ func TestBoardCommandsDelegateNamespaceRulesAndRenderResults(t *testing.T) {
 		empty := ""
 		invocation := testInvocation(t, &stdout, &stderr)
 		catalog.edited = testBoard(
-			t, "board-two", "project-one", secondary.Name(), nil,
+			t, "board-two", "project-one", *secondary.Name(), nil,
 		)
 
 		err := (&boardEditCommand{
@@ -241,8 +242,8 @@ func TestBoardCommandsDelegateNamespaceRulesAndRenderResults(t *testing.T) {
 
 func TestBoardPinCommandsDelegateSelectorsAndRenderResults(t *testing.T) {
 	value := issue.Reference{
-		ID: "an-one", Title: "Pinned\nissue\tname", Type: "task",
-		Status: "ready", Priority: 2,
+		ID: "an-one", Title: new("Pinned\nissue\tname"), Type: new("task"),
+		Status: "ready", Priority: new(2),
 	}
 
 	t.Run("PinByKey", func(t *testing.T) {
@@ -382,18 +383,18 @@ func TestInfoCommandForwardsStoreAndBoardAndRendersJSON(t *testing.T) {
 		},
 		Project: InfoProject{ID: "project-one", Name: "Cardamom"},
 		Board: InfoBoard{
-			ID: "board-one", ProjectID: "project-one", Name: "Mission",
+			ID: "board-one", ProjectID: "project-one", Name: new("Mission"),
 		},
 		Schema: InfoSchema{DatabaseVersion: 12, CodeVersion: 13},
 		Configuration: InfoConfiguration{
 			Issue: InfoIssueConfiguration{
 				ID: InfoIssueIDConfiguration{
-					Prefix: "mission-", Strategy: "sequential",
+					Prefix: new("mission-"), Strategy: new("sequential"),
 				},
-				Summary: InfoSummaryConfiguration{MaxBytes: 2048},
+				Summary: InfoSummaryConfiguration{MaxBytes: new(uint64(2048))},
 			},
-			Attachment: InfoAttachmentConfiguration{MaxBytes: 104857600},
-			Board:      InfoBoardConfiguration{Pins: InfoPinConfiguration{MaxCount: 8}},
+			Attachment: InfoAttachmentConfiguration{MaxBytes: new(uint64(104857600))},
+			Board:      InfoBoardConfiguration{Pins: InfoPinConfiguration{MaxCount: new(uint64(8))}},
 		},
 		Revision: InfoRevision{Current: 42},
 		Issues: InfoIssueInventory{
@@ -751,7 +752,8 @@ func (f *fakeProjectCatalog) UnarchiveBoard(
 	if err != nil {
 		return nil, false, err
 	}
-	return state, state.Unarchive(), nil
+	changed, err := state.Unarchive()
+	return state, changed, err
 }
 
 type fakeBoardBinding struct {
@@ -851,7 +853,7 @@ func testBoard(
 	projectIdentity, err := project.NewID(projectID)
 	require.NoError(t, err)
 	board, err := board.Load(board.Snapshot{
-		ID: boardIdentity, ProjectID: projectIdentity.String(), Name: name,
+		ID: boardIdentity, ProjectID: projectIdentity.String(), Name: new(name),
 		Description: description, Created: time.Unix(10, 0).UTC(),
 	})
 	require.NoError(t, err)
@@ -867,3 +869,32 @@ var (
 	_ selection.Binding      = (*fakeBoardBinding)(nil)
 	_ selection.IssueLocator = fakeIssueBoardLocator{}
 )
+
+func TestConfigurationOutputDistinguishesUnresolvedOverrideFromInheritance(t *testing.T) {
+	conflicts := []configuration.ConflictReference{{ID: "conflict-prefix", Field: configuration.FieldIssueIDPrefix}}
+	view := configuration.View{
+		Board: configuration.Layer{Source: configuration.Source{Scope: configuration.ScopeBoard, Identity: "board-one"}, Conflicts: conflicts},
+	}
+	layer := newLayerConfigurationOut(view, configuration.ScopeBoard)
+	assert.Nil(t, layer.Values.Issue.ID.Prefix)
+	assert.Nil(t, layer.Values.Attachment.MaxBytes)
+	assert.Equal(t, conflicts, layer.Conflicts)
+	require.NotNil(t, layer.Origins.Issue.ID.Prefix)
+	assert.Equal(t, "board-one", layer.Origins.Issue.ID.Prefix.Identity)
+	assert.Nil(t, layer.Origins.Attachment.MaxBytes)
+	var stdout, stderr bytes.Buffer
+	require.NoError(t, renderConfiguration(newOutput(&stdout, &stderr, false, false), layer))
+	assert.Regexp(t, `issue.id.prefix\s+unresolved\s+board \(board-one\)`, stdout.String())
+	assert.Regexp(t, `attachment.max_bytes\s+-\s+-`, stdout.String())
+	stdout.Reset()
+	require.NoError(t, renderConfiguration(newOutput(&stdout, &stderr, true, false), layer))
+	assert.Contains(t, stdout.String(), `"prefix":null`)
+	assert.Contains(t, stdout.String(), `"id":"conflict-prefix"`)
+	effective := configuration.Defaults()
+	effective.Issue.ID.Prefix = nil
+	effective.Conflicts = conflicts
+	converted := NewInfoConfiguration(effective)
+	assert.Nil(t, converted.Issue.ID.Prefix)
+	assert.Equal(t, conflicts, converted.Conflicts)
+	require.NotNil(t, converted.Attachment.MaxBytes)
+}

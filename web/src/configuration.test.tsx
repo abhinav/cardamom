@@ -13,8 +13,23 @@ import {
   ConfigurationScope,
   ConfigurationViewSchema,
 } from "./gen/cardamom/private/v1/configuration_pb.ts";
+import { ConflictReferenceSchema } from "./gen/cardamom/private/v1/conflict_reference_pb.ts";
 
 describe("Configuration workflow", () => {
+  it("does not fall through a disputed override to an inherited value", () => {
+    const view = configurationView();
+    const conflict = create(ConflictReferenceSchema, { id: "prefix-conflict", field: "issue.id.prefix" });
+    view.layers[3]!.conflicts = [conflict];
+    view.effective!.conflicts = [conflict];
+    view.effective!.issue!.id!.prefix = undefined;
+    const markup = renderToStaticMarkup(
+      ConfigurationContent({ view, boardName: "Board", canMutateServer: true, onBeginEdit: vi.fn() }),
+    );
+    expect(markup).toContain("Unresolved");
+    expect(configurationPreview(view, ConfigurationScope.STORE, "issue.id.prefix", "new-")).toEqual({
+      value: "Unresolved", source: "Board",
+    });
+  });
   it("builds one-field typed updates and resets", () => {
     expect(
       configurationUpdateInput(

@@ -77,8 +77,8 @@ func TestRepositoryCreatesAndReadsBoardIssues(t *testing.T) {
 
 	assert.Equal(t, issue.Detail{
 		Issue: issue.Issue{
-			ID: "task-2", Title: "Implementation", Type: "task",
-			Lifecycle: "open", Status: "blocked", Priority: 2,
+			ID: "task-2", Title: new("Implementation"), Type: new("task"),
+			Lifecycle: new("open"), Status: "blocked", Priority: new(2),
 			ActiveClaim: nil,
 			Created:     1_700_000_000,
 			Updated:     1_700_000_000,
@@ -92,17 +92,14 @@ func TestRepositoryCreatesAndReadsBoardIssues(t *testing.T) {
 			UpdatedAt: new(time.Unix(1_700_000_000, 0).UTC()),
 		},
 		Labels:     []string{"backend", "urgent"},
-		DependsOn:  []issue.Reference{{ID: "task-1", Title: "Program", Type: "workstream", Status: "ready", Priority: 1}},
+		DependsOn:  []issue.Reference{{ID: "task-1", Title: new("Program"), Type: new("workstream"), Status: "ready", Priority: new(1)}},
 		Blocks:     []issue.Reference{},
 		LogSummary: issue.LogSummary{},
 		ParentID:   new("task-1"),
 		Story: issue.Story{
-			Containment: []issue.ContainmentNode{
-				{ID: "task-1", Title: "Program", Type: "workstream", Status: "ready", Priority: 1},
-				{ID: "task-2", Title: "Implementation", Type: "task", Status: "blocked", Priority: 2, ParentID: new("task-1")},
-			},
-			DependsOn: []issue.Reference{{ID: "task-1", Title: "Program", Type: "workstream", Status: "ready", Priority: 1}},
-			Blocks:    []issue.Reference{},
+			Containment: []issue.ContainmentNode{{ID: "task-1", Title: new("Program"), Type: new("workstream"), Status: "ready", Priority: new(1)}, {ID: "task-2", Title: new("Implementation"), Type: new("task"), Status: "blocked", Priority: new(2), ParentID: new("task-1")}},
+			DependsOn:   []issue.Reference{{ID: "task-1", Title: new("Program"), Type: new("workstream"), Status: "ready", Priority: new(1)}},
+			Blocks:      []issue.Reference{},
 		},
 		Blocked: true,
 	}, view.Detail)
@@ -407,8 +404,8 @@ func TestRepositoryIssueContextIncludesDependencyReferenceAndResult(t *testing.T
 	require.NotNil(t, view.Context)
 	assert.Equal(t, []issue.DependencyResult{{
 		Issue: issue.Reference{
-			ID: "task-1", Title: "Selected approach", Type: "task",
-			Status: "closed", Priority: 1,
+			ID: "task-1", Title: new("Selected approach"), Type: new("task"),
+			Status: "closed", Priority: new(1),
 		},
 		Body: "Use the repository snapshot.",
 	}}, view.Context.DependencyResults)

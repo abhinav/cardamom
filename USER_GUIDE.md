@@ -7,6 +7,7 @@
 - [Installation](#installation)
 - [Concepts and issue context](#concepts-and-issue-context)
 - [Search issue history](#search-issue-history)
+- [Inspect and resolve conflicts](#inspect-and-resolve-conflicts)
 - [Stores, projects, boards, and setup patterns](#stores-projects-boards-and-setup-patterns)
 - [Portable backups](#portable-backups)
 - [Clone a board](#clone-a-board)
@@ -384,6 +385,76 @@ Use `card show card-17 --context` to inspect the issue or
 `--json` emits one object with `total` and `matches` members rather than JSON
 Lines.
 
+## Inspect and resolve conflicts
+
+A disputed field has no current value.
+Cardamom keeps its alternatives and identifies the conflict in issue and board views.
+Other fields remain readable and editable.
+Automatic claiming skips affected work and reports how many issues it skipped;
+explicit operations require only the resolved inputs they use.
+
+List conflicts for the selected board or one issue:
+
+```bash
+card conflicts
+card conflicts list %cm-a1b2
+```
+
+The list includes conflict identifiers and continuation guidance.
+Use `--json` for structured output, and `--after` to continue a page.
+Inspection lists alternative identifiers without loading every body.
+Read the alternatives you need before selecting one:
+
+```bash
+card conflicts show CONFLICT
+card conflicts show CONFLICT --alternative ALTERNATIVE
+card resolve CONFLICT --take ALTERNATIVE
+```
+
+Replace `CONFLICT` and `ALTERNATIVE` with the identifiers from inspection.
+For supported text fields, compose a replacement in a file instead:
+
+```bash
+card resolve CONFLICT --file replacement.md
+```
+
+New Summary text follows the board's current Summary limit.
+Selecting a retained alternative does not reapply that limit.
+The conflict identifier records which alternatives you reviewed.
+If they change before resolution, refresh the inspection and review the new set.
+Resolution retains history; later concurrent changes can introduce another conflict.
+
+### Repair related values together
+
+Some conflicts involve relationships or an incompatible combination of
+kind, lifecycle, and waiting state.
+Inspection identifies the contributing assignments.
+Use the corresponding repair options instead of choosing one scalar alternative:
+
+| Repair                                            | Options for `card resolve CONFLICT` |
+|---------------------------------------------------|-------------------------------------|
+| Discard a relationship assignment                 | `--remove-assignment ALTERNATIVE`   |
+| Choose a containment parent                       | `--parent %cm-child:%cm-parent`     |
+| Remove a containment parent                       | `--unparent %cm-child`              |
+| Recheck retained relationships after another edit | `--relationships`                   |
+| Clear waiting                                     | `--waiting clear`                   |
+| Keep waiting                                      | `--waiting keep`                    |
+| Select one of several waiting values              | `--waiting-assignment ALTERNATIVE`  |
+| Choose a kind or lifecycle with a waiting repair  | `--kind` or `--lifecycle`           |
+
+Repeat relationship options to repair a whole affected component.
+The resulting graph must satisfy containment and dependency rules.
+Execution repairs must select compatible values;
+Cardamom does not invent a default kind or lifecycle.
+An unsuccessful repair leaves the conflict and current values unchanged.
+
+The web UI's **Conflicts** tab provides the same inspection and repair operations.
+Aggregate views allow inspection; resolution requires a writable board view.
+
+Clone preserves conflicts, alternative identities, and their retained history.
+The current portable backup format rejects boards with unresolved conflicts
+or ambiguous reference markers because it cannot preserve that state.
+
 ## Stores, projects, boards, and setup patterns
 
 A store is the physical persistence boundary selected by `--store`,
@@ -609,13 +680,16 @@ Use `--all` to include every board in the selected store:
 card --actor operator backup full-store-backup --all
 ```
 
-### References that require cloning
+### State the archive cannot preserve
 
 The current backup format cannot preserve ambiguous reference markers.
 Selecting an affected board rejects the backup before publication.
 An all-store backup also rejects markers whose candidate boards are unavailable.
 An existing destination archive stays unchanged after this rejection.
-Use board clone when you need to retain these references in another store.
+Cloning a board retains its associated reference markers in the destination.
+
+Unresolved issue or board conflicts also reject capture.
+Resolve them before backing up, or clone the board with its retained alternatives.
 
 ### Restore an archive
 
@@ -660,6 +734,8 @@ Clone preserves its name, description, archive state, board configuration
 overrides, issue identities, relationships, records, pins, and attachments.
 It also retains the full mutation history and attachment files referenced
 by that history.
+Unresolved conflicts and their alternative identities remain available
+for inspection and resolution in the clone.
 
 Claims, assignees, leases, mail, and unfinished uploads stay local.
 An active claim does not prevent cloning,

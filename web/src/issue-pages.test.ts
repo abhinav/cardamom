@@ -38,6 +38,7 @@ describe("issue page streams", () => {
       IssueType.WORKSTREAM,
       IssueType.TASK,
       IssueType.CHECKPOINT,
+      IssueType.UNSPECIFIED,
     ]);
   });
 
@@ -93,6 +94,13 @@ describe("issue page streams", () => {
         direction: SortDirection.DESCENDING,
         limit: 20,
       },
+      {
+        key: `status:${IssueStatus.UNRESOLVED}`,
+        statuses: [IssueStatus.UNRESOLVED],
+        sort: IssueSort.UPDATED_AT,
+        direction: SortDirection.DESCENDING,
+        limit: 20,
+      },
     ]);
   });
 
@@ -123,6 +131,11 @@ describe("issue page streams", () => {
       },
       {
         types: [IssueType.CHECKPOINT],
+        sort: IssueSort.TITLE,
+        direction: SortDirection.ASCENDING,
+      },
+      {
+        types: [IssueType.UNSPECIFIED],
         sort: IssueSort.TITLE,
         direction: SortDirection.ASCENDING,
       },
@@ -448,6 +461,8 @@ function issue(
 ): IssueSummary {
   return {
     $typeName: "cardamom.private.v1.IssueSummary",
+    conflicts: [],
+    eligibilityConflicts: [],
     id,
     boardId,
     title: id,

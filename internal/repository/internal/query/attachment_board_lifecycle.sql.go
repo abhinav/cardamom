@@ -9,17 +9,30 @@ import (
 	"context"
 )
 
-const attachmentBoardArchived = `-- name: AttachmentBoardArchived :one
-SELECT archived_at IS NOT NULL
+const attachmentBoardLifecycle = `-- name: AttachmentBoardLifecycle :one
+SELECT boards.archived_at IS NOT NULL AS archived,
+       conflict.id AS archive_conflict_id
 FROM boards
-WHERE id = ?1
+LEFT JOIN board_conflicts AS conflict
+    ON conflict.board_id = boards.id
+    AND conflict.issue_uid IS NULL
+    AND conflict.kind = 'board.archive.set'
+WHERE boards.id = ?1
+ORDER BY conflict.id
+LIMIT 1
 `
 
-// Attachment writers call this through the same immediate transaction as their
-// blob or metadata mutation.
-func (q *Queries) AttachmentBoardArchived(ctx context.Context, id string) (bool, error) {
-	row := q.db.QueryRowContext(ctx, attachmentBoardArchived, id)
-	var column_1 bool
-	err := row.Scan(&column_1)
-	return column_1, err
+type AttachmentBoardLifecycleRow struct {
+	Archived          bool
+	ArchiveConflictID *string
+}
+
+// Attachment writers inspect archive permission in the same immediate
+// transaction as their blob or metadata mutation. NULL archive metadata alone
+// cannot distinguish an active board from a disputed archive assignment.
+func (q *Queries) AttachmentBoardLifecycle(ctx context.Context, id string) (AttachmentBoardLifecycleRow, error) {
+	row := q.db.QueryRowContext(ctx, attachmentBoardLifecycle, id)
+	var i AttachmentBoardLifecycleRow
+	err := row.Scan(&i.Archived, &i.ArchiveConflictID)
+	return i, err
 }

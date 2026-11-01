@@ -51,6 +51,19 @@ export function checkpointDecisionPresentation(
       message: "This checkpoint is not actionable while it is waiting.",
     };
   }
+  if (
+    issue.eligibilityConflicts.some(
+      ({ field }) => field === "lifecycle" || field === "checkpoint",
+    ) ||
+    issue.conflicts.some(({ field }) =>
+      field === "checkpoint" || field === "dependencies" || field === "waiting" || field === "state",
+    )
+  ) {
+    return {
+      state: "waiting",
+      message: "Resolve execution conflicts before recording a decision.",
+    };
+  }
   return { state: "ready" };
 }
 
@@ -74,12 +87,14 @@ export function describeDependencyMutation(
   return `Dependency updated: ${prerequisites} and ${dependents}.`;
 }
 
-/** currentIssueState omits mutable State from terminal issue presentation. */
+/** currentIssueState omits mutable State only for resolved terminal lifecycles. */
 export function currentIssueState(
   issue: Pick<IssueSummary, "lifecycle">,
   state: StateRecord | undefined,
 ): StateRecord | undefined {
-  return issue.lifecycle === IssueLifecycle.OPEN ? state : undefined;
+  return issue.lifecycle === IssueLifecycle.CLOSED || issue.lifecycle === IssueLifecycle.CANCELLED
+    ? undefined
+    : state;
 }
 
 /** visibleIssueLogEntries preserves service order and omits pinned State. */

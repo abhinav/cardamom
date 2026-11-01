@@ -24,14 +24,24 @@ func (r *Repository) ReadConfigurationLayers(
 		return out, err
 	}
 	defer func() { err = errors.Join(err, view.Done()) }()
-	row, err := query.New(view).ProjectGetConfigurationLayers(ctx, boardID.String())
+	queries := query.New(view)
+	row, err := queries.ProjectGetConfigurationLayers(ctx, boardID.String())
 	if errors.Is(err, sql.ErrNoRows) {
 		return out, errkind.Errorf(errkind.NotFound, "board not found")
 	}
 	if err != nil {
 		return out, err
 	}
-	return loadConfigurationLayers(row)
+	out, err = loadConfigurationLayers(row)
+	if err != nil {
+		return out, err
+	}
+	conflicts, err := readBoardConflicts(ctx, queries, new(boardID.String()))
+	if err != nil {
+		return out, err
+	}
+	out.BoardConflicts = configurationConflicts(conflicts[boardID.String()])
+	return out, nil
 }
 
 // ReadProjectConfiguration returns one project's overrides without requiring
@@ -148,10 +158,22 @@ func (r *Repository) UpdateBoardConfiguration(
 	if err != nil {
 		return out, err
 	}
-	// Lifecycle and configuration are read through the same immediate writer, so
-	// an archive transition cannot interleave with an accepted configuration edit.
-	if row.ArchivedAt != nil {
-		return out, board.ErrArchived
+	// Board permission and override disputes are read through the same writer
+	// as the configuration projection. An unrelated setting remains editable.
+	conflicts, err := readBoardConflicts(ctx, queries, new(boardID.String()))
+	if err != nil {
+		return out, err
+	}
+	state, err := loadBoard(row.ID, row.ProjectID, row.Name, row.Description,
+		row.CreatedAt, row.ArchivedAt, row.ArchivedBy, row.ArchiveReason, conflicts[row.ID])
+	if err != nil {
+		return out, err
+	}
+	if err := state.RequireMutable(); err != nil {
+		return out, err
+	}
+	if err := patch.RequireResolved(configurationConflicts(conflicts[row.ID])); err != nil {
+		return out, err
 	}
 	current, err := (nullableConfiguration{
 		prefix:             row.IssueIDPrefix,

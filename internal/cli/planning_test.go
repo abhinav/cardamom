@@ -432,7 +432,7 @@ func newPlanningApplication(t *testing.T, config Config, options ...kong.Option)
 
 func testIssueDetail(id, title string) issue.Detail {
 	return issue.Detail{Issue: issue.Issue{
-		ID: id, Title: title, Type: "task", Lifecycle: "open", Status: "ready",
-		Priority: 2, Created: 10, Updated: 10, Revision: 3,
+		ID: id, Title: new(title), Type: new("task"), Lifecycle: new("open"), Status: "ready",
+		Priority: new(2), Created: 10, Updated: 10, Revision: 3,
 	}}
 }

@@ -23,8 +23,8 @@ func TestEncoderSummaryAndMarkdown(t *testing.T) {
 	started := int64(1784376060)
 	summary, err := encoder.Summary("board-test", issue.Summary{
 		Issue: issue.Issue{
-			ID: "an-1", Title: "Inspect relay", Type: "task",
-			Lifecycle: "open", Status: "ready", Priority: 2,
+			ID: "an-1", Title: new("Inspect relay"), Type: new("task"),
+			Lifecycle: new("open"), Status: "ready", Priority: new(2),
 			Created: 1784376000, Updated: 1784376030, StartedAt: &started,
 			ActiveClaim: &issue.ActiveClaim{Actor: "scotty", StartedAt: started},
 		},
@@ -40,6 +40,42 @@ func TestEncoderSummaryAndMarkdown(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "**diagnostic**", markdown.GetSource())
 	assert.Equal(t, "<p>**diagnostic**</p>", markdown.GetRenderedHtml())
+}
+
+func TestEncoderPreservesUnresolvedIssueValues(t *testing.T) {
+	encoder := New(NewMockMarkdownRenderer(gomock.NewController(t)))
+	summary, err := encoder.Summary("board-test", issue.Summary{
+		Issue: issue.Issue{
+			ID: "an-unknown", Status: "unresolved", Created: 1, Updated: 2,
+			Conflicts: []issue.ConflictReference{{ID: "title-conflict", Field: issue.FieldTitle}, {ID: "kind-conflict", Field: issue.FieldKind}, {ID: "lifecycle-conflict", Field: issue.FieldLifecycle}, {ID: "priority-conflict", Field: issue.FieldPriority}},
+		},
+		EligibilityConflicts: []issue.ConflictReference{{ID: "prerequisite-conflict", Field: issue.FieldDependencies, Key: "an-prerequisite"}},
+	})
+	require.NoError(t, err)
+	assert.Nil(t, summary.Title)
+	assert.Nil(t, summary.Type)
+	assert.Nil(t, summary.Lifecycle)
+	assert.Nil(t, summary.Priority)
+	assert.Equal(t, privatev1.IssueStatus_ISSUE_STATUS_UNRESOLVED, summary.Status)
+	require.Len(t, summary.Conflicts, 4)
+	assert.Equal(t, "title", summary.Conflicts[0].Field)
+	assert.Nil(t, summary.Conflicts[0].MemberKey)
+	require.Len(t, summary.EligibilityConflicts, 1)
+	assert.Equal(t, new("an-prerequisite"), summary.EligibilityConflicts[0].MemberKey)
+	assert.NoError(t, protovalidate.Validate(summary))
+
+	references, err := encoder.References("board-test", []issue.Reference{{
+		ID: "an-related", Status: "unresolved",
+		Conflicts: []issue.ConflictReference{{ID: "kind-conflict", Field: issue.FieldKind}, {ID: "title-conflict", Field: issue.FieldTitle}, {ID: "priority-conflict", Field: issue.FieldPriority}},
+	}})
+	require.NoError(t, err)
+	require.Len(t, references, 1)
+	assert.Nil(t, references[0].Title)
+	assert.Nil(t, references[0].Type)
+	assert.Nil(t, references[0].Priority)
+	assert.Equal(t, "board-test", references[0].BoardId)
+	require.Len(t, references[0].Conflicts, 3)
+	assert.Equal(t, "kind-conflict", references[0].Conflicts[0].Id)
 }
 
 func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
@@ -68,8 +104,8 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 	view, err := encoder.Detail(t.Context(), "board-test", issue.View{
 		Detail: issue.Detail{
 			Issue: issue.Issue{
-				ID: "an-selected", Title: "Repair relay", Type: "task",
-				Lifecycle: "open", Status: "ready", Priority: 1,
+				ID: "an-selected", Title: new("Repair relay"), Type: new("task"),
+				Lifecycle: new("open"), Status: "ready", Priority: new(1),
 				Created: 1784376000, Updated: 1784376030,
 				Summary: &summary, Details: &details, State: &state,
 				NextAction: &nextAction,
@@ -84,10 +120,10 @@ func TestEncoderDetailPreservesContextAndContainment(t *testing.T) {
 		},
 		Context: &issue.Context{
 			Board: issue.BoardDescription{Description: &boardDescription},
-			Pins:  []issue.PinnedIssue{{ID: "an-pinned", Title: "Pinned issue"}},
+			Pins:  []issue.PinnedIssue{{ID: "an-pinned", Title: new("Pinned issue")}},
 			Ancestors: []issue.ContextEntry{{Issue: issue.Issue{
-				ID: "an-root", Title: "Root", Type: "workstream",
-				Lifecycle: "open", Status: "ready", Priority: 1,
+				ID: "an-root", Title: new("Root"), Type: new("workstream"),
+				Lifecycle: new("open"), Status: "ready", Priority: new(1),
 				Summary: &ancestorSummary, State: &ancestorState,
 				NextAction: &ancestorNextAction,
 			}}},
@@ -186,7 +222,7 @@ func TestEncoderRejectsInvalidPersistedValues(t *testing.T) {
 
 	encoder := New(NewMockMarkdownRenderer(gomock.NewController(t)))
 	_, err := encoder.Summary("board-test", issue.Summary{Issue: issue.Issue{
-		ID: "an-1", Type: "unknown", Lifecycle: "open", Status: "ready",
+		ID: "an-1", Type: new("unknown"), Lifecycle: new("open"), Status: "ready",
 	}})
 	assert.ErrorContains(t, err, "convert issue type")
 
@@ -208,6 +244,6 @@ func TestEncoderRejectsInvalidPersistedValues(t *testing.T) {
 
 func testReference(id string) issue.Reference {
 	return issue.Reference{
-		ID: id, Title: id, Type: "task", Status: "ready", Priority: 1,
+		ID: id, Title: new(id), Type: new("task"), Status: "ready", Priority: new(1),
 	}
 }

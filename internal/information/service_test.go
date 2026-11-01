@@ -22,7 +22,7 @@ func TestService_ReadReturnsTypedStoreInformation(t *testing.T) {
 	boardID, err := board.NewID("board-one")
 	require.NoError(t, err)
 	selectedBoard, err := board.Load(board.Snapshot{
-		ID: boardID, ProjectID: projectID.String(), Name: "Operations",
+		ID: boardID, ProjectID: projectID.String(), Name: new("Operations"),
 		Created: time.Unix(20, 0).UTC(),
 	})
 	require.NoError(t, err)

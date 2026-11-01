@@ -172,10 +172,10 @@ func (p *CreatePolicy) CreateIssue(command CreateIssue) (IssueCreated, error) {
 	state, err := issue.Load(issue.Snapshot{
 		UID:       p.snapshot.AllocatedUID,
 		ID:        p.snapshot.AllocatedID,
-		Title:     title,
-		Kind:      command.Kind,
-		Lifecycle: issue.LifecycleOpen,
-		Priority:  command.Priority,
+		Title:     new(title),
+		Kind:      new(command.Kind),
+		Lifecycle: new(issue.LifecycleOpen),
+		Priority:  new(command.Priority),
 		Created:   p.snapshot.OccurredAt,
 		Updated:   p.snapshot.OccurredAt,
 		Summary:   command.Summary,
@@ -195,17 +195,25 @@ func (p *CreatePolicy) CreateIssue(command CreateIssue) (IssueCreated, error) {
 
 // CreateIssue validates caller input and executes create issue.
 func (p *Planner) CreateIssue(ctx context.Context, _ issue.Invocation, req CreateIssueRequest) (CreateIssueResult, error) {
-	configuration, err := p.resolveConfiguration(ctx)
+	resolved, err := p.resolveConfiguration(ctx)
 	if err != nil {
 		return CreateIssueResult{}, err
 	}
-	command, err := createIssueCommand(req, configuration.Issue.Summary.MaxBytes)
+	if err := resolved.RequireResolved(configuration.FieldIssueIDPrefix, configuration.FieldIssueIDStrategy); err != nil {
+		return CreateIssueResult{}, err
+	}
+	if req.Summary != "" {
+		if err := resolved.RequireResolved(configuration.FieldIssueSummaryMaxBytes); err != nil {
+			return CreateIssueResult{}, err
+		}
+	}
+	command, err := createIssueCommand(req, resolved.Issue.Summary.MaxBytes)
 	if err != nil {
 		return CreateIssueResult{}, err
 	}
 	outcome, err := p.changes.CreateIssue(
 		ctx,
-		configuration.Issue.ID,
+		resolved.Issue.ID,
 		command,
 	)
 	if err != nil {
@@ -220,7 +228,7 @@ func (p *Planner) CreateIssue(ctx context.Context, _ issue.Invocation, req Creat
 
 func createIssueCommand(
 	req CreateIssueRequest,
-	summaryMaxBytes configuration.ByteLimit,
+	summaryMaxBytes *configuration.ByteLimit,
 ) (CreateIssue, error) {
 	if err := validateSummary(req.Summary, summaryMaxBytes); err != nil {
 		return CreateIssue{}, err

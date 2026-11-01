@@ -442,10 +442,10 @@ export function BoardPinCarousel({
               </div>
               <h3>
                 <Link
-                  title={issue.title}
+                  title={issue.title ?? "Title unresolved"}
                   to={issuePath(boardId, issue.id, issue.source)}
                 >
-                  {issue.title}
+                  {issue.title ?? "Title unresolved"}
                 </Link>
               </h3>
             </article>
@@ -656,6 +656,7 @@ function FilterFields({
         <SelectItem value={String(IssueStatus.WAITING)}>Waiting</SelectItem>
         <SelectItem value={String(IssueStatus.CLOSED)}>Closed</SelectItem>
         <SelectItem value={String(IssueStatus.CANCELLED)}>Cancelled</SelectItem>
+        <SelectItem value={String(IssueStatus.UNRESOLVED)}>Unresolved</SelectItem>
       </IssueSelectField>
       <IssueSelectField
         label="Type"
@@ -671,6 +672,7 @@ function FilterFields({
         <SelectItem value={String(IssueType.TASK)}>Task</SelectItem>
         <SelectItem value={String(IssueType.CHECKPOINT)}>Checkpoint</SelectItem>
         <SelectItem value={String(IssueType.ROUTINE)}>Routine</SelectItem>
+        <SelectItem value={String(IssueType.UNSPECIFIED)}>Unresolved</SelectItem>
       </IssueSelectField>
       <IssueTextFilterField
         label="Actor"
@@ -851,11 +853,11 @@ function IssueCard({
         >
           {issue.id}
         </Link>
-        <span className="issue-priority">P{issue.priority}</span>
+        <span className="issue-priority">{issue.priority === undefined ? "Priority unresolved" : `P${issue.priority}`}</span>
       </div>
       <h3>
         <Link to={issuePath(issue.boardId, issue.id, issue.source)}>
-          {issue.title}
+          {issue.title ?? "Title unresolved"}
         </Link>
       </h3>
       <IssueMetadata
@@ -922,7 +924,7 @@ export function IssueList({
                 </td>
                 <td className="issue-title-cell">
                   <Link to={issuePath(issue.boardId, issue.id, issue.source)}>
-                    {issue.title}
+                    {issue.title ?? "Title unresolved"}
                   </Link>
                   <IssueWaitingReason issue={issue} />
                   {issue.labels.length > 0 && (
@@ -941,7 +943,7 @@ export function IssueList({
                 )}
                 <td><IssueStatusBadge status={issue.status} /></td>
                 <td>{issueTypeLabel(issue.type)}</td>
-                <td>{issue.priority}</td>
+                <td>{issue.priority ?? "Unresolved"}</td>
                 <td>{issue.activeClaim?.actor ?? "—"}</td>
                 <td><IssueTime issue={issue} /></td>
               </tr>
@@ -960,13 +962,13 @@ export function IssueList({
                 {issue.id}
               </Link>
               <IssueStatusBadge status={issue.status} />
-              <span className="issue-priority">P{issue.priority}</span>
+              <span className="issue-priority">{issue.priority === undefined ? "Priority unresolved" : `P${issue.priority}`}</span>
             </div>
             <Link
               className="issue-record-title"
               to={issuePath(issue.boardId, issue.id, issue.source)}
             >
-              {issue.title}
+              {issue.title ?? "Title unresolved"}
             </Link>
             <IssueMetadata
               boards={boards}

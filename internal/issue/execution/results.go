@@ -15,17 +15,28 @@ func issueProjection(state issue.State, revision board.Revision) issue.Issue {
 	if recovery := state.RecoveryStateRecord(); recovery != nil {
 		nextAction = optionalString(recovery.NextAction)
 	}
+	var kind, lifecycle *string
+	var priority *int
+	if value := state.Kind(); value != nil {
+		kind = new(value.String())
+	}
+	if value := state.Lifecycle(); value != nil {
+		lifecycle = new(value.String())
+	}
+	if value := state.Priority(); value != nil {
+		priority = new(value.Int())
+	}
 	return issue.Issue{
-		ID: state.ID().String(), Title: state.Title(), Type: state.Kind().String(),
-		Lifecycle: state.Lifecycle().String(), Status: state.Status().String(),
-		Priority: state.Priority().Int(), ActiveClaim: activeClaimProjection(state.ActiveClaim()),
+		ID: state.ID().String(), Title: state.Title(), Type: kind,
+		Lifecycle: lifecycle, Status: state.Status().String(),
+		Priority: priority, ActiveClaim: activeClaimProjection(state.ActiveClaim()),
 		Assignee: optionalString(state.Assignee().String()),
 		Created:  state.Created().Unix(), Updated: state.Updated().Unix(),
 		StartedAt: unixPointer(state.StartedAt()), Closed: unixPointer(state.ClosedAt()),
 		Waiting: waitingProjection(state.Waiting()),
 		Summary: optionalString(state.Summary()), Details: optionalString(state.Details()),
 		State: optionalString(state.RecoveryState()), NextAction: nextAction,
-		Revision: int64(revision),
+		Revision: int64(revision), Conflicts: state.Conflicts(),
 	}
 }
 

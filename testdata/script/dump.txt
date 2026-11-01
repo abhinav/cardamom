@@ -160,7 +160,7 @@ cardamom:
   board_id: board_00000000000000000000
   board_name: script-dump
   generated_identity: board
-  body_sha256: f7e0e99eadd90cbcbacaffc37fc016e3111d0ca950261d737733a10bb91b2e84
+  body_sha256: 3b5d121edf7bb465cdea65e7d1d54a66736ccfb57d69caf30c0a5fc67bb92253
 ---
 
 # Cardamom board dump
@@ -189,6 +189,7 @@ No board description.
 | Waiting | 0 |
 | Closed | 1 |
 | Cancelled | 1 |
+| Unresolved | 0 |
 
 ## Containment
 

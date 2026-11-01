@@ -121,7 +121,7 @@ type issueCollectionFilters struct {
 
 func (f *issueCollectionFilters) matches(value issue.Summary) bool {
 	if len(f.lifecycles) > 0 {
-		if _, ok := f.lifecycles[value.Issue.Lifecycle]; !ok {
+		if _, ok := f.lifecycles[classificationFilterValue(value.Issue.Lifecycle)]; !ok {
 			return false
 		}
 	}
@@ -131,7 +131,7 @@ func (f *issueCollectionFilters) matches(value issue.Summary) bool {
 		}
 	}
 	if len(f.types) > 0 {
-		if _, ok := f.types[value.Issue.Type]; !ok {
+		if _, ok := f.types[classificationFilterValue(value.Issue.Type)]; !ok {
 			return false
 		}
 	}
@@ -252,6 +252,8 @@ func sortDirection(value privatev1.SortDirection) (bool, error) {
 
 func requestLifecycle(value privatev1.IssueLifecycle) (string, error) {
 	switch value {
+	case privatev1.IssueLifecycle_ISSUE_LIFECYCLE_UNSPECIFIED:
+		return "unresolved", nil
 	case privatev1.IssueLifecycle_ISSUE_LIFECYCLE_OPEN:
 		return "open", nil
 	case privatev1.IssueLifecycle_ISSUE_LIFECYCLE_CLOSED:
@@ -265,6 +267,8 @@ func requestLifecycle(value privatev1.IssueLifecycle) (string, error) {
 
 func requestStatus(value privatev1.IssueStatus) (string, error) {
 	switch value {
+	case privatev1.IssueStatus_ISSUE_STATUS_UNRESOLVED:
+		return "unresolved", nil
 	case privatev1.IssueStatus_ISSUE_STATUS_READY:
 		return "ready", nil
 	case privatev1.IssueStatus_ISSUE_STATUS_BLOCKED:
@@ -284,6 +288,8 @@ func requestStatus(value privatev1.IssueStatus) (string, error) {
 
 func requestType(value privatev1.IssueType) (string, error) {
 	switch value {
+	case privatev1.IssueType_ISSUE_TYPE_UNSPECIFIED:
+		return "unresolved", nil
 	case privatev1.IssueType_ISSUE_TYPE_WORKSTREAM:
 		return "workstream", nil
 	case privatev1.IssueType_ISSUE_TYPE_TASK:
@@ -398,4 +404,13 @@ func (r *detailIssueReader) ReadIssue(ctx context.Context, request issue.ReadReq
 	return issueinspection.LocatedIssue{BoardID: scoped.board.ID(), View: attachment.IssueView{
 		Issue: view, Attachments: nil,
 	}}, nil
+}
+
+// classificationFilterValue maps absence to the query selector for unresolved
+// values; it never supplies a persisted kind or lifecycle.
+func classificationFilterValue(value *string) string {
+	if value == nil {
+		return "unresolved"
+	}
+	return *value
 }

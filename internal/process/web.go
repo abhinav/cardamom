@@ -23,6 +23,7 @@ import (
 	"go.abhg.dev/cardamom/internal/web/changeconnect"
 	"go.abhg.dev/cardamom/internal/web/checkpointconnect"
 	"go.abhg.dev/cardamom/internal/web/configurationconnect"
+	"go.abhg.dev/cardamom/internal/web/conflictconnect"
 	"go.abhg.dev/cardamom/internal/web/dumpconnect"
 	"go.abhg.dev/cardamom/internal/web/executionconnect"
 	"go.abhg.dev/cardamom/internal/web/informationconnect"
@@ -199,6 +200,7 @@ func (o *webOperation) open(
 	configurationHandler := configurationconnect.New(runtime.configuration)
 	path, handler := web.NewHandler(web.HandlerConfig{
 		AccessMode: accessMode,
+		Conflict:   &conflictconnect.Service{Scope: scope, Boards: &conflictServiceFactory{runtime: runtime}, Views: views},
 		Project:    projectHandler, Configuration: configurationHandler,
 		Information: informationHandler,
 		Issue:       issueHandler, Planning: planningHandler,

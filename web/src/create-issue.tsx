@@ -30,6 +30,13 @@ import { runInvalidatingMutation } from "./query-runtime.ts";
 // IssueCreationDraft retains the user-facing form representation until the
 // generated Connect request boundary normalizes each field.
 export interface IssueCreationDraft extends IssueMetadataDraft {
+  title: string;
+  type: IssueType;
+  priority: number;
+  summary: string;
+  details: string;
+  labels: string;
+  parent: string;
   // Prerequisites are comma-, whitespace-, or newline-separated issue IDs.
   prerequisites: string;
 }
@@ -238,7 +245,7 @@ export function CreateIssueDialog({
         disabled={fieldsDisabled}
         draft={draft}
         onChange={(field, value) =>
-          setDraft((current) => ({ ...current, [field]: value }))
+          value !== undefined && setDraft((current) => ({ ...current, [field]: value }))
         }
       />
       <div className="form-field">

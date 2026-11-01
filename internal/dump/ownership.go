@@ -36,7 +36,7 @@ type ownershipMetadata struct {
 	BoardID string `yaml:"board_id"`
 
 	// BoardName names the board represented by the generated file.
-	BoardName string `yaml:"board_name,omitempty"`
+	BoardName *string `yaml:"board_name,omitempty"`
 
 	// Identity remains stable across canonical path changes.
 	Identity string `yaml:"generated_identity"`

@@ -1427,8 +1427,8 @@ type IssueResult struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issue_id identifies the issue that owns the result.
 	IssueId string `protobuf:"bytes,1,opt,name=issue_id,json=issueId,proto3" json:"issue_id,omitempty"`
-	// issue_title is the current human-readable issue title.
-	IssueTitle string `protobuf:"bytes,2,opt,name=issue_title,json=issueTitle,proto3" json:"issue_title,omitempty"`
+	// issue_title is the current issue title, absent when unresolved.
+	IssueTitle *string `protobuf:"bytes,2,opt,name=issue_title,json=issueTitle,proto3,oneof" json:"issue_title,omitempty"`
 	// body contains the stored and rendered Markdown outcome.
 	Body          *MarkdownContent `protobuf:"bytes,3,opt,name=body,proto3" json:"body,omitempty"`
 	unknownFields protoimpl.UnknownFields
@@ -1473,8 +1473,8 @@ func (x *IssueResult) GetIssueId() string {
 }
 
 func (x *IssueResult) GetIssueTitle() string {
-	if x != nil {
-		return x.IssueTitle
+	if x != nil && x.IssueTitle != nil {
+		return *x.IssueTitle
 	}
 	return ""
 }
@@ -1754,12 +1754,13 @@ const file_cardamom_private_v1_record_proto_rawDesc = "" +
 	"\n" +
 	"_log_entry\"-\n" +
 	"\x10GetResultRequest\x12\x19\n" +
-	"\bissue_id\x18\x01 \x01(\tR\aissueId\"\x83\x01\n" +
+	"\bissue_id\x18\x01 \x01(\tR\aissueId\"\x98\x01\n" +
 	"\vIssueResult\x12\x19\n" +
-	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12\x1f\n" +
-	"\vissue_title\x18\x02 \x01(\tR\n" +
-	"issueTitle\x128\n" +
-	"\x04body\x18\x03 \x01(\v2$.cardamom.private.v1.MarkdownContentR\x04body\"M\n" +
+	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12$\n" +
+	"\vissue_title\x18\x02 \x01(\tH\x00R\n" +
+	"issueTitle\x88\x01\x01\x128\n" +
+	"\x04body\x18\x03 \x01(\v2$.cardamom.private.v1.MarkdownContentR\x04bodyB\x0e\n" +
+	"\f_issue_title\"M\n" +
 	"\x11GetResultResponse\x128\n" +
 	"\x06result\x18\x01 \x01(\v2 .cardamom.private.v1.IssueResultR\x06result\"\x8e\x01\n" +
 	"\x10SetResultRequest\x12\x19\n" +
@@ -1920,6 +1921,7 @@ func file_cardamom_private_v1_record_proto_init() {
 		(*CommitStateRequest_Replace)(nil),
 	}
 	file_cardamom_private_v1_record_proto_msgTypes[20].OneofWrappers = []any{}
+	file_cardamom_private_v1_record_proto_msgTypes[22].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

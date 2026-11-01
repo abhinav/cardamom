@@ -277,8 +277,8 @@ message IssueResult {
   // issue_id identifies the issue that owns the result.
   string issue_id = 1;
 
-  // issue_title is the current human-readable issue title.
-  string issue_title = 2;
+  // issue_title is the current issue title, absent when unresolved.
+  optional string issue_title = 2;
 
   // body contains the stored and rendered Markdown outcome.
   MarkdownContent body = 3;

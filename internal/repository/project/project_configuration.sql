@@ -43,7 +43,8 @@ SELECT
     issue_summary_max_bytes,
     attachment_max_bytes,
     board_pins_max_count,
-    archived_at
+    id, project_id, name, description, created_at,
+    archived_at, archived_by, archive_reason
 FROM boards
 WHERE id = sqlc.arg(id);
 

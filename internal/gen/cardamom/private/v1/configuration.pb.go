@@ -136,7 +136,8 @@ func (ConfigurationIssueIDStrategy) EnumDescriptor() ([]byte, []int) {
 	return file_cardamom_private_v1_configuration_proto_rawDescGZIP(), []int{1}
 }
 
-// Configuration contains one fully resolved nested configuration.
+// Configuration contains effective values and unresolved-field references.
+// An absent effective value means unresolved, not inheritance.
 type Configuration struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// issue contains issue authoring and identity policy.
@@ -144,7 +145,9 @@ type Configuration struct {
 	// attachment contains attachment admission policy.
 	Attachment *ConfigurationAttachment `protobuf:"bytes,2,opt,name=attachment,proto3" json:"attachment,omitempty"`
 	// board contains board-scoped coordination policy.
-	Board         *ConfigurationBoard `protobuf:"bytes,3,opt,name=board,proto3" json:"board,omitempty"`
+	Board *ConfigurationBoard `protobuf:"bytes,3,opt,name=board,proto3" json:"board,omitempty"`
+	// conflicts identifies effective values with no authoritative result.
+	Conflicts     []*ConflictReference `protobuf:"bytes,4,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -200,7 +203,14 @@ func (x *Configuration) GetBoard() *ConfigurationBoard {
 	return nil
 }
 
-// ConfigurationIssue contains fully resolved issue policy.
+func (x *Configuration) GetConflicts() []*ConflictReference {
+	if x != nil {
+		return x.Conflicts
+	}
+	return nil
+}
+
+// ConfigurationIssue contains effective issue policy.
 type ConfigurationIssue struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// id controls issue identity allocation.
@@ -255,13 +265,13 @@ func (x *ConfigurationIssue) GetSummary() *ConfigurationSummary {
 	return nil
 }
 
-// ConfigurationIssueID contains fully resolved issue identity policy.
+// ConfigurationIssueID contains effective issue identity policy.
 type ConfigurationIssueID struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// prefix is prepended to newly allocated issue IDs.
-	Prefix string `protobuf:"bytes,1,opt,name=prefix,proto3" json:"prefix,omitempty"`
+	Prefix *string `protobuf:"bytes,1,opt,name=prefix,proto3,oneof" json:"prefix,omitempty"`
 	// strategy selects random or sequential suffix allocation.
-	Strategy      ConfigurationIssueIDStrategy `protobuf:"varint,2,opt,name=strategy,proto3,enum=cardamom.private.v1.ConfigurationIssueIDStrategy" json:"strategy,omitempty"`
+	Strategy      *ConfigurationIssueIDStrategy `protobuf:"varint,2,opt,name=strategy,proto3,enum=cardamom.private.v1.ConfigurationIssueIDStrategy,oneof" json:"strategy,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -297,24 +307,24 @@ func (*ConfigurationIssueID) Descriptor() ([]byte, []int) {
 }
 
 func (x *ConfigurationIssueID) GetPrefix() string {
-	if x != nil {
-		return x.Prefix
+	if x != nil && x.Prefix != nil {
+		return *x.Prefix
 	}
 	return ""
 }
 
 func (x *ConfigurationIssueID) GetStrategy() ConfigurationIssueIDStrategy {
-	if x != nil {
-		return x.Strategy
+	if x != nil && x.Strategy != nil {
+		return *x.Strategy
 	}
 	return ConfigurationIssueIDStrategy_CONFIGURATION_ISSUE_ID_STRATEGY_UNSPECIFIED
 }
 
-// ConfigurationSummary contains fully resolved summary policy.
+// ConfigurationSummary contains effective summary policy.
 type ConfigurationSummary struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// max_bytes is the largest accepted summary in bytes.
-	MaxBytes      uint64 `protobuf:"varint,1,opt,name=max_bytes,json=maxBytes,proto3" json:"max_bytes,omitempty"`
+	MaxBytes      *uint64 `protobuf:"varint,1,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -350,17 +360,17 @@ func (*ConfigurationSummary) Descriptor() ([]byte, []int) {
 }
 
 func (x *ConfigurationSummary) GetMaxBytes() uint64 {
-	if x != nil {
-		return x.MaxBytes
+	if x != nil && x.MaxBytes != nil {
+		return *x.MaxBytes
 	}
 	return 0
 }
 
-// ConfigurationAttachment contains fully resolved attachment policy.
+// ConfigurationAttachment contains effective attachment policy.
 type ConfigurationAttachment struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// max_bytes is the largest attachment admitted for a new upload.
-	MaxBytes      uint64 `protobuf:"varint,1,opt,name=max_bytes,json=maxBytes,proto3" json:"max_bytes,omitempty"`
+	MaxBytes      *uint64 `protobuf:"varint,1,opt,name=max_bytes,json=maxBytes,proto3,oneof" json:"max_bytes,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -396,13 +406,13 @@ func (*ConfigurationAttachment) Descriptor() ([]byte, []int) {
 }
 
 func (x *ConfigurationAttachment) GetMaxBytes() uint64 {
-	if x != nil {
-		return x.MaxBytes
+	if x != nil && x.MaxBytes != nil {
+		return *x.MaxBytes
 	}
 	return 0
 }
 
-// ConfigurationBoard contains fully resolved board policy.
+// ConfigurationBoard contains effective board policy.
 type ConfigurationBoard struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// pins controls the ordered pinned-issue collection.
@@ -448,11 +458,11 @@ func (x *ConfigurationBoard) GetPins() *ConfigurationPins {
 	return nil
 }
 
-// ConfigurationPins contains fully resolved board pin policy.
+// ConfigurationPins contains effective board pin policy.
 type ConfigurationPins struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// max_count is the largest admitted pinned-issue collection.
-	MaxCount      uint64 `protobuf:"varint,1,opt,name=max_count,json=maxCount,proto3" json:"max_count,omitempty"`
+	MaxCount      *uint64 `protobuf:"varint,1,opt,name=max_count,json=maxCount,proto3,oneof" json:"max_count,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -488,8 +498,8 @@ func (*ConfigurationPins) Descriptor() ([]byte, []int) {
 }
 
 func (x *ConfigurationPins) GetMaxCount() uint64 {
-	if x != nil {
-		return x.MaxCount
+	if x != nil && x.MaxCount != nil {
+		return *x.MaxCount
 	}
 	return 0
 }
@@ -913,7 +923,9 @@ type ConfigurationLayer struct {
 	// source identifies the layer scope and owner.
 	Source *ConfigurationSource `protobuf:"bytes,1,opt,name=source,proto3" json:"source,omitempty"`
 	// overrides contains values explicitly supplied by this layer.
-	Overrides     *ConfigurationOverrides `protobuf:"bytes,2,opt,name=overrides,proto3" json:"overrides,omitempty"`
+	Overrides *ConfigurationOverrides `protobuf:"bytes,2,opt,name=overrides,proto3" json:"overrides,omitempty"`
+	// conflicts distinguishes disputed overrides from inherited values.
+	Conflicts     []*ConflictReference `protobuf:"bytes,3,rep,name=conflicts,proto3" json:"conflicts,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -958,6 +970,13 @@ func (x *ConfigurationLayer) GetSource() *ConfigurationSource {
 func (x *ConfigurationLayer) GetOverrides() *ConfigurationOverrides {
 	if x != nil {
 		return x.Overrides
+	}
+	return nil
+}
+
+func (x *ConfigurationLayer) GetConflicts() []*ConflictReference {
+	if x != nil {
+		return x.Conflicts
 	}
 	return nil
 }
@@ -1609,27 +1628,36 @@ var File_cardamom_private_v1_configuration_proto protoreflect.FileDescriptor
 
 const file_cardamom_private_v1_configuration_proto_rawDesc = "" +
 	"\n" +
-	"'cardamom/private/v1/configuration.proto\x12\x13cardamom.private.v1\x1a\"cardamom/private/v1/mutation.proto\x1a google/protobuf/field_mask.proto\"\xdb\x01\n" +
+	"'cardamom/private/v1/configuration.proto\x12\x13cardamom.private.v1\x1a\"cardamom/private/v1/mutation.proto\x1a,cardamom/private/v1/conflict_reference.proto\x1a google/protobuf/field_mask.proto\"\xa1\x02\n" +
 	"\rConfiguration\x12=\n" +
 	"\x05issue\x18\x01 \x01(\v2'.cardamom.private.v1.ConfigurationIssueR\x05issue\x12L\n" +
 	"\n" +
 	"attachment\x18\x02 \x01(\v2,.cardamom.private.v1.ConfigurationAttachmentR\n" +
 	"attachment\x12=\n" +
-	"\x05board\x18\x03 \x01(\v2'.cardamom.private.v1.ConfigurationBoardR\x05board\"\x94\x01\n" +
+	"\x05board\x18\x03 \x01(\v2'.cardamom.private.v1.ConfigurationBoardR\x05board\x12D\n" +
+	"\tconflicts\x18\x04 \x03(\v2&.cardamom.private.v1.ConflictReferenceR\tconflicts\"\x94\x01\n" +
 	"\x12ConfigurationIssue\x129\n" +
 	"\x02id\x18\x01 \x01(\v2).cardamom.private.v1.ConfigurationIssueIDR\x02id\x12C\n" +
-	"\asummary\x18\x02 \x01(\v2).cardamom.private.v1.ConfigurationSummaryR\asummary\"}\n" +
-	"\x14ConfigurationIssueID\x12\x16\n" +
-	"\x06prefix\x18\x01 \x01(\tR\x06prefix\x12M\n" +
-	"\bstrategy\x18\x02 \x01(\x0e21.cardamom.private.v1.ConfigurationIssueIDStrategyR\bstrategy\"3\n" +
-	"\x14ConfigurationSummary\x12\x1b\n" +
-	"\tmax_bytes\x18\x01 \x01(\x04R\bmaxBytes\"6\n" +
-	"\x17ConfigurationAttachment\x12\x1b\n" +
-	"\tmax_bytes\x18\x01 \x01(\x04R\bmaxBytes\"P\n" +
+	"\asummary\x18\x02 \x01(\v2).cardamom.private.v1.ConfigurationSummaryR\asummary\"\x9f\x01\n" +
+	"\x14ConfigurationIssueID\x12\x1b\n" +
+	"\x06prefix\x18\x01 \x01(\tH\x00R\x06prefix\x88\x01\x01\x12R\n" +
+	"\bstrategy\x18\x02 \x01(\x0e21.cardamom.private.v1.ConfigurationIssueIDStrategyH\x01R\bstrategy\x88\x01\x01B\t\n" +
+	"\a_prefixB\v\n" +
+	"\t_strategy\"F\n" +
+	"\x14ConfigurationSummary\x12 \n" +
+	"\tmax_bytes\x18\x01 \x01(\x04H\x00R\bmaxBytes\x88\x01\x01B\f\n" +
+	"\n" +
+	"_max_bytes\"I\n" +
+	"\x17ConfigurationAttachment\x12 \n" +
+	"\tmax_bytes\x18\x01 \x01(\x04H\x00R\bmaxBytes\x88\x01\x01B\f\n" +
+	"\n" +
+	"_max_bytes\"P\n" +
 	"\x12ConfigurationBoard\x12:\n" +
-	"\x04pins\x18\x01 \x01(\v2&.cardamom.private.v1.ConfigurationPinsR\x04pins\"0\n" +
-	"\x11ConfigurationPins\x12\x1b\n" +
-	"\tmax_count\x18\x01 \x01(\x04R\bmaxCount\"\xff\x01\n" +
+	"\x04pins\x18\x01 \x01(\v2&.cardamom.private.v1.ConfigurationPinsR\x04pins\"C\n" +
+	"\x11ConfigurationPins\x12 \n" +
+	"\tmax_count\x18\x01 \x01(\x04H\x00R\bmaxCount\x88\x01\x01B\f\n" +
+	"\n" +
+	"_max_count\"\xff\x01\n" +
 	"\x16ConfigurationOverrides\x12F\n" +
 	"\x05issue\x18\x01 \x01(\v20.cardamom.private.v1.ConfigurationIssueOverridesR\x05issue\x12U\n" +
 	"\n" +
@@ -1660,10 +1688,11 @@ const file_cardamom_private_v1_configuration_proto_rawDesc = "" +
 	"_max_count\"p\n" +
 	"\x13ConfigurationSource\x12=\n" +
 	"\x05scope\x18\x01 \x01(\x0e2'.cardamom.private.v1.ConfigurationScopeR\x05scope\x12\x1a\n" +
-	"\bidentity\x18\x02 \x01(\tR\bidentity\"\xa1\x01\n" +
+	"\bidentity\x18\x02 \x01(\tR\bidentity\"\xe7\x01\n" +
 	"\x12ConfigurationLayer\x12@\n" +
 	"\x06source\x18\x01 \x01(\v2(.cardamom.private.v1.ConfigurationSourceR\x06source\x12I\n" +
-	"\toverrides\x18\x02 \x01(\v2+.cardamom.private.v1.ConfigurationOverridesR\toverrides\"\xf7\x01\n" +
+	"\toverrides\x18\x02 \x01(\v2+.cardamom.private.v1.ConfigurationOverridesR\toverrides\x12D\n" +
+	"\tconflicts\x18\x03 \x03(\v2&.cardamom.private.v1.ConflictReferenceR\tconflicts\"\xf7\x01\n" +
 	"\x14ConfigurationOrigins\x12D\n" +
 	"\x05issue\x18\x01 \x01(\v2..cardamom.private.v1.ConfigurationIssueOriginsR\x05issue\x12S\n" +
 	"\n" +
@@ -1761,56 +1790,59 @@ var file_cardamom_private_v1_configuration_proto_goTypes = []any{
 	(*GetConfigurationResponse)(nil),         // 27: cardamom.private.v1.GetConfigurationResponse
 	(*UpdateConfigurationRequest)(nil),       // 28: cardamom.private.v1.UpdateConfigurationRequest
 	(*UpdateConfigurationResponse)(nil),      // 29: cardamom.private.v1.UpdateConfigurationResponse
-	(*fieldmaskpb.FieldMask)(nil),            // 30: google.protobuf.FieldMask
-	(*MutationContext)(nil),                  // 31: cardamom.private.v1.MutationContext
+	(*ConflictReference)(nil),                // 30: cardamom.private.v1.ConflictReference
+	(*fieldmaskpb.FieldMask)(nil),            // 31: google.protobuf.FieldMask
+	(*MutationContext)(nil),                  // 32: cardamom.private.v1.MutationContext
 }
 var file_cardamom_private_v1_configuration_proto_depIdxs = []int32{
 	3,  // 0: cardamom.private.v1.Configuration.issue:type_name -> cardamom.private.v1.ConfigurationIssue
 	6,  // 1: cardamom.private.v1.Configuration.attachment:type_name -> cardamom.private.v1.ConfigurationAttachment
 	7,  // 2: cardamom.private.v1.Configuration.board:type_name -> cardamom.private.v1.ConfigurationBoard
-	4,  // 3: cardamom.private.v1.ConfigurationIssue.id:type_name -> cardamom.private.v1.ConfigurationIssueID
-	5,  // 4: cardamom.private.v1.ConfigurationIssue.summary:type_name -> cardamom.private.v1.ConfigurationSummary
-	1,  // 5: cardamom.private.v1.ConfigurationIssueID.strategy:type_name -> cardamom.private.v1.ConfigurationIssueIDStrategy
-	8,  // 6: cardamom.private.v1.ConfigurationBoard.pins:type_name -> cardamom.private.v1.ConfigurationPins
-	10, // 7: cardamom.private.v1.ConfigurationOverrides.issue:type_name -> cardamom.private.v1.ConfigurationIssueOverrides
-	13, // 8: cardamom.private.v1.ConfigurationOverrides.attachment:type_name -> cardamom.private.v1.ConfigurationAttachmentOverrides
-	14, // 9: cardamom.private.v1.ConfigurationOverrides.board:type_name -> cardamom.private.v1.ConfigurationBoardOverrides
-	11, // 10: cardamom.private.v1.ConfigurationIssueOverrides.id:type_name -> cardamom.private.v1.ConfigurationIssueIDOverrides
-	12, // 11: cardamom.private.v1.ConfigurationIssueOverrides.summary:type_name -> cardamom.private.v1.ConfigurationSummaryOverrides
-	1,  // 12: cardamom.private.v1.ConfigurationIssueIDOverrides.strategy:type_name -> cardamom.private.v1.ConfigurationIssueIDStrategy
-	15, // 13: cardamom.private.v1.ConfigurationBoardOverrides.pins:type_name -> cardamom.private.v1.ConfigurationPinsOverrides
-	0,  // 14: cardamom.private.v1.ConfigurationSource.scope:type_name -> cardamom.private.v1.ConfigurationScope
-	16, // 15: cardamom.private.v1.ConfigurationLayer.source:type_name -> cardamom.private.v1.ConfigurationSource
-	9,  // 16: cardamom.private.v1.ConfigurationLayer.overrides:type_name -> cardamom.private.v1.ConfigurationOverrides
-	19, // 17: cardamom.private.v1.ConfigurationOrigins.issue:type_name -> cardamom.private.v1.ConfigurationIssueOrigins
-	22, // 18: cardamom.private.v1.ConfigurationOrigins.attachment:type_name -> cardamom.private.v1.ConfigurationAttachmentOrigins
-	23, // 19: cardamom.private.v1.ConfigurationOrigins.board:type_name -> cardamom.private.v1.ConfigurationBoardOrigins
-	20, // 20: cardamom.private.v1.ConfigurationIssueOrigins.id:type_name -> cardamom.private.v1.ConfigurationIssueIDOrigins
-	21, // 21: cardamom.private.v1.ConfigurationIssueOrigins.summary:type_name -> cardamom.private.v1.ConfigurationSummaryOrigins
-	16, // 22: cardamom.private.v1.ConfigurationIssueIDOrigins.prefix:type_name -> cardamom.private.v1.ConfigurationSource
-	16, // 23: cardamom.private.v1.ConfigurationIssueIDOrigins.strategy:type_name -> cardamom.private.v1.ConfigurationSource
-	16, // 24: cardamom.private.v1.ConfigurationSummaryOrigins.max_bytes:type_name -> cardamom.private.v1.ConfigurationSource
-	16, // 25: cardamom.private.v1.ConfigurationAttachmentOrigins.max_bytes:type_name -> cardamom.private.v1.ConfigurationSource
-	24, // 26: cardamom.private.v1.ConfigurationBoardOrigins.pins:type_name -> cardamom.private.v1.ConfigurationPinsOrigins
-	16, // 27: cardamom.private.v1.ConfigurationPinsOrigins.max_count:type_name -> cardamom.private.v1.ConfigurationSource
-	17, // 28: cardamom.private.v1.ConfigurationView.layers:type_name -> cardamom.private.v1.ConfigurationLayer
-	2,  // 29: cardamom.private.v1.ConfigurationView.effective:type_name -> cardamom.private.v1.Configuration
-	18, // 30: cardamom.private.v1.ConfigurationView.origins:type_name -> cardamom.private.v1.ConfigurationOrigins
-	25, // 31: cardamom.private.v1.GetConfigurationResponse.view:type_name -> cardamom.private.v1.ConfigurationView
-	0,  // 32: cardamom.private.v1.UpdateConfigurationRequest.scope:type_name -> cardamom.private.v1.ConfigurationScope
-	9,  // 33: cardamom.private.v1.UpdateConfigurationRequest.overrides:type_name -> cardamom.private.v1.ConfigurationOverrides
-	30, // 34: cardamom.private.v1.UpdateConfigurationRequest.update_mask:type_name -> google.protobuf.FieldMask
-	31, // 35: cardamom.private.v1.UpdateConfigurationRequest.context:type_name -> cardamom.private.v1.MutationContext
-	25, // 36: cardamom.private.v1.UpdateConfigurationResponse.view:type_name -> cardamom.private.v1.ConfigurationView
-	26, // 37: cardamom.private.v1.ConfigurationService.GetConfiguration:input_type -> cardamom.private.v1.GetConfigurationRequest
-	28, // 38: cardamom.private.v1.ConfigurationService.UpdateConfiguration:input_type -> cardamom.private.v1.UpdateConfigurationRequest
-	27, // 39: cardamom.private.v1.ConfigurationService.GetConfiguration:output_type -> cardamom.private.v1.GetConfigurationResponse
-	29, // 40: cardamom.private.v1.ConfigurationService.UpdateConfiguration:output_type -> cardamom.private.v1.UpdateConfigurationResponse
-	39, // [39:41] is the sub-list for method output_type
-	37, // [37:39] is the sub-list for method input_type
-	37, // [37:37] is the sub-list for extension type_name
-	37, // [37:37] is the sub-list for extension extendee
-	0,  // [0:37] is the sub-list for field type_name
+	30, // 3: cardamom.private.v1.Configuration.conflicts:type_name -> cardamom.private.v1.ConflictReference
+	4,  // 4: cardamom.private.v1.ConfigurationIssue.id:type_name -> cardamom.private.v1.ConfigurationIssueID
+	5,  // 5: cardamom.private.v1.ConfigurationIssue.summary:type_name -> cardamom.private.v1.ConfigurationSummary
+	1,  // 6: cardamom.private.v1.ConfigurationIssueID.strategy:type_name -> cardamom.private.v1.ConfigurationIssueIDStrategy
+	8,  // 7: cardamom.private.v1.ConfigurationBoard.pins:type_name -> cardamom.private.v1.ConfigurationPins
+	10, // 8: cardamom.private.v1.ConfigurationOverrides.issue:type_name -> cardamom.private.v1.ConfigurationIssueOverrides
+	13, // 9: cardamom.private.v1.ConfigurationOverrides.attachment:type_name -> cardamom.private.v1.ConfigurationAttachmentOverrides
+	14, // 10: cardamom.private.v1.ConfigurationOverrides.board:type_name -> cardamom.private.v1.ConfigurationBoardOverrides
+	11, // 11: cardamom.private.v1.ConfigurationIssueOverrides.id:type_name -> cardamom.private.v1.ConfigurationIssueIDOverrides
+	12, // 12: cardamom.private.v1.ConfigurationIssueOverrides.summary:type_name -> cardamom.private.v1.ConfigurationSummaryOverrides
+	1,  // 13: cardamom.private.v1.ConfigurationIssueIDOverrides.strategy:type_name -> cardamom.private.v1.ConfigurationIssueIDStrategy
+	15, // 14: cardamom.private.v1.ConfigurationBoardOverrides.pins:type_name -> cardamom.private.v1.ConfigurationPinsOverrides
+	0,  // 15: cardamom.private.v1.ConfigurationSource.scope:type_name -> cardamom.private.v1.ConfigurationScope
+	16, // 16: cardamom.private.v1.ConfigurationLayer.source:type_name -> cardamom.private.v1.ConfigurationSource
+	9,  // 17: cardamom.private.v1.ConfigurationLayer.overrides:type_name -> cardamom.private.v1.ConfigurationOverrides
+	30, // 18: cardamom.private.v1.ConfigurationLayer.conflicts:type_name -> cardamom.private.v1.ConflictReference
+	19, // 19: cardamom.private.v1.ConfigurationOrigins.issue:type_name -> cardamom.private.v1.ConfigurationIssueOrigins
+	22, // 20: cardamom.private.v1.ConfigurationOrigins.attachment:type_name -> cardamom.private.v1.ConfigurationAttachmentOrigins
+	23, // 21: cardamom.private.v1.ConfigurationOrigins.board:type_name -> cardamom.private.v1.ConfigurationBoardOrigins
+	20, // 22: cardamom.private.v1.ConfigurationIssueOrigins.id:type_name -> cardamom.private.v1.ConfigurationIssueIDOrigins
+	21, // 23: cardamom.private.v1.ConfigurationIssueOrigins.summary:type_name -> cardamom.private.v1.ConfigurationSummaryOrigins
+	16, // 24: cardamom.private.v1.ConfigurationIssueIDOrigins.prefix:type_name -> cardamom.private.v1.ConfigurationSource
+	16, // 25: cardamom.private.v1.ConfigurationIssueIDOrigins.strategy:type_name -> cardamom.private.v1.ConfigurationSource
+	16, // 26: cardamom.private.v1.ConfigurationSummaryOrigins.max_bytes:type_name -> cardamom.private.v1.ConfigurationSource
+	16, // 27: cardamom.private.v1.ConfigurationAttachmentOrigins.max_bytes:type_name -> cardamom.private.v1.ConfigurationSource
+	24, // 28: cardamom.private.v1.ConfigurationBoardOrigins.pins:type_name -> cardamom.private.v1.ConfigurationPinsOrigins
+	16, // 29: cardamom.private.v1.ConfigurationPinsOrigins.max_count:type_name -> cardamom.private.v1.ConfigurationSource
+	17, // 30: cardamom.private.v1.ConfigurationView.layers:type_name -> cardamom.private.v1.ConfigurationLayer
+	2,  // 31: cardamom.private.v1.ConfigurationView.effective:type_name -> cardamom.private.v1.Configuration
+	18, // 32: cardamom.private.v1.ConfigurationView.origins:type_name -> cardamom.private.v1.ConfigurationOrigins
+	25, // 33: cardamom.private.v1.GetConfigurationResponse.view:type_name -> cardamom.private.v1.ConfigurationView
+	0,  // 34: cardamom.private.v1.UpdateConfigurationRequest.scope:type_name -> cardamom.private.v1.ConfigurationScope
+	9,  // 35: cardamom.private.v1.UpdateConfigurationRequest.overrides:type_name -> cardamom.private.v1.ConfigurationOverrides
+	31, // 36: cardamom.private.v1.UpdateConfigurationRequest.update_mask:type_name -> google.protobuf.FieldMask
+	32, // 37: cardamom.private.v1.UpdateConfigurationRequest.context:type_name -> cardamom.private.v1.MutationContext
+	25, // 38: cardamom.private.v1.UpdateConfigurationResponse.view:type_name -> cardamom.private.v1.ConfigurationView
+	26, // 39: cardamom.private.v1.ConfigurationService.GetConfiguration:input_type -> cardamom.private.v1.GetConfigurationRequest
+	28, // 40: cardamom.private.v1.ConfigurationService.UpdateConfiguration:input_type -> cardamom.private.v1.UpdateConfigurationRequest
+	27, // 41: cardamom.private.v1.ConfigurationService.GetConfiguration:output_type -> cardamom.private.v1.GetConfigurationResponse
+	29, // 42: cardamom.private.v1.ConfigurationService.UpdateConfiguration:output_type -> cardamom.private.v1.UpdateConfigurationResponse
+	41, // [41:43] is the sub-list for method output_type
+	39, // [39:41] is the sub-list for method input_type
+	39, // [39:39] is the sub-list for extension type_name
+	39, // [39:39] is the sub-list for extension extendee
+	0,  // [0:39] is the sub-list for field type_name
 }
 
 func init() { file_cardamom_private_v1_configuration_proto_init() }
@@ -1819,6 +1851,11 @@ func file_cardamom_private_v1_configuration_proto_init() {
 		return
 	}
 	file_cardamom_private_v1_mutation_proto_init()
+	file_cardamom_private_v1_conflict_reference_proto_init()
+	file_cardamom_private_v1_configuration_proto_msgTypes[2].OneofWrappers = []any{}
+	file_cardamom_private_v1_configuration_proto_msgTypes[3].OneofWrappers = []any{}
+	file_cardamom_private_v1_configuration_proto_msgTypes[4].OneofWrappers = []any{}
+	file_cardamom_private_v1_configuration_proto_msgTypes[6].OneofWrappers = []any{}
 	file_cardamom_private_v1_configuration_proto_msgTypes[9].OneofWrappers = []any{}
 	file_cardamom_private_v1_configuration_proto_msgTypes[10].OneofWrappers = []any{}
 	file_cardamom_private_v1_configuration_proto_msgTypes[11].OneofWrappers = []any{}

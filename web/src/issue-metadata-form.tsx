@@ -13,15 +13,15 @@ import { Textarea } from "@/components/ui/textarea";
 
 import { IssueType } from "./gen/cardamom/private/v1/issue_pb.ts";
 
-/** IssueMetadataDraft is the controlled form representation shared by create and edit. */
+/** IssueMetadataDraft retains unresolved fields as undefined; edits omit them. */
 export interface IssueMetadataDraft {
-  title: string;
-  type: IssueType;
-  priority: number;
-  summary: string;
-  details: string;
-  labels: string;
-  parent: string;
+  title: string | undefined;
+  type: IssueType | undefined;
+  priority: number | undefined;
+  summary: string | undefined;
+  details: string | undefined;
+  labels: string | undefined;
+  parent: string | undefined;
 }
 
 interface IssueMetadataFieldsProps {
@@ -55,18 +55,19 @@ export function IssueMetadataFields({
         <Input
           id={titleId}
           autoFocus={autoFocusTitle}
-          disabled={disabled}
+          disabled={disabled || draft.title === undefined}
           required
           type="text"
-          value={draft.title}
+          value={draft.title ?? ""}
           onChange={(event) => onChange("title", event.currentTarget.value)}
+          placeholder={draft.title === undefined ? "Unresolved title" : undefined}
         />
       </div>
       <div className="form-field">
         <Label htmlFor={typeId}>Type</Label>
         <Select
-          disabled={disabled}
-          value={String(draft.type)}
+          disabled={disabled || draft.type === undefined}
+          value={draft.type === undefined ? "" : String(draft.type)}
           onValueChange={(value) => {
             if (value !== null) {
               onChange("type", Number(value) as IssueType);
@@ -74,7 +75,7 @@ export function IssueMetadataFields({
           }}
         >
           <SelectTrigger id={typeId} className="w-full">
-            <SelectValue />
+            <SelectValue placeholder="Unresolved type" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value={String(IssueType.WORKSTREAM)}>Workstream</SelectItem>
@@ -91,12 +92,13 @@ export function IssueMetadataFields({
           type="number"
           min="0"
           max="4"
-          disabled={disabled}
+          disabled={disabled || draft.priority === undefined}
           required
-          value={draft.priority}
+          value={draft.priority ?? ""}
           onChange={(event) =>
             onChange("priority", Number(event.currentTarget.value))
           }
+          placeholder={draft.priority === undefined ? "Unresolved priority" : undefined}
         />
       </div>
       <div className="form-field form-field-wide">
@@ -104,9 +106,10 @@ export function IssueMetadataFields({
         <Textarea
           id={summaryId}
           rows={4}
-          disabled={disabled}
-          value={draft.summary}
+          disabled={disabled || draft.summary === undefined}
+          value={draft.summary ?? ""}
           onChange={(event) => onChange("summary", event.currentTarget.value)}
+          placeholder={draft.summary === undefined ? "Unresolved summary" : undefined}
         />
       </div>
       <div className="form-field form-field-wide">
@@ -114,9 +117,10 @@ export function IssueMetadataFields({
         <Textarea
           id={detailsId}
           rows={7}
-          disabled={disabled}
-          value={draft.details}
+          disabled={disabled || draft.details === undefined}
+          value={draft.details ?? ""}
           onChange={(event) => onChange("details", event.currentTarget.value)}
+          placeholder={draft.details === undefined ? "Unresolved details" : undefined}
         />
       </div>
       <div className="form-field form-field-wide">
@@ -124,9 +128,9 @@ export function IssueMetadataFields({
         <Input
           id={labelsId}
           type="text"
-          disabled={disabled}
-          placeholder="area:web, priority:high"
-          value={draft.labels}
+          disabled={disabled || draft.labels === undefined}
+            placeholder={draft.labels === undefined ? "Unresolved labels" : "area:web, priority:high"}
+          value={draft.labels ?? ""}
           onChange={(event) => onChange("labels", event.currentTarget.value)}
         />
       </div>
@@ -135,9 +139,9 @@ export function IssueMetadataFields({
         <Input
           id={parentId}
           type="text"
-          disabled={disabled}
-          placeholder="Optional issue ID"
-          value={draft.parent}
+          disabled={disabled || draft.parent === undefined}
+            placeholder={draft.parent === undefined ? "Unresolved parent" : "Optional issue ID"}
+          value={draft.parent ?? ""}
           onChange={(event) => onChange("parent", event.currentTarget.value)}
         />
       </div>

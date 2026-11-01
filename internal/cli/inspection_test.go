@@ -19,15 +19,15 @@ func TestListCommandPassesEveryFilterAndEmitsJSONLines(t *testing.T) {
 	result := []issue.Summary{
 		{
 			Issue: issue.Issue{
-				ID: "an-1", Title: "First", Type: "task", Lifecycle: "open",
-				Status: "ready", Priority: 1, Created: 10, Updated: 11, Revision: 4,
+				ID: "an-1", Title: new("First"), Type: new("task"), Lifecycle: new("open"),
+				Status: "ready", Priority: new(1), Created: 10, Updated: 11, Revision: 4,
 			},
 			Labels: []string{"area:cli"},
 		},
 		{
 			Issue: issue.Issue{
-				ID: "an-2", Title: "Second", Type: "checkpoint", Lifecycle: "open",
-				Status: "blocked", Priority: 2, Created: 12, Updated: 13, Revision: 4,
+				ID: "an-2", Title: new("Second"), Type: new("checkpoint"), Lifecycle: new("open"),
+				Status: "blocked", Priority: new(2), Created: 12, Updated: 13, Revision: 4,
 			},
 			Blocked: true,
 		},
@@ -73,17 +73,17 @@ func TestWriteIssueContextSingleLinesPinnedTitles(t *testing.T) {
 	output := newOutput(&stdout, &stderr, false, false)
 
 	err := writeIssueContext(output, issue.Context{Pins: []issue.PinnedIssue{{
-		ID: "an-pin", Title: "Pinned\nissue\tname",
+		ID: "an-pin", Title: new("Pinned\nissue\tname"),
 	}}})
 	require.NoError(t, err)
 	assert.Equal(t, "Pinned issues:\n- an-pin: Pinned issue name\n\n", stdout.String())
 	assert.Empty(t, stderr.String())
 }
 
-func TestListCommandDefaultsToNonTerminalStatuses(t *testing.T) {
+func TestListCommandDefaultsToNonTerminalAndUnresolvedStatuses(t *testing.T) {
 	var stdout, stderr bytes.Buffer
 	request := issue.ListRequest{
-		Statuses: []string{"ready", "blocked", "in_progress", "waiting"},
+		Statuses: []string{"ready", "blocked", "in_progress", "waiting", "unresolved"},
 	}
 	operation := NewMockListIssuesOperation(gomock.NewController(t))
 	operation.EXPECT().ListIssues(gomock.Any(), request).Return(nil, nil)
@@ -176,8 +176,8 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 	result := issue.View{
 		Detail: issue.Detail{
 			Issue: issue.Issue{
-				ID: "an-current", Title: "Current", Type: "task", Lifecycle: "open",
-				Status: "ready", Priority: 2, Created: 20, Updated: 21,
+				ID: "an-current", Title: new("Current"), Type: new("task"), Lifecycle: new("open"),
+				Status: "ready", Priority: new(2), Created: 20, Updated: 21,
 				Summary: &summary, Revision: 6,
 			},
 			Labels: []string{"area:cli"}, DependsOn: []issue.Reference{{ID: "an-dep"}},
@@ -189,16 +189,16 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 			Board: issue.BoardDescription{Description: &boardDescription},
 			Ancestors: []issue.ContextEntry{{
 				Issue: issue.Issue{
-					ID: "an-parent", Title: "Parent", Type: "workstream",
-					Lifecycle: "open", Status: "ready", Priority: 1,
+					ID: "an-parent", Title: new("Parent"), Type: new("workstream"),
+					Lifecycle: new("open"), Status: "ready", Priority: new(1),
 					Created: 10, Updated: 11, Revision: 6,
 				},
 				LogSummary: issue.LogSummary{Count: 1},
 			}},
 			DependencyResults: []issue.DependencyResult{{
-				Issue: issue.Reference{ID: "an-dep", Title: "Dependency"}, Body: "Completed",
+				Issue: issue.Reference{ID: "an-dep", Title: new("Dependency")}, Body: "Completed",
 			}},
-			Pins: []issue.PinnedIssue{{ID: "an-pin", Title: "Pinned issue"}},
+			Pins: []issue.PinnedIssue{{ID: "an-pin", Title: new("Pinned issue")}},
 		},
 	}
 	request := issue.ReadRequest{IssueID: "an-current", ContextDepth: new(2)}
@@ -248,8 +248,8 @@ func TestShowCommandTreatsPositionalArgumentAsKey(t *testing.T) {
 	result := issue.View{
 		Detail: issue.Detail{
 			Issue: issue.Issue{
-				ID: "an-current", Title: "Current", Type: "task", Lifecycle: "open",
-				Status: "ready", Priority: 2, Created: 20, Updated: 21, Revision: 6,
+				ID: "an-current", Title: new("Current"), Type: new("task"), Lifecycle: new("open"),
+				Status: "ready", Priority: new(2), Created: 20, Updated: 21, Revision: 6,
 			},
 			Keys: []string{"source:current"},
 		},

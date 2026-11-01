@@ -460,13 +460,15 @@ func (x *ClaimIssueResponse) GetIssue() *IssueDetail {
 	return nil
 }
 
-// ClaimNextIssueResponse contains the selected issue and requested context.
+// ClaimNextIssueResponse reports selection and conflict exclusions.
 type ClaimNextIssueResponse struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
-	// issue is the canonical issue view after custody is acquired.
-	Issue         *IssueDetail `protobuf:"bytes,1,opt,name=issue,proto3" json:"issue,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	// issue is the selected issue with requested context, absent when none is ready.
+	Issue *IssueDetail `protobuf:"bytes,1,opt,name=issue,proto3" json:"issue,omitempty"`
+	// skipped_conflicts counts otherwise eligible issues withheld by conflicts.
+	SkippedConflicts uint64 `protobuf:"varint,2,opt,name=skipped_conflicts,json=skippedConflicts,proto3" json:"skipped_conflicts,omitempty"`
+	unknownFields    protoimpl.UnknownFields
+	sizeCache        protoimpl.SizeCache
 }
 
 func (x *ClaimNextIssueResponse) Reset() {
@@ -504,6 +506,13 @@ func (x *ClaimNextIssueResponse) GetIssue() *IssueDetail {
 		return x.Issue
 	}
 	return nil
+}
+
+func (x *ClaimNextIssueResponse) GetSkippedConflicts() uint64 {
+	if x != nil {
+		return x.SkippedConflicts
+	}
+	return 0
 }
 
 // ReleaseIssueRequest relinquishes one actor-owned claim.
@@ -1103,9 +1112,10 @@ const file_cardamom_private_v1_execution_proto_rawDesc = "" +
 	"\f_ancestor_idB\x10\n" +
 	"\x0e_context_depth\"L\n" +
 	"\x12ClaimIssueResponse\x126\n" +
-	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue\"P\n" +
+	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue\"}\n" +
 	"\x16ClaimNextIssueResponse\x126\n" +
-	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue\"\xaf\x01\n" +
+	"\x05issue\x18\x01 \x01(\v2 .cardamom.private.v1.IssueDetailR\x05issue\x12+\n" +
+	"\x11skipped_conflicts\x18\x02 \x01(\x04R\x10skippedConflicts\"\xaf\x01\n" +
 	"\x13ReleaseIssueRequest\x12\x19\n" +
 	"\bissue_id\x18\x01 \x01(\tR\aissueId\x12>\n" +
 	"\acontext\x18\x02 \x01(\v2$.cardamom.private.v1.MutationContextR\acontext\x12*\n" +

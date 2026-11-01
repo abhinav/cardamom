@@ -29,13 +29,16 @@ Use `--all` to include every board in the selected store:
 card --actor operator backup full-store-backup --all
 ```
 
-## References that require cloning
+## State the archive cannot preserve
 
 The current backup format cannot preserve ambiguous reference markers.
 Selecting an affected board rejects the backup before publication.
 An all-store backup also rejects markers whose candidate boards are unavailable.
 An existing destination archive stays unchanged after this rejection.
-Use board clone when you need to retain these references in another store.
+Cloning a board retains its associated reference markers in the destination.
+
+Unresolved issue or board conflicts also reject capture.
+Resolve them before backing up, or clone the board with its retained alternatives.
 
 ## Restore an archive
 

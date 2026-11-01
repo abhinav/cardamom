@@ -29,7 +29,7 @@ func TestServiceReturnsStoreInformation(t *testing.T) {
 	boardID, err := board.NewID("board-one")
 	require.NoError(t, err)
 	selectedBoard, err := board.Load(board.Snapshot{
-		ID: boardID, ProjectID: projectID.String(), Name: "Operations",
+		ID: boardID, ProjectID: projectID.String(), Name: new("Operations"),
 		Created: time.Unix(20, 0).UTC(),
 	})
 	require.NoError(t, err)
@@ -48,6 +48,7 @@ func TestServiceReturnsStoreInformation(t *testing.T) {
 			ByStatus: []information.IssueStatusCount{
 				{Status: issue.StatusReady, Count: 2},
 				{Status: issue.StatusClosed, Count: 1},
+				{Status: issue.StatusUnresolved, Count: 0},
 			},
 		},
 	}
@@ -75,6 +76,7 @@ func TestServiceReturnsStoreInformation(t *testing.T) {
 	assert.Equal(t, uint64(3), response.Msg.GetIssues().GetTotal())
 	assert.Equal(t, privatev1.IssueStatus_ISSUE_STATUS_READY, response.Msg.GetIssues().GetByStatus()[0].GetStatus())
 	assert.Equal(t, uint64(2), response.Msg.GetIssues().GetByStatus()[0].GetCount())
+	assert.Equal(t, privatev1.IssueStatus_ISSUE_STATUS_UNRESOLVED, response.Msg.GetIssues().GetByStatus()[2].GetStatus())
 }
 
 func TestServiceRejectsMissingBoard(t *testing.T) {
@@ -113,4 +115,22 @@ func (r *localRoundTripper) RoundTrip(
 	recorder := httptest.NewRecorder()
 	r.server.Handler.ServeHTTP(recorder, request)
 	return recorder.Result(), nil
+}
+
+func TestConfigurationMessagePreservesUnresolvedValues(t *testing.T) {
+	value := configuration.Configuration{Conflicts: []configuration.ConflictReference{
+		{ID: "conflict-prefix", Field: configuration.FieldIssueIDPrefix},
+		{ID: "conflict-strategy", Field: configuration.FieldIssueIDStrategy},
+		{ID: "conflict-summary", Field: configuration.FieldIssueSummaryMaxBytes},
+		{ID: "conflict-attachment", Field: configuration.FieldAttachmentMaxBytes},
+		{ID: "conflict-pins", Field: configuration.FieldBoardPinsMaxCount},
+	}}
+	message := configurationMessage(value)
+	assert.Nil(t, message.Issue.Id.Prefix)
+	assert.Nil(t, message.Issue.Id.Strategy)
+	assert.Nil(t, message.Issue.Summary.MaxBytes)
+	assert.Nil(t, message.Attachment.MaxBytes)
+	assert.Nil(t, message.Board.Pins.MaxCount)
+	require.Len(t, message.Conflicts, 5)
+	assert.Equal(t, "conflict-prefix", message.Conflicts[0].Id)
 }

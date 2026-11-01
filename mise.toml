@@ -3,7 +3,6 @@ experimental = true
 
 [env]
 GOBIN = "{{ config_root }}/bin"
-_.path = ["{{ config_root }}/bin"]
 
 [tools]
 buf = "latest"
@@ -162,7 +161,15 @@ description = "Run Go unit tests"
 usage = '''
 flag "--race" default="false" env="CARDAMOM_TEST_RACE" help="Enable data race detection"
 '''
-run = 'go test -count=1 -race="${usage_race?}" ./...'
+run = '''
+test_timeout=10m
+if [ "${usage_race?}" = "true" ]; then
+  # Repository suites migrate a fresh SQLite store for each fixture.
+  # Race instrumentation can push their total time past Go's default timeout.
+  test_timeout=20m
+fi
+go test -count=1 -race="${usage_race?}" -timeout="$test_timeout" ./...
+'''
 
 [tasks."test:script"]
 description = "Run process-boundary test scripts"

@@ -19,7 +19,7 @@ FROM boards WHERE id = ?1
 
 type ProjectGetCloneBoardRow struct {
 	ID                   string
-	Name                 string
+	Name                 *string
 	Description          *string
 	CreatedAt            time.Time
 	ArchivedAt           *time.Time
@@ -71,7 +71,7 @@ INSERT INTO boards (
 type ProjectInsertClonedBoardParams struct {
 	ID                   string
 	ProjectID            string
-	Name                 string
+	Name                 *string
 	Description          *string
 	CreatedAt            time.Time
 	ArchivedAt           *time.Time

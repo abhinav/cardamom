@@ -3,6 +3,7 @@
 - [Installation](../readme/installation.md)
 - [Concepts and issue context](concepts.md)
 - [Search issue history](searching.md)
+- [Inspect and resolve conflicts](conflicts.md)
 - [Stores, projects, boards, and setup patterns](setups.md)
 - [Portable backups](portable-backups.md)
 - [Clone a board](board-clones.md)

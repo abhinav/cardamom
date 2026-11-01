@@ -76,7 +76,7 @@ func TestCreateIssueNormalizesInput(t *testing.T) {
 		ExternalKey: &key,
 	})
 	require.NoError(t, err)
-	assert.Equal(t, "Build boundary", out.Issue.Title())
+	assert.Equal(t, new("Build boundary"), out.Issue.Title())
 	assert.Equal(t, []issuekernel.Label{issuekernel.MustLabel("arch")}, out.Labels)
 	require.NotNil(t, out.Parent)
 	assert.Equal(t, issuekernel.MustID("an-1"), *out.Parent)
@@ -236,8 +236,8 @@ func TestEditIssueOwnsScalarAndKindTransitionPolicy(t *testing.T) {
 	kind := issuekernel.KindWorkstream
 	out, err := board.EditIssue(EditIssue{IssueID: issue.ID(), Title: &title, Kind: &kind})
 	require.NoError(t, err)
-	assert.Equal(t, "Workstream control", out.Issue.Title())
-	assert.Equal(t, issuekernel.KindWorkstream, out.Issue.Kind())
+	assert.Equal(t, new("Workstream control"), out.Issue.Title())
+	assert.Equal(t, new(issuekernel.KindWorkstream), out.Issue.Kind())
 	assert.Equal(t, now, out.Issue.Updated())
 	assert.True(t, out.Changed)
 
@@ -248,7 +248,7 @@ func TestEditIssueOwnsScalarAndKindTransitionPolicy(t *testing.T) {
 	require.NoError(t, err)
 	out, err = board.EditIssue(EditIssue{IssueID: issue.ID(), Kind: &kind})
 	require.NoError(t, err)
-	assert.Equal(t, issuekernel.KindWorkstream, out.Issue.Kind())
+	assert.Equal(t, new(issuekernel.KindWorkstream), out.Issue.Kind())
 }
 
 func TestEditIssueBindsExternalKeyIdempotently(t *testing.T) {
@@ -315,7 +315,7 @@ func TestEditIssueAllowsRoutineExecutableKindTransitions(t *testing.T) {
 			require.NoError(t, err)
 			edited, err := board.EditIssue(EditIssue{IssueID: issue.ID(), Kind: &target})
 			require.NoErrorf(t, err, "%s to %s", current, target)
-			assert.Equal(t, target, edited.Issue.Kind())
+			assert.Equal(t, new(target), edited.Issue.Kind())
 		}
 	}
 }
@@ -524,10 +524,10 @@ func loadIssue(t *testing.T, id string, kind issuekernel.Kind, status issuekerne
 	issue, err := issuekernel.Load(issuekernel.Snapshot{
 		UID:         planningTestUID(t, 6),
 		ID:          issuekernel.MustID(id),
-		Title:       id,
-		Kind:        kind,
-		Lifecycle:   lifecycle,
-		Priority:    issuekernel.PriorityNormal,
+		Title:       new(id),
+		Kind:        new(kind),
+		Lifecycle:   new(lifecycle),
+		Priority:    new(issuekernel.PriorityNormal),
 		ActiveClaim: activeClaim,
 		Created:     time.Unix(1, 0).UTC(),
 		Updated:     time.Unix(1, 0).UTC(),

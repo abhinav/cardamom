@@ -37,7 +37,7 @@ func TestOwnershipFrontmatterRoundTripsMetadataAndAuthoredBody(t *testing.T) {
 	assert.Equal(t, ownershipMetadata{
 		Version:   1,
 		ProjectID: "project-1", ProjectName: "Project one",
-		BoardID: "board-1", BoardName: "Board one",
+		BoardID: "board-1", BoardName: new("Board one"),
 		Identity: "issue:an-a", BodySHA256: digest(body),
 	}, metadata)
 	assert.Equal(t, body, gotBody)
