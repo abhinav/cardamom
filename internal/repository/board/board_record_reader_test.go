@@ -32,7 +32,9 @@ UPDATE store_state SET current_revision = 3 WHERE singleton = 1`)
 
 	view, err := persistence.View(t.Context())
 	require.NoError(t, err)
-	t.Cleanup(func() { assert.NoError(t, view.Done()) })
+	// Close the view before testing cancels t.Context.
+	// Otherwise database/sql can roll it back before cleanup.
+	defer func() { assert.NoError(t, view.Done()) }()
 	lineageID, err := view.LineageID(t.Context())
 	require.NoError(t, err)
 	records := make([]boardcopy.Record, 0, 23)

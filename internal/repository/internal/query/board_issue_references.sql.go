@@ -11,15 +11,18 @@ import (
 )
 
 const boardResolveIssueReferences = `-- name: BoardResolveIssueReferences :many
-SELECT id
-FROM issues
-WHERE board_id = ?1
-    AND id IN (/*SLICE:issue_ids*/?)
+SELECT issue.id FROM issues AS issue
+WHERE issue.board_id = ?1
+    AND issue.id IN (/*SLICE:issue_ids*/?)
+UNION ALL
+SELECT marker.id FROM issue_reference_markers AS marker
+WHERE marker.id IN (/*SLICE:marker_ids*/?)
 `
 
 type BoardResolveIssueReferencesParams struct {
-	BoardID  string
-	IssueIDs []string
+	BoardID   string
+	IssueIDs  []string
+	MarkerIDs []string
 }
 
 func (q *Queries) BoardResolveIssueReferences(ctx context.Context, arg BoardResolveIssueReferencesParams) ([]string, error) {
@@ -33,6 +36,14 @@ func (q *Queries) BoardResolveIssueReferences(ctx context.Context, arg BoardReso
 		query = strings.Replace(query, "/*SLICE:issue_ids*/?", strings.Repeat(",?", len(arg.IssueIDs))[1:], 1)
 	} else {
 		query = strings.Replace(query, "/*SLICE:issue_ids*/?", "NULL", 1)
+	}
+	if len(arg.MarkerIDs) > 0 {
+		for _, v := range arg.MarkerIDs {
+			queryParams = append(queryParams, v)
+		}
+		query = strings.Replace(query, "/*SLICE:marker_ids*/?", strings.Repeat(",?", len(arg.MarkerIDs))[1:], 1)
+	} else {
+		query = strings.Replace(query, "/*SLICE:marker_ids*/?", "NULL", 1)
 	}
 	rows, err := q.db.QueryContext(ctx, query, queryParams...)
 	if err != nil {

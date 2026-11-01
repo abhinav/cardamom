@@ -81,6 +81,16 @@ func TestRenderer_RenderBoardUsesRoutePrefixForReferences(t *testing.T) {
 	assert.Contains(t, rendered[0], `href="/board/board-1/issue/known-1"`)
 }
 
+func TestRenderer_RenderBoardPreservesFullUIDReplacementReference(t *testing.T) {
+	id := issue.ID("card-old-00112233445566778899aabbccddeeff")
+	resolver := &testBoardReferenceResolver{issueReferences: []issue.ID{id}}
+	renderer := markdown.NewWithReferences(resolver, resolver, resolver)
+	rendered, err := renderer.RenderBoard(t.Context(), "board-1", "", []string{"See %" + id.String()})
+	require.NoError(t, err)
+	assert.Contains(t, rendered[0], `href="/board/board-1/issue/`+id.String()+`"`)
+	assert.Contains(t, rendered[0], `data-issue-reference="`+id.String()+`"`)
+}
+
 func TestRenderer_RenderBoardLeavesUnavailableTypedReferencesAsText(t *testing.T) {
 	logID, err := issue.NewLogID("log_0123456789abcdef0123456789abcdef")
 	require.NoError(t, err)

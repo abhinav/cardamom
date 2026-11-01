@@ -1,0 +1,3 @@
+kind: Added
+body: Inspect ambiguous issue references in the CLI and web UI, including candidates whose boards are unavailable locally. Portable backups reject markers they cannot preserve.
+time: 2026-10-29T21:48:32.717657-07:00

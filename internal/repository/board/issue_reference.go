@@ -9,7 +9,8 @@ import (
 	"go.abhg.dev/cardamom/internal/repository/internal/query"
 )
 
-// ResolveIssueReferences returns issue IDs known to this repository's board.
+// ResolveIssueReferences returns this board's issue IDs and retired references
+// known to its store. Retired references remain meaningful across board moves.
 func (r *Repository) ResolveIssueReferences(
 	ctx context.Context,
 	issueIDs []issue.ID,
@@ -31,8 +32,9 @@ func (r *Repository) ResolveIssueReferences(
 	rows, err := query.New(view).BoardResolveIssueReferences(
 		ctx,
 		query.BoardResolveIssueReferencesParams{
-			BoardID:  r.boardID.String(),
-			IssueIDs: ids,
+			BoardID:   r.boardID.String(),
+			IssueIDs:  ids,
+			MarkerIDs: ids,
 		},
 	)
 	if err != nil {

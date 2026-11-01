@@ -430,6 +430,36 @@ message GetIssueRequest {
 message GetIssueResponse {
   // issue is the authoritative browser-visible detail record.
   IssueDetail issue = 1;
+
+  // marker replaces issue when the requested public ID is ambiguous.
+  IssueReferenceMarker marker = 2;
+}
+
+// IssueReferenceMarker preserves a retired public ID and its interpretations.
+message IssueReferenceMarker {
+  // id is the permanently retired public handle.
+  string id = 1;
+
+  // candidates contains every known interpretation of id.
+  repeated IssueReferenceCandidate candidates = 2;
+}
+
+// IssueReferenceCandidate identifies an issue named by a retired reference.
+message IssueReferenceCandidate {
+  // id is the current local public ID or the saved replacement when absent.
+  string id = 1;
+
+  // board_id is the logical board that owns the candidate.
+  string board_id = 2;
+
+  // title is the resolved local title, when available.
+  optional string title = 3;
+
+  // source identifies the store in an aggregate browser.
+  optional SourceRef source = 4;
+
+  // available reports whether the candidate exists in this source.
+  bool available = 5;
 }
 
 // ListBoardPinsRequest identifies one board's ordered pin collection.

@@ -155,7 +155,6 @@ func providerOptions() []kong.Option {
 		kong.BindSingletonProvider(provideSearchIssuesOperation),
 		kong.BindSingletonProvider(provideListReadyIssuesOperation),
 		kong.BindSingletonProvider(provideListBlockedIssuesOperation),
-		kong.BindSingletonProvider(provideIssueInspector),
 		kong.BindSingletonProvider(provideReadIssueOperation),
 		kong.BindSingletonProvider(provideClaimOperations),
 		kong.BindSingletonProvider(provideReleaseOperations),

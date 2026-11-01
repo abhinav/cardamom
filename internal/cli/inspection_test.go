@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.abhg.dev/cardamom/internal/attachment"
 	"go.abhg.dev/cardamom/internal/issue"
+	"go.abhg.dev/cardamom/internal/issueinspection"
 	"go.uber.org/mock/gomock"
 )
 
@@ -202,9 +203,9 @@ func TestShowCommandRequestsInheritedContextAndEmitsOneObject(t *testing.T) {
 	}
 	request := issue.ReadRequest{IssueID: "an-current", ContextDepth: new(2)}
 	operation := NewMockReadIssueOperation(gomock.NewController(t))
-	operation.EXPECT().ReadIssue(gomock.Any(), request).Return(attachment.IssueView{
+	operation.EXPECT().ReadIssue(gomock.Any(), request).Return(issueinspection.Result{Issue: &issueinspection.LocatedIssue{BoardID: "board-test", View: attachment.IssueView{
 		Issue: result, Attachments: []attachment.Attachment{},
-	}, nil)
+	}}}, nil)
 	app := newInspectionApplication(
 		t,
 		testConfig(&stdout, &stderr),
@@ -255,9 +256,9 @@ func TestShowCommandTreatsPositionalArgumentAsKey(t *testing.T) {
 	}
 	request := issue.ReadRequest{Key: "source:current"}
 	operation := NewMockReadIssueOperation(gomock.NewController(t))
-	operation.EXPECT().ReadIssue(gomock.Any(), request).Return(attachment.IssueView{
+	operation.EXPECT().ReadIssue(gomock.Any(), request).Return(issueinspection.Result{Issue: &issueinspection.LocatedIssue{BoardID: "board-test", View: attachment.IssueView{
 		Issue: result, Attachments: []attachment.Attachment{},
-	}, nil)
+	}}}, nil)
 	app := newInspectionApplication(
 		t,
 		testConfig(&stdout, &stderr),
@@ -269,6 +270,36 @@ func TestShowCommandTreatsPositionalArgumentAsKey(t *testing.T) {
 	assert.Equal(t, ExitSuccess, exitCode)
 	assert.Empty(t, (&showCommand{ID: "source:current", Key: true}).referencedIssueIDs())
 	assert.Contains(t, stdout.String(), "Keys: source:current\n")
+	assert.Empty(t, stderr.String())
+}
+
+func TestShowCommandDisplaysRetiredReference(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	operation := NewMockReadIssueOperation(gomock.NewController(t))
+	operation.EXPECT().ReadIssue(gomock.Any(), issue.ReadRequest{IssueID: "card-old"}).Return(issueinspection.Result{
+		Marker: &issue.ReferenceMarker{ID: "card-old", Candidates: []issue.MarkerCandidate{
+			{UID: issue.UID{}, BoardID: "board-a", ID: "card-new-a", Available: true, Title: new("First issue")},
+			{UID: issue.UID{}, BoardID: "board-b", ID: "card-new-b"},
+		}},
+	}, nil)
+	app := newInspectionApplication(t, testConfig(&stdout, &stderr), kong.BindTo(operation, (*ReadIssueOperation)(nil)))
+	assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"show", "card-old"}))
+	assert.Equal(t, "card-old: ambiguous issue reference\nThis ID may refer to any of these issues:\n- card-new-a: First issue (board board-a)\n- card-new-b: issue unavailable locally (board board-b)\n", stdout.String())
+	assert.Empty(t, stderr.String())
+}
+
+func TestShowCommandEmitsRetiredReferenceJSON(t *testing.T) {
+	var stdout, stderr bytes.Buffer
+	operation := NewMockReadIssueOperation(gomock.NewController(t))
+	operation.EXPECT().ReadIssue(gomock.Any(), issue.ReadRequest{IssueID: "card-old"}).Return(issueinspection.Result{
+		Marker: &issue.ReferenceMarker{ID: "card-old", Candidates: []issue.MarkerCandidate{
+			{UID: issue.UID{}, BoardID: "board-a", ID: "card-new-a", Available: true},
+			{UID: issue.UID{}, BoardID: "board-b", ID: "card-new-b"},
+		}},
+	}, nil)
+	app := newInspectionApplication(t, testConfig(&stdout, &stderr), kong.BindTo(operation, (*ReadIssueOperation)(nil)))
+	assert.Equal(t, ExitSuccess, app.Run(t.Context(), []string{"--json", "show", "card-old"}))
+	assert.JSONEq(t, `{"id":"card-old","kind":"reference_marker","candidates":[{"id":"card-new-a","board_id":"board-a","title":null,"available":true},{"id":"card-new-b","board_id":"board-b","title":null,"available":false}]}`, stdout.String())
 	assert.Empty(t, stderr.String())
 }
 

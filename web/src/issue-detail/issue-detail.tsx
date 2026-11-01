@@ -78,6 +78,7 @@ import { IssueLabel, type SelectLabel } from "../issue-label.tsx";
 import {
   IssueReferencePill,
   type LoadIssueReferencePreview,
+  type IssueReferencePreview,
 } from "../issue-reference-pill.tsx";
 import {
   IssueMetadataFields,
@@ -104,6 +105,7 @@ import {
 } from "../preferences.ts";
 import { IssueHierarchy } from "./hierarchy.tsx";
 import { IssueReferenceLink } from "./issue-reference.tsx";
+import { ReferenceMarker } from "./reference-marker.tsx";
 import {
   checkpointDecisionPresentation,
   currentIssueState,
@@ -430,6 +432,9 @@ export function IssueDetailPage({
       transport,
     ),
     select(response) {
+      if (response.marker !== undefined) {
+        return response;
+      }
       if (response.issue === undefined) {
         throw new Error(`Issue ${issueId} was not returned by the server.`);
       }
@@ -441,10 +446,11 @@ export function IssueDetailPage({
           `Issue ${issueId} was not found in board ${expectedBoardId}.`,
         );
       }
-      return response.issue;
+      return response;
     },
   });
   const logRequest = useQuery({
+    enabled: !issueRequest.isPlaceholderData && issueRequest.data?.issue !== undefined,
     ...unaryRouteQueryOptions(
       RecordService.method.listLogEntries,
       {
@@ -459,6 +465,7 @@ export function IssueDetailPage({
     select: (response) => response.logEntries,
   });
   const stateRequest = useQuery({
+    enabled: !issueRequest.isPlaceholderData && issueRequest.data?.issue !== undefined,
     ...unaryRouteQueryOptions(
       RecordService.method.getState,
       {
@@ -471,23 +478,26 @@ export function IssueDetailPage({
     ),
     select: (response) => response.state,
   });
-  const loadIssueReferencePreview = useCallback<LoadIssueReferencePreview>(
-    async (referencedIssueID) => {
+  const loadIssueReferencePreview = useCallback(
+    async (
+      referencedIssueID: string,
+      boardId?: string,
+      referenceSource = source,
+    ): Promise<IssueReferencePreview> => {
       const response = await queryClient.fetchQuery(
         unaryRouteQueryOptions(
           IssueService.method.getIssue,
           {
             issueId: referencedIssueID,
-            ...(source === undefined
-              ? {}
-              : {
-                  source,
-                  boardId: expectedBoardId,
-                }),
+            source: referenceSource,
+            boardId: boardId ?? (referenceSource === undefined ? undefined : expectedBoardId),
           },
           transport,
         ),
       );
+      if (response.marker !== undefined) {
+        return { marker: response.marker };
+      }
       const referencedIssue = response.issue?.issue;
       if (referencedIssue === undefined) {
         throw new Error(
@@ -498,9 +508,20 @@ export function IssueDetailPage({
     },
     [expectedBoardId, queryClient, source, transport],
   );
-  const detail = requestData(issueRequest);
+  const inspection = requestData(issueRequest);
+  const detail = inspection?.issue;
   const serverPinned = detail?.context?.pins.some((pin) => pin.id === issueId) ?? false;
   useEffect(() => setPinOverride(undefined), [serverPinned]);
+
+  if (inspection?.marker !== undefined) {
+    return <ReferenceMarker
+      marker={inspection.marker}
+      source={source}
+      loadIssue={(candidate) => loadIssueReferencePreview(
+        candidate.id, candidate.boardId, candidate.source ?? source,
+      )}
+    />;
+  }
 
   if (detail === undefined) {
     return (

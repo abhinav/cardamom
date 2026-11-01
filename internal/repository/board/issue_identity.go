@@ -75,11 +75,23 @@ func (r *Repository) allocateIssueID(
 		strategy = r.idStrategy
 	}
 	if strategy == "sequential" {
-		number, err := mutation.change.ReserveIssueNumber(ctx)
-		if err != nil {
-			return "", err
+		for {
+			number, err := mutation.change.ReserveIssueNumber(ctx)
+			if err != nil {
+				return "", err
+			}
+			candidate, err := issue.NewID(prefix + strconv.FormatInt(number, 10))
+			if err != nil {
+				return "", err
+			}
+			reserved, err := query.New(mutation.change).BoardReferenceMarkerExists(ctx, candidate.String())
+			if err != nil {
+				return "", fmt.Errorf("inspect retired issue ID: %w", err)
+			}
+			if !reserved {
+				return candidate, nil
+			}
 		}
-		return issue.NewID(prefix + strconv.FormatInt(number, 10))
 	}
 
 	queries := query.New(mutation.change)

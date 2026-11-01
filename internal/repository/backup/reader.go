@@ -38,8 +38,11 @@ type projectCatalog interface {
 	) ([]repositoryproject.BackupBoard, error)
 }
 
-// boardRecords yields semantic board state without ending the retained view.
+// boardRecords checks and yields semantic board state without ending the
+// retained view.
 type boardRecords interface {
+	CheckBackup(context.Context, *store.View, domainbackup.Selection) error
+
 	ReadBackupRecords(
 		context.Context,
 		*store.View,
@@ -93,6 +96,11 @@ func (r *Reader) Capture(
 	}
 	selected, err := r.projects.ReadBackupBoards(ctx, view, selection)
 	if err != nil {
+		return result, err
+	}
+	// Validate the complete selection before emitting even its project metadata.
+	// One incompatible board must reject the whole archive.
+	if err := r.boards.CheckBackup(ctx, view, selection); err != nil {
 		return result, err
 	}
 	source := repositoryboard.BackupSource{

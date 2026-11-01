@@ -316,7 +316,7 @@ func TestStoreMigrationProviderUsesVersionIdentity(t *testing.T) {
 
 	current, err := newStoreMigrationProvider(db)
 	require.NoError(t, err)
-	currentResults, err := current.Up(t.Context())
+	currentResults, err := current.UpTo(t.Context(), 20260916180001)
 	require.NoError(t, err)
 	require.Len(t, currentResults, 3)
 	assert.Equal(t, int64(20260916172153), currentResults[0].Source.Version)
@@ -368,7 +368,7 @@ VALUES
 
 	current, err := newStoreMigrationProvider(db)
 	require.NoError(t, err)
-	results, err := current.Up(t.Context())
+	results, err := current.UpTo(t.Context(), 20260916180001)
 	require.NoError(t, err)
 	require.Len(t, results, 8)
 	assert.Equal(t, int64(20260729090000), results[0].Source.Version)

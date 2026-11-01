@@ -6,6 +6,53 @@
   margin-inline: auto;
 }
 
+.issue-reference-marker {
+  width: min(100%, 72rem);
+  min-width: 0;
+  display: grid;
+  gap: 0.75rem;
+  margin-inline: auto;
+  padding: 1.25rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--card);
+  overflow-wrap: anywhere;
+}
+
+.issue-reference-marker h1 {
+  margin: 0;
+  font-size: clamp(1.55rem, 3vw, 2rem);
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.issue-reference-marker p {
+  margin: 0;
+  color: var(--muted-foreground);
+}
+
+.issue-reference-marker ul {
+  display: grid;
+  gap: 1rem;
+  padding: 0;
+  margin-top: 0.5rem;
+  list-style: none;
+}
+
+.issue-reference-marker li {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.issue-reference-marker .clipboard-pill {
+  max-width: 100%;
+}
+
+.issue-reference-marker small {
+  color: var(--muted-foreground);
+}
+
 .issue-detail-header {
   padding: clamp(1rem, 2.5vw, 1.5rem);
   border: 1px solid var(--border);

@@ -44,7 +44,9 @@ const boardIssueIDExists = `-- name: BoardIssueIDExists :one
 SELECT EXISTS (
     SELECT 1
     FROM issues
-    WHERE id = ?1
+    WHERE issues.id = ?1
+    UNION ALL
+    SELECT 1 FROM issue_reference_markers WHERE issue_reference_markers.id = ?1
 ) AS issue_exists
 `
 

@@ -182,6 +182,10 @@ type backupTestCapturedBoard struct {
 	records   []boardcopy.Record
 }
 
+func (r *mutatingBackupBoardReader) CheckBackup(ctx context.Context, view *store.View, selection domainbackup.Selection) error {
+	return r.delegate.CheckBackup(ctx, view, selection)
+}
+
 func (r *mutatingBackupBoardReader) ReadBackupRecords(
 	ctx context.Context,
 	view *store.View,

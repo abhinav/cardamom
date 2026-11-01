@@ -26,6 +26,7 @@
   font-family: inherit;
   line-height: 1.35;
   text-align: start;
+  overflow-wrap: anywhere;
 }
 
 .issue-reference-preview[hidden] {
