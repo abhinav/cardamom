@@ -1,99 +1,57 @@
 # Cardamom skill maintenance
 
 Use this guide when changing `plugins/cardamom/skills/cardamom`.
+The skill helps agents preserve and retrieve useful work context through `card`.
+Execution methods, delegation, validation, and update cadence come from the
+user's assignment and its governing guidance.
 
-## Purpose
+## Teach useful recording decisions
 
-The Cardamom skill teaches an agent how to coordinate work with `card`.
-It is an operating procedure organized around agent tasks and decisions,
-not product documentation or a catalog of Cardamom behavior.
+Help a reader understand the goal, current situation, consequential choices,
+and outcome without reconstructing a conversation.
+Use concrete examples and criteria for what is worth retaining.
+Scale record detail to the work; prefer a short brief when it is sufficient.
+Keep product semantics that affect safe actions, such as claim ownership,
+State replacement, cancellation impact, and recovery.
 
-Write requirements, examples, and persisted scenarios in terms of Cardamom
-concepts and observable capabilities available to an arbitrary installation.
-Use invented provider-neutral scenarios for behavioral tests.
-Treat local tools, paths, infrastructure, and incidents as transient validation
-inputs.
-Integration-specific content belongs in the distributed skill when Cardamom
-explicitly supports that integration.
+Every runtime passage should change an agent's useful action, record, or
+retrieval decision.
+Keep full product contracts and option inventories in user documentation or
+CLI help, and implementation contracts in their owning packages.
+Agents may trust documented tool behavior.
 
-Every passage in `SKILL.md` and `references/` must help an agent decide what to do,
-which command or option to use,
-what durable information to record,
-or which workflow reference to load.
-If removing a passage would not change an agent's action or decision,
-remove it from the skill.
+Write for arbitrary Cardamom installations.
+Use invented provider-neutral examples; local infrastructure and incidents
+belong in private validation evidence.
+Include integration-specific content only for supported integrations.
 
-Keep complete product contracts in user documentation or CLI help.
-Repeat only the behavior an agent needs to choose, sequence, record,
-or verify a Cardamom workflow,
-at the decision point where the behavior is needed.
-Keep implementation contracts in the packages that own them.
-Agents may assume documented Cardamom behavior works without the skill
-restating parser, resolver, renderer, protocol, storage, or fallback behavior.
+## Keep ordinary work self-contained
 
-## Progressive disclosure
+`SKILL.md` should support reading, creating, updating, and finishing an ordinary
+issue without loading a planning or execution manual.
+Put substantial examples and optional coordination, recovery, automation,
+and resource operations in references selected by the task.
+Prefer one-level routes from the entry point.
+Keep information needed together in one place and remove duplicated duties.
 
-Keep `SKILL.md` small enough to load for every Cardamom task.
-It should contain:
+Use command examples for syntax and prose for the choice or consequence the
+command cannot explain.
+Describe supported behavior positively.
+Keep limitations only when they affect the operation the agent is performing.
 
-- the operating rules every coordinator and worker needs;
-- the recurring decision points that protect durable work;
-- compact command forms needed in most workflows; and
-- a map that points to a reference at the moment it becomes useful.
+## Validate behavior and cost
 
-Organize `references/` by agent workflow,
-with information needed together in the same file.
-A reference should answer a concrete need such as planning a graph,
-executing and handing off work,
-recovering an interrupted issue,
-running a routine,
-or preserving an attachment.
-Do not organize references as exhaustive command or feature inventories.
+Start from the user's requested outcome and the supported product behavior.
+Read the complete affected guidance and references before evaluating a rewrite.
+Review the cumulative result, including tests that could preserve an obsolete
+workflow requirement.
 
-Prefer one-level references loaded directly from `SKILL.md`.
-Split a reference when an agent can complete one workflow
-without loading the other material.
-Merge or remove references that repeat the same decision boundary.
+Use fresh, isolated runners and hold evaluation criteria outside their prompts.
+Judge useful records, recovery, user authority, and correct tool operations.
+Allow alternative wording and structure that satisfy those outcomes.
+Compare instruction cost and unnecessary bookkeeping alongside correctness.
+Keep raw outputs and access traces outside runtime guidance.
 
-## Content test
-
-Use this table when reviewing a proposed addition:
-
-| Keep in the skill | Put elsewhere or omit |
-| --- | --- |
-| Commands and options needed to perform an agent workflow | Exhaustive command and option documentation |
-| Criteria for choosing between supported agent actions | Product behavior that does not affect that choice |
-| Required ordering, ownership, handoff, and recovery steps | Internal code paths and storage or protocol mechanics |
-| Durable-record guidance needed by future workers | Historical decisions, rejected designs, and unsupported forms |
-| A concise example that teaches a recurring decision | Multiple examples that only demonstrate syntax variants |
-
-Describe supported actions positively in `SKILL.md` and `references/`.
-Do not preserve a rejected proposal there as a warning or non-goal.
-State a limitation only when the agent must account for that limitation
-to complete the workflow correctly.
-
-Keep CLI help useful for command discovery.
-The skill may repeat a command form when the command is part of a workflow,
-but it should not duplicate the command's full help text.
-
-## Maintenance loop
-
-Start from an observed agent failure
-or an established agent workflow requirement.
-For a new requirement,
-identify the user task and the unsupported agent decision or action
-before drafting skill text.
-
-Review the whole affected workflow,
-not only the sentence that prompted the change.
-Reject a patch that fixes the immediate wording
-while leaving duplicated, contradictory, misplaced, or documentary prose.
-
-Use behavioral scenarios to test agent choices and produced records.
-Do not turn scenario files into inventories of product contracts.
-Each scenario or command probe must identify the retained agent decision
-or operational recipe it protects.
-Scenarios may include unsupported choices when they are necessary
-to pressure-test that decision.
-Use a disposable store probe only when command behavior materially affects
-the workflow being taught.
+Use disposable-store probes when a command assumption affects the instructions.
+Leave persistent scenarios for reusable behavior boundaries in `tests/`;
+the runtime skill must not depend on that directory.

@@ -1,86 +1,36 @@
 # Coordinate an external resource
 
-A claim owns issue execution.
-A lease coordinates exclusive use of one named external resource for a bounded
-interval.
-Use both when claimed work needs exclusivity that the resource itself does not
-already enforce.
+Use a lease when actors could overlap on a shared resource, interference would
+be harmful, and no native lock, allocator, or existing coordinator prevents it.
+A lease grants coordination ownership, not access.
+Name the resource at its exclusivity scope, including a host qualifier for a
+host-local resource; lease names span boards within one store.
 
-## Decide whether to lease
-
-Use a lease only when actors could overlap,
-overlap could interfere or corrupt state,
-and no native lock, allocator, or established coordinator already prevents it.
-A lease records coordination ownership;
-it grants neither credentials nor control of the resource.
-
-Lease names are store-scoped across boards.
-Name the resource at its true exclusivity scope,
-including a host qualifier for a host-local resource.
-
-## Gate resource actions on lease ownership
-
-Put a stable lease requirement in Details.
-Before acquisition,
-put current intent and next action in State.
-Use one actor for acquisition, renewal, and release.
+## Acquire, renew, and release
 
 ```bash
-card --actor <actor> state set <issue-id> \
-  'Migration validation requires exclusive use of staging-db.' \
-  --next 'Acquire staging-db before touching the database.'
 card --actor <actor> lease acquire staging-db --ttl 30m
-card --actor <actor> state set <issue-id> \
-  'Lease staging-db is active; the resource has not yet been modified.' \
-  --next 'Run migration validation and keep the lease renewed.'
-```
-
-If acquisition fails,
-do not touch the resource.
-Record the blocked or waiting position and the observed owner when useful.
-
-Renew before the TTL can expire during long operations:
-
-```bash
 card --actor <actor> lease renew staging-db --ttl 30m
-```
-
-If renewal fails or ownership is lost,
-stop initiating resource actions,
-make any already-started external operation safe,
-inspect both lease and resource state,
-publish the recovery position,
-and reacquire before resuming.
-Do not infer resource safety from lease expiry or revocation.
-
-Release only after the external resource is safe for another actor:
-
-```bash
 card --actor <actor> lease release staging-db
 ```
 
-Completion requires both observed lease ownership for the protected work and a
-safe resource disposition before release.
+Renew before expiry while protected work continues.
+If acquisition fails, leave the resource alone.
+If renewal fails or ownership is lost, stop initiating resource actions,
+make any already-started operation safe, and inspect lease and resource state
+before reacquiring and resuming.
+Release only when the resource is safe for another actor.
+Expiry or revocation alone does not establish resource safety.
 
 ## Recover disputed ownership
 
-Inspect Cardamom and the resource separately:
+Inspect `lease show <resource>` and the resource itself.
+An authorized coordinator may revoke after establishing resource safety:
 
 ```bash
-card --actor <actor> --json lease show staging-db
+card --actor <coordinator> lease revoke staging-db \
+  --owner <previous-owner> --reason 'The stopped executor left the database safe.'
 ```
 
-When the active owner cannot continue,
-the coordinator may revoke only after authority is established and resource
-safety is verified:
-
-```bash
-card --actor <coordinator-actor> lease revoke staging-db \
-  --owner <prior-actor> \
-  --reason 'The prior actor stopped after staging-db cleanup was verified.'
-```
-
-The owner condition preserves a lease that changed hands.
-Record the observed safety and revocation result on the owning issue.
-For routines,
-acquire and release within each awakening.
+The owner condition protects a lease that changed hands.
+Retain the safety evidence and revocation outcome on the issue.
