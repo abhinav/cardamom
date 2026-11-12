@@ -18,13 +18,13 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         name: Check out repository
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: ./.github/actions/go-cache
+      - uses: $/.github/actions/go-cache
       - run: mise run lint
 
   test-unit:
@@ -32,39 +32,39 @@ jobs:
     runs-on: ubuntu-latest
     # TODO: Add Windows testing when the suite is ready for that host.
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         name: Check out repository
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: ./.github/actions/go-cache
+      - uses: $/.github/actions/go-cache
       - run: mise run test:unit --race
 
   test-script:
     name: Test / Script
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         name: Check out repository
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: ./.github/actions/go-cache
+      - uses: $/.github/actions/go-cache
       - run: mise run test:script
 
   test-web:
     name: Test / Web
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
         name: Check out repository
-      - uses: jdx/mise-action@v4
+      - uses: jdx/mise-action@c2a87611a18de5b3828c5652fe268e992400cb5c # v4
         with:
           cache: true
           github_token: ${{ secrets.GITHUB_TOKEN }}
-      - uses: ./.github/actions/go-cache
+      - uses: $/.github/actions/go-cache
       - name: Build
         run: mise run build
         shell: bash
