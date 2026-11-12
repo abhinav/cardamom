@@ -11,7 +11,7 @@ runs:
         echo "build=$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
         echo "module=$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
     - name: Restore Go caches
-      uses: actions/cache@v5
+      uses: actions/cache@caa296126883cff596d87d8935842f9db880ef25 # v5
       with:
         path: |
           ${{ steps.go-env.outputs.build }}
