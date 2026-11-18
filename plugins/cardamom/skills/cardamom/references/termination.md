@@ -1,112 +1,47 @@
-# Change issue lifecycle safely
+# Cancel, deny, or reopen work
 
-Choose a terminal disposition from the issue contract and established outcome,
-not from the convenience of ending work.
-Terminal lifecycle operations preserve changed State automatically;
-do not commit State solely to prepare for one.
+Use cancellation for authorized abandonment, invalidation, or supersession.
+Preserve useful partial outcomes and the reason the work ended.
 
-## Close only satisfied work
+## Check cancellation impact
 
-Close when the recorded outcome and evidence satisfy the complete issue
-contract.
-Before closing a workstream or routine,
-reconcile its direct children and confirm that each is closed or cancelled.
-When the outcome was abandoned, superseded, or invalidated,
-do not invent a successful Result or close it.
-For superseded work,
-first preserve predecessor and successor lineage through
-[planning.md](planning.md),
-then use cancellation.
+`cancel` affects the requested issues and their non-terminal transitive
+dependency dependents.
+`checkpoint deny` records denial and performs the same dependent cancellation
+atomically.
+Containment is a different graph.
 
-The actor responsible for acceptance reads Result and material child outcomes
-without claiming merely to inspect them.
-Record the acceptance decision before closing:
+Inspect the affected issues before acting:
 
-```bash
-card --actor <actor> --json result show <issue-id>
-card --actor <actor> log post <issue-id> \
-  'The recorded outcome satisfies the issue contract and required validation.'
-card --actor <actor> close <issue-id>
-```
+1. Start with each requested root and read `show --json`.
+2. Follow its `blocks` IDs, inspecting each unseen issue until none remain.
+3. For the non-terminal affected set, establish authority and coordinate any
+    active execution before invalidating its work.
 
-When the contract permits self-acceptance,
-the executor may perform this sequence while it still owns the claim.
-When independent acceptance is required,
-the executor first follows the waiting handoff in
-[execution.md](execution.md),
-and the acceptor performs this sequence without claiming.
-
-## Cancel or deny only after impact review
-
-Cancellation and checkpoint denial can alter other actors' readiness or
-discard active work.
-Establish authority, impact, and current custody before the command.
-
-### Inspect transitive impact
-
-For each requested root,
-traverse dependency dependents rather than containment descendants.
-Maintain a set of seen issue IDs so shared input does not cause repeated
-review.
-Inspect every non-terminal affected issue,
-including claims, waiting reasons, State, and its relationship to the root.
-
-Use a worklist:
-
-1. Add every requested root.
-2. Remove one unseen ID and inspect it with `show --json`.
-3. Add each ID in its `blocks` field.
-4. Repeat until the worklist has no unseen IDs.
-5. Keep the non-terminal observed set as the cancellation review set.
-
-`card cancel` cancels requested roots and all non-terminal transitive
-dependents.
-`checkpoint deny` denies the checkpoint and performs the same dependent
-cancellation atomically.
-Containment does not define this impact graph.
-
-Before the terminal operation:
-
-- confirm that the user or governing workflow authorizes the decision;
-- stop or coordinate with active executors whose work would be invalidated;
-- preserve any material result or partial position its readers still need;
-- publish the rationale on the owning root or checkpoint; and
-- report unresolved authority, custody, or impact instead of guessing.
-
-Use the terminal command only after that review:
+Cardamom does not stop processes.
+Uncertain ownership, impact, or authority must be resolved before cancellation.
 
 ```bash
-card --actor <actor> log post <issue-id> \
-  'The prerequisite is invalid; dependent work is no longer actionable.'
-card --actor <actor> cancel <issue-id>
+card --actor <actor> cancel <id>
 ```
 
-For a checkpoint,
-put the external authority's actual reason on the atomic denial:
+For checkpoint denial, record the actual authority's reason on the operation:
 
 ```bash
-card --actor <actor> checkpoint deny <checkpoint-id> \
-  --reason 'The policy owner rejected the mapping and rollback plan.'
+card --actor <actor> checkpoint deny <id> \
+  --reason 'The policy owner rejected the proposed data mapping.'
 ```
 
-The command actor attributes the mutation;
-it does not establish decision authority.
+## Reopen for further work
 
-## Reopen without inventing recovery
-
-`card reopen` makes a terminal issue open and unclaimed.
-It does not reopen prerequisites, restore an old claim,
-or establish the current execution position.
-
-Before reopening,
-record why the terminal decision no longer holds and inspect whether
-prerequisites, descendants, contract, and evidence still apply.
-After reopening,
-repair Details and State as needed,
-then let the intended executor claim through the ordinary recovery workflow.
+Record what invalidated the terminal decision and inspect whether the old
+goal, prerequisites, and evidence still apply.
 
 ```bash
-card --actor <actor> log post <issue-id> \
-  'New compatibility evidence invalidates the earlier completion decision.'
-card --actor <actor> reopen <issue-id>
+card --actor <actor> reopen <id>
 ```
+
+Reopening leaves the issue open and unclaimed.
+It does not reopen prerequisites, restore the prior claim, or establish current
+progress.
+Update changed context and let the intended executor claim the work.

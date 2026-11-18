@@ -1,35 +1,16 @@
-# Send ephemeral coordination mail
+# Draw attention to work
 
-Cardamom mail is a store-scoped, expiring attention channel.
-It creates no issue custody, assignment, readiness, dependency, waiting,
-or durable recovery context.
-Use the collaboration runtime instead when it already supplies the needed
-dispatch or notification.
-
-Use mail to notify a known actor or publish to interested observers:
+Use Cardamom mail when the collaboration runtime does not already provide
+the needed notification channel.
+Mail is store-scoped and expires; keep lasting decisions and outcomes in issues.
+A message does not assign a claim or change readiness.
 
 ```bash
-card --actor <actor> mail send <recipient-actor> \
-  'Issue cm-abcd is ready for directed continuation.'
-card --actor <recipient-actor> mail recv
+card --actor <sender> mail send <recipient> 'Issue cm-abcd is ready to continue.'
+card --actor <recipient> mail recv
 ```
 
-Use a topic when the producer should not know every observer:
-
-```bash
-card --actor <observer-actor> mail subscribe 'release.*' --ttl 30m
-card --actor <publisher-actor> mail publish release.ready \
-  'A release checkpoint is ready for inspection.'
-card --actor <observer-actor> mail recv
-```
-
-Subscriptions and messages expire independently of issue history.
-The receiving actor owns subscription renewal.
-`mail recv --tail` receives deliveries but does not renew a subscription;
-a longer-lived observer must maintain its lifetime separately.
-
-Resolve a store but do not select a board solely for mail.
-Separate stores do not exchange messages.
-Copy every material decision, active position, and outcome into the issue that
-owns it;
-mail only draws attention to durable work.
+For topic subscriptions, use `mail subscribe` and `mail publish` help.
+Renew subscriptions separately; `mail recv --tail` only receives.
+Subscriptions and messages expire independently.
+Select the same store for sender and recipient; separate stores do not exchange mail.
